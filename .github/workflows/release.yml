@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - main
+      - feature/ashleysommer_compat_2024_1
 
 jobs:
   test:
