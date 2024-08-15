@@ -190,7 +190,11 @@ class AdditionalDataConfigurable(
             )
         sdkModificator.sdkAdditionalData = sdkAdditionData
         ApplicationManager.getApplication().runWriteAction { sdkModificator.commitChanges() }
-        (elixirSdk as ProjectJdkImpl).resetVersionString()
+
+        // reset the version string to force the sdk to be reloaded
+        // @todo is this necessary?
+        this.sdkModificator.versionString = null
+        this.sdkModificator.commitChanges()
     }
 
     override fun reset() {
