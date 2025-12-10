@@ -36,6 +36,10 @@ import javax.swing.Icon
  * https://github.com/ignatov/intellij-erlang/blob/master/src/org/intellij/erlang/rebar/importWizard/RebarProjectImportBuilder.java
  */
 class Builder : ProjectImportBuilder<OtpApp>() {
+    init {
+        LOG.info("Builder instance created")
+    }
+
     private var myProjectRoot: VirtualFile? = null
     private var myFoundOtpApps = emptyList<OtpApp>()
     private var mySelectedOtpApps = emptyList<OtpApp>()
@@ -44,7 +48,12 @@ class Builder : ProjectImportBuilder<OtpApp>() {
 
     override fun getIcon(): Icon = Icons.PROJECT
     override fun getName(): String = "Mix"
-    override fun isSuitableSdkType(sdkType: SdkTypeId): Boolean = sdkType === Type.instance
+    override fun isSuitableSdkType(sdkType: SdkTypeId): Boolean {
+        LOG.info("isSuitableSdkType() called, about to access Type.instance")
+        val result = sdkType === Type.instance
+        LOG.info("isSuitableSdkType() result: $result")
+        return result
+    }
     override fun getList(): List<OtpApp> {
         // Perform deferred scanning if needed
         if (myNeedsScan && myProjectRoot != null) {
@@ -187,6 +196,10 @@ class Builder : ProjectImportBuilder<OtpApp>() {
 
     companion object {
         private val LOG = Logger.getInstance(Builder::class.java)
+
+        init {
+            LOG.info("Builder companion object initialized - this loads Type class")
+        }
 
         private fun fixProjectSdk(project: Project): Sdk? {
             val projectRootMgr = ProjectRootManagerEx.getInstanceEx(project)

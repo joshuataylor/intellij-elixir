@@ -253,6 +253,21 @@ ELIXIR_SDK_HOME
         private const val LINUX_DEFAULT_HOME_PATH = HomePath.LINUX_DEFAULT_HOME_PATH + "/elixir"
         private const val LINUX_MINT_HOME_PATH = HomePath.LINUX_MINT_HOME_PATH + "/elixir"
         private val LOG = Logger.getInstance(Type::class.java)
+
+        init {
+            LOG.info("Type companion object initialized - checking loading state")
+            try {
+                // Log the current thread and stack trace to help debug early initialization
+                LOG.info("Type loaded on thread: ${Thread.currentThread().name}")
+                LOG.info("Type class loading stack trace:")
+                Thread.currentThread().stackTrace.take(20).forEach { element ->
+                    LOG.info("  at $element")
+                }
+            } catch (e: Exception) {
+                LOG.warn("Error while logging Type initialization", e)
+            }
+        }
+
         private val NIX_PATTERN = HomePath.nixPattern("elixir")
         private val SDK_HOME_CHILD_BASE_NAME_SET: Set<String> = THashSet(listOf("lib", "src"))
         private const val WINDOWS_32BIT_DEFAULT_HOME_PATH = "C:\\Program Files\\Elixir"

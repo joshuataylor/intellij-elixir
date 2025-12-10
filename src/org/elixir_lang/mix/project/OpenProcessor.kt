@@ -1,6 +1,7 @@
 package org.elixir_lang.mix.project
 
 import com.intellij.ide.util.projectWizard.WizardContext
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.projectImport.ProjectImportBuilder
 import com.intellij.projectImport.ProjectOpenProcessorBase
@@ -11,11 +12,27 @@ import org.elixir_lang.mix.project._import.Builder
  * Created by zyuyou on 15/7/1.
  */
 class OpenProcessor : ProjectOpenProcessorBase<Builder>() {
+    companion object {
+        private val LOG = Logger.getInstance(OpenProcessor::class.java)
+
+        init {
+            LOG.info("OpenProcessor companion object initialized")
+        }
+    }
+
+    init {
+        LOG.info("OpenProcessor instance created")
+    }
+
     override val supportedExtensions = arrayOf(Project.MIX_EXS)
 
-    override fun doGetBuilder(): Builder = ProjectImportBuilder.EXTENSIONS_POINT_NAME.findExtensionOrFail(Builder::class.java)
+    override fun doGetBuilder(): Builder {
+        LOG.info("doGetBuilder() called")
+        return ProjectImportBuilder.EXTENSIONS_POINT_NAME.findExtensionOrFail(Builder::class.java)
+    }
 
     override fun doQuickImport(file: VirtualFile, wizardContext: WizardContext): Boolean {
+        LOG.info("doQuickImport() called for file: ${file.path}")
         val projectRoot = file.parent
         wizardContext.projectName = projectRoot.name
         builder.setProjectRoot(projectRoot)
