@@ -15,6 +15,7 @@ import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.intellij.platform.gradle.models.ProductRelease
 import org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask
+import org.jetbrains.intellij.platform.gradle.utils.Version
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
@@ -55,6 +56,32 @@ val actualPlatformVersion: String = if (useDynamicEapVersion) {
     project.property("platformVersion").toString()
 }
 
+// Determine if the platform version is 253 (2025.3) or later
+// Handles both build numbers (253.x.x) and semantic versions (2025.3)
+val is253OrLater: Boolean = run {
+    val version = Version.parse(actualPlatformVersion)
+    if (version.isBuildNumber()) {
+        version.major >= 253
+    } else {
+        // Semantic version: compare against 2025.3
+        version >= Version.parse("2025.3")
+    }
+}
+
+// Select bundled plugins/modules based on platform version
+// intelliLang changed from plugin (org.intellij.intelliLang) to module (intellij.platform.langInjection) in 253
+val selectedBundledPlugins: Provider<String> = if (is253OrLater) {
+    providers.gradleProperty("platformBundledPluginsPost253")
+} else {
+    providers.gradleProperty("platformBundledPluginsPre253")
+}
+
+val selectedBundledModules: Provider<String> = if (is253OrLater) {
+    providers.gradleProperty("platformBundledModulesPost253")
+} else {
+    providers.gradleProperty("platformBundledModulesPre253")
+}
+
 // Setup Paths
 val cachePath = layout.projectDirectory.dir("cache")
 val elixirPath = cachePath.dir("elixir-$elixirVersion")
@@ -81,7 +108,7 @@ val versionSuffix: String = when {
 
 version = "$basePluginVersion$versionSuffix"
 
-println("Building against IntelliJ Platform version: $actualPlatformVersion")
+println("[elixir-build] platform=$actualPlatformVersion (${if (is253OrLater) "253+" else "pre-253"}) version=$version channel=$publishChannel dynamicEap=$useDynamicEapVersion skipSearchableOptions=$skipSearchableOptions")
 
 // --- Global Project Configuration ---
 allprojects {
@@ -127,8 +154,8 @@ subprojects {
     dependencies {
         intellijPlatform {
             create(providers.gradleProperty("platformType"), providers.provider { actualPlatformVersion })
-            bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(",") })
-            bundledModules(providers.gradleProperty("platformBundledModules").map { it.split(",") })
+            bundledPlugins(selectedBundledPlugins.map { it.split(",") })
+            bundledModules(selectedBundledModules.map { it.split(",").filter { it.isNotBlank() } })
             testFramework(TestFrameworkType.Platform)
             testFramework(TestFrameworkType.Plugin.Java)
         }
@@ -232,8 +259,8 @@ tasks.withType<KotlinJvmCompile>().configureEach {
 dependencies {
     intellijPlatform {
         create(providers.gradleProperty("platformType"), providers.provider { actualPlatformVersion })
-        bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(",") })
-        bundledModules(providers.gradleProperty("platformBundledModules").map { it.split(",") })
+        bundledPlugins(selectedBundledPlugins.map { it.split(",") })
+        bundledModules(selectedBundledModules.map { it.split(",").filter { it.isNotBlank() } })
         pluginVerifier()
         zipSigner()
         testFramework(TestFrameworkType.Platform)
