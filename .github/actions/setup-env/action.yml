@@ -106,8 +106,8 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: |
-          cache/elixir-${{ inputs.elixir-version }}-intellij_elixir-2.1.0/_build
-          cache/elixir-${{ inputs.elixir-version }}-intellij_elixir-2.1.0/deps
+          cache/elixir-${{ inputs.elixir-version }}-intellij_elixir-v2026.02.01-74b02c2/_build
+          cache/elixir-${{ inputs.elixir-version }}-intellij_elixir-v2026.02.01-74b02c2/deps
         key: elixir-${{ runner.os }}-${{ runner.arch }}-${{ inputs.elixir-version }}-otp-${{ inputs.otp-version }}-quoter-${{ hashFiles('gradle.properties') }}
         restore-keys: |
           elixir-${{ runner.os }}-${{ runner.arch }}-${{ inputs.elixir-version }}-otp-${{ inputs.otp-version }}-
@@ -134,8 +134,8 @@ runs:
       uses: actions/cache/save@v5
       with:
         path: |
-          cache/elixir-${{ inputs.elixir-version }}-intellij_elixir-2.1.0/_build
-          cache/elixir-${{ inputs.elixir-version }}-intellij_elixir-2.1.0/deps
+          cache/elixir-${{ inputs.elixir-version }}-intellij_elixir-v2026.02.01-74b02c2/_build
+          cache/elixir-${{ inputs.elixir-version }}-intellij_elixir-v2026.02.01-74b02c2/deps
           !cache/**/tmp/pipe/**
           !cache/**/distillery/priv
         key: ${{ steps.cache-elixir-restore.outputs.cache-primary-key }}

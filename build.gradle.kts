@@ -21,6 +21,7 @@ import com.adarshr.gradle.testlogger.theme.ThemeType
 import de.undercouch.gradle.tasks.download.Download
 import deps.registerResolveExternalDependenciesTasksForAllProjects
 import elixir.ElixirService
+import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.jetbrains.intellij.platform.gradle.Constants
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
@@ -30,13 +31,13 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import quoter.QuoterService
-import quoter.tasks.GetQuoterDepsTask
 import quoter.tasks.ReleaseQuoterTask
 import quoter.tasks.StartQuoterTask
 import versioning.PluginVersion
 import versioning.VersionFetcher
 import java.text.SimpleDateFormat
 import java.util.*
+
 
 // Uses the Version Catalog defined in gradle/libs.versions.toml
 plugins {
@@ -446,52 +447,17 @@ runIdePlatformsList.forEach { platform ->
     }
 }
 
-// --- External Tools (Elixir & Quoter) ---
-val downloadElixir by tasks.registering(Download::class) {
-    src("https://github.com/elixir-lang/elixir/archive/v${elixirVersion}.zip")
-    dest(cachePath.file("Elixir.${elixirVersion}.zip"))
-    overwrite(false)
-}
-
-val unzipElixir by tasks.registering(Copy::class) {
-    dependsOn(downloadElixir)
-    from(zipTree(downloadElixir.get().dest))
-    into(elixirPath.asFile)
-    eachFile { relativePath = RelativePath(true, *relativePath.segments.drop(1).toTypedArray()) }
-    include("elixir-${elixirVersion}/**")
-}
-
-val buildElixir by tasks.registering(Exec::class) {
-    dependsOn(unzipElixir)
-    workingDir(elixirPath.asFile)
-    commandLine("make")
-    outputs.dir(elixirPath.dir("bin"))
-    // The apps that are part of Elixir SDK. `make` compiles them and puts output into `ebin` and `_build` dirs.
-    // We need to declare them as outputs for Gradle's UP-TO-DATE checks to work correctly.
-    // The list is based on the applications shipped with Elixir v1.13.4.
-    val libDir = elixirPath.dir("lib")
-    listOf("eex", "elixir", "ex_unit", "iex", "logger", "mix").forEach { appName ->
-        val appDir = libDir.dir(appName)
-        // All apps get an 'ebin' directory.
-        outputs.dir(appDir.dir("ebin"))
-        // All apps except 'elixir' itself also get a '_build' directory.
-        if (appName != "elixir") {
-            outputs.dir(appDir.dir("_build"))
-        }
-    }
-}
-
-val getElixir by tasks.registering {
-    dependsOn(buildElixir)
-}
-
-
 val getQuoter by tasks.registering(Download::class) {
-    src("https://github.com/KronicDeth/intellij_elixir/archive/v${quoterVersion}.zip")
+    // The release quoter is an [Elixir Burrito](https://github.com/burrito-elixir/burrito) application, which is essentially an Elixir CLI in a single binary.
+    // Each OS/architecture has its own binary, and is prebuilt, e.g:
+    // https://github.com/joshuataylor/intellij_elixir/releases/download/v2026.02.01-74b02c2/intellij_elixir_burrito-linux_amd64.zip
+    // So we need the current OS name and architecture to download the correct one.
+    val osSystem: OperatingSystem = DefaultNativePlatform.getCurrentOperatingSystem()
+    val osArch: Architecture = DefaultNativePlatform.getCurrentArchitecture()
+    src("https://github.com/joshuataylor/intellij_elixir/archive/v${quoterVersion}.zip")
     dest(cachePath.file("intellij_elixir-${quoterVersion}.zip"))
     overwrite(false)
 }
-
 
 val unzipQuoter by tasks.registering(Copy::class) {
     dependsOn(getQuoter)
@@ -510,39 +476,24 @@ val unzipQuoter by tasks.registering(Copy::class) {
     }
 }
 
-val getQuoterDeps by tasks.registering(GetQuoterDepsTask::class) {
-    dependsOn(unzipQuoter, buildElixir)
-    workingDir(quoterUnzippedPath)
-
-    // Configure the task
-    quoterDir.set(quoterUnzippedPath)
-    depsDir.set(quoterUnzippedPath.dir("deps"))
-
-    // INPUTS: mix.exs and mix.lock define requirements
-    inputs.file(quoterUnzippedPath.file("mix.exs"))
-        .withPropertyName("mixExs")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.file(quoterUnzippedPath.file("mix.lock"))
-        .withPropertyName("mixLock")
-        .withPathSensitivity(PathSensitivity.RELATIVE)
-}
-
 val releaseQuoter by tasks.registering(ReleaseQuoterTask::class) {
-    dependsOn(getQuoterDeps)
+    dependsOn(unzipQuoter)
     workingDir(quoterUnzippedPath)
 
     // Configure the task
     quoterDir.set(quoterUnzippedPath)
     buildDir.set(quoterUnzippedPath.dir("_build"))
 
-    // INPUTS: mix.exs, lockfile, source code, and dependencies
-    inputs.files(
-        quoterUnzippedPath.file("mix.exs"),
-        quoterUnzippedPath.file("mix.lock")
-    ).withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.dir(quoterUnzippedPath.dir("lib")).withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.dir(quoterUnzippedPath.dir("config")).withPathSensitivity(PathSensitivity.RELATIVE)
-    inputs.dir(quoterUnzippedPath.dir("deps")).withPathSensitivity(PathSensitivity.RELATIVE)
+    // inputs is the file name, which we don't know, as it's different per OS
+
+//    // INPUTS: mix.exs, lockfile, source code, and dependencies
+//    inputs.files(
+//        quoterUnzippedPath.file("mix.exs"),
+//        quoterUnzippedPath.file("mix.lock")
+//    ).withPathSensitivity(PathSensitivity.RELATIVE)
+//    inputs.dir(quoterUnzippedPath.dir("lib")).withPathSensitivity(PathSensitivity.RELATIVE)
+//    inputs.dir(quoterUnzippedPath.dir("config")).withPathSensitivity(PathSensitivity.RELATIVE)
+//    inputs.dir(quoterUnzippedPath.dir("deps")).withPathSensitivity(PathSensitivity.RELATIVE)
 }
 
 // Register ElixirService - manages Elixir installation and build
