@@ -7,10 +7,8 @@
  * - Windows: Full support (Git Bash, MSYS2, WSL, or native)
  *
  * Key Components:
- * 1. ElixirService (BuildService): Manages Elixir installation and build
- * 2. QuoterService (BuildService): Manages Quoter daemon lifecycle with guaranteed cleanup
- * 3. Platform abstraction: Automatic detection and platform-specific implementations
- * 4. Tasks: Thin wrappers for CI caching and developer discoverability
+ * 1. QuoterService (BuildService): Manages Quoter Burrito binary lifecycle with guaranteed cleanup
+ * 2. Tasks: Thin wrappers for CI caching and developer discoverability
  *
  * Version Catalog: Uses libs.* for dependency management (gradle/libs.versions.toml)
  * Configuration Cache: Fully compatible with Gradle configuration cache
@@ -20,8 +18,6 @@ import com.adarshr.gradle.testlogger.TestLoggerExtension
 import com.adarshr.gradle.testlogger.theme.ThemeType
 import de.undercouch.gradle.tasks.download.Download
 import deps.registerResolveExternalDependenciesTasksForAllProjects
-import elixir.ElixirService
-import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.jetbrains.intellij.platform.gradle.Constants
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
@@ -31,7 +27,6 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 import quoter.QuoterService
-import quoter.tasks.ReleaseQuoterTask
 import quoter.tasks.StartQuoterTask
 import versioning.PluginVersion
 import versioning.VersionFetcher
@@ -63,7 +58,6 @@ val libCommonsIo = libs.commons.io
 val libMockitoCore = libs.mockito.core
 
 // --- Configuration Properties ---
-val elixirVersion: String by project
 val quoterVersion: String by project
 
 // Publish channel: "default" for release, "canary" for pre-release
@@ -86,15 +80,45 @@ val actualPlatformVersion: String = if (useDynamicEapVersion) {
     project.property("platformVersion").toString()
 }
 
+// --- Burrito OS/Architecture Detection ---
+// The Quoter is a pre-built Burrito binary (self-contained Elixir app).
+// Each OS/architecture has its own binary, named like: intellij_elixir_burrito-darwin_arm64
+// Uses providers.systemProperty() so Gradle tracks these as proper configuration cache inputs.
+val burritoOs: String = providers.systemProperty("os.name").get().lowercase().let { osName ->
+    when {
+        osName.contains("mac") || osName.contains("darwin") -> "darwin"
+        osName.contains("linux") -> "linux"
+        osName.contains("windows") -> "windows"
+        else -> throw GradleException("Unsupported OS for Quoter: $osName")
+    }
+}
+
+val burritoArch: String = providers.systemProperty("os.arch").get().lowercase().let { archName ->
+    when (archName) {
+        "amd64", "x86_64" -> "amd64"
+        "aarch64", "arm64" -> "arm64"
+        else -> throw GradleException("Unsupported architecture for Quoter: $archName")
+    }
+}
+
+val burritoTarget = "${burritoOs}_${burritoArch}"
+val burritoZipName = "intellij_elixir-$burritoTarget"   // hyphen before target
+val burritoBinaryName = "intellij_elixir_$burritoTarget" // underscore before target
+
 // Setup Paths
 val cachePath: Directory = layout.projectDirectory.dir("cache")
-val elixirPath: Directory = cachePath.dir("elixir-$elixirVersion")
-val quoterUnzippedPath: Directory = cachePath.dir("elixir-$elixirVersion-intellij_elixir-$quoterVersion")
-val quoterExe: RegularFile = quoterUnzippedPath.file("_build/dev/rel/intellij_elixir/bin/intellij_elixir")
+val quoterZipFile: RegularFile = cachePath.file("$burritoZipName.zip")
+val quoterDir: Directory = cachePath.dir("quoter-$quoterVersion")
 val quoterTmpPath: Directory = cachePath.dir("quoter_tmp_$quoterVersion")
 
-// EXPORT FOR SUBPROJECTS (Required for jps-builder to access this path)
-extra["elixirPath"] = elixirPath.asFile.absolutePath
+// Optional: override quoter binary with a local path, skipping download/unzip.
+//   ./gradlew test -PquoterPath=/path/to/intellij_elixir_darwin_arm64
+val useLocalQuoter: Boolean = providers.gradleProperty("quoterPath").isPresent
+val quoterExe: RegularFile = if (useLocalQuoter) {
+    layout.projectDirectory.file(providers.gradleProperty("quoterPath").get())
+} else {
+    quoterDir.file(burritoBinaryName)
+}
 
 // Version suffix logic:
 // - "default" channel = no suffix (release build)
@@ -112,7 +136,7 @@ val versionSuffix: String = when {
 
 version = "$basePluginVersion$versionSuffix"
 
-logger.lifecycle("[elixir-build] platform=$actualPlatformVersion version=$version channel=$publishChannel dynamicEap=$useDynamicEapVersion skipSearchableOptions=$skipSearchableOptions quoterExe=$quoterExe quoterTmpPath=${quoterTmpPath.asFile.absolutePath}")
+logger.lifecycle("[elixir-build] platform=$actualPlatformVersion version=$version channel=$publishChannel dynamicEap=$useDynamicEapVersion skipSearchableOptions=$skipSearchableOptions burritoTarget=$burritoTarget quoterExe=$quoterExe")
 
 // --- Global Project Configuration ---
 allprojects {
@@ -448,144 +472,48 @@ runIdePlatformsList.forEach { platform ->
 }
 
 val getQuoter by tasks.registering(Download::class) {
-    // The release quoter is an [Elixir Burrito](https://github.com/burrito-elixir/burrito) application, which is essentially an Elixir CLI in a single binary.
-    // Each OS/architecture has its own binary, and is prebuilt, e.g:
-    // https://github.com/joshuataylor/intellij_elixir/releases/download/v2026.02.01-74b02c2/intellij_elixir_burrito-linux_amd64.zip
-    // So we need the current OS name and architecture to download the correct one.
-    val osSystem: OperatingSystem = DefaultNativePlatform.getCurrentOperatingSystem()
-    val osArch: Architecture = DefaultNativePlatform.getCurrentArchitecture()
-    src("https://github.com/joshuataylor/intellij_elixir/archive/v${quoterVersion}.zip")
-    dest(cachePath.file("intellij_elixir-${quoterVersion}.zip"))
+    src("https://github.com/joshuataylor/intellij_elixir/releases/download/$quoterVersion/$burritoZipName.zip")
+    dest(quoterZipFile)
     overwrite(false)
 }
 
 val unzipQuoter by tasks.registering(Copy::class) {
     dependsOn(getQuoter)
+    from(zipTree(quoterZipFile))
+    into(quoterDir)
 
-    // 1. Target the final destination directly
-    into(quoterUnzippedPath)
-
-    from(zipTree(getQuoter.get().dest)) {
-        // 2. Strip the top-level directory 'intellij_elixir-${quoterVersion}' on the fly
-        eachFile {
-            relativePath = RelativePath(true, *relativePath.segments.drop(1).toTypedArray())
+    // Zip files don't preserve Unix permissions; make the binary executable after extraction
+    doLast {
+        val binary = quoterExe.asFile
+        if (!binary.canExecute()) {
+            binary.setExecutable(true)
         }
-
-        // 3. Prevent creating the empty top-level directory itself
-        includeEmptyDirs = false
-    }
-}
-
-val releaseQuoter by tasks.registering(ReleaseQuoterTask::class) {
-    dependsOn(unzipQuoter)
-    workingDir(quoterUnzippedPath)
-
-    // Configure the task
-    quoterDir.set(quoterUnzippedPath)
-    buildDir.set(quoterUnzippedPath.dir("_build"))
-
-    // inputs is the file name, which we don't know, as it's different per OS
-
-//    // INPUTS: mix.exs, lockfile, source code, and dependencies
-//    inputs.files(
-//        quoterUnzippedPath.file("mix.exs"),
-//        quoterUnzippedPath.file("mix.lock")
-//    ).withPathSensitivity(PathSensitivity.RELATIVE)
-//    inputs.dir(quoterUnzippedPath.dir("lib")).withPathSensitivity(PathSensitivity.RELATIVE)
-//    inputs.dir(quoterUnzippedPath.dir("config")).withPathSensitivity(PathSensitivity.RELATIVE)
-//    inputs.dir(quoterUnzippedPath.dir("deps")).withPathSensitivity(PathSensitivity.RELATIVE)
-}
-
-// Register ElixirService - manages Elixir installation and build
-val elixirService = gradle.sharedServices.registerIfAbsent("elixir", ElixirService::class) {
-    val versionString = elixirVersion
-    parameters {
-        elixirVersion.set(versionString)
-        projectDir.set(layout.projectDirectory)
     }
 }
 
 // Register the QuoterService - Gradle calls close() at build end regardless of failure
-// Depends on ElixirService for Mix commands
+// The Burrito binary is started via ProcessBuilder and stopped via process.destroy()
 // See: https://docs.gradle.org/current/userguide/build_services.html
 val quoterService = gradle.sharedServices.registerIfAbsent("quoter", QuoterService::class) {
-    val elixirSvc = elixirService
     parameters {
         executable.set(quoterExe)
         tmpDir.set(quoterTmpPath)
-        elixirService.set(elixirSvc)
     }
 }
 
 val startQuoter by tasks.registering(StartQuoterTask::class) {
-    dependsOn(releaseQuoter)
+    if (!useLocalQuoter) {
+        dependsOn(unzipQuoter)
+    }
 }
 
 registerResolveExternalDependenciesTasksForAllProjects()
 
 // --- Test Configuration ---
 
-// ALL test tasks in ALL projects use the QuoterService (ensures cleanup on any failure)
-allprojects {
-    tasks.withType<Test>().configureEach {
-
-        // Validate Erlang is available before running tests
-        doFirst {
-            // Skip check if ERLANG_SDK_HOME is explicitly set
-            val erlangSdkHome = System.getenv("ERLANG_SDK_HOME")
-            if (erlangSdkHome == null || erlangSdkHome.isEmpty()) {
-                val erlCommand = if (System.getProperty("os.name").lowercase().contains("windows")) "erl.exe" else "erl"
-                try {
-                    val process = ProcessBuilder(erlCommand, "-version")
-                        .redirectErrorStream(true)
-                        .start()
-                    val exitCode = process.waitFor()
-                    if (exitCode != 0) {
-                        throw GradleException(
-                            """
-                            |Erlang/OTP not found or failed to run.
-                            |Tests require Erlang to be installed and on PATH.
-                            |
-                            |Options:
-                            |  1. Download from: https://www.erlang.org/downloads
-                            |  2. Install via Chocolatey: choco install erlang
-                            |  3. Set ERLANG_SDK_HOME environment variable to your Erlang installation directory
-                            |
-                            |The jps-builder tests auto-detect Erlang by running '$erlCommand -eval' command.
-                            """.trimMargin()
-                        )
-                    }
-                    logger.lifecycle("Erlang found: $erlCommand is available on PATH")
-                } catch (e: java.io.IOException) {
-                    throw GradleException(
-                        """
-                        |Erlang/OTP executable '$erlCommand' not found on PATH.
-                        |Tests require Erlang to be installed and on PATH.
-                        |
-                        |Options:
-                        |  1. Download from: https://www.erlang.org/downloads
-                        |  2. Install via Chocolatey: choco install erlang
-                        |  3. Set ERLANG_SDK_HOME environment variable to your Erlang installation directory
-                        |
-                        |The jps-builder tests auto-detect Erlang by running '$erlCommand -eval' command.
-                        """.trimMargin(),
-                        e
-                    )
-                }
-            } else {
-                logger.lifecycle("Using ERLANG_SDK_HOME from environment: $erlangSdkHome")
-            }
-        }
-    }
-}
-
 tasks.named<Test>("test") {
     dependsOn("prepareTestSandbox", startQuoter)
     usesService(quoterService)
-
-    environment("ELIXIR_LANG_ELIXIR_PATH", elixirPath.asFile.absolutePath)
-    environment("ELIXIR_EBIN_DIRECTORY", elixirPath.dir("lib/elixir/ebin/").asFile.absolutePath + File.separator)
-    environment("ELIXIR_VERSION", elixirVersion)
 
     // Add Mockito as javaagent to avoid dynamic loading warnings (root project only)
     jvmArgs("-javaagent:${mockitoAgent.asPath}")

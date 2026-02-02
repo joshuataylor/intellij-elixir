@@ -19,17 +19,7 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
 
-// Ensuring the necessary tasks are executed before tests
 tasks.test {
-    dependsOn(":getElixir")
-
-    val elixirPath: String by project
-    val elixirVersion: String by project
-
-    environment("ELIXIR_LANG_ELIXIR_PATH", elixirPath)
-    environment("ELIXIR_EBIN_DIRECTORY", "${elixirPath}/lib/elixir/ebin/")
-    environment("ELIXIR_VERSION", elixirVersion)
-
     include("**/*Test.class")
 }
 

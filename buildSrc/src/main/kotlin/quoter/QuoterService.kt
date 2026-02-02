@@ -1,47 +1,37 @@
 package quoter
 
-import elixir.ElixirService
-import platform.detectPlatform
-import platform.logPlatformDetection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.logging.Logging
-import org.gradle.api.provider.Property
 import org.gradle.api.services.BuildService
 import org.gradle.api.services.BuildServiceParameters
-import org.gradle.process.ExecOperations
-import javax.inject.Inject
+import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 /**
- * BuildService that manages the Quoter daemon lifecycle.
- * The daemon is started on first use and automatically stopped when the build ends,
+ * BuildService that manages the Quoter (Burrito binary) lifecycle.
+ *
+ * The Burrito binary is a self-contained Elixir application packaged as a single
+ * executable. It starts an Erlang distributed node that tests communicate with
+ * via JInterface (OtpNode).
+ *
+ * The process is started on first use and automatically stopped when the build ends,
  * regardless of whether the build succeeded or failed.
  *
- * Platform differences:
- * - POSIX: Uses 'daemon' command which detaches automatically
- * - Windows: Uses 'start' command with process management via ProcessBuilder
- *
- * See: https://github.com/gradle/gradle/issues/27707
+ * See: https://github.com/burrito-elixir/burrito
+ * See: https://docs.gradle.org/current/userguide/build_services.html
  */
 abstract class QuoterService : BuildService<QuoterService.Params>, AutoCloseable {
 
     interface Params : BuildServiceParameters {
-        /** Path to the quoter executable */
+        /** Path to the Burrito binary */
         val executable: RegularFileProperty
 
         /** Temporary directory for quoter runtime files */
         val tmpDir: DirectoryProperty
-
-        /** Reference to ElixirService for Mix commands (future use) */
-        val elixirService: Property<ElixirService>
     }
 
-    @get:Inject
-    abstract val execOps: ExecOperations
-
     private val logger = Logging.getLogger(QuoterService::class.java)
-    private val platform = detectPlatform()
-    private val quoterPlatform = createQuoterPlatform(platform)
 
     @Volatile
     private var started = false
@@ -50,62 +40,78 @@ abstract class QuoterService : BuildService<QuoterService.Params>, AutoCloseable
     private var process: Process? = null
 
     /**
-     * Ensures the Quoter daemon is started and ready.
-     * Safe to call multiple times - only starts once.
+     * Ensures the Quoter process is started and ready.
+     * Safe to call multiple times -- only starts once.
      */
     fun ensureStarted() {
         if (started) return
         synchronized(this) {
             if (started) return
-            startDaemon()
+            startProcess()
             started = true
         }
     }
 
-    private fun startDaemon() {
+    private fun startProcess() {
         val executable = parameters.executable.get().asFile
-        val releaseTmp = parameters.tmpDir.orNull?.asFile
-        val maxAttempts = 20
+        val installDir = parameters.tmpDir.get().asFile
+        logger.lifecycle("Starting Quoter: ${executable.absolutePath}")
 
-        logPlatformDetection(logger)
-        logger.lifecycle("Starting Quoter daemon: ${executable.absolutePath}")
+        val pb = ProcessBuilder(executable.absolutePath)
+        pb.redirectErrorStream(false)
+        pb.environment()["INTELLIJ_ELIXIR_INSTALL_DIR"] = installDir.absolutePath
 
-        // Start the daemon (platform-specific)
-        process = quoterPlatform.startDaemon(execOps, executable, releaseTmp, logger)
+        val proc = pb.start()
 
-        // Wait for daemon to be ready (both platforms use RPC 'pid' command)
-        logger.lifecycle("Waiting for Quoter daemon to be ready...")
-
-        repeat(maxAttempts) { attempt ->
-            Thread.sleep(1000)
-
-            val (isRunning, pidOutput) = quoterPlatform.checkStatus(
-                execOps, executable, releaseTmp, process, logger
-            )
-
-            if (isRunning) {
-                logger.lifecycle("Quoter daemon is UP! (PID: ${pidOutput.trim()})")
-                return
+        // Consume streams in background threads to prevent buffer blocking.
+        // If we don't drain these, the process will hang when OS pipe buffers fill.
+        thread(name = "quoter-stdout", isDaemon = true) {
+            proc.inputStream.bufferedReader().useLines { lines ->
+                lines.forEach { line ->
+                    if (line.isNotBlank()) logger.debug("[QUOTER] $line")
+                }
             }
-
-            if (attempt < maxAttempts - 1) {
-                logger.lifecycle("Quoter daemon not ready yet (Attempt ${attempt + 1}/$maxAttempts). Retrying...")
+        }
+        thread(name = "quoter-stderr", isDaemon = true) {
+            proc.errorStream.bufferedReader().useLines { lines ->
+                lines.forEach { line ->
+                    if (line.isNotBlank()) logger.debug("[QUOTER-ERR] $line")
+                }
             }
         }
 
-        throw RuntimeException("Quoter daemon failed to start after $maxAttempts attempts.")
+        // Wait briefly, then verify the process is still alive.
+        // The Burrito binary self-extracts on first run and starts the BEAM VM.
+        Thread.sleep(3000)
+
+        if (!proc.isAlive) {
+            val exitCode = proc.exitValue()
+            throw RuntimeException(
+                "Quoter process died immediately (exit code $exitCode). " +
+                "Binary: ${executable.absolutePath}"
+            )
+        }
+
+        process = proc
+        logger.lifecycle("Quoter process started (PID: ${proc.pid()})")
     }
 
     override fun close() {
+        val proc = process ?: return
         if (!started) return
 
-        val executable = parameters.executable.get().asFile
-        val releaseTmp = parameters.tmpDir.orNull?.asFile
+        logger.lifecycle("Shutting down Quoter process...")
 
-        logger.lifecycle("Shutting down Quoter daemon...")
-
-        quoterPlatform.stopDaemon(execOps, executable, releaseTmp, process, logger)
-
-        logger.lifecycle("Quoter daemon shutdown complete")
+        try {
+            proc.destroy()
+            if (!proc.waitFor(5, TimeUnit.SECONDS)) {
+                logger.lifecycle("Quoter did not stop gracefully, forcing...")
+                proc.destroyForcibly()
+                proc.waitFor(2, TimeUnit.SECONDS)
+            }
+            logger.lifecycle("Quoter process stopped")
+        } catch (e: Exception) {
+            logger.error("Error stopping Quoter: ${e.message}")
+        }
     }
 }

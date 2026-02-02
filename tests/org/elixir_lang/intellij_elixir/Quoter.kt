@@ -22,7 +22,7 @@ object Quoter {
     /* remote name is Elixir.IntellijElixir.Quoter because all aliases in Elixir look like atoms prefixed with
        with Elixir. from erlang's perspective. */
     private const val REMOTE_NAME = "Elixir.IntellijElixir.Quoter"
-    private const val TIMEOUT_IN_MILLISECONDS = 1000
+    private const val TIMEOUT_IN_MILLISECONDS = 35000
 
     @JvmStatic
     fun assertError(file: PsiFile) {
