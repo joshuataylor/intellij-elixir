@@ -64,6 +64,7 @@ val libMockitoCore = libs.mockito.core
 // --- Configuration Properties ---
 val elixirVersion: String by project
 val quoterVersion: String by project
+val quoterHost: String = providers.gradleProperty("quoterHost").getOrElse("127.0.0.1")
 
 // Publish channel: "default" for release, "canary" for pre-release
 val publishChannel: String = providers.gradleProperty("publishChannels").getOrElse("canary")
@@ -635,6 +636,10 @@ tasks.named<Test>("test") {
     environment("ELIXIR_LANG_ELIXIR_PATH", elixirPath.asFile.absolutePath)
     environment("ELIXIR_EBIN_DIRECTORY", elixirPath.dir("lib/elixir/ebin/").asFile.absolutePath + File.separator)
     environment("ELIXIR_VERSION", elixirVersion)
+
+    // Pass quoter host to test JVM so JInterface connects to the right address.
+    // Default 127.0.0.1; override with -PquoterHost=192.168.x.x for remote Docker.
+    systemProperty("quoter.host", quoterHost)
 
     // Add Mockito as javaagent to avoid dynamic loading warnings (root project only)
     jvmArgs("-javaagent:${mockitoAgent.asPath}")
