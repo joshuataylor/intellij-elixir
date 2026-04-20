@@ -345,6 +345,9 @@ class DepsWatcher(val project: Project) : DebouncedBulkFileListener(project.serv
     private fun syncLibrary(library: Library, dep: VirtualFile, depName: String, progressIndicator: ProgressIndicator) {
         val libraryModifiableModel = library.modifiableModel
 
+        libraryModifiableModel.clearRoots(OrderRootType.CLASSES)
+        libraryModifiableModel.clearRoots(OrderRootType.SOURCES)
+
         ProjectRootManager
                 .getInstance(project)
                 .contentRootsFromAllModules
@@ -464,3 +467,7 @@ private sealed class SyncRequest {
 
 private const val MERGE_DELAY_MS = 250
 private val SOURCE_NAMES = arrayOf("c_src", "lib", "priv", "src")
+
+private fun Library.ModifiableModel.clearRoots(orderRootType: OrderRootType) {
+    getUrls(orderRootType).forEach { removeRoot(it, orderRootType) }
+}
