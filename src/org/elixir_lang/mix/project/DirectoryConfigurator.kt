@@ -145,7 +145,6 @@ class DirectoryConfigurator : DirectoryProjectConfigurator {
                 .build()
                 .asNewProject()
                 .withProjectName(otpApp.name)
-                .copy(useDefaultProjectAsTemplate = false)
 
             LOG.debug("Creating new project at $path with isNewProject: ${openProjectTask.isNewProject} and useDefaultProjectAsTemplate: ${openProjectTask.useDefaultProjectAsTemplate} and projectName: ${openProjectTask.projectName}")
 
