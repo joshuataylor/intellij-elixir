@@ -1,6 +1,5 @@
 package org.elixir_lang.github.issues.create
 
-import com.intellij.diagnostic.AbstractMessage
 import com.intellij.ide.plugins.PluginManagerCore
 import com.intellij.openapi.application.ApplicationNamesInfo
 import com.intellij.openapi.application.ex.ApplicationInfoEx
@@ -109,7 +108,7 @@ class Request private constructor(val title: String, val body: String) {
         }
 
         private fun attachments(stringBuilder: StringBuilder, level: Int, event: IdeaLoggingEvent) {
-            event.data?.let { it as? AbstractMessage }?.includedAttachments.takeUnless { it.isNullOrEmpty() }
+            event.attachments.takeUnless { it.isEmpty() }
                 ?.let { attachments ->
                     attachments(stringBuilder, level, attachments)
                 }

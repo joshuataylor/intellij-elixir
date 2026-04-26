@@ -14,7 +14,7 @@ inputs:
   idea-version:
     description: 'IntelliJ IDEA version to test against. Keep in sync with the matrix in shared-test.yml'
     required: false
-    default: '253.30387.90'  # 2025.3.2 - should match first version in shared-test.yml
+    default: '261.23567.138'  # 2026.1.1 - should match first version in shared-test.yml
   github-token:
     description: 'GitHub token for API access (required for setup-java to download JBR)'
     required: true
@@ -30,6 +30,10 @@ inputs:
     description: 'Skip building searchable options (faster builds, but users cannot search settings). Use false for release builds.'
     required: false
     default: 'true'
+  free-docker-images:
+    description: 'Remove Docker images during disk space cleanup. Set to false when later steps use Docker container actions.'
+    required: false
+    default: 'true'
 
 runs:
   using: composite
@@ -43,6 +47,7 @@ runs:
       with:
         tool-cache: false
         large-packages: false
+        docker-images: ${{ inputs.free-docker-images == 'true' }}
 
     - name: Cache JetBrains JDK
       id: cache-jdk

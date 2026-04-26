@@ -1,5 +1,19 @@
 # Changelog
 
+## v23.0.4
+
+### Enhancements
+* 2026.1 compatibility: remove deprecated `OpenProjectTask.copy()` call in `DirectoryConfigurator`. - [@joshuataylor](https://github.com/joshuataylor)
+* 2026.1 compatibility: use `ActionUtil.performAction()` instead of directly invoking `@OverrideOnly` method in `InstallMixDependenciesAction`. - [@joshuataylor](https://github.com/joshuataylor)
+* Remove internal API usage: replace `DiagnosticBundle`, `AbstractMessage`, and `PlatformUtils` with public alternatives for plugin verification compatibility. - [@joshuataylor](https://github.com/joshuataylor)
+
+### Build
+* Bump Gradle from 9.3.1 to 9.4.1. - [@joshuataylor](https://github.com/joshuataylor)
+* Bump kotlinx-coroutines from 1.9.0 to 1.10.2. - [@joshuataylor](https://github.com/joshuataylor)
+* Bump gradle-download from 5.6.0 to 5.7.0. - [@joshuataylor](https://github.com/joshuataylor)
+* Bump intellij-platform from 2.12.0 to 2.15.0. - [@joshuataylor](https://github.com/joshuataylor)
+* Bump Kotlin to 2.3.21. - [@joshuataylor](https://github.com/joshuataylor)
+
 ## v23.0.3
 
 ### Bug Fixes
