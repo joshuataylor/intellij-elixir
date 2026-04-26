@@ -42,7 +42,7 @@ jobs:
       matrix:
         # Stay with windows-2022 until https://github.com/erlef/setup-beam/commit/b94e7d372a9ef22d376b75a9374a7adeb0e2ea94 is released.
         os: [ ubuntu-22.04, windows-2022 ]
-        idea-version: [ '2025.3.2', 'LATEST-EAP-SNAPSHOT' ]
+        idea-version: [ '2026.1.1', '2025.3.2', 'LATEST-EAP-SNAPSHOT' ]
 
     steps:
       - name: Checkout
@@ -113,7 +113,7 @@ jobs:
         with:
           setup-elixir: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          idea-version: '2025.3.2'
+          idea-version: '2026.1.1'
 
       - name: Build Plugin
         id: build-plugin
@@ -136,7 +136,11 @@ jobs:
         include:
           - ide-version: 'ideaIU:253.30387.90'
             external-prefixes: ''
+          - ide-version: 'ideaIU:261.23567.138'
+            external-prefixes: ''
           - ide-version: 'rubymine:2025.3.2'
+            external-prefixes: 'org.jetbrains.jps'
+          - ide-version: 'rubymine:2026.1'
             external-prefixes: 'org.jetbrains.jps'
 
     steps:
