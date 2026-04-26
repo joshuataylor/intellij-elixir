@@ -1,5 +1,50 @@
 # Changelog
 
+## v23.0.3
+
+### Bug Fixes
+* [#3806](https://github.com/KronicDeth/intellij-elixir/pull/3806) - [@sh41](https://github.com/sh41)
+  * Fix indexing deadlock by reading BEAM files from `FileContent` instead of reopening `VirtualFile` input stream. Avoids deadlock on WSL/IJ environments during annotation and highlighting passes.
+* [#3807](https://github.com/KronicDeth/intellij-elixir/pull/3807) - [@sh41](https://github.com/sh41)
+  * Remove stale library roots on dependency re-sync, fixing libraries XML files getting updated with redundant data endlessly. Fixes [#3804](https://github.com/KronicDeth/intellij-elixir/issues/3804).
+
+## v23.0.2
+
+### Enhancements
+* [#3763](https://github.com/KronicDeth/intellij-elixir/pull/3763) - [@sh41](https://github.com/sh41)
+  * JPS plugin refactor: fix JPS builder classpath (broken since September 2024), move `HomePath` into IDE module, persist Elixir SDK derived data (`mix-home`, `wsl-unc-path`) with a `data-version` marker and migration, and separate JPS builder from shared modules.
+* [#3792](https://github.com/KronicDeth/intellij-elixir/pull/3792) - [@sh41](https://github.com/sh41)
+  * Mix deps tooling: dedicated `mix deps` status parsing, deps checker service with debounced notifications and install action, SDK creation/registration flow with explicit Erlang dependency wiring, and Mise plugin integration for auto-install/configure of Elixir/Erlang SDKs.
+  * Non-blocking write actions in UI and formatter to avoid background/EDT exceptions.
+  * Hardened CLI argument construction across Mix/IEx/ESpec/ExUnit configurations.
+  * WSL path canonicalization and env var handling improvements.
+  * 2026.1 compatibility: ignore `ExperimentalPsiDummyBlock` type in `ElixirDocumentationProvider`.
+* [#3791](https://github.com/KronicDeth/intellij-elixir/pull/3791) - [@soomtong](https://github.com/soomtong)
+  * Update New Project Wizard to use the new `LanguageGeneratorNewProjectWizard` API with Elixir icon display.
+* OTP 28 support: handle `AtU8` atom tables and stubless BEAM fallback. - [@sh41](https://github.com/sh41)
+* Handle `@moduledoc`-style `ElixirMatchedAtOperation` in markdown injection. - [@sh41](https://github.com/sh41)
+* Handle uncompressed literals and improve error reporting in BEAM `Literals` parsing. - [@sh41](https://github.com/sh41)
+
+### Bug Fixes
+* Fix broken IDE navigation by specifying base platform rather than module. - [@sh41](https://github.com/sh41)
+* Fix process kill on Windows. - [@sh41](https://github.com/sh41)
+* Fix compile server classpath for JPS module jars. - [@sh41](https://github.com/sh41)
+* Fix WSL path handling: canonicalize WSL paths, convert only known env vars to WSL paths. - [@sh41](https://github.com/sh41)
+* Ensure debugger path is added to code paths if unavailable. - [@sh41](https://github.com/sh41)
+* Assert read access in all resolvers to avert deadlocks. - [@sh41](https://github.com/sh41)
+* Less aggressive SDK version differentiation in `SdkHomeScan`. - [@sh41](https://github.com/sh41)
+
+### Build
+* Bump intellij-platform from 2.11.0 to 2.12.0. - [@joshuataylor](https://github.com/joshuataylor)
+
+## v23.0.1
+
+### Enhancements
+* [#3787](https://github.com/KronicDeth/intellij-elixir/pull/3787) - [@joshuataylor](https://github.com/joshuataylor)
+  * Remove internal API usage to improve plugin verification compatibility.
+* [#3788](https://github.com/KronicDeth/intellij-elixir/pull/3788) - [@joshuataylor](https://github.com/joshuataylor)
+  * Add separate GitHub Actions job for tagging/releasing, fixing release being overridden on every merge to main.
+
 ## v23.0.0
 
 ### Enhancements

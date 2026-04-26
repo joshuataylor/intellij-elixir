@@ -1,6 +1,100 @@
 <html>
 <body>
 
+<h1>v23.0.3</h1>
+<ul>
+    <li>
+        <p>Bug Fixes</p>
+        <ul>
+            <li>
+                <a href="https://github.com/KronicDeth/intellij-elixir/pull/3806">#3806</a> - <a href="https://github.com/sh41">@sh41</a>
+                <ul>
+                    <li>Fix indexing deadlock by reading BEAM files from <code>FileContent</code> instead of reopening <code>VirtualFile</code> input stream. Avoids deadlock on WSL/IJ environments during annotation and highlighting passes.</li>
+                </ul>
+            </li>
+            <li>
+                <a href="https://github.com/KronicDeth/intellij-elixir/pull/3807">#3807</a> - <a href="https://github.com/sh41">@sh41</a>
+                <ul>
+                    <li>Remove stale library roots on dependency re-sync, fixing libraries XML files getting updated with redundant data endlessly. Fixes <a href="https://github.com/KronicDeth/intellij-elixir/issues/3804">#3804</a>.</li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+</ul>
+
+<h1>v23.0.2</h1>
+<ul>
+    <li>
+        <p>Enhancements</p>
+        <ul>
+            <li>
+                <a href="https://github.com/KronicDeth/intellij-elixir/pull/3763">#3763</a> - <a href="https://github.com/sh41">@sh41</a>
+                <ul>
+                    <li>JPS plugin refactor: fix JPS builder classpath (broken since September 2024), move <code>HomePath</code> into IDE module, persist Elixir SDK derived data with migration, and separate JPS builder from shared modules.</li>
+                </ul>
+            </li>
+            <li>
+                <a href="https://github.com/KronicDeth/intellij-elixir/pull/3792">#3792</a> - <a href="https://github.com/sh41">@sh41</a>
+                <ul>
+                    <li>Mix deps tooling: dedicated <code>mix deps</code> status parsing, deps checker service with debounced notifications and install action, SDK creation/registration flow with explicit Erlang dependency wiring, and Mise plugin integration.</li>
+                    <li>Non-blocking write actions in UI and formatter to avoid background/EDT exceptions.</li>
+                    <li>Hardened CLI argument construction across Mix/IEx/ESpec/ExUnit configurations.</li>
+                    <li>WSL path canonicalization and env var handling improvements.</li>
+                    <li>2026.1 compatibility: ignore <code>ExperimentalPsiDummyBlock</code> type in <code>ElixirDocumentationProvider</code>.</li>
+                </ul>
+            </li>
+            <li>
+                <a href="https://github.com/KronicDeth/intellij-elixir/pull/3791">#3791</a> - <a href="https://github.com/soomtong">@soomtong</a>
+                <ul>
+                    <li>Update New Project Wizard to use the new <code>LanguageGeneratorNewProjectWizard</code> API with Elixir icon display.</li>
+                </ul>
+            </li>
+            <li>OTP 28 support: handle <code>AtU8</code> atom tables and stubless BEAM fallback. - <a href="https://github.com/sh41">@sh41</a></li>
+            <li>Handle <code>@moduledoc</code>-style <code>ElixirMatchedAtOperation</code> in markdown injection. - <a href="https://github.com/sh41">@sh41</a></li>
+            <li>Handle uncompressed literals and improve error reporting in BEAM <code>Literals</code> parsing. - <a href="https://github.com/sh41">@sh41</a></li>
+        </ul>
+    </li>
+    <li>
+        <p>Bug Fixes</p>
+        <ul>
+            <li>Fix broken IDE navigation by specifying base platform rather than module. - <a href="https://github.com/sh41">@sh41</a></li>
+            <li>Fix process kill on Windows. - <a href="https://github.com/sh41">@sh41</a></li>
+            <li>Fix compile server classpath for JPS module jars. - <a href="https://github.com/sh41">@sh41</a></li>
+            <li>Fix WSL path handling: canonicalize WSL paths, convert only known env vars to WSL paths. - <a href="https://github.com/sh41">@sh41</a></li>
+            <li>Ensure debugger path is added to code paths if unavailable. - <a href="https://github.com/sh41">@sh41</a></li>
+            <li>Assert read access in all resolvers to avert deadlocks. - <a href="https://github.com/sh41">@sh41</a></li>
+            <li>Less aggressive SDK version differentiation in <code>SdkHomeScan</code>. - <a href="https://github.com/sh41">@sh41</a></li>
+        </ul>
+    </li>
+    <li>
+        <p>Build</p>
+        <ul>
+            <li>Bump intellij-platform from 2.11.0 to 2.12.0. - <a href="https://github.com/joshuataylor">@joshuataylor</a></li>
+        </ul>
+    </li>
+</ul>
+
+<h1>v23.0.1</h1>
+<ul>
+    <li>
+        <p>Enhancements</p>
+        <ul>
+            <li>
+                <a href="https://github.com/KronicDeth/intellij-elixir/pull/3787">#3787</a> - <a href="https://github.com/joshuataylor">@joshuataylor</a>
+                <ul>
+                    <li>Remove internal API usage to improve plugin verification compatibility.</li>
+                </ul>
+            </li>
+            <li>
+                <a href="https://github.com/KronicDeth/intellij-elixir/pull/3788">#3788</a> - <a href="https://github.com/joshuataylor">@joshuataylor</a>
+                <ul>
+                    <li>Add separate GitHub Actions job for tagging/releasing, fixing release being overridden on every merge to main.</li>
+                </ul>
+            </li>
+        </ul>
+    </li>
+</ul>
+
 <h1>v23.0.0</h1>
 <ul>
     <li>
