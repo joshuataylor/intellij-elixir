@@ -30,6 +30,10 @@ inputs:
     description: 'Skip building searchable options (faster builds, but users cannot search settings). Use false for release builds.'
     required: false
     default: 'true'
+  free-docker-images:
+    description: 'Remove Docker images during disk space cleanup. Set to false when later steps use Docker container actions.'
+    required: false
+    default: 'true'
 
 runs:
   using: composite
@@ -43,6 +47,7 @@ runs:
       with:
         tool-cache: false
         large-packages: false
+        docker-images: ${{ inputs.free-docker-images == 'true' }}
 
     - name: Cache JetBrains JDK
       id: cache-jdk

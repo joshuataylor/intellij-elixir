@@ -96,8 +96,7 @@ jobs:
           overwrite: true
           if-no-files-found: 'error'
 
-  build-plugin-for-verifier:
-    name: "Build Plugin for verifyPlugin"
+  verify-plugin:
     runs-on: ubuntu-22.04
 
     steps:
@@ -114,42 +113,11 @@ jobs:
           setup-elixir: false
           github-token: ${{ secrets.GITHUB_TOKEN }}
           idea-version: '2026.1.1'
+          free-docker-images: false
 
       - name: Build Plugin
         id: build-plugin
         run: ./gradlew buildPlugin
-
-      - name: Upload Plugin Artifact
-        id: upload-plugin
-        uses: actions/upload-artifact@v6
-        with:
-          name: plugin-artifact
-          path: build/distributions/*.zip
-          retention-days: 1
-
-  verify-plugin:
-    needs: build-plugin-for-verifier
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - ide-version: 'ideaIU:253.30387.90'
-            external-prefixes: ''
-          - ide-version: 'ideaIU:261.23567.138'
-            external-prefixes: ''
-          - ide-version: 'rubymine:2025.3.2'
-            external-prefixes: 'org.jetbrains.jps'
-          - ide-version: 'rubymine:2026.1'
-            external-prefixes: 'org.jetbrains.jps'
-
-    steps:
-      - name: Download Plugin Artifact
-        id: download-plugin
-        uses: actions/download-artifact@v7
-        with:
-          name: plugin-artifact
-          path: build/distributions
 
       - name: Verify Plugin
         id: verify-plugin
@@ -157,8 +125,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          ide-versions: ${{ matrix.ide-version }}
-          external-prefixes: ${{ matrix.external-prefixes }}
+          ide-versions: |
+            ideaIU:253.30387.90
+            ideaIU:261.23567.138
+            rubymine:2025.3.2
+            rubymine:2026.1
+          external-prefixes: 'org.jetbrains.jps'
 
       - name: Print Verification Output
         id: print-verification-output
@@ -172,7 +144,7 @@ jobs:
         uses: actions/upload-artifact@v6
         if: ${{ always() && inputs.upload-reports }}
         with:
-          name: verify-plugin-reports-${{ matrix.ide-version }}
+          name: verify-plugin-reports
           path: |
             ${{ steps.verify-plugin.outputs.verification-output-log-filename }}
           retention-days: 30
