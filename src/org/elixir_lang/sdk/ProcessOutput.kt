@@ -5,7 +5,6 @@ import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.Function
-import com.intellij.util.PlatformUtils
 import com.intellij.util.containers.ContainerUtil
 import org.elixir_lang.run.WslAwareCommandLine
 import java.io.File
@@ -99,5 +98,10 @@ object ProcessOutput {
 
     @JvmStatic
     val isSmallIde: Boolean
-        get() = !(PlatformUtils.isIntelliJ() || PlatformUtils.getPlatformPrefix() == "AndroidStudio")
+        get() = try {
+            Class.forName("com.intellij.openapi.roots.JavadocOrderRootType")
+            false
+        } catch (_: ClassNotFoundException) {
+            true
+        }
 }
