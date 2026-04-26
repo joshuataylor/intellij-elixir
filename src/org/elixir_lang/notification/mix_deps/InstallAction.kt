@@ -4,7 +4,7 @@ import com.intellij.notification.Notification
 import com.intellij.notification.NotificationAction
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.AnActionEvent
-import org.elixir_lang.action.InstallMixDependenciesAction
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import org.elixir_lang.notification.setup_sdk.Notifier
 
 class InstallAction() : NotificationAction("Install deps") {
@@ -16,8 +16,8 @@ class InstallAction() : NotificationAction("Install deps") {
             notification.expire()
         }
         val action = ActionManager.getInstance().getAction("Elixir.InstallMixDependencies")
-        if (action is InstallMixDependenciesAction ) {
-            action.actionPerformed(e)
+        if (action != null) {
+            ActionUtil.performAction(action, e)
         }
     }
 }
