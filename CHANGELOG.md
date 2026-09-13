@@ -15,6 +15,10 @@
 
 ### Enhancements
 
+- [#4088](https://github.com/KronicDeth/intellij-elixir/pull/4088) [@sh41](https://github.com/sh41)
+  - **Words and numbers that Elixir's tokenizer rejects, such as `Foo?`, `foo@bar`, `1var`, `__block__` and
+    `foo:bar`, are now reported as errors.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
+
 - [#4084](https://github.com/KronicDeth/intellij-elixir/pull/4084) [@sh41](https://github.com/sh41)
   - **Elixir's Unicode security errors are now reported for the module's Elixir version: bidirectional and line
     break characters in comments and strings, and mixed-script or restricted identifiers.** Refs
