@@ -1,35 +1,42 @@
 <html>
 <body>
 Detects when compiler will throw <code>unexpected comma. Parentheses are required to solve ambiguity in nested calls</code>
+or <code>unexpected comma. Parentheses are required to solve ambiguity inside containers</code>
 <!-- tooltip end -->
-Function calls with multiple arguments without parentheses cannot take as arguments functions with multiple arguments
-without parentheses because which functional gets which arguments is unclear as in the following example:
+<p>
+A call without parentheses that takes more than one argument, or an expression ending in one, is ambiguous as a later
+argument of another call, because it is unclear which call takes the arguments after it:
+</p>
 <pre>
 <code>
-outer_function first_outer_argument,
-               # second argument is another function call without parentheses, but with multiple arguments
-               inner_function first_inner_argument,
-               ambiguous_keyword_key: ambiguous_keyword_value
+outer_function first_outer_argument, inner_function first_inner_argument, second_inner_argument
+outer_function first_outer_argument, 1 + inner_function first_inner_argument, second_inner_argument
 </code>
 </pre>
-To fix the ambiguity if <code>first_inner_keyword_key: first_inner_keyword_value</code> should be associated, add
-parentheses around the inner function's arguments:
+<p>
+It is ambiguous too inside a container: as an element of a list, tuple, bitstring, <code>Foo.{}</code> or
+<code>x[]</code>, or as a keyword value in a list, map, map update, struct, <code>x[]</code> or a call with parentheses:
+</p>
 <pre>
 <code>
-# keywords are for inner function
-outer_function first_outer_argument
-               inner_function(
-                 first_inner_argument
-                 ambiguous_keyword_key: ambiguous_keyword_value
-               )
-
-# keywords are for outer function
-outer_function first_outer_argument
-               inner_function(
-                 first_inner_argument
-               ),
-               ambiguous_keyword_key: ambiguous_keyword_value
+[inner_function first_inner_argument, second_inner_argument]
+%{key: inner_function first_inner_argument, second_inner_argument}
+outer_function(key: inner_function first_inner_argument, second_inner_argument)
 </code>
 </pre>
+<p>
+To fix the ambiguity, add parentheses around the inner call's arguments:
+</p>
+<pre>
+<code>
+outer_function first_outer_argument, inner_function(first_inner_argument, second_inner_argument)
+[inner_function(first_inner_argument, second_inner_argument)]
+</code>
+</pre>
+<p>
+A keyword value of another call without parentheses is not reported, as Elixir accepts it: in
+<code>outer_function first_outer_argument, key: inner_function first_inner_argument, second_inner_argument</code> the
+arguments after <code>key:</code> belong to <code>inner_function</code>. Elixir warns about it from 1.15.
+</p>
 </body>
 </html>

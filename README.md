@@ -1343,35 +1343,36 @@ Inspections mark sections of code with warnings and errors.  They can be customi
 
 #### Ambiguous nested calls
 
-Detects when compiler will throw `unexpected comma. Parentheses are required to solve ambiguity in nested calls`.
-Function calls with multiple arguments without parentheses cannot take as arguments functions with multiple arguments
-without parentheses because which functional gets which arguments is unclear as in the following example:
+Detects when compiler will throw `unexpected comma. Parentheses are required to solve ambiguity in nested calls` or
+`unexpected comma. Parentheses are required to solve ambiguity inside containers`.
+
+A call without parentheses that takes more than one argument, or an expression ending in one, is ambiguous as a later
+argument of another call, because it is unclear which call takes the arguments after it:
 
 ```elixir
-outer_function first_outer_argument,
-               # second argument is another function call without parentheses, but with multiple arguments
-               inner_function first_inner_argument,
-               ambiguous_keyword_key: ambiguous_keyword_value
+outer_function first_outer_argument, inner_function first_inner_argument, second_inner_argument
+outer_function first_outer_argument, 1 + inner_function first_inner_argument, second_inner_argument
 ```
 
-To fix the ambiguity if `first_inner_keyword_key: first_inner_keyword_value` should be associated, add parentheses
-around the inner function's arguments:
+It is ambiguous too inside a container: as an element of a list, tuple, bitstring, `Foo.{}` or `x[]`, or as a keyword
+value in a list, map, map update, struct, `x[]` or a call with parentheses:
 
 ```elixir
-# keywords are for inner function
-outer_function first_outer_argument
-               inner_function(
-                 first_inner_argument
-                 ambiguous_keyword_key: ambiguous_keyword_value
-               )
-
-# keywords are for outer function
-outer_function first_outer_argument
-               inner_function(
-                 first_inner_argument
-               ),
-               ambiguous_keyword_key: ambiguous_keyword_value
+[inner_function first_inner_argument, second_inner_argument]
+%{key: inner_function first_inner_argument, second_inner_argument}
+outer_function(key: inner_function first_inner_argument, second_inner_argument)
 ```
+
+To fix the ambiguity, add parentheses around the inner call's arguments:
+
+```elixir
+outer_function first_outer_argument, inner_function(first_inner_argument, second_inner_argument)
+[inner_function(first_inner_argument, second_inner_argument)]
+```
+
+A keyword value of another call without parentheses is not reported, as Elixir accepts it: in
+`outer_function first_outer_argument, key: inner_function first_inner_argument, second_inner_argument` the arguments
+after `key:` belong to `inner_function`. Elixir warns about it from 1.15.
 
 <figure>
   <img alt="Ambiguous nested calls preferences" src="/screenshots/inspection/elixir/ambiguous_nested_calls/preferences.png?raw=true"/>
