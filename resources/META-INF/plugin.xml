@@ -238,6 +238,7 @@
         <annotator implementationClass="org.elixir_lang.annotator.UnicodeSecurity" language="Elixir"/>
         <annotator implementationClass="org.elixir_lang.annotator.InvalidToken" language="Elixir"/>
         <annotator implementationClass="org.elixir_lang.annotator.InvalidConstruct" language="Elixir"/>
+        <annotator implementationClass="org.elixir_lang.annotator.VersionedSyntax" language="Elixir"/>
 
         <!-- credo -->
         <globalInspection cleanupTool="false" displayName="Credo" enabledByDefault="false" groupName="Elixir"

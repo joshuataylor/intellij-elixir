@@ -15,6 +15,10 @@
 
 ### Enhancements
 
+- [#4090](https://github.com/KronicDeth/intellij-elixir/pull/4090) [@sh41](https://github.com/sh41)
+  - **Syntax the module's Elixir release rejects, such as `..` before 1.14 or `foo//bar` from 1.12, is now reported as an
+    error.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
+
 - [#4089](https://github.com/KronicDeth/intellij-elixir/pull/4089) [@sh41](https://github.com/sh41)
   - **Constructs that Elixir rejects, such as `:foo.Bar`, `[foo 1, 2]`, `fn x end`, `% {}` and `"\u{D800}"`, are now
     reported as errors.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
