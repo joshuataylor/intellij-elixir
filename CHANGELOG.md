@@ -90,6 +90,10 @@
 
 ### Bug Fixes
 
+- [#4090](https://github.com/KronicDeth/intellij-elixir/pull/4090) [@sh41](https://github.com/sh41)
+  - **Words directly after a number now parse as Elixir reads them.**
+    Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
+
 - [#4084](https://github.com/KronicDeth/intellij-elixir/pull/4084) [@sh41](https://github.com/sh41)
   - **Opening a file, or gathering Mix dependencies, with a heredoc whose closing `"""` follows its content on the
     same line no longer leaves a background thread looping forever.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).

@@ -12,7 +12,9 @@ import com.intellij.psi.stubs.StubOutputStream;
 import com.intellij.psi.tree.IStubFileElementType;
 import org.elixir_lang.ElixirLanguage;
 import org.elixir_lang.parser.ElixirParserUtil;
+import org.elixir_lang.parser.WordAfterNumber;
 import org.elixir_lang.psi.ElixirFile;
+import org.elixir_lang.psi.quoting.QuotingDialect;
 import org.elixir_lang.psi.quoting.QuotingDialectResolver;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,7 +27,7 @@ public class File extends IStubFileElementType<org.elixir_lang.psi.stub.File> {
      * rebuilt. Parsing is version-aware, so that includes changes to how the dialect is resolved and
      * not only changes to the grammar.
      */
-    public static final int VERSION = 5;
+    public static final int VERSION = 6;
     public static final IStubFileElementType INSTANCE = new File();
 
     public File() {
@@ -74,7 +76,9 @@ public class File extends IStubFileElementType<org.elixir_lang.psi.stub.File> {
         PsiBuilder builder = PsiBuilderFactory.getInstance().createBuilder(project, chameleon, null, languageForParser, chameleon.getChars());
         /* Resolved here and not in the ParserDefinition: createParser is handed only the project, and
            one project can hold modules pointed at different Elixir SDKs. */
-        builder.putUserData(ElixirParserUtil.DIALECT, QuotingDialectResolver.dialectFor(psi));
+        QuotingDialect dialect = QuotingDialectResolver.dialectFor(psi);
+        builder.putUserData(ElixirParserUtil.DIALECT, dialect);
+        builder.setTokenTypeRemapper(new WordAfterNumber(dialect));
         PsiParser parser = LanguageParserDefinitions.INSTANCE.forLanguage(languageForParser).createParser(project);
         ASTNode node = parser.parse(this, builder);
         return node.getFirstChildNode();

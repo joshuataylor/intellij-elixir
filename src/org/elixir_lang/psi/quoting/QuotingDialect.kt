@@ -38,6 +38,10 @@ enum class QuotingDialect {
      * 1.12.0 also added the step operator, `first..last//step` (elixir-lang/elixir #10810). Before it `//` is two
      * divisions, and an operator before `/` lexes as an identifier, so `x..y//1` is `x..y((/)/1)` and `[..//: 1]` is
      * `[..(/([/: 1]))]`. Read by the parser via [hasStepOperator].
+     *
+     * 1.12.0 also rejects a letter directly after a decimal number, where 1.11 ended the number there, so `1and 2` was
+     * `1 and 2` (elixir-lang/elixir 6b2cc2332, "Raise clearer error message on number followed by identifiers"). Read
+     * by the parser via [endsDecimalNumberBeforeWord].
      */
     V1_12,
 
@@ -277,6 +281,9 @@ enum class QuotingDialect {
 
     /** Whether `//` is the step operator rather than two divisions. Read by the parser, like [requiresAdjacentCaptureArgument]. */
     val hasStepOperator: Boolean get() = this >= V1_12
+
+    /** Whether a decimal number ends before letters that follow it, as a based number does in every version. */
+    val endsDecimalNumberBeforeWord: Boolean get() = this < V1_12
 
     /**
      * Whether a `\` + newline next to a spaced `+` or `-` after an identifier counts as space, so `f -\` + newline +
