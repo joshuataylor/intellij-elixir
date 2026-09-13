@@ -15,6 +15,11 @@
 
 ### Enhancements
 
+- [#4084](https://github.com/KronicDeth/intellij-elixir/pull/4084) [@sh41](https://github.com/sh41)
+  - **Elixir's Unicode security errors are now reported for the module's Elixir version: bidirectional and line
+    break characters in comments and strings, and mixed-script or restricted identifiers.** Refs
+    [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
+
 - [#4081](https://github.com/KronicDeth/intellij-elixir/pull/4081) [@sh41](https://github.com/sh41)
   - **Every source file shipped with Elixir 1.11 through 1.20, and every valid snippet in Elixir's parser tests,
     now parses without error.**
@@ -76,6 +81,10 @@
   - **Find Usages finds a plain Elixir call embedded in a `~H` sigil**, e.g. `{some_function()}`.
 
 ### Bug Fixes
+
+- [#4084](https://github.com/KronicDeth/intellij-elixir/pull/4084) [@sh41](https://github.com/sh41)
+  - **Opening a file, or gathering Mix dependencies, with a heredoc whose closing `"""` follows its content on the
+    same line no longer leaves a background thread looping forever.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
 
 - [#4065](https://github.com/KronicDeth/intellij-elixir/pull/4065) [@sh41](https://github.com/sh41)
   - **A module's Structure View tree and its caret sync now come from one list, so an ExUnit `test`
