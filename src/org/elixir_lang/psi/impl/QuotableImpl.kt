@@ -1736,7 +1736,7 @@ object QuotableImpl {
     private fun lineNumber(node: ASTNode): Int {
         val psi = node.psi
         val documentLine = psi.document()!!.getLineNumber(node.startOffset)
-        val uncounted = psi.containingFile?.let(::uncountedNewlines) ?: return documentLine
+        val uncounted = psi.containingFile?.let { uncountedNewlines(it, node) } ?: return documentLine
 
         if (uncounted.isEmpty()) return documentLine
 
@@ -1753,30 +1753,47 @@ object QuotableImpl {
         fun isEmpty(): Boolean = literalSigilLine.isEmpty() && character.isEmpty()
     }
 
-    /** See QuotingDialect.V1_12 and V1_19. Cached per file, as every line in a quoted file asks. */
-    private fun uncountedNewlines(file: PsiFile): UncountedNewlines =
+    /**
+     * See QuotingDialect.V1_12 and V1_19. Cached per file, as every line in a quoted file asks.
+     *
+     * Walks [node]'s own tree rather than [file]'s: building a stub can quote while the file's tree loads from its
+     * stubs, and asking the file for its tree then loads it again, which the platform stops with an exception.
+     */
+    private fun uncountedNewlines(file: PsiFile, node: ASTNode): UncountedNewlines =
         CachedValuesManager.getCachedValue(file) {
             val literalSigilLine = mutableListOf<Int>()
             val character = mutableListOf<Int>()
+            val root = generateSequence(node) { it.treeParent }.last()
+            var current: ASTNode? = root
 
-            file.accept(object : PsiRecursiveElementWalkingVisitor() {
-                override fun visitElement(element: PsiElement) {
-                    if (element is ElixirEscapedEOL) {
-                        when (val parent = element.parent) {
-                            is ElixirCharToken -> character.add(element.textOffset)
-                            else -> if (parent?.parent.let { it is SigilLine && it !is Interpolated }) {
-                                literalSigilLine.add(element.textOffset)
-                            }
+            while (current != null) {
+                when (current.elementType) {
+                    ElixirTypes.ESCAPED_EOL -> {
+                        val parent = current.treeParent
+
+                        if (parent?.elementType == ElixirTypes.CHAR_TOKEN) {
+                            character.add(current.startOffset)
+                        } else if (parent?.treeParent?.psi.let { it is SigilLine && it !is Interpolated }) {
+                            literalSigilLine.add(current.startOffset)
                         }
-                    } else if (element is ElixirCharToken && element.node.lastChildNode.let {
-                            it.psi !is ElixirEscapedEOL && it.textContains('\n')
-                        }) {
-                        character.add(element.textOffset)
                     }
 
-                    super.visitElement(element)
+                    ElixirTypes.CHAR_TOKEN ->
+                        if (current.lastChildNode.let { it.elementType != ElixirTypes.ESCAPED_EOL && it.textContains('\n') }) {
+                            character.add(current.startOffset)
+                        }
                 }
-            })
+
+                var next = current.firstChildNode
+                var ancestor: ASTNode = current
+
+                while (next == null && ancestor !== root) {
+                    next = ancestor.treeNext
+                    ancestor = ancestor.treeParent
+                }
+
+                current = next
+            }
 
             // Not `file` itself: a physical PSI dependency asks for InjectedLanguageManager, which ParsingTestCase's
             // mock project does not register.
