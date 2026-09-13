@@ -3,14 +3,11 @@ package org.elixir_lang.annotator
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.project.DumbAware
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
-import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.annotator.unicode_security.UnicodeSecurityCheck
-import org.elixir_lang.injection.PsiLanguageInjectionHost
 import org.elixir_lang.psi.Body
 import org.elixir_lang.psi.ElixirInterpolation
 import org.elixir_lang.psi.ElixirTypes
@@ -23,7 +20,7 @@ internal class UnicodeSecurity : Annotator, DumbAware {
     override fun annotate(element: PsiElement, holder: AnnotationHolder) {
         if (element.firstChild != null) return
 
-        val injection = injection(element)
+        val injection = Injection.of(element)
         if (injection == Injection.UNCOMPILED) return
 
         val text = element.node?.chars ?: return
@@ -55,25 +52,6 @@ internal class UnicodeSecurity : Annotator, DumbAware {
                 .range(problem.range.shiftRight(offset))
                 .apply { problem.tooltip?.let { tooltip(it) } }
                 .create()
-        }
-    }
-
-    private enum class Injection { NONE, TEMPLATE, UNCOMPILED }
-
-    /**
-     * Elixir injected directly, as into documentation or Markdown, is skipped, and so is a template in documentation:
-     * neither is compiled with the module.
-     */
-    private fun injection(element: PsiElement): Injection {
-        val file = element.containingFile ?: return Injection.NONE
-        val injectedLanguageManager = InjectedLanguageManager.getInstance(element.project)
-
-        return when {
-            !injectedLanguageManager.isInjectedFragment(file) -> Injection.NONE
-            file.viewProvider.baseLanguage == ElixirLanguage -> Injection.UNCOMPILED
-            injectedLanguageManager.getInjectionHost(file)?.let(PsiLanguageInjectionHost::isDocumentation) == true ->
-                Injection.UNCOMPILED
-            else -> Injection.TEMPLATE
         }
     }
 }
