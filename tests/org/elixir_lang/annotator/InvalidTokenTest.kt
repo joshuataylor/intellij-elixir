@@ -5,7 +5,6 @@ import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.ElixirFileType
 import org.elixir_lang.ElixirLanguage
-import org.elixir_lang.injection.ElixirSigilInjector
 import org.elixir_lang.psi.quoting.QuotingDialect
 import org.elixir_lang.psi.quoting.QuotingDialect.V1_11
 import org.elixir_lang.psi.quoting.QuotingDialect.V1_12
@@ -14,7 +13,6 @@ import org.elixir_lang.psi.quoting.QuotingDialect.V1_14
 import org.elixir_lang.psi.quoting.QuotingDialect.V1_17
 import org.elixir_lang.psi.quoting.QuotingDialect.V1_20
 import org.elixir_lang.psi.quoting.QuotingDialectResolver
-import org.elixir_lang.settings.ElixirExperimentalSettings
 
 /**
  * Expected messages were taken from `Code.string_to_quoted/1` on 1.11.4, 1.12.3, 1.13.4, 1.14.5 and 1.20.4. An error's
@@ -413,21 +411,13 @@ class InvalidTokenTest : BasePlatformTestCase() {
     }
 
     fun testElixirInATemplateSigilIsChecked() {
-        val settings = ElixirExperimentalSettings.instance
-        val originalEnableHtmlInjection = settings.state.enableHtmlInjection
-        settings.state.enableHtmlInjection = true
-
-        try {
-            InjectedLanguageManager.getInstance(project).registerMultiHostInjector(ElixirSigilInjector(), testRootDisposable)
-
-            assertErrors(
-                V1_20,
-                "defmodule Test do\n  def render(assigns) do\n    ~H'''\n    <div><%= foo@bar %></div>\n    '''\n  end\nend\n",
-                "foo@bar" to invalidCharacter("@", "0040", "identifier", "foo@bar")
-            )
-        } finally {
-            settings.state.enableHtmlInjection = originalEnableHtmlInjection
-        }
+        assertTemplateErrors(
+            myFixture,
+            testRootDisposable,
+            V1_20,
+            "defmodule Test do\n  def render(assigns) do\n    ~H'''\n    <div><%= foo@bar %></div>\n    '''\n  end\nend\n",
+            "foo@bar" to invalidCharacter("@", "0040", "identifier", "foo@bar")
+        )
     }
 
     private fun invalidCharacter(character: String, codePoint: String, kind: String, word: String): String =
@@ -475,9 +465,6 @@ class InvalidTokenTest : BasePlatformTestCase() {
 
         assertEquals("$expected among the errors in ${escaped(source)} on $dialect: $errors", 1, errors.count { it == expected })
     }
-
-    private fun escaped(source: String): String =
-        source.codePoints().toArray().joinToString("") { if (it in 0x20..0x7E) it.toChar().toString() else "\\u{%X}".format(it) }
 
     private companion object {
         const val ASCII_ONLY = " (only ASCII characters are allowed)"

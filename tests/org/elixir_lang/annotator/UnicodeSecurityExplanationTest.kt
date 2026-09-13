@@ -166,7 +166,4 @@ class UnicodeSecurityExplanationTest : BasePlatformTestCase() {
             )
         }
     }
-
-    private fun escaped(source: String): String =
-        source.codePoints().toArray().joinToString("") { if (it in 0x20..0x7E) it.toChar().toString() else "\\u{%X}".format(it) }
 }

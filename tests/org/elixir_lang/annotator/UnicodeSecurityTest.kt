@@ -182,21 +182,13 @@ class UnicodeSecurityTest : BasePlatformTestCase() {
     }
 
     fun testCodeInjectedIntoATemplateSigilIsChecked() {
-        val settings = ElixirExperimentalSettings.instance
-        val originalEnableHtmlInjection = settings.state.enableHtmlInjection
-        settings.state.enableHtmlInjection = true
-
-        try {
-            InjectedLanguageManager.getInstance(project).registerMultiHostInjector(ElixirSigilInjector(), testRootDisposable)
-
-            assertErrors(
-                V1_14,
-                "defmodule Test do\n  def render(assigns) do\n    ~H'''\n    <div><%= \u0430dmin %></div>\n    '''\n  end\nend\n",
-                "\u0430dmin" to "invalid mixed-script identifier found: \u0430dmin (U+0430 \u0430 is Cyrillic; the rest is Latin)"
-            )
-        } finally {
-            settings.state.enableHtmlInjection = originalEnableHtmlInjection
-        }
+        assertTemplateErrors(
+            myFixture,
+            testRootDisposable,
+            V1_14,
+            "defmodule Test do\n  def render(assigns) do\n    ~H'''\n    <div><%= \u0430dmin %></div>\n    '''\n  end\nend\n",
+            "\u0430dmin" to "invalid mixed-script identifier found: \u0430dmin (U+0430 \u0430 is Cyrillic; the rest is Latin)"
+        )
     }
 
     fun testBidiInATemplateSigilIsReportedOnceForTheSigil() {
@@ -444,7 +436,4 @@ class UnicodeSecurityTest : BasePlatformTestCase() {
     private fun assertErrors(dialect: QuotingDialect, source: String, vararg expected: Pair<String, String>) {
         assertEquals("errors in ${escaped(source)} on $dialect", expected.toList(), errors(dialect, source))
     }
-
-    private fun escaped(source: String): String =
-        source.codePoints().toArray().joinToString("") { if (it in 0x20..0x7E) it.toChar().toString() else "\\u{%X}".format(it) }
 }
