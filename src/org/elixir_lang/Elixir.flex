@@ -1358,7 +1358,9 @@ EOL_INSENSITIVE = {AND_SYMBOL_OPERATOR} |
 }
 
 <GROUP_HEREDOC_START> {
-  // parse immediate terminator as a terminator and let parser handle errors for missing EOL
+  // Elixir allows spaces and tabs before the opening line's end.
+  {HORIZONTAL_SPACE}+         { return TokenType.WHITE_SPACE; }
+  // An immediate terminator ends the heredoc, and `InvalidConstruct` reports the missing line end.
   {GROUP_HEREDOC_TERMINATOR} {
                                // Similar to GROUP_HEREDOC_END's GROUP_HEREDOC_TERMINATOR rule, but...
                                if (isTerminator(yytext())) {

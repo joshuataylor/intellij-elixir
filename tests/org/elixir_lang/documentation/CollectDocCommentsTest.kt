@@ -35,9 +35,9 @@ class CollectDocCommentsTest : BasePlatformTestCase() {
         assertEmpty(collectDocComments())
     }
 
-    /** Elixir rejects a heredoc whose terminator shares a line with its content. */
-    fun testHeredocWithTerminatorAfterContentHasNoDocumentation() {
-        myFixture.configureByText("heredoc.ex", "\"\"\"\nbar\"\"\"")
+    /** Elixir rejects a heredoc holding an unclosed interpolation. */
+    fun testHeredocWithUnclosedInterpolationHasNoDocumentation() {
+        myFixture.configureByText("heredoc.ex", "\"\"\"\n#{\n")
         val accessExpression = PsiTreeUtil.findChildOfType(myFixture.file, ElixirAccessExpression::class.java)
 
         assertNotNull("the heredoc did not parse to an access expression", accessExpression)

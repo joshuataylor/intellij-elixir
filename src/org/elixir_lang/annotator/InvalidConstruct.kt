@@ -1,13 +1,17 @@
 package org.elixir_lang.annotator
 
+import com.intellij.lang.ASTNode
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
 import com.intellij.lang.annotation.HighlightSeverity
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.util.TextRange
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.psi.ElixirAccessExpression
 import org.elixir_lang.psi.ElixirAnonymousFunction
@@ -16,7 +20,10 @@ import org.elixir_lang.psi.ElixirAtomKeyword
 import org.elixir_lang.psi.ElixirCharToken
 import org.elixir_lang.psi.ElixirDotInfixOperator
 import org.elixir_lang.psi.ElixirEscapedCharacter
+import org.elixir_lang.psi.ElixirHeredoc
+import org.elixir_lang.psi.ElixirInterpolatedSigilHeredoc
 import org.elixir_lang.psi.ElixirInterpolation
+import org.elixir_lang.psi.ElixirLiteralSigilHeredoc
 import org.elixir_lang.psi.ElixirMapOperation
 import org.elixir_lang.psi.ElixirMatchedMultiplicationOperation
 import org.elixir_lang.psi.ElixirMatchedQualifiedAlias
@@ -44,6 +51,7 @@ internal class InvalidConstruct : Annotator, DumbAware {
             is ElixirMapOperation -> spaceBeforeBrace(element)
             is ElixirQuoteHexadecimalEscapeSequence -> invalidCodePoint(element)
             is ElixirEscapedCharacter -> invalidEscape(element)
+            is ElixirHeredoc, is ElixirInterpolatedSigilHeredoc, is ElixirLiteralSigilHeredoc -> unterminatedHeredoc(element)
             is ElixirAtom -> divisionAtom(element)
             is ElixirMatchedMultiplicationOperation, is ElixirUnmatchedMultiplicationOperation -> operatorReference(element)
             else -> null
@@ -171,6 +179,44 @@ internal class InvalidConstruct : Annotator, DumbAware {
         }
     }
 
+    /**
+     * Elixir rejects content after a heredoc's opening first, then a missing terminator. Before 1.12 it finds a heredoc's
+     * terminator line by line before it reads interpolations, so a terminator after content is rejected where it stands,
+     * which [VersionedSyntax] reports, and an enclosing heredoc can fail first. From 1.12 a heredoc the grammar stopped
+     * early, as at an unclosed interpolation, has an error Elixir reports first.
+     */
+    private fun unterminatedHeredoc(heredoc: PsiElement): Pair<TextRange, String>? {
+        val promoter = heredoc.node.findChildByType(ElixirTypes.HEREDOC_PROMOTER) ?: return null
+        val dialect = QuotingDialectResolver.dialectFor(heredoc)
+
+        if (hasContentAfterOpening(heredoc)) {
+            if (dialect < QuotingDialect.V1_12 && enclosingHeredocFailsFirst(heredoc)) return null
+
+            val message = if (dialect < QuotingDialect.V1_15) {
+                "heredoc allows only zero or more whitespace characters followed by a new line after "
+            } else {
+                "heredoc allows only whitespace characters followed by a new line after opening "
+            }
+
+            return promoter.textRange to message + promoter.text
+        }
+
+        if (heredoc.node.findChildByType(ElixirTypes.HEREDOC_TERMINATOR) != null) return null
+
+        if (dialect < QuotingDialect.V1_12) {
+            val scan = scanHeredocLines(promoter)
+
+            if (scan.terminatorAt != null || scan.misplaced != null || enclosingHeredocFailsFirst(heredoc)) return null
+        } else if (heredoc.textRange.endOffset < heredoc.containingFile.textLength) {
+            return null
+        }
+
+        val line = StringUtil.offsetToLineNumber(heredoc.containingFile.viewProvider.contents, promoter.startOffset) + 1
+
+        return TextRange(promoter.startOffset, heredoc.textRange.endOffset) to
+            "missing terminator: ${promoter.text} (for heredoc starting at line $line)"
+    }
+
     private fun invalidCodePoint(escape: ElixirQuoteHexadecimalEscapeSequence): Pair<TextRange, String>? {
         // Elixir unescapes a quoted remote call name only from 1.18. In `?\u{…}` it reads `?\u` and then reports a syntax
         // error before `{`.
@@ -205,6 +251,10 @@ private val UNESCAPING_SIGILS = setOf("s", "c", "w")
 
 private val CLOSING_TOKENS = setOf(",", ")", ">>", "]", "}")
 
+private val QUOTE_OPENINGS = setOf(ElixirTypes.HEREDOC_PROMOTER, ElixirTypes.LINE_PROMOTER, ElixirTypes.INTERPOLATION_START)
+
+private val QUOTE_CLOSINGS = setOf(ElixirTypes.HEREDOC_TERMINATOR, ElixirTypes.LINE_TERMINATOR, ElixirTypes.INTERPOLATION_END)
+
 internal const val INVALID_HEX_ESCAPE_WHEN_COMPILED = "invalid hex escape character, expected \\xHH where H is a hexadecimal digit"
 internal const val INVALID_HEX_ESCAPE = "$INVALID_HEX_ESCAPE_WHEN_COMPILED. Syntax error after: \\x"
 
@@ -228,6 +278,105 @@ internal fun endsWithBackslash(element: PsiElement): Boolean {
 
     return leaf is PsiWhiteSpace || isFinalBackslash(leaf)
 }
+
+/** Whether something other than spaces or tabs follows the heredoc's opening on its line. */
+internal fun hasContentAfterOpening(heredoc: PsiElement): Boolean {
+    val promoter = heredoc.node.findChildByType(ElixirTypes.HEREDOC_PROMOTER) ?: return false
+    val next = generateSequence(promoter.treeNext) { it.treeNext }.firstOrNull { it.elementType != TokenType.WHITE_SPACE }
+
+    return next?.elementType != ElixirTypes.EOL
+}
+
+/**
+ * Whether, before 1.12, a heredoc holding [element] in an interpolation without its `}` fails before Elixir reads
+ * [element]: Elixir checks a heredoc's opening line, then scans its lines for the terminator, before reading its
+ * interpolations, so the heredoc fails first when its opening line has content or its terminator line does not come
+ * after [element]. A line quote reads an interpolation as it reaches it.
+ */
+private fun enclosingHeredocFailsFirst(element: PsiElement): Boolean {
+    var depth = 0
+    var interpolation: PsiElement? = null
+
+    for (leaf in generateSequence(PsiTreeUtil.prevLeaf(element)) { PsiTreeUtil.prevLeaf(it) }) {
+        ProgressManager.checkCanceled()
+
+        val type = leaf.node.elementType
+
+        when {
+            // The lexer returns an escaped delimiter as its closing token.
+            type in QUOTE_CLOSINGS -> if (PsiTreeUtil.prevLeaf(leaf)?.node?.elementType != ElixirTypes.ESCAPE) depth++
+            type !in QUOTE_OPENINGS -> {}
+            depth > 0 -> depth--
+            type == ElixirTypes.INTERPOLATION_START -> interpolation = leaf
+            else -> {
+                if (type == ElixirTypes.HEREDOC_PROMOTER && interpolation != null && isUnclosedInterpolation(interpolation)) {
+                    if (hasContentAfterOpening(leaf.parent)) return true
+
+                    val terminatorAt = scanHeredocLines(leaf.node).terminatorAt
+
+                    if (terminatorAt == null || terminatorAt <= element.textRange.startOffset) return true
+                }
+
+                interpolation = null
+            }
+        }
+    }
+
+    return false
+}
+
+private fun isUnclosedInterpolation(start: PsiElement): Boolean {
+    var depth = 0
+
+    for (leaf in generateSequence(PsiTreeUtil.nextLeaf(start)) { PsiTreeUtil.nextLeaf(it) }) {
+        ProgressManager.checkCanceled()
+
+        when (leaf.node.elementType) {
+            ElixirTypes.INTERPOLATION_START -> depth++
+            ElixirTypes.INTERPOLATION_END -> if (depth == 0) return false else depth--
+        }
+    }
+
+    return true
+}
+
+/** Where the terminator line's terminator starts, or the first misplaced terminator; neither when the file ends first. */
+private class HeredocScan(val terminatorAt: Int?, val misplaced: TextRange?)
+
+/**
+ * Elixir's reading before 1.12: line by line after the opening, a backslash taking a backslash or quote after it, until a line
+ * starting with the terminator; a terminator anywhere else on a line is misplaced.
+ */
+private fun scanHeredocLines(promoter: ASTNode): HeredocScan {
+    val terminator = promoter.text
+    val text = promoter.psi.containingFile.viewProvider.contents
+    var index = StringUtil.indexOf(text, '\n', promoter.textRange.endOffset)
+
+    while (index >= 0 && index < text.length) {
+        ProgressManager.checkCanceled()
+        index++
+
+        while (index < text.length && (text[index] == ' ' || text[index] == '\t')) index++
+        if (StringUtil.startsWith(text, index, terminator)) return HeredocScan(index, null)
+
+        while (index < text.length && text[index] != '\n') {
+            when {
+                text[index] == '\\' && index + 1 < text.length && (text[index + 1] == '\\' || text[index + 1] == terminator[0]) ->
+                    index += 2
+                StringUtil.startsWith(text, index, terminator) -> return HeredocScan(null, TextRange.from(index, terminator.length))
+                else -> index++
+            }
+        }
+    }
+
+    return HeredocScan(null, null)
+}
+
+/** The first terminator after content in the heredoc, as Elixir reads it before 1.12. */
+internal fun misplacedHeredocTerminator(heredoc: PsiElement): TextRange? =
+    heredoc.node.findChildByType(ElixirTypes.HEREDOC_PROMOTER)
+        ?.let { scanHeredocLines(it).misplaced }
+        ?.takeIf { heredoc.textRange.contains(it) }
 
 internal fun isFinalBackslash(leaf: PsiElement?): Boolean =
     leaf != null && leaf.text == "\\" && leaf.textRange.endOffset == leaf.containingFile.textLength

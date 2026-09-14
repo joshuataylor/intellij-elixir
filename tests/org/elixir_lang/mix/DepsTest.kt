@@ -11,11 +11,11 @@ import java.util.concurrent.TimeUnit
 
 class DepsTest : PlatformTestCase() {
     /**
-     * A `deps` helper cut off by a heredoc whose terminator shares a line with its content, which Elixir rejects: the
+     * A `deps` helper cut off by a heredoc holding an unclosed interpolation, which Elixir rejects: the
      * heredoc leaves an access expression without exactly one child in the helper's body. Closing the helper with `end`
      * parses differently and does not reach that step.
      */
-    fun testDepsHelperEndingInHeredocWithTerminatorAfterContentHasNoDeps() {
+    fun testDepsHelperEndingInHeredocWithUnclosedInterpolationHasNoDeps() {
         val psiFile = myFixture.configureByText(
             "mix.exs",
             "defmodule Sample.MixProject do\n" +
@@ -29,7 +29,7 @@ class DepsTest : PlatformTestCase() {
                     "\n" +
                     "  defp ecto_dep do\n" +
                     "    \"\"\"\n" +
-                    "bar\"\"\""
+                    "#{\n"
         )
 
         assertTrue(

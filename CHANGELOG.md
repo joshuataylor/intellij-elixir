@@ -94,9 +94,9 @@
 
 ### Bug Fixes
 
-- [#PR-TBD](https://github.com/KronicDeth/intellij-elixir/pull/PR-TBD) [@sh41](https://github.com/sh41)
-  - **An escape Elixir rejects no longer ends its string or heredoc, so documentation keeps its highlighting and the rest
-    of the module its structure, and the error gives Elixir's message.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
+- [#4102](https://github.com/KronicDeth/intellij-elixir/pull/4102) [@sh41](https://github.com/sh41)
+  - **An invalid escape or an unterminated heredoc no longer breaks the rest of the file: documentation keeps its
+    highlighting, the module keeps its structure, and the error gives Elixir's message.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
 
 - [#4104](https://github.com/KronicDeth/intellij-elixir/pull/4104) [@sh41](https://github.com/sh41)
   - **Running the Dialyzer inspection on a project with `.class` files no longer raises an IDE internal error.** Fixes

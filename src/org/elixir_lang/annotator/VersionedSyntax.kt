@@ -28,11 +28,14 @@ import org.elixir_lang.psi.ElixirContainerAssociationOperation
 import org.elixir_lang.psi.ElixirDoBlock
 import org.elixir_lang.psi.ElixirEnclosedHexadecimalEscapeSequence
 import org.elixir_lang.psi.ElixirEscapedCharacter
+import org.elixir_lang.psi.ElixirHeredoc
+import org.elixir_lang.psi.ElixirInterpolatedSigilHeredoc
 import org.elixir_lang.psi.ElixirInterpolation
 import org.elixir_lang.psi.ElixirKeywordKey
 import org.elixir_lang.psi.ElixirKeywordPair
 import org.elixir_lang.psi.ElixirKeywords
 import org.elixir_lang.psi.ElixirList
+import org.elixir_lang.psi.ElixirLiteralSigilHeredoc
 import org.elixir_lang.psi.ElixirMapArguments
 import org.elixir_lang.psi.ElixirMapOperation
 import org.elixir_lang.psi.ElixirMatchedMultiplicationOperation
@@ -100,8 +103,21 @@ internal class VersionedSyntax : Annotator, DumbAware {
             is ElixirRelativeIdentifier -> graphemeCluster(element, dialect)
             is ElixirEscapedCharacter -> escapedCharacter(element, dialect)
             is ElixirQuoteHexadecimalEscapeSequence -> hexadecimalEscape(element, dialect)
+            is ElixirHeredoc, is ElixirInterpolatedSigilHeredoc, is ElixirLiteralSigilHeredoc -> heredocTerminatorAfterContent(element, dialect)
             else -> if (element.firstChild == null) leaf(element, dialect) else null
         }
+
+    /** Before 1.12 Elixir rejects a heredoc terminator after content where it stands, once the opening line is valid. */
+    private fun heredocTerminatorAfterContent(heredoc: PsiElement, dialect: () -> QuotingDialect): Problem? {
+        if (dialect() >= V1_12 || hasContentAfterOpening(heredoc)) return null
+        val range = misplacedHeredocTerminator(heredoc) ?: return null
+
+        return Problem(
+            range,
+            "invalid location for heredoc terminator, please escape token or move it to its own line: " +
+                range.subSequence(heredoc.containingFile.viewProvider.contents)
+        )
+    }
 
     private fun leaf(leaf: PsiElement, dialect: () -> QuotingDialect): Problem? =
         when (leaf.node.elementType) {

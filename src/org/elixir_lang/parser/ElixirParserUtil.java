@@ -47,6 +47,19 @@ public class ElixirParserUtil extends GeneratedParserUtilBase {
         return dialect(builder).getHasStepOperator();
     }
 
+    /** The characters between a heredoc's opening and its end of line, which the lexer returns as bad characters. */
+    public static boolean heredocOpeningContent(@NotNull PsiBuilder builder, int level) {
+        if (builder.getTokenType() != TokenType.BAD_CHARACTER) {
+            return false;
+        }
+
+        while (builder.getTokenType() == TokenType.BAD_CHARACTER) {
+            builder.advanceLexer();
+        }
+
+        return true;
+    }
+
     /** {@code ...}, which the lexer returns as an identifier. */
     public static boolean ellipsis(@NotNull PsiBuilder builder, int level) {
         return builder.getTokenType() == ElixirTypes.IDENTIFIER_TOKEN && "...".equals(builder.getTokenText());

@@ -695,9 +695,9 @@ heredocPrefix ::= HEREDOC_PREFIX_WHITE_SPACE?
  *
  */
 
-heredoc ::= HEREDOC_PROMOTER EOL
+heredoc ::= HEREDOC_PROMOTER heredocOpening
             heredocLine*
-            heredocPrefix HEREDOC_TERMINATOR
+            heredocPrefix (HEREDOC_TERMINATOR | unterminatedHeredocLine? <<eof>>)
             {
               implements = [
                 "org.elixir_lang.psi.HeredocLiteral"
@@ -736,6 +736,10 @@ heredocLine ::= heredocLinePrefix heredocLineBody heredocLineEnd
                 }
 heredocLineBody ::= (interpolation | FRAGMENT | heredocEscapeSequence | escapedHeredocTerminator)*
                     { implements = "org.elixir_lang.psi.Body" }
+// Elixir rejects content after the opening and a missing terminator; the heredoc is kept whole for the annotators to report.
+private heredocOpening ::= <<heredocOpeningContent>>? EOL?
+// A last line the end of the file cuts off before its end of line.
+unterminatedHeredocLine ::= !<<eof>> heredocLinePrefix heredocLineBody { elementType = heredocLine }
 /*
  *
  * Interpolated Sigil Heredoc
@@ -744,9 +748,9 @@ heredocLineBody ::= (interpolation | FRAGMENT | heredocEscapeSequence | escapedH
 
 sigilModifiers ::= SIGIL_MODIFIER* { implements = "org.elixir_lang.psi.Quotable" methods = [quote] }
 
-interpolatedSigilHeredoc ::= TILDE INTERPOLATING_SIGIL_NAME HEREDOC_PROMOTER EOL
+interpolatedSigilHeredoc ::= TILDE INTERPOLATING_SIGIL_NAME HEREDOC_PROMOTER heredocOpening
                              interpolatedHeredocLine*
-                             heredocPrefix HEREDOC_TERMINATOR sigilModifiers
+                             heredocPrefix (HEREDOC_TERMINATOR | unterminatedInterpolatedHeredocLine? <<eof>>) sigilModifiers
                              {
                                implements = [
                                  "org.elixir_lang.psi.Interpolated"
@@ -767,6 +771,8 @@ interpolatedHeredocLine ::= heredocLinePrefix interpolatedHeredocLineBody heredo
                             }
 interpolatedHeredocLineBody ::= (interpolation | FRAGMENT | sigilHeredocEscapeSequence | escapedHeredocTerminator)*
                                         { implements = "org.elixir_lang.psi.Body" }
+unterminatedInterpolatedHeredocLine ::= !<<eof>> heredocLinePrefix interpolatedHeredocLineBody
+                                        { elementType = interpolatedHeredocLine }
 
 /*
  *
@@ -774,9 +780,9 @@ interpolatedHeredocLineBody ::= (interpolation | FRAGMENT | sigilHeredocEscapeSe
  *
  */
 
-literalSigilHeredoc ::= TILDE LITERAL_SIGIL_NAME HEREDOC_PROMOTER EOL
+literalSigilHeredoc ::= TILDE LITERAL_SIGIL_NAME HEREDOC_PROMOTER heredocOpening
                         literalHeredocLine*
-                        heredocPrefix HEREDOC_TERMINATOR sigilModifiers
+                        heredocPrefix (HEREDOC_TERMINATOR | unterminatedLiteralHeredocLine? <<eof>>) sigilModifiers
                         {
                           implements = [
                             "org.elixir_lang.psi.Literal"
@@ -799,6 +805,7 @@ literalHeredocLine ::= heredocLinePrefix literalHeredocLineBody heredocLineEnd
 // literals can have escape sequences for escaped terminator
 literalHeredocLineBody ::= (FRAGMENT | sigilHeredocEscapeSequence | escapedHeredocTerminator)*
                            { implements = "org.elixir_lang.psi.Body" }
+unterminatedLiteralHeredocLine ::= !<<eof>> heredocLinePrefix literalHeredocLineBody { elementType = literalHeredocLine }
 
 /*
  *
