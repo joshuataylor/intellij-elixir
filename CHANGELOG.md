@@ -94,6 +94,10 @@
 
 ### Bug Fixes
 
+- [#4104](https://github.com/KronicDeth/intellij-elixir/pull/4104) [@sh41](https://github.com/sh41)
+  - **Running the Dialyzer inspection on a project with `.class` files no longer raises an IDE internal error.** Fixes
+    [#3077](https://github.com/KronicDeth/intellij-elixir/issues/3077).
+
 - [#4090](https://github.com/KronicDeth/intellij-elixir/pull/4090) [@sh41](https://github.com/sh41)
   - **Line continuations next to an operator, and words directly after a number, now parse as Elixir reads them.**
     Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
