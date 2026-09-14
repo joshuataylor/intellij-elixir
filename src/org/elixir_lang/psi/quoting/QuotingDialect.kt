@@ -176,6 +176,10 @@ enum class QuotingDialect {
      * 1.19.0 also advances the line past a character literal that is a newline, `?` + newline or `?\` + newline,
      * where 1.18 counted only columns, so everything after it was one line lower (elixir-lang/elixir 6fbc6e08a,
      * "Advance line when processing ? followed by <LF> and \<LF>"). Read via [countsNewlineInCharacter].
+     *
+     * 1.19.0 also gives the `in` of `not in` its own location, where 1.18 gave it the location of `not`, which differs
+     * when a line continuation separates them (elixir-lang/elixir 8ac8230e1, "Properly handle column for 'in' in 'not in'
+     * operator", and a2baac915). Read via [putsInOfNotInOnItsOwnLine].
      */
     V1_19,
 
@@ -207,6 +211,9 @@ enum class QuotingDialect {
 
     /** Whether `?` + newline or `?\` + newline advances the line of what follows. */
     val countsNewlineInCharacter: Boolean get() = this >= V1_19
+
+    /** Whether the `in` of `not in` carries its own line rather than the line of `not`. */
+    val putsInOfNotInOnItsOwnLine: Boolean get() = this >= V1_19
 
     /** Whether a remote call split by a newline after its `.` carries its name's line rather than the dot's. */
     val putsRemoteCallOnNameLine: Boolean get() = this >= V1_13
@@ -314,8 +321,7 @@ enum class QuotingDialect {
          * `ElixirVersionDetector.ELIXIR_VERSION_KEY` holds it), a mise-style version with a build
          * tag (`"1.13.4-otp-24"`), or a whole SDK version string
          * (`"mise Elixir 1.13.4 (OTP 24)"`). Anything after the version number is ignored, which
-         * also means a pre-release resolves as its release - correct for these thresholds, since a
-         * `1.16.2-rc` carries the 1.16.2 change.
+         * also means a pre-release resolves as its release.
          */
         @JvmStatic
         fun of(version: String?): QuotingDialect {

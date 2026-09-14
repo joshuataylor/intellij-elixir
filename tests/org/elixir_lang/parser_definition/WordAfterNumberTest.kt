@@ -66,8 +66,7 @@ class WordAfterNumberTest : BasePlatformTestCase() {
         val dialect = QuotingDialect.of(System.getenv("ELIXIR_VERSION"))
         val cases = if (dialect < V1_12) DECIMAL + BASED else BASED
 
-        // Before 1.20 quoting puts `in` after a line continuation on its own line, even without a number before `not`.
-        for ((source, _) in cases.filter { (source, _) -> dialect >= QuotingDialect.V1_20 || "\\\n" !in source }) {
+        for ((source, _) in cases) {
             try {
                 Quoter.assertQuotedCorrectly(parse(dialect, source))
             } catch (e: Throwable) {

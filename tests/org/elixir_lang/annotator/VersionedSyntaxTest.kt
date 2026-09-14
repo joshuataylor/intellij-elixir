@@ -201,11 +201,15 @@ class VersionedSyntaxTest : BasePlatformTestCase() {
 
         assertErrors(V1_12, "2 ** 3 ** 4", "**" to before("'*'"), "**" to before("'*'"))
         assertErrors(V1_12, "x.** ** y", "**" to before("'*'"))
+        // Both `**` have the same text, so compare where the error starts.
+        QuotingDialectResolver.overrideDialect(project, V1_12)
+        myFixture.configureByText("versioned_syntax_${files++}.ex", "x.** **: 1")
+        assertEquals(listOf(5 to before("'*'")), myFixture.doHighlighting(HighlightSeverity.ERROR).map { it.startOffset to it.description })
 
         for (operator in listOf(
-            "==", "!=", "&&", "||", "..", "@", "!", "^", "~~~", "|", "<-", "->", "\\\\", "|>", "=~", "<",
+            "+", "-", "++", "--", "<>", "==", "!=", "&&", "||", "..", "@", "!", "^", "~~~", "|", "<-", "->", "\\\\", "|>", "=~", "<",
             ">", "<=", ">=", "===", "!==", "&&&", "|||", "<<<", ">>>", "~>", "<~", "<~>", "<|>", "~>>", "<<~", "&",
-            "*", "=", "^^^", "...", "%", "%{}", "{}", "<<>>",
+            "*", "=", "^^^", "+++", "---", "...", "%", "%{}", "{}", "<<>>",
         )) {
             val source = "x.** $operator: 1"
             val expected = "**" to before("'${operator.replace("\\", "\\\\")}'")
@@ -219,7 +223,9 @@ class VersionedSyntaxTest : BasePlatformTestCase() {
             assertErrors(V1_12, source, "**" to before(token))
             assertNoErrors(V1_13, source)
         }
-        for (source in listOf("x.** ..// y", "x.** .. / y", "x.** .. // y")) {
+        assertEquals(listOf("**" to before("'..//'")), errors(V1_12, "x.** ..//: 1").filter { it.first == "**" })
+        assertEquals(emptyList<Pair<String, String?>>(), errors(V1_11, "x.** ..//: 1").filter { it.first == "**" })
+        for (source in listOf("x.** /: 1", "x.** ::: 1", "x.** =>: 1", "x.** ..// y", "x.** .. / y", "x.** .. // y", "x.** .. //: 1")) {
             for (dialect in listOf(V1_11, V1_12)) {
                 assertEquals("$source on $dialect", emptyList<String?>(), errors(dialect, source).filter { it.first == "**" }.map { it.second })
             }
@@ -472,18 +478,42 @@ class VersionedSyntaxTest : BasePlatformTestCase() {
             "x.f +: 1" to 6,
             "f +: 1, b: 2" to 4,
             "f  -: 1" to 5,
+            "x.\"f\" +: 1" to 8,
+            "x.\"f\" -: 1" to 8,
+            "x.'f' +: 1" to 8,
+            "x.\"f\"\t+: 1" to 8,
+            "x.\"f\"  +: 1" to 9,
+            "Kernel.\"f\" +: 1" to 13,
+            "[x.\"f\" +: 1]" to 9,
+            "x.and +: 1" to 8,
+            "x.+ +: 1" to 6,
+            "x.|| +: 1" to 7,
+            "x.! +: 1" to 6,
+            "x.nil +: 1" to 8,
+            "x.do +: 1" to 7,
+            "x.end +: 1" to 8,
+            "x.<> +: 1" to 7,
+            "x.@ +: 1" to 6,
         )) {
             assertErrors(V1_11, source, ":" to colon(column))
             assertNoErrors(V1_12, source)
         }
 
-        for (source in listOf("[+: 1]", "f(+: 1)", "%{+: 1}", "f a, +: 1", "f ++: 1", "f when: 1", "f \\\n+: 1")) {
+        for (source in listOf("[+: 1]", "f(+: 1)", "%{+: 1}", "f a, +: 1", "f ++: 1", "f when: 1", "f \\\n+: 1", "x.\"f\"+: 1", "x.\"f\" \\\n+: 1")) {
             assertNoErrors(V1_11, source)
         }
 
         assertEquals(
             emptyList<String?>(),
             errors(V1_11, "f\\\n +: 1").map { it.second }.filter { it?.startsWith("unexpected token") == true }
+        )
+        assertEquals(
+            emptyList<String?>(),
+            errors(V1_11, "x.\"f#{a}\" +: 1").map { it.second }.filter { it?.startsWith("unexpected token: \":\"") == true }
+        )
+        assertEquals(
+            emptyList<String?>(),
+            errors(V1_11, "x.% +: 1").map { it.second }.filter { it?.startsWith("unexpected token: \":\"") == true }
         )
     }
 

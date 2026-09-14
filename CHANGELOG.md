@@ -95,7 +95,7 @@
 ### Bug Fixes
 
 - [#4090](https://github.com/KronicDeth/intellij-elixir/pull/4090) [@sh41](https://github.com/sh41)
-  - **Words directly after a number now parse as Elixir reads them.**
+  - **Line continuations next to an operator, and words directly after a number, now parse as Elixir reads them.**
     Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
 
 - [#4084](https://github.com/KronicDeth/intellij-elixir/pull/4084) [@sh41](https://github.com/sh41)

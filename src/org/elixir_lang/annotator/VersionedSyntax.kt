@@ -323,11 +323,20 @@ internal class VersionedSyntax : Annotator, DumbAware {
 
     private fun isSignAfterCallName(key: PsiElement): Boolean {
         val previous = PsiTreeUtil.prevVisibleLeaf(key) ?: return false
-        if (previous.node.elementType != ElixirTypes.IDENTIFIER_TOKEN) return false
+        // Before 1.13 [power] reports the key after `x.**`, and Elixir reports `x.%` before the key.
+        if (previous.text == "**" || previous.text == "%") return false
+        if (previous.node.elementType != ElixirTypes.IDENTIFIER_TOKEN && !endsCallName(previous)) return false
 
         val between = key.containingFile.viewProvider.contents.subSequence(previous.textRange.endOffset, key.textRange.startOffset)
 
         return between.isNotEmpty() && between.all { it == ' ' || it == '\t' }
+    }
+
+    private fun endsCallName(leaf: PsiElement): Boolean {
+        val identifier = PsiTreeUtil.getParentOfType(leaf, ElixirRelativeIdentifier::class.java) ?: return false
+
+        return PsiTreeUtil.lastChild(identifier) == leaf &&
+            PsiTreeUtil.findChildOfType(identifier, ElixirInterpolation::class.java) == null
     }
 
     /**

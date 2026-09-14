@@ -161,8 +161,14 @@ object QuotableImpl {
         // `?dual_op(Sign), not(?is_space(NotMarker))`: a space before the sign and none after is what
         // makes the identifier a call rather than the operation's left operand. An escaped newline
         // straight after the identifier is not that space.
-        val beforeOperator = operator.prevSibling as? PsiWhiteSpace ?: return null
-        if (beforeOperator.text.first() != ' ' && beforeOperator.text.first() != '\t') return null
+        val beforeOperator = generateSequence(operator.prevSibling) { it.prevSibling }
+            .takeWhile { it is PsiWhiteSpace }
+            .toList()
+            .ifEmpty { return null }
+        val afterIdentifier = beforeOperator.last().text.first()
+        if (afterIdentifier != ' ' && afterIdentifier != '\t') return null
+        // Before 1.20 Elixir stops at a line continuation between that space and the sign.
+        if (beforeOperator.any { '\\' in it.text } && !dialectFor(operator).countsEscapedNewlineAsSpace) return null
         val afterOperator = operator.nextSibling?.takeUnless { it is PsiWhiteSpace } ?: return null
 
         // `NotMarker =/= Sign, NotMarker =/= $/, NotMarker =/= $>` - the three exclusions 1.17.0 kept.
@@ -208,7 +214,7 @@ object QuotableImpl {
                 metadata(notOperator),
                 quotedFunctionCall(
                         quotedInOperator,
-                        metadata(inOperator),
+                        metadata(if (dialectFor(notIn).putsInOfNotInOnItsOwnLine) inOperator else notOperator),
                         quotedLeftOperand,
                         quotedRightOperand
                 )

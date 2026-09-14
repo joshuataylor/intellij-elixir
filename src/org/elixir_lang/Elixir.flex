@@ -921,6 +921,9 @@ EOL_INSENSITIVE = {AND_SYMBOL_OPERATOR} |
 <ADDITION_OR_SUBTRACTION_MAYBE, ADDITION_OR_SUBTRACTION_OR_WHITE_SPACE_MAYBE,
  AFTER_RELATIVE_IDENTIFIER, AFTER_UNQUALIFIED_IDENTIFIER,
  CALL_MAYBE> {
+  // An operator keyword key, as in `f+: 1`, which the state before lexes.
+  {TWO_OPERATOR} / {COLON}{SPACE}                               { handleInLastState(); }
+  ({ADDITION_OPERATOR}|{SUBTRACTION_OPERATOR}) / {COLON}{SPACE} { handleInLastState(); }
   {TWO_OPERATOR}         { yybegin(MULTILINE_WHITE_SPACE_MAYBE);
                            return ElixirTypes.TWO_OPERATOR; }
   {ADDITION_OPERATOR}    { yybegin(MULTILINE_WHITE_SPACE_MAYBE);
