@@ -8,6 +8,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleUtil
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.psi.PsiCompiledElement
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiElementVisitor
 import com.intellij.psi.PsiFile
@@ -100,6 +101,9 @@ internal class Global : GlobalInspectionTool() {
         manager: InspectionManager,
         dialyzerWarnsByModule: Map<Module, MutableList<DialyzerWarn>>
     ): List<ProblemDescriptor> {
+        // The scope includes `.class` files in content, and a walking visitor logs an error on compiled PSI.
+        if (file is PsiCompiledElement) return emptyList()
+
         val problemsHolder = ProblemsHolder(manager, file, false)
 
         ModuleUtil.findModuleForFile(file)?.let { module ->
