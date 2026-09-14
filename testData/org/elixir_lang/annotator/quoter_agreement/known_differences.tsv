@@ -1,0 +1,21 @@
+# Sources whose annotator message differs from the Elixir under test's by design, as <hash>\t<Elixir versions>.
+# VersionedSyntax and InvalidConstruct give the message of the newest release that rejects a construct, so an older
+# release's own wording is listed here for that release.
+# `unexpected space between % and {`: before 1.15 Elixir reports only a syntax error whose position depends on what follows.
+cdcb336029b1f09b	1.11.4,1.12.3,1.13.4,1.14.5
+feda5d13deaeb283	1.11.4,1.12.3,1.13.4,1.14.5
+9080179298d82bb3	1.11.4,1.12.3,1.13.4,1.14.5
+9786bbcf7afaac84	1.11.4,1.12.3,1.13.4,1.14.5
+bf8eb6573aedcc32	1.11.4,1.12.3,1.13.4,1.14.5
+133033b8b8313a71	1.11.4,1.12.3,1.13.4,1.14.5
+f976fdca4eae874b	1.11.4,1.12.3,1.13.4,1.14.5
+# `&..//`, a line continuation and `/3`: 1.11 names the `/`, later releases the `.`.
+5bb2c4033861afd3	1.11.4
+# An invalid escape in a quoted call name: 1.18 raises a MatchError while unescaping it; the annotators give 1.19's message.
+851e00c785d7aa71	1.18.4
+dfba61893b0349e4	1.18.4
+0b33b4614b11a0a5	1.18.4
+4c8d2b64713e3453	1.18.4
+39b20b2901338d72	1.18.4
+80155a018aeb7ee4	1.18.4
+490fa799d9db8049	1.18.4
