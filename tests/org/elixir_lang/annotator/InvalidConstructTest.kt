@@ -170,6 +170,71 @@ class InvalidConstructTest : BasePlatformTestCase() {
         }
     }
 
+    fun testDivisionAtom() {
+        for (dialect in listOf(V1_11, V1_20)) {
+            for ((source, token) in listOf(
+                "://" to "",
+                "x = ://" to "",
+                "[://]" to "']'",
+                "{://}" to "'}'",
+                "(://)" to "')'",
+                "<<://>>" to "'>>'",
+                "[://, 1]" to "','",
+                "%{a: ://}" to "'}'",
+                "foo(://)" to "')'",
+                "\"#{://}\"" to "",
+                "[://\\\n]" to "']'",
+                "[:// # c\n]" to "']'",
+                "{:// # c\n}" to "'}'",
+                ":// # c\n" to "",
+                ":// # c" to "",
+                "[://\n]" to "']'",
+                "[://\\\n# c\n]" to "']'",
+                ":// # c \\\n" to "",
+            )) {
+                assertErrors(dialect, source, "//" to "syntax error before: $token")
+            }
+        }
+
+        for (dialect in listOf(V1_11, V1_20)) {
+            for (source in listOf("://\\\n", ":// \\\n", "x = ://\\\n", "://\\\n\\\n", "://\n\\\n", ":// # c\n\\\n")) {
+                assertErrors(dialect, source, "//" to "invalid escape \\ at end of file")
+            }
+        }
+
+        for (source in listOf("://\\", ":// \\")) {
+            assertTrue(source, ("//" to "invalid escape \\ at end of file") in errors(V1_20, source))
+        }
+
+        assertNoErrors(V1_20, ":/")
+        assertEquals(emptyList<Pair<String, String?>>(), errors(V1_20, ":// 1").filter { (text, _) -> text == "//" })
+    }
+
+    fun testOperatorReferenceRejectedOnEveryRelease() {
+        for (dialect in listOf(V1_11, V1_20)) {
+            for (source in listOf(
+                "&=>\\\n/2", "&=>/2", "&=> /2", "=>/2", "&(=>/2)", "[&=>\\\n/2]", "x = =>/2", "%{a => &=>/2}",
+            )) {
+                val errors = errors(dialect, source)
+                assertEquals("$source on $dialect: $errors", 1, errors.count { it == "=>" to "syntax error before: '=>'" })
+            }
+
+            for (source in listOf(
+                "&//\\\n/2", "&//\\\n /2", "&// \\\n/2", "//\\\n/2", "[&//\\\n/2]", "&//\\\n/1", "f(&//\\\n/2)",
+                "&//\\\n/2 |> f",
+            )) {
+                val errors = errors(dialect, source)
+                assertEquals("$source on $dialect: $errors", 1, errors.count { it == "/" to "syntax error before: '/'" })
+            }
+        }
+
+        // Elixir reads `=>` in a map as the association, and `//` after `(` or without a newline differs by release.
+        assertFalse(errors(V1_11, "%{a => /2}").any { (_, description) -> description == "syntax error before: '=>'" })
+        for (source in listOf("&(//\\\n/2)", "&///2", "&// /2")) {
+            assertFalse(source, errors(V1_11, source).any { (_, description) -> description == "syntax error before: '/'" })
+        }
+    }
+
     fun testQuotedRemoteCallNameIsNotUnescapedBefore1_18() {
         assertNoErrors(V1_11, "a.\"\\u{110000}\"()")
     }

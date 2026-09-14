@@ -1,0 +1,1362 @@
+{"hash":"838f8cc4c5647649","origin":"measured","source":"foo..(bar//bat)"}
+{"hash":"bfe35bd76a97ac1e","origin":"measured","source":"foo..bar baz//bat"}
+{"hash":"f8ddc973d8ab47b1","origin":"measured","source":"foo++bar//bat"}
+{"hash":"d896748f7bc89065","origin":"measured","source":"foo//bar"}
+{"hash":"7634784746f25c9e","origin":"measured","source":"1//2"}
+{"hash":"6dc96ef734189e69","origin":"measured","source":"(foo//bar)"}
+{"hash":"8012daaa3a618bb0","origin":"measured","source":"[foo//bar]"}
+{"hash":"4c7e5f05cf65ebaf","origin":"measured","source":"&foo//2"}
+{"hash":"c5d5b3403fd02084","origin":"measured","source":"def foo(a // b)"}
+{"hash":"46b99b0e38281612","origin":"measured","source":"a..b//c//d"}
+{"hash":"e87c8732f051e56b","origin":"measured","source":"a..b//c"}
+{"hash":"65cfdb005a9d9620","origin":"measured","source":"(a..b)//c"}
+{"hash":"92c2f9484ef362db","origin":"measured","source":"x = 1..2//3"}
+{"hash":"23e40b4cb3ddd48f","origin":"measured","source":"1..2 + 3//4"}
+{"hash":"3dbf110540c98c88","origin":"measured","source":"foo..bar++baz//bat"}
+{"hash":"f35d253ebd550085","origin":"measured","source":"(foo++bar)..baz//bat"}
+{"hash":"851e00c785d7aa71","origin":"measured","source":"a.'\\xg'"}
+{"hash":"dfba61893b0349e4","origin":"measured","source":"a.'\\ug'"}
+{"hash":"0b33b4614b11a0a5","origin":"measured","source":"a.'\\u{110000}'"}
+{"hash":"4c8d2b64713e3453","origin":"measured","source":"a.'\\u{D800}'"}
+{"hash":"39b20b2901338d72","origin":"measured","source":"a.\"\\xg\"()"}
+{"hash":"80155a018aeb7ee4","origin":"measured","source":"Foo.\"\\xg\"()"}
+{"hash":"abc162526adf603b","origin":"measured","source":"a.\"\\x41\"()"}
+{"hash":"bcb19c0fb954be8a","origin":"measured","source":"a.'\\q'"}
+{"hash":"a1441379ec9bbc14","origin":"measured","source":"\"\\xA\""}
+{"hash":"3ed6cac26e122267","origin":"measured","source":"\"\\x{41}\""}
+{"hash":"91fe5b4aaaf7d47e","origin":"measured","source":"'\\xA'"}
+{"hash":"3a4ec4ac88deb827","origin":"measured","source":":\"\\xA\""}
+{"hash":"a21095b81d16372c","origin":"measured","source":"~s(\\xA)"}
+{"hash":"5ec1f7e700f37c3d","origin":"measured","source":".."}
+{"hash":"59eb6ea47fb30dbe","origin":"measured","source":".. = right"}
+{"hash":"8f1743620b665e5c","origin":"measured","source":"left = .."}
+{"hash":"6b52799bb5a3523c","origin":"measured","source":"not .."}
+{"hash":"e6bcdab8b218719f","origin":"measured","source":"require(..)"}
+{"hash":"10948c2a559432e4","origin":"measured","source":"require (..)"}
+{"hash":"4805c49ca080cee3","origin":"measured","source":"require(.., bar)"}
+{"hash":"80d239d886d279d6","origin":"measured","source":"require (..), bar"}
+{"hash":"a6b2af313a5ff0c4","origin":"measured","source":"require(foo, ..)"}
+{"hash":"9b3feb03ea41989f","origin":"measured","source":"require foo, (..)"}
+{"hash":"50636660b4e30f3c","origin":"measured","source":"assert [.., :ok]"}
+{"hash":"24c56ef57c0a11a8","origin":"measured","source":"assert {.., :ok}"}
+{"hash":"81e81b3525f035f8","origin":"measured","source":"defmacro (..) do\n  :ok\nend"}
+{"hash":"cdb2d34cbcb07bcb","origin":"measured","source":"Range.range?(..)"}
+{"hash":"b00bdd7d4566ad22","origin":"measured","source":"Range.range? (..)"}
+{"hash":"97df619f6b5257d4","origin":"measured","source":"assert (..) == 0..-1//1"}
+{"hash":"f4c1760c9ac495a4","origin":"measured","source":"assert 0..-1//1 == (..)"}
+{"hash":"b271547045fc7eda","origin":"measured","source":"[..]"}
+{"hash":"afff624e017a7fd7","origin":"measured","source":"{..}"}
+{"hash":"decf954173fbd100","origin":"measured","source":"(..)"}
+{"hash":"b7dd725863e95d58","origin":"measured","source":"foo .."}
+{"hash":"b0bb61d36709f798","origin":"measured","source":"foo(..)"}
+{"hash":"6cac4bf2c83b5f38","origin":"measured","source":"x.."}
+{"hash":"8901738c97147077","origin":"measured","source":"..x"}
+{"hash":"dca681a32893f0fd","origin":"measured","source":".. + 1"}
+{"hash":"ff55a82696f1b1b8","origin":"measured","source":".. |> foo"}
+{"hash":"7ca53a1df6c79c24","origin":"measured","source":"[a: ..]"}
+{"hash":"e66f13ed41ab2f71","origin":"measured","source":"%{a: ..}"}
+{"hash":"f0bfcca58c448998","origin":"measured","source":"fn -> .. end"}
+{"hash":"fe01d5e4bc683898","origin":"measured","source":"..()"}
+{"hash":"f0654da8b094da2c","origin":"measured","source":"..//2"}
+{"hash":"b438dc2e13eaa8f2","origin":"measured","source":":.."}
+{"hash":"c39db519699cc49f","origin":"measured","source":"&../2"}
+{"hash":"ab5df625bc76dbd4","origin":"measured","source":"..."}
+{"hash":"65dfe99990606215","origin":"measured","source":"def ..(a, b), do: 1"}
+{"hash":"27c4753643400727","origin":"measured","source":"-(2**2)"}
+{"hash":"7d11ebb29c3677b4","origin":"measured","source":"-(2 ** 2)"}
+{"hash":"b6020daa0c314f5c","origin":"measured","source":"def -(2 ** 2)"}
+{"hash":"fd62b019137ddb8a","origin":"measured","source":"def (-(2 ** 2))"}
+{"hash":"c2a12020e6d116f8","origin":"measured","source":"2 ** 2"}
+{"hash":"b013d12e9eeb6985","origin":"measured","source":"2**2"}
+{"hash":"bf2eecc80b8d7d99","origin":"measured","source":"-(2)**2"}
+{"hash":"081666a6d4cfbd8f","origin":"measured","source":"+(2 ** 2)"}
+{"hash":"2e74fba8b1a5e226","origin":"measured","source":"!(2 ** 2)"}
+{"hash":"3dc4d2ae3ced5bab","origin":"measured","source":"-2 ** 2"}
+{"hash":"769e9649e2507ba9","origin":"measured","source":"-x ** 2"}
+{"hash":"381529733d08cc6c","origin":"measured","source":"(-2) ** 2"}
+{"hash":"025c9b6c760e8439","origin":"measured","source":"2 ** -2"}
+{"hash":"4a1d7cc433539d1d","origin":"measured","source":"2 * * 2"}
+{"hash":"21f7bd9ddb7fb379","origin":"measured","source":"-(2 * 2)"}
+{"hash":"3ab4058cfdecd9eb","origin":"measured","source":"&**/2"}
+{"hash":"6e6c824b91969e9d","origin":"measured","source":":**"}
+{"hash":"3b9c560e897f83cc","origin":"measured","source":"[**: 1]"}
+{"hash":"51d4ac91320d4c52","origin":"measured","source":"def a ** b, do: 1"}
+{"hash":"bdeb65f74a1ba1c2","origin":"measured","source":"2 ** 3 ** 4"}
+{"hash":"90cf54c6ca168412","origin":"measured","source":"~MAT()"}
+{"hash":"ae2c80ed53d77af0","origin":"measured","source":"~MAT{1,2,3}"}
+{"hash":"ab722bc4b9f52cc1","origin":"measured","source":"~UNKNOWN'abc'"}
+{"hash":"edfb7a3f82715d64","origin":"measured","source":"~UNKNOWN'foo bar'"}
+{"hash":"17f8e561895594e7","origin":"measured","source":"~A()"}
+{"hash":"9ba8f676cd55052a","origin":"measured","source":"~AB()"}
+{"hash":"dd1c785b62f202c3","origin":"measured","source":"~Ab()"}
+{"hash":"c0b0b38651b5201a","origin":"measured","source":"~aB()"}
+{"hash":"267d738787bce216","origin":"measured","source":"~ab()"}
+{"hash":"6e7cf644a19b1d4a","origin":"measured","source":"~A1()"}
+{"hash":"8656f92223ebf7cc","origin":"measured","source":"~AB1()"}
+{"hash":"d929e9d326d0d0b2","origin":"measured","source":"~A_B()"}
+{"hash":"c6740788adaf490d","origin":"measured","source":"~MAT(x)i"}
+{"hash":"c1e41e7469cc9234","origin":"measured","source":"~MAT\"x\""}
+{"hash":"b41a7b759840c720","origin":"measured","source":"~MAT\"\"\"\nx\n\"\"\""}
+{"hash":"60362653cbfed546","origin":"measured","source":"~MAT[a]"}
+{"hash":"826e9b6730506d9c","origin":"measured","source":"~MÁT()"}
+{"hash":"bcd12bb2f162b4f4","origin":"measured","source":"~r()"}
+{"hash":"240d0df31ff656ba","origin":"measured","source":"ç"}
+{"hash":"cea0cb99b1e75b2a","origin":"measured","source":"ç\n"}
+{"hash":"3af1f3dbbbf3a9d5","origin":"measured","source":"ç\\\n1"}
+{"hash":"fa8e0062d050df22","origin":"measured","source":"ç = 1; ç"}
+{"hash":"8bfa829b8119a6f3","origin":"measured","source":"ç"}
+{"hash":"64887a8106c48eac","origin":"measured","source":":ç"}
+{"hash":"c71cd254e71e3d11","origin":"measured","source":"[ç: 1]"}
+{"hash":"f44a1597023b1183","origin":"measured","source":"\"ç\""}
+{"hash":"7d85864fda74f0ef","origin":"measured","source":":\"ç\""}
+{"hash":"ae6710441435859a","origin":"measured","source":"é = 1"}
+{"hash":"0bdf2d641d6e88ac","origin":"measured","source":"x.ç"}
+{"hash":"2f4aaedf44e34868","origin":"measured","source":"ç()"}
+{"hash":"6cc11a3440815b02","origin":"measured","source":"çç"}
+{"hash":"3e308df10330d047","origin":"measured","source":"x̧"}
+{"hash":"e6c317d2384d0603","origin":"measured","source":"̧"}
+{"hash":"21e6f91a97090ee3","origin":"measured","source":"ç?"}
+{"hash":"98a2097d18e0fbdd","origin":"measured","source":"Ç"}
+{"hash":"4b65a7b8adc2cf6e","origin":"measured","source":"Ç"}
+{"hash":"66f85c0c2f5c1394","origin":"measured","source":"&+\\\n/2"}
+{"hash":"978f2da29a06bce8","origin":"measured","source":"&/\\\n/2"}
+{"hash":"38eb2c0f6a53ed38","origin":"measured","source":"&or\\\n/2"}
+{"hash":"5bb2c4033861afd3","origin":"measured","source":"&..//\\\n/3"}
+{"hash":"b6a820138cdb1a33","origin":"measured","source":"&+/2"}
+{"hash":"922f184daa69902f","origin":"measured","source":"&+ /2"}
+{"hash":"dc7d8279a74c189a","origin":"measured","source":"&+\\\n /2"}
+{"hash":"0e9164ad73848212","origin":"measured","source":"&+ \\\n/2"}
+{"hash":"1a03c69c79f8b50d","origin":"measured","source":"&+/\\\n2"}
+{"hash":"8218414ba04eea5c","origin":"measured","source":"&\\\n+/2"}
+{"hash":"a907d0aeaff19d4a","origin":"measured","source":"&(+\\\n/2)"}
+{"hash":"4b84a161143dc75e","origin":"measured","source":"&foo\\\n/2"}
+{"hash":"f7eb7df5f30eccd0","origin":"measured","source":"&Foo.bar\\\n/2"}
+{"hash":"adae31d3cab25ede","origin":"measured","source":"&and\\\n/2"}
+{"hash":"8f5a666b03f6267d","origin":"measured","source":"&!\\\n/1"}
+{"hash":"58cc7ae1217243ff","origin":"measured","source":"&..\\\n/0"}
+{"hash":"814d27e986d4a8df","origin":"measured","source":"&-\\\n/1"}
+{"hash":"870f5aa268772c43","origin":"measured","source":"x +\\\n 1"}
+{"hash":"4bc8ebaa17ca5bca","origin":"measured","source":"+\\\n/2"}
+{"hash":"d74a8619f7748d33","origin":"measured","source":"%{:a}"}
+{"hash":"78878ccaa11cd0f4","origin":"measured","source":"%{{:a, :b}}"}
+{"hash":"f8a65634f05d8a79","origin":"measured","source":"%{+foo, bar => bat, ...baz}"}
+{"hash":"db5293024ac236a6","origin":"measured","source":"%{a}"}
+{"hash":"db6ac8d60bbb4983","origin":"measured","source":"%{1}"}
+{"hash":"d1dae827f9b82e89","origin":"measured","source":"%{\"a\"}"}
+{"hash":"b7fe3f8754dc4d6e","origin":"measured","source":"%{a, b}"}
+{"hash":"f5c65260344acd84","origin":"measured","source":"%{:a, b: 1}"}
+{"hash":"4e065697961968ec","origin":"measured","source":"%{a => 1, :b}"}
+{"hash":"b80dd4fe97f8c2c8","origin":"measured","source":"%{foo()}"}
+{"hash":"880a02de26bcc523","origin":"measured","source":"%{^a}"}
+{"hash":"d7f446363ae0d7e8","origin":"measured","source":"%{@a}"}
+{"hash":"262b3ad692752dd6","origin":"measured","source":"%{...}"}
+{"hash":"7902ff29d74d09ef","origin":"measured","source":"%{...a}"}
+{"hash":"26d5429bce991a74","origin":"measured","source":"%Foo{:a}"}
+{"hash":"427f25eb7eef4836","origin":"measured","source":"%{m | :a}"}
+{"hash":"b8de0c4b65690cfb","origin":"measured","source":"%{a | b}"}
+{"hash":"6875a8978ad0c6f1","origin":"measured","source":"%{a: 1}"}
+{"hash":"12f21b64efa93272","origin":"measured","source":"%{m | a: 1}"}
+{"hash":"8c289bb14c453cf2","origin":"measured","source":"f +: :ok"}
+{"hash":"f2ed1f946f565e1c","origin":"measured","source":"f +:\n:ok"}
+{"hash":"efb4b1d547757ffa","origin":"measured","source":"f -: 1"}
+{"hash":"14de831baa3f36fc","origin":"measured","source":"f +:1"}
+{"hash":"274f94724ad9d0af","origin":"measured","source":"[+: 1]"}
+{"hash":"25658a1bc52f2db1","origin":"measured","source":"f(+: 1)"}
+{"hash":"166dffacef6a63f3","origin":"measured","source":"%{+: 1}"}
+{"hash":"9b6b8f0e8356500b","origin":"measured","source":"f ++: 1"}
+{"hash":"6263a9d1569a4c0e","origin":"measured","source":"f when: 1"}
+{"hash":"00d6e19fe5c732fc","origin":"measured","source":"f and: 1"}
+{"hash":"cea725de38936cbf","origin":"measured","source":"f not: 1"}
+{"hash":"ef4f530e1e4de4ef","origin":"measured","source":"f ..: 1"}
+{"hash":"b7d3079bcdba8c32","origin":"measured","source":"f !: 1"}
+{"hash":"68f93b86be662568","origin":"measured","source":"f ^: 1"}
+{"hash":"afdbd3ed6652a842","origin":"measured","source":"f &: 1"}
+{"hash":"c160ef01be2c7799","origin":"measured","source":"f @: 1"}
+{"hash":"734e247771aad056","origin":"measured","source":"f |>: 1"}
+{"hash":"05b33c436d00e0ee","origin":"measured","source":"f *: 1"}
+{"hash":"d6771d37c3b37665","origin":"measured","source":"f a, +: 1"}
+{"hash":"b17930fb6614fedd","origin":"measured","source":"[.: :.]"}
+{"hash":"b654b71bc7a2578b","origin":"measured","source":"[.: 1]"}
+{"hash":"8b20e9e1f1ba9386","origin":"measured","source":":."}
+{"hash":"4853853b330c3db7","origin":"measured","source":"f .: 1"}
+{"hash":"6124c5522c25ef4f","origin":"measured","source":"f(.: 1)"}
+{"hash":"58876d838c626b06","origin":"measured","source":"%{.: 1}"}
+{"hash":"3edaf245fcaca34a","origin":"measured","source":"[a: :.]"}
+{"hash":"29b0e09aeadf737c","origin":"measured","source":"[.:1]"}
+{"hash":"e596d0ac279f7d9a","origin":"measured","source":"[..: 1]"}
+{"hash":"12a026bc4304ac36","origin":"measured","source":"[...: 1]"}
+{"hash":"17c657d0db3f79f1","origin":"measured","source":"[..//: 1]"}
+{"hash":"09bcac09b6e0a6a3","origin":"measured","source":"[<>: 1]"}
+{"hash":"52620ec50e7f1b33","origin":"measured","source":"[::: 1]"}
+{"hash":"78a2e693309ba257","origin":"measured","source":":..."}
+{"hash":"2f2af6ed910f525e","origin":"measured","source":":..//"}
+{"hash":"4791f0ff0c5bd61b","origin":"measured","source":":\"..//\""}
+{"hash":"8ab21b2eaf25c649","origin":"measured","source":"[:..//]"}
+{"hash":"5ad5e63a5c2a0ca8","origin":"measured","source":":..//x"}
+{"hash":"b3b5fd4db73112e3","origin":"measured","source":":..///"}
+{"hash":"5a5e2bae0f508e87","origin":"measured","source":"://"}
+{"hash":"d9b9149d90aa64ad","origin":"measured","source":":/"}
+{"hash":"ae902767c0a4d1a8","origin":"measured","source":"&..///3"}
+{"hash":"9e8c4681a888b38c","origin":"measured","source":"..//"}
+{"hash":"4f75bf91f8f2851a","origin":"measured","source":"Kernel...//(1, 2, 3)"}
+{"hash":"4f461eb05811ac0b","origin":"measured","source":"<<if true do\n    \"hello\"\n  end::binary>>\n"}
+{"hash":"777401933b91acc6","origin":"measured","source":"<<if true do \"a\" end::binary>>"}
+{"hash":"c0a5b05a36a4eea8","origin":"measured","source":"<<if true do \"a\" else \"b\" end::binary>>"}
+{"hash":"31bbf40fabbad1e0","origin":"measured","source":"<<case x do\n_ -> \"a\"\nend::binary>>"}
+{"hash":"065780ba3532a54c","origin":"measured","source":"<<foo do end::binary>>"}
+{"hash":"076b7745733abcdb","origin":"measured","source":"<<(if true do \"a\" end)::binary>>"}
+{"hash":"45b0a3dd0eccbd7c","origin":"measured","source":"<<fn -> 1 end::binary>>"}
+{"hash":"440cf50b05325cfa","origin":"measured","source":"if true do 1 end::integer"}
+{"hash":"1759aa10b0546953","origin":"measured","source":"x = if true do 1 end::integer"}
+{"hash":"716cc66b9c77a97f","origin":"measured","source":"<<x::binary>>"}
+{"hash":"ddc99984c290d8df","origin":"measured","source":"true::integer"}
+{"hash":"e3882a2173a6ea2b","origin":"measured","source":"<<true::1>>"}
+{"hash":"d181cd270890e0f4","origin":"measured","source":"nil::x"}
+{"hash":"c44ba3792649e621","origin":"measured","source":"when::x"}
+{"hash":"18051b9c8d64ec85","origin":"measured","source":"do::x"}
+{"hash":"09e57ff81f264064","origin":"measured","source":"x in::y"}
+{"hash":"f8864c6c13871a58","origin":"measured","source":"foo do end :: binary"}
+{"hash":"cf20677a309adf12","origin":"measured","source":"[end: 1]"}
+{"hash":"94cf2d9d12c88098","origin":"measured","source":"@/1"}
+{"hash":"10b2ee5ab16c8e2c","origin":"measured","source":"&@/1"}
+{"hash":"a4907ca02b988f03","origin":"measured","source":"@ /1"}
+{"hash":"398a34f762a42059","origin":"measured","source":"@/2"}
+{"hash":"951fa9385c8c744a","origin":"measured","source":"foo(@/1)"}
+{"hash":"ba3a6bb43682bfad","origin":"measured","source":"+/1"}
+{"hash":"9184231931cb1782","origin":"measured","source":"!/1"}
+{"hash":"efc6231c94861978","origin":"measured","source":"^/1"}
+{"hash":"92de8125a1c89608","origin":"measured","source":"&/1"}
+{"hash":"c09cfb3c84861f14","origin":"measured","source":"not/1"}
+{"hash":"dbccbcef9b1423b6","origin":"measured","source":".../1"}
+{"hash":"afecbdea3a1df922","origin":"measured","source":"when/2"}
+{"hash":"8143af19d41bd505","origin":"measured","source":"@foo/1"}
+{"hash":"d0f09e73e71c4c85","origin":"measured","source":":@"}
+{"hash":"f31a986869f097dd","origin":"measured","source":"[@: 1]"}
+{"hash":"818d248b858bc5fc","origin":"measured","source":"if .. do end"}
+{"hash":"71473eb7ef241155","origin":"measured","source":"x = ..\n"}
+{"hash":"9e3b2374fe08b440","origin":"measured","source":"Kernel.**(2, 2)"}
+{"hash":"dbf9d48ee2fea74f","origin":"measured","source":"~a1()"}
+{"hash":"6db3e5bf28c34f78","origin":"measured","source":"&+\\"}
+{"hash":"30dafd867b7fc256","origin":"measured","source":"f -\\\nvar"}
+{"hash":"51febf40a5404705","origin":"measured","source":"%{foo bar}"}
+{"hash":"cec39d51d7a31f75","origin":"measured","source":"%{foo bar, baz}"}
+{"hash":"309a46ba35d56eaf","origin":"measured","source":"%{a + b}"}
+{"hash":"8d22dac15e74866d","origin":"measured","source":"%{a = b}"}
+{"hash":"d2de2029fc5745de","origin":"measured","source":"%{x.y}"}
+{"hash":"87271dfba4bd8464","origin":"measured","source":"%{-1}"}
+{"hash":"4776839734b9f641","origin":"measured","source":"%{&a}"}
+{"hash":"24891bceca3400ff","origin":"measured","source":"%{not a}"}
+{"hash":"d80e36faeff88aa9","origin":"measured","source":"%{[1]}"}
+{"hash":"833d7e136e052cb5","origin":"measured","source":"%{..}"}
+{"hash":"1cb38564cdcc136f","origin":"measured","source":"...a"}
+{"hash":"b9e138b25785866d","origin":"measured","source":"false::x"}
+{"hash":"1ea280b11f8a7e70","origin":"measured","source":"[if true do 1 end::x]"}
+{"hash":"774af4d0dab3d9af","origin":"measured","source":"{if true do 1 end::x}"}
+{"hash":"156dd70b1ac0c582","origin":"measured","source":"foo(if true do 1 end::x)"}
+{"hash":"f053675f2fa5e229","origin":"measured","source":"%{a: if true do 1 end::x}"}
+{"hash":"d023cd218136d624","origin":"measured","source":"if true do\n1\nend::x"}
+{"hash":"6fc00ce05d94a741","origin":"measured","source":"x = fn -> 1 end::integer"}
+{"hash":"ed3bc134acf54f15","origin":"measured","source":"if true do 1 end :: integer"}
+{"hash":"100536b861c78622","origin":"measured","source":"<<if true do \"a\" end :: binary>>"}
+{"hash":"5436b7ad9b487a1a","origin":"measured","source":"-/1"}
+{"hash":"7922afa23ea6a728","origin":"measured","source":"~~~/1"}
+{"hash":"d04c8082abcff156","origin":"measured","source":"@/1 + 1"}
+{"hash":"cfa2ce8da6d46ad2","origin":"measured","source":"[+/1]"}
+{"hash":"986828aca7a40fce","origin":"measured","source":"foo.\"➡️\"()"}
+{"hash":"be4a0690c86809bd","origin":"measured","source":":foo.\"é\"()"}
+{"hash":"9a9d2aa041ea469d","origin":"measured","source":":foo.'บู'()"}
+{"hash":"26444a4839f98f64","origin":"measured","source":":foo.\"บู\""}
+{"hash":"9647656ffd1e8e94","origin":"measured","source":":foo.\"a\nb\"()"}
+{"hash":"a43ae113e4941f78","origin":"measured","source":"Foo.\"บู\"()"}
+{"hash":"20dd14fc6088a941","origin":"measured","source":":\"บู\""}
+{"hash":"378a5e0d1d7a677c","origin":"measured","source":"[\"บู\": 1]"}
+{"hash":"6f701f8513bd06ce","origin":"measured","source":":///"}
+{"hash":"ca23484daac645d4","origin":"measured","source":"x ** y"}
+{"hash":"983987033f0e1170","origin":"measured","source":"**"}
+{"hash":"48d351a10761430b","origin":"measured","source":"\"**\""}
+{"hash":"7e2eec8b0d01d728","origin":"measured","source":"%{a, :b}"}
+{"hash":"3481d2267ffca766","origin":"measured","source":"%{x.y, 1}"}
+{"hash":"58cb9192fcdb0731","origin":"measured","source":"%{foo(), :a}"}
+{"hash":"46196f562675df47","origin":"measured","source":"%{m | a, :b}"}
+{"hash":"854e6a81439a3f31","origin":"measured","source":"%{-a}"}
+{"hash":"bed6e6d762290674","origin":"measured","source":"%{!a}"}
+{"hash":"2750084ba51984ce","origin":"measured","source":"%{~~~a}"}
+{"hash":"74d69cd78c8c375a","origin":"measured","source":"%{..., :a}"}
+{"hash":"c15f3e8504a214dc","origin":"measured","source":"%{@a, 1}"}
+{"hash":"da5e036f67f3262e","origin":"measured","source":"a.\"\\xA\"()"}
+{"hash":"8ef5f7073a41d3a6","origin":"measured","source":"a.\"\\x{41}\"()"}
+{"hash":"a34a6817addc80ab","origin":"measured","source":"?\\xA"}
+{"hash":"3d5aa3e95d8478f4","origin":"measured","source":"\"\\xFF\""}
+{"hash":"09e90a968454729f","origin":"measured","source":"~S(\\xA)"}
+{"hash":"81889dcafff8fbdf","origin":"measured","source":"x.f +: 1"}
+{"hash":"4979c5e736d7c330","origin":"measured","source":"f +: 1, b: 2"}
+{"hash":"69e4d08861fbc942","origin":"measured","source":"f  -: 1"}
+{"hash":"8940be03dc0e90c7","origin":"measured","source":"Kernel.** 2, 2"}
+{"hash":"111a185a327759bf","origin":"measured","source":"x.**"}
+{"hash":"b103ab190d582f74","origin":"measured","source":"&(@/1)"}
+{"hash":"880ea9ba9cbe3d60","origin":"measured","source":"&(+/1)"}
+{"hash":"ed28a765a0788ef2","origin":"measured","source":"x = @/1"}
+{"hash":"b68f675825ee0be4","origin":"measured","source":"&*\\\n/2"}
+{"hash":"ea0c79cedd6e7a13","origin":"measured","source":"&not\\\n/1"}
+{"hash":"19d490e8db35fa96","origin":"measured","source":"&when\\\n/2"}
+{"hash":"1244d03a65e5f847","origin":"measured","source":"&..\\\n/2"}
+{"hash":"9f3732ac5dc28c91","origin":"measured","source":"[://]"}
+{"hash":"0c9e4e2db6852cc3","origin":"measured","source":"foo do end::x"}
+{"hash":"9234856a5c0ef5a2","origin":"measured","source":"%{a, b, :c}"}
+{"hash":"0f599b33b6a6d350","origin":"measured","source":"%{foo bar, :c}"}
+{"hash":"a70227acfef63851","origin":"measured","source":"x = ~MAT()"}
+{"hash":"010af5ee70c75ec5","origin":"measured","source":"x = ~A1()"}
+{"hash":"fc51c65fb584235b","origin":"measured","source":"x = [.: 1]"}
+{"hash":"a0334b10132e0af2","origin":"measured","source":"{://}"}
+{"hash":"b754e193acc71bcd","origin":"measured","source":"(://)"}
+{"hash":"554b4fb10c2d6f47","origin":"measured","source":"<<://>>"}
+{"hash":"c44b9db872386d14","origin":"measured","source":"[://, 1]"}
+{"hash":"647be88e4eb68a33","origin":"measured","source":":// 1"}
+{"hash":"2956d8a95230942d","origin":"measured","source":"x = ://"}
+{"hash":"8e0572facbd9a21a","origin":"measured","source":"%{a: ://}"}
+{"hash":"352f4749815aa3d5","origin":"measured","source":"foo(://)"}
+{"hash":"70c1c65502fc99db","origin":"measured","source":"Kernel.** 2"}
+{"hash":"c4b8ddef47e3e2c5","origin":"measured","source":"x.** + 1"}
+{"hash":"ac06dce4bc48811b","origin":"measured","source":"x.**()"}
+{"hash":"43792ca20856e796","origin":"measured","source":"x.**(1)"}
+{"hash":"d0788625165f1313","origin":"measured","source":"Kernel.**(2)"}
+{"hash":"af04401101273b64","origin":"measured","source":"x.**\n1"}
+{"hash":"722945775a9057bd","origin":"measured","source":"%{x.()}"}
+{"hash":"86c2a9268791b3b9","origin":"measured","source":"%{foo.bar.()}"}
+{"hash":"4cdd9c0f4ed251b2","origin":"measured","source":"%{:a\n}"}
+{"hash":"d97898fb818e0038","origin":"measured","source":"%{:a # c\n}"}
+{"hash":"339b9a9d3770f4d7","origin":"measured","source":"&+/1 |> foo"}
+{"hash":"e5949e7768b9c0f5","origin":"measured","source":"&+/1 + 1"}
+{"hash":"1e861e74557e20fb","origin":"measured","source":"&-/1 == x"}
+{"hash":"197b96c7e3f52a6e","origin":"measured","source":"&@/1 |> foo"}
+{"hash":"179cd395d79b74ef","origin":"measured","source":"& +/1"}
+{"hash":"78c2661d1ff65229","origin":"measured","source":"&<<>>\\\n/1"}
+{"hash":"ade2c45f551cd18a","origin":"measured","source":"&{}\\\n/1"}
+{"hash":"c1850f8cce90f29e","origin":"measured","source":"&%{}\\\n/1"}
+{"hash":"9d8e2a8546bd6908","origin":"measured","source":"&%\\\n/2"}
+{"hash":"c4d46ab08ba15e72","origin":"measured","source":"f \\\n+: 1"}
+{"hash":"abeb76c9443c09ea","origin":"measured","source":"f\\\n +: 1"}
+{"hash":"c2f9a35d58d639d8","origin":"measured","source":"if a do\n  if b do\n    1\n  end::x\nend"}
+{"hash":"3c44f1b8171da954","origin":"measured","source":"[foo do\nbar do\n1\nend::x\nend]"}
+{"hash":"2a89d54160fc0702","origin":"measured","source":"\"#{if a do 1 end::x}\""}
+{"hash":"9da35fb3e34e1051","origin":"measured","source":"\"#{://}\""}
+{"hash":"ca85e3153dedd74a","origin":"measured","source":"0xFin x"}
+{"hash":"fc68cb3a9debf97a","origin":"measured","source":"0b1and@x"}
+{"hash":"7b1c3b944b9e6eeb","origin":"measured","source":"0b1do: 1"}
+{"hash":"f300db16ec08832b","origin":"measured","source":"1andé 2"}
+{"hash":"7cf45ae59b33a45a","origin":"measured","source":"0b1not\tin x"}
+{"hash":"08e1b1aa2c93a08b","origin":"measured","source":"0b1not\\\nin x"}
+{"hash":"debaf94ccf552568","origin":"measured","source":"x not\\\nin y"}
+{"hash":"772e08685d44ade6","origin":"measured","source":"x not \\\nin y"}
+{"hash":"734d5035da4acda3","origin":"measured","source":"x not\\\n in y"}
+{"hash":"95777c8ebcf8c091","origin":"measured","source":"x not \\\n in y"}
+{"hash":"a698a4f08d92c8b9","origin":"measured","source":"x not in\\\ny"}
+{"hash":"4b645d516126707d","origin":"measured","source":"x\\\nnot in y"}
+{"hash":"e91da96841d80eb0","origin":"measured","source":"not\\\nx"}
+{"hash":"6f2769cb59eaed2f","origin":"measured","source":"x in\\\ny"}
+{"hash":"d7a78c77bc4e8622","origin":"measured","source":"x\\\nin y"}
+{"hash":"d6e8a9cc740c9030","origin":"measured","source":"x not\\\n\\\nin y"}
+{"hash":"c2ab4ed8a0fabd01","origin":"measured","source":"x and\\\ny"}
+{"hash":"6e9aa5b9a4a7dabb","origin":"measured","source":"x\\\nand y"}
+{"hash":"f05dc8be4add86a9","origin":"measured","source":"x and \\\n y"}
+{"hash":"718c56fcb47a8336","origin":"measured","source":"x\\\n and\\\n y"}
+{"hash":"dd86ebdc18905f5c","origin":"measured","source":"x or\\\ny"}
+{"hash":"6664bc6194b3aa88","origin":"measured","source":"x\\\nor y"}
+{"hash":"894e029d8fb26d56","origin":"measured","source":"x or \\\n y"}
+{"hash":"fd51579e760cd4f4","origin":"measured","source":"x\\\n or\\\n y"}
+{"hash":"0b5327aa750a5332","origin":"measured","source":"x when\\\ny"}
+{"hash":"f4d41589141cc00c","origin":"measured","source":"x\\\nwhen y"}
+{"hash":"2210cdda65a1d96b","origin":"measured","source":"x when \\\n y"}
+{"hash":"2d2e23a418321314","origin":"measured","source":"x\\\n when\\\n y"}
+{"hash":"f991bc3e44fd7987","origin":"measured","source":"x +\\\ny"}
+{"hash":"9c0149c640414245","origin":"measured","source":"x\\\n+ y"}
+{"hash":"6d7d073cee2f28b8","origin":"measured","source":"x + \\\n y"}
+{"hash":"1f9f776ad30ef209","origin":"measured","source":"x\\\n +\\\n y"}
+{"hash":"f70d68dd24fae00b","origin":"measured","source":"x -\\\ny"}
+{"hash":"2e483db3ddc13e38","origin":"measured","source":"x\\\n- y"}
+{"hash":"8456f904d4021e45","origin":"measured","source":"x - \\\n y"}
+{"hash":"a4853b6417fb5e28","origin":"measured","source":"x\\\n -\\\n y"}
+{"hash":"bc3993f4c36619c1","origin":"measured","source":"x *\\\ny"}
+{"hash":"4b1a2232cf309145","origin":"measured","source":"x\\\n* y"}
+{"hash":"06710b8bc08b4a22","origin":"measured","source":"x * \\\n y"}
+{"hash":"47ee6129a0ed1f7a","origin":"measured","source":"x\\\n *\\\n y"}
+{"hash":"cfab72475f3361d7","origin":"measured","source":"x /\\\ny"}
+{"hash":"4e0cf10c2ac9ea6f","origin":"measured","source":"x\\\n/ y"}
+{"hash":"b568ef16a103a6d8","origin":"measured","source":"x / \\\n y"}
+{"hash":"030f182c433b06b0","origin":"measured","source":"x\\\n /\\\n y"}
+{"hash":"f5099addf1f986dd","origin":"measured","source":"x ==\\\ny"}
+{"hash":"3d2dc19e90702c0c","origin":"measured","source":"x\\\n== y"}
+{"hash":"0227898b65596069","origin":"measured","source":"x == \\\n y"}
+{"hash":"82b82da64223facb","origin":"measured","source":"x\\\n ==\\\n y"}
+{"hash":"d55fce6099a865b9","origin":"measured","source":"x |>\\\ny"}
+{"hash":"bf7b38482046cfc2","origin":"measured","source":"x\\\n|> y"}
+{"hash":"c52cde148a2adf0a","origin":"measured","source":"x |> \\\n y"}
+{"hash":"2b69a7d494a4455f","origin":"measured","source":"x\\\n |>\\\n y"}
+{"hash":"c136722f207c9dd3","origin":"measured","source":"x <>\\\ny"}
+{"hash":"59f730296141722d","origin":"measured","source":"x\\\n<> y"}
+{"hash":"1b3aad5b488e9491","origin":"measured","source":"x <> \\\n y"}
+{"hash":"3d43e673345985c9","origin":"measured","source":"x\\\n <>\\\n y"}
+{"hash":"0cef5ff5973accb5","origin":"measured","source":"x ++\\\ny"}
+{"hash":"0700621a40e79efc","origin":"measured","source":"x\\\n++ y"}
+{"hash":"11e326ba809a7a1b","origin":"measured","source":"x ++ \\\n y"}
+{"hash":"f6c69a91d08de40a","origin":"measured","source":"x\\\n ++\\\n y"}
+{"hash":"d3bb265ca69692f0","origin":"measured","source":"x ..\\\ny"}
+{"hash":"f39429aeba181a6a","origin":"measured","source":"x\\\n.. y"}
+{"hash":"dad921c99a602bfe","origin":"measured","source":"x .. \\\n y"}
+{"hash":"5f4cc13ea5b1ef19","origin":"measured","source":"x\\\n ..\\\n y"}
+{"hash":"f80070421820d528","origin":"measured","source":"x ::\\\ny"}
+{"hash":"0847dad0bb47f18a","origin":"measured","source":"x\\\n:: y"}
+{"hash":"a6b70f836080485c","origin":"measured","source":"x :: \\\n y"}
+{"hash":"dfe48eaf79ac218f","origin":"measured","source":"x\\\n ::\\\n y"}
+{"hash":"188d1c58f5d0f421","origin":"measured","source":"x =\\\ny"}
+{"hash":"8e29cd6676731cb6","origin":"measured","source":"x\\\n= y"}
+{"hash":"2c038adbe9aaabd6","origin":"measured","source":"x = \\\n y"}
+{"hash":"c870d3d5c9c67648","origin":"measured","source":"x\\\n =\\\n y"}
+{"hash":"fc22df4c1137991e","origin":"measured","source":"x <-\\\ny"}
+{"hash":"52144f40c00a778d","origin":"measured","source":"x\\\n<- y"}
+{"hash":"a8883065ed4ceeb5","origin":"measured","source":"x <- \\\n y"}
+{"hash":"44c18bcdc1f3f803","origin":"measured","source":"x\\\n <-\\\n y"}
+{"hash":"14af24d90c6bbae8","origin":"measured","source":"x |\\\ny"}
+{"hash":"0c765aaff49883d5","origin":"measured","source":"x\\\n| y"}
+{"hash":"09f291cee030e412","origin":"measured","source":"x | \\\n y"}
+{"hash":"9e48321a744ba6e1","origin":"measured","source":"x\\\n |\\\n y"}
+{"hash":"714725c4a6ee4875","origin":"measured","source":"%{x =>\\\ny}"}
+{"hash":"d39c06c9c3d49f5d","origin":"measured","source":"%{x\\\n=> y}"}
+{"hash":"37c1da4700988914","origin":"measured","source":"f\\\n a: 1"}
+{"hash":"1c888c82c65f302d","origin":"measured","source":"f\\\n 1"}
+{"hash":"2e41746556f3b92e","origin":"measured","source":"f\\\n +1"}
+{"hash":"0120eab02258ecef","origin":"measured","source":"f\\\n -1"}
+{"hash":"f8d2fd1f998b8da7","origin":"measured","source":"f\\\n [1]"}
+{"hash":"93a2d97b034a296f","origin":"measured","source":"f\\\n -: 1"}
+{"hash":"7d37681c65fd0c01","origin":"measured","source":"f\\\n ++: 1"}
+{"hash":"039208dee05442e5","origin":"measured","source":"f\\\n :a"}
+{"hash":"4e10e67827713afc","origin":"measured","source":"f\\\n \"a\""}
+{"hash":"b294384debd29d4f","origin":"measured","source":"f\\\n a, b"}
+{"hash":"8d8a8dd35f7bf4c6","origin":"measured","source":"f \\\n a: 1"}
+{"hash":"afe53a7585b27098","origin":"measured","source":"f\\\na: 1"}
+{"hash":"f454e5629eb289d3","origin":"measured","source":"x.f\\\n +: 1"}
+{"hash":"c34e40541c6126f9","origin":"measured","source":"f\\\n do: 1"}
+{"hash":"ec9306286061ef78","origin":"measured","source":"f\\\n +a"}
+{"hash":"839b2f3814e11218","origin":"measured","source":"f\\\n+: 1"}
+{"hash":"96e9c90451f52e72","origin":"measured","source":"f\\\n !a"}
+{"hash":"bc104e1fff697289","origin":"measured","source":"f\\\n &a/1"}
+{"hash":"13f36d3f98bdb60f","origin":"measured","source":"f \\\n+1"}
+{"hash":"d330fb12b1aeb8dc","origin":"measured","source":"f \\\n +1"}
+{"hash":"3730209bf1d9ae66","origin":"measured","source":"f \\\n+a"}
+{"hash":"1d2bc137592bbd26","origin":"measured","source":"f \\\n-1"}
+{"hash":"e627b2fca2ef2c4b","origin":"measured","source":"x.f\\\n +1"}
+{"hash":"34b39d80778e8cc4","origin":"measured","source":"f \\\n++: 1"}
+{"hash":"f2206075b822ad5f","origin":"measured","source":"f\\\n ++ a"}
+{"hash":"5ffa3be6b9cbecab","origin":"measured","source":"f\\\n <>: 1"}
+{"hash":"7d0b5daf91d4ad99","origin":"measured","source":"f+: 1"}
+{"hash":"ec4041a3aa0da36c","origin":"measured","source":"f++: 1"}
+{"hash":"c610d3fc0b5eb595","origin":"measured","source":"f-: 1"}
+{"hash":"39565bc30f48688a","origin":"measured","source":"x.f+: 1"}
+{"hash":"2c6b3b839e59456a","origin":"measured","source":":a +: 1"}
+{"hash":"4ad53cd937c06056","origin":"measured","source":":a+: 1"}
+{"hash":"8b1341669851b08f","origin":"measured","source":"1+: 2"}
+{"hash":"9b03ea221c5ed213","origin":"measured","source":"1 +: 2"}
+{"hash":"3be13a79290e4b6e","origin":"measured","source":"\"a\" +: 1"}
+{"hash":"f95ae03c5484e114","origin":"measured","source":"f.() +: 1"}
+{"hash":"f0737fec7b4e0a4f","origin":"measured","source":"f +: 1"}
+{"hash":"3e71b5a3e8c6be74","origin":"measured","source":"[f+: 1]"}
+{"hash":"1fdc6413d44ad04c","origin":"measured","source":"f<>: 1"}
+{"hash":"2a16ec6bc7612ca0","origin":"measured","source":"&**\\\n/2"}
+{"hash":"2aab255926d6648d","origin":"measured","source":"%{:a\\\n}"}
+{"hash":"4fcf811ca5a5e371","origin":"measured","source":"%{:a \\\n}"}
+{"hash":"8087f8b46c2967b8","origin":"measured","source":"x[if true do 1 end::x]"}
+{"hash":"84497bcf12f9879f","origin":"measured","source":"x.**(a: 1)"}
+{"hash":"242fb46107cb7a98","origin":"measured","source":"x.**\n"}
+{"hash":"f436673a15b1377a","origin":"measured","source":"[://\\\n]"}
+{"hash":"2bf9d8d0fcb5922b","origin":"measured","source":"x.\"f\"+: 1"}
+{"hash":"c78fb398f252d733","origin":"measured","source":"x.\"f\"\\\n +: 1"}
+{"hash":"76932ac420a5390b","origin":"measured","source":"x.\"f\" +: 1"}
+{"hash":"7692d92fa8ebed3e","origin":"measured","source":"&=>\\\n/2"}
+{"hash":"b8b90e89d2485699","origin":"measured","source":"&.\\\n/2"}
+{"hash":"0612a6d3e7e14d79","origin":"measured","source":"&//\\\n/2"}
+{"hash":"fac64aac1472a582","origin":"measured","source":"x.** * y"}
+{"hash":"6d7433d677badaa0","origin":"measured","source":"x.** / y"}
+{"hash":"6373ec607d346de1","origin":"measured","source":"x.** ** y"}
+{"hash":"d60212947a2bb622","origin":"measured","source":"x.** .. y"}
+{"hash":"39c63d2c86d74ffc","origin":"measured","source":"x.** <> y"}
+{"hash":"d33dc751c817cac3","origin":"measured","source":"x.** ++ y"}
+{"hash":"5948497446823157","origin":"measured","source":"x.** -- y"}
+{"hash":"d1bb5e1b78be82af","origin":"measured","source":"x.** +++ y"}
+{"hash":"9f944906c535e4d4","origin":"measured","source":"x.** --- y"}
+{"hash":"5e216a6e9d2cc172","origin":"measured","source":"x.** == y"}
+{"hash":"871206d884ebb676","origin":"measured","source":"x.** != y"}
+{"hash":"5b66831af6f6cc0b","origin":"measured","source":"x.** === y"}
+{"hash":"075d5e0020fb91ea","origin":"measured","source":"x.** !== y"}
+{"hash":"43226926df356a78","origin":"measured","source":"x.** =~ y"}
+{"hash":"52a42a27cc3df4b5","origin":"measured","source":"x.** < y"}
+{"hash":"6ee5beef00c23909","origin":"measured","source":"x.** > y"}
+{"hash":"c74dd942a158b3a3","origin":"measured","source":"x.** <= y"}
+{"hash":"d1b6a6b044148cce","origin":"measured","source":"x.** >= y"}
+{"hash":"352c046c473d7675","origin":"measured","source":"x.** && y"}
+{"hash":"2458196bfcea9cc3","origin":"measured","source":"x.** || y"}
+{"hash":"22f0a3c53779fc32","origin":"measured","source":"x.** &&& y"}
+{"hash":"85f2669585fd059f","origin":"measured","source":"x.** ||| y"}
+{"hash":"7ee3651323acc7e3","origin":"measured","source":"x.** <<< y"}
+{"hash":"563f63000980f0c3","origin":"measured","source":"x.** >>> y"}
+{"hash":"b9bd2e454bdd34ee","origin":"measured","source":"x.** ^^^ y"}
+{"hash":"463ce3a377277d90","origin":"measured","source":"x.** ~> y"}
+{"hash":"65d293e326734f35","origin":"measured","source":"x.** <~ y"}
+{"hash":"21bb54021719d792","origin":"measured","source":"x.** <~> y"}
+{"hash":"4aee55fa04988c2c","origin":"measured","source":"x.** <|> y"}
+{"hash":"a64ea466f2ccafee","origin":"measured","source":"x.** ~>> y"}
+{"hash":"a079a46c94c91e79","origin":"measured","source":"x.** <<~ y"}
+{"hash":"ccbad70f57209e0b","origin":"measured","source":"x.** | y"}
+{"hash":"241c87144225ad27","origin":"measured","source":"x.** = y"}
+{"hash":"2cc3bf8a64486191","origin":"measured","source":"x.** |> y"}
+{"hash":"60b2da2944a236be","origin":"measured","source":"x.** :: y"}
+{"hash":"6fbe9f46ea0d3ef7","origin":"measured","source":"x.** -> y"}
+{"hash":"3f1c0052b4013815","origin":"measured","source":"x.** <- y"}
+{"hash":"1e7daee8c207b8f6","origin":"measured","source":"x.** and y"}
+{"hash":"da2b2509b83a4ab7","origin":"measured","source":"x.** or y"}
+{"hash":"f92b1b05f9ca17b2","origin":"measured","source":"x.** in y"}
+{"hash":"51042902bbb8ef6b","origin":"measured","source":"x.** when y"}
+{"hash":"8579ffe2a898f57e","origin":"measured","source":"x.** not y"}
+{"hash":"337767b476358457","origin":"measured","source":"x.** ! y"}
+{"hash":"e7b611461f93ad60","origin":"measured","source":"x.** ^ y"}
+{"hash":"a742bacf56b77240","origin":"measured","source":"x.** @ y"}
+{"hash":"5239b4b73cad1195","origin":"measured","source":"x.** & y"}
+{"hash":"095fefd08f390ee3","origin":"measured","source":"x.** ~~~ y"}
+{"hash":"61d5312c98594f28","origin":"measured","source":"x.** - y"}
+{"hash":"996872d9368480ed","origin":"measured","source":"x.** + y"}
+{"hash":"46cec00750d7c810","origin":"measured","source":"x.** \\\\ y"}
+{"hash":"9ac6d64f935c6637","origin":"measured","source":"x.** \"a\": 1"}
+{"hash":"28b10b4e769da579","origin":"measured","source":"x.** 'a': 1"}
+{"hash":"803c06cccb5dd4aa","origin":"measured","source":"x.** do: 1"}
+{"hash":"6921851e5362acbc","origin":"measured","source":"[x.** a: 1]"}
+{"hash":"efdcb541928d766d","origin":"measured","source":"f(x.** a: 1)"}
+{"hash":"53180e8c4a6bcd0d","origin":"measured","source":"[x.**\n]"}
+{"hash":"869904eba2137f38","origin":"measured","source":"[x.** # c\n]"}
+{"hash":"808693120c78912b","origin":"measured","source":"x.** # c\n1"}
+{"hash":"ed101f0942f43aa9","origin":"measured","source":"x.**\n# c\n"}
+{"hash":"055cba158b686334","origin":"measured","source":"[x.**\\\n]"}
+{"hash":"7b622a3e6dbc9573","origin":"measured","source":"%{x.** => 1}"}
+{"hash":"d52d87061c92df11","origin":"measured","source":"try do x.** after 1 end"}
+{"hash":"f702c43a3c502f94","origin":"measured","source":"if a do x.** else 1 end"}
+{"hash":"a70984c1bc0106e3","origin":"measured","source":"try do x.** rescue _ -> 1 end"}
+{"hash":"2ae5301163052c09","origin":"measured","source":"try do x.** catch _ -> 1 end"}
+{"hash":"8c9a98cff31d97cd","origin":"measured","source":"cond do a -> x.** end"}
+{"hash":"2b6aeae55b325c46","origin":"measured","source":"fn a -> x.** end"}
+{"hash":"3342abb638ef3419","origin":"measured","source":"fn a -> x.**\nb -> 1 end"}
+{"hash":"8be442c3e3068d72","origin":"measured","source":"x.**\n\n"}
+{"hash":"d95197364fdf1f49","origin":"measured","source":"x.**\t# c"}
+{"hash":"6ba489f8f68647db","origin":"measured","source":"\"#{x.** }\""}
+{"hash":"96de93015ab39723","origin":"measured","source":"\"#{x.**\n}\""}
+{"hash":"90b4b52549a2762b","origin":"measured","source":"x.**=1"}
+{"hash":"114601aef1174557","origin":"measured","source":"x.**->1"}
+{"hash":"97592b3eb1c7fef7","origin":"measured","source":"x.**\n|> y"}
+{"hash":"6460fcfbf9dd4975","origin":"measured","source":"Kernel.**]"}
+{"hash":"bbac0ac59838cb32","origin":"measured","source":"[Kernel.**]"}
+{"hash":"b94a81c47903e48d","origin":"measured","source":"[x.**.y]"}
+{"hash":"2124c7a99600a664","origin":"measured","source":"x.** ?a"}
+{"hash":"d26c2ffe57902c9d","origin":"measured","source":"x.** :a"}
+{"hash":"13cb1b9e3e2b9b6d","origin":"measured","source":"x.** ~s(a)"}
+{"hash":"88fc9f5ddbac5c2e","origin":"measured","source":"x.** %{}"}
+{"hash":"80af0ed7d0b12a65","origin":"measured","source":"x.** {1}"}
+{"hash":"061cd7cb72179191","origin":"measured","source":"x.** <<1>>"}
+{"hash":"e3b33ce0d5494a34","origin":"measured","source":"x.** fn -> 1 end"}
+{"hash":"94311ace16dabf0e","origin":"measured","source":"x.** \"a\""}
+{"hash":"b3d907425d501a75","origin":"measured","source":"x.** A"}
+{"hash":"f7a5ddc471d81626","origin":"measured","source":"x.** @a"}
+{"hash":"8c1d2dfbc74b14a3","origin":"measured","source":"x.** &a/1"}
+{"hash":"a2746225697c0b91","origin":"measured","source":"x.** .."}
+{"hash":"014a1aa8f1fddc62","origin":"measured","source":"x.** ..."}
+{"hash":"7125b54587c7dce0","origin":"measured","source":"x.** nil"}
+{"hash":"1ba68922952c4314","origin":"measured","source":"x.** true"}
+{"hash":"dd9a4f518cefeebb","origin":"measured","source":"&\n!/1"}
+{"hash":"4a84d0b9b2e6304c","origin":"measured","source":"& \n!/1"}
+{"hash":"a605ee6921e9d797","origin":"measured","source":"&\n\n!/1"}
+{"hash":"e5c18ff06cd04d29","origin":"measured","source":"&# c\n!/1"}
+{"hash":"1ab60606af271cf5","origin":"measured","source":"&\\\n!/1"}
+{"hash":"6d15bf26c75876d8","origin":"measured","source":"&!/1"}
+{"hash":"143580d3527a8e6e","origin":"measured","source":"&\n&/1"}
+{"hash":"d79cdcf05c9ab535","origin":"measured","source":"& \n&/1"}
+{"hash":"ed863e8cbcbf3ff9","origin":"measured","source":"&\n\n&/1"}
+{"hash":"164ac088c6810673","origin":"measured","source":"&# c\n&/1"}
+{"hash":"8b4a9f94b8fb0fca","origin":"measured","source":"&\\\n&/1"}
+{"hash":"916d826858339ce8","origin":"measured","source":"&&/1"}
+{"hash":"471f8bdad8d8489e","origin":"measured","source":"&\n+/1"}
+{"hash":"be3d26712067de6c","origin":"measured","source":"& \n+/1"}
+{"hash":"b8f04b0a123e56af","origin":"measured","source":"&\n\n+/1"}
+{"hash":"7aa065e69f5c23c2","origin":"measured","source":"&# c\n+/1"}
+{"hash":"6f347c4957fd3ee0","origin":"measured","source":"&\\\n+/1"}
+{"hash":"3a6639480245125c","origin":"measured","source":"&+/1"}
+{"hash":"c90f31fa8afc7303","origin":"measured","source":"&\n-/1"}
+{"hash":"79d8c635540c074b","origin":"measured","source":"& \n-/1"}
+{"hash":"0259a6a852c70436","origin":"measured","source":"&\n\n-/1"}
+{"hash":"3a3c0dd3b3f9b722","origin":"measured","source":"&# c\n-/1"}
+{"hash":"8d9230d2d8c033a4","origin":"measured","source":"&\\\n-/1"}
+{"hash":"6a08f8042f2b4b07","origin":"measured","source":"&-/1"}
+{"hash":"e9701509a82e3c52","origin":"measured","source":"&\n@/1"}
+{"hash":"32e7ac53ce5a3245","origin":"measured","source":"& \n@/1"}
+{"hash":"a4f97b0d8fc2bec4","origin":"measured","source":"&\n\n@/1"}
+{"hash":"89cb8c7c9591f9ff","origin":"measured","source":"&# c\n@/1"}
+{"hash":"56104e28800b6ed7","origin":"measured","source":"&\\\n@/1"}
+{"hash":"54cc846a5ad60ac0","origin":"measured","source":"&\n^/1"}
+{"hash":"a298b810b556b4e4","origin":"measured","source":"& \n^/1"}
+{"hash":"9e49bbc3b29c57a3","origin":"measured","source":"&\n\n^/1"}
+{"hash":"3c0d921f5e1ae2b0","origin":"measured","source":"&# c\n^/1"}
+{"hash":"6303b1be1c15a7fe","origin":"measured","source":"&\\\n^/1"}
+{"hash":"66b986e0a37605b5","origin":"measured","source":"&^/1"}
+{"hash":"cfe2cca94b7afa7f","origin":"measured","source":"&\n~~~/1"}
+{"hash":"c3acf696115a6231","origin":"measured","source":"& \n~~~/1"}
+{"hash":"07807f07c5deed6f","origin":"measured","source":"&\n\n~~~/1"}
+{"hash":"93740f52d214b623","origin":"measured","source":"&# c\n~~~/1"}
+{"hash":"3b7bcd8546d7ed95","origin":"measured","source":"&\\\n~~~/1"}
+{"hash":"4c3b94b339d7c343","origin":"measured","source":"&~~~/1"}
+{"hash":"6f6c174814b38c6a","origin":"measured","source":"x.\"f\" -: 1"}
+{"hash":"888d0adfb6725c3b","origin":"measured","source":"x.'f' +: 1"}
+{"hash":"015badffad0eb742","origin":"measured","source":"x.\"f\"\t+: 1"}
+{"hash":"46b5bd47e6a32f87","origin":"measured","source":"x.\"f#{a}\" +: 1"}
+{"hash":"28330282e0c35db8","origin":"measured","source":"x.\"f\"  +: 1"}
+{"hash":"7162c4fdc202c8d1","origin":"measured","source":"x.\"f\" \\\n+: 1"}
+{"hash":"3f2981847f2aaab5","origin":"measured","source":"Kernel.\"f\" +: 1"}
+{"hash":"b886ad37464b5827","origin":"measured","source":"x.'f'\t-: 1"}
+{"hash":"748620ee0332dd21","origin":"measured","source":"[x.\"f\" +: 1]"}
+{"hash":"07190446cab2def6","origin":"measured","source":"://\\\n"}
+{"hash":"bd8f9cbcb0438e93","origin":"measured","source":":// \\\n"}
+{"hash":"7416494b0c7a1cc1","origin":"measured","source":"://\\"}
+{"hash":"b7ad6f7508688152","origin":"measured","source":"x = ://\\\n"}
+{"hash":"cd20675388ef66af","origin":"measured","source":"[:// # c\n]"}
+{"hash":"5b94854144c71011","origin":"measured","source":"{:// # c\n}"}
+{"hash":"301a9ea093e42170","origin":"measured","source":":// # c\n"}
+{"hash":"4fc9806efdd1ba86","origin":"measured","source":":// # c"}
+{"hash":"2f28edd68dde1085","origin":"measured","source":"[://\n]"}
+{"hash":"4f78d21966a0f995","origin":"measured","source":"[://\\\n# c\n]"}
+{"hash":"5ee0e7a2df0a0a60","origin":"measured","source":"%{fn -> 1 end \\\n}"}
+{"hash":"24ccb892e9da65e0","origin":"measured","source":"%{fn -> 1 end\\\n\n}"}
+{"hash":"e6e1aa77c2750362","origin":"measured","source":"%{fn -> 1 end\\\n}"}
+{"hash":"fe660b753f02f49a","origin":"measured","source":"%{fn -> 1 end \\\n \\\n}"}
+{"hash":"885a3009cc640be7","origin":"measured","source":"%{fn -> 1 end # c\n}"}
+{"hash":"6e8f0c9fba454448","origin":"measured","source":"%{.. \\\n}"}
+{"hash":"a69a2aa98a01dfd7","origin":"measured","source":"%{..\\\n}"}
+{"hash":"3400adee89a27b7f","origin":"measured","source":"%{..\\\n\n}"}
+{"hash":"d24d47a7a7758714","origin":"measured","source":"%{1 \\\n}"}
+{"hash":"86b5d675896fc551","origin":"measured","source":"%{1\\\n\n}"}
+{"hash":"45d2ebc836dcd2f6","origin":"measured","source":"%{\"a\" \\\n}"}
+{"hash":"5ec4716f1619c4c7","origin":"measured","source":"%{x[1] \\\n}"}
+{"hash":"574e18a43946353c","origin":"measured","source":"%{if a do 1 end \\\n}"}
+{"hash":"23dffe0ef799040b","origin":"measured","source":"x.** end: 1"}
+{"hash":"a1682bcd302d8159","origin":"measured","source":"x.** when: 1"}
+{"hash":"1dc61ca70296693f","origin":"measured","source":"x.** and: 1"}
+{"hash":"3b953f9ca50e318c","origin":"measured","source":"x.** not: 1"}
+{"hash":"4dbc2d261b3856db","origin":"measured","source":"x.** after: 1"}
+{"hash":"d185639891039fbb","origin":"measured","source":"x.** rem: 1"}
+{"hash":"d567b7cb1a5094cb","origin":"measured","source":"x.** if: 1"}
+{"hash":"8537801b893859ad","origin":"measured","source":"x.** _a: 1"}
+{"hash":"0a45c19104b5628c","origin":"measured","source":"x.** nil: 1"}
+{"hash":"17fb5e2dd1624b8a","origin":"measured","source":"x.** aB: 1"}
+{"hash":"4baeaf0c6884241a","origin":"measured","source":"x.** A: 1"}
+{"hash":"b6001c876a3cbdff","origin":"measured","source":"x.** a?: 1"}
+{"hash":"38adeb65aaa0e7dd","origin":"measured","source":"x.** a!: 1"}
+{"hash":"c38c7c4f7d796c7d","origin":"measured","source":"x.** else: 1"}
+{"hash":"b2336c182cab5176","origin":"measured","source":"x.** maybe: 1"}
+{"hash":"8adce46b5eddb3fb","origin":"measured","source":"x.** true: 1"}
+{"hash":"f9d2884953c21c3a","origin":"measured","source":"x.** fn: 1"}
+{"hash":"c0a5b63f161bcdc4","origin":"measured","source":"x.** catch: 1"}
+{"hash":"4f8cffc17d12d20a","origin":"measured","source":"x.** begin: 1"}
+{"hash":"df3b7d1075adb173","origin":"measured","source":"x.** xor: 1"}
+{"hash":"32c53314b0d66c06","origin":"measured","source":"x.** in: 1"}
+{"hash":"da2e68337a5cc9b0","origin":"measured","source":"x.** rescue: 1"}
+{"hash":"ba617f460e931e74","origin":"measured","source":"x.** a_b: 1"}
+{"hash":"f88ab005f2a00f2d","origin":"measured","source":"x.** a1: 1"}
+{"hash":"6c06b4c641040d94","origin":"measured","source":"x.** a@b: 1"}
+{"hash":"808ba000d7f645d1","origin":"measured","source":"x.** \"a b\": 1"}
+{"hash":"85e99b8e3b5604f2","origin":"measured","source":"x.** \"A\": 1"}
+{"hash":"50ca08d45b51927e","origin":"measured","source":"x.** \"a-b\": 1"}
+{"hash":"a1ad5a5377c0bcd5","origin":"measured","source":"x.** \"1\": 1"}
+{"hash":"d1c39fa5fd6bab34","origin":"measured","source":"x.** \"\": 1"}
+{"hash":"1c531cf064bf753c","origin":"measured","source":"x.** \"é\": 1"}
+{"hash":"9737e1217eb39374","origin":"measured","source":"x.** \"end\": 1"}
+{"hash":"4469bfcae9e5c0ce","origin":"measured","source":"x.** \"a?\": 1"}
+{"hash":"3b487b302f136083","origin":"measured","source":"x.** 'a b': 1"}
+{"hash":"ef335c6956c4042c","origin":"measured","source":"x.** +: 1"}
+{"hash":"5f50c42560c0de48","origin":"measured","source":"x.** -: 1"}
+{"hash":"529da02d3df2a486","origin":"measured","source":"x.** ++: 1"}
+{"hash":"b9de10ab56704839","origin":"measured","source":"x.** --: 1"}
+{"hash":"aa2941ea8124bd1d","origin":"measured","source":"x.** <>: 1"}
+{"hash":"2a00ebdfb2454c41","origin":"measured","source":"x.** ==: 1"}
+{"hash":"ea3c03cc08c8739b","origin":"measured","source":"x.** !=: 1"}
+{"hash":"e7b3e75cb4bc0128","origin":"measured","source":"x.** &&: 1"}
+{"hash":"8b4918a442b3134d","origin":"measured","source":"x.** ||: 1"}
+{"hash":"7de76a115f581480","origin":"measured","source":"x.** ..: 1"}
+{"hash":"3d011f614bdca8b1","origin":"measured","source":"x.** @: 1"}
+{"hash":"39c9106f00898439","origin":"measured","source":"x.** !: 1"}
+{"hash":"5ce7d1ef56442cc3","origin":"measured","source":"x.** ^: 1"}
+{"hash":"5a93ec70aa245a99","origin":"measured","source":"x.** ~~~: 1"}
+{"hash":"9cbbd7b169ae804d","origin":"measured","source":"x.** |: 1"}
+{"hash":"20e0cd9464732212","origin":"measured","source":"x.** =>: 1"}
+{"hash":"1c43eff657d1dba5","origin":"measured","source":"x.** **: 1"}
+{"hash":"b3867682b918607e","origin":"measured","source":"x.** *: 1"}
+{"hash":"95c9f2e12a4c600c","origin":"measured","source":"x.** /: 1"}
+{"hash":"d6d0f5f504d73fdd","origin":"measured","source":"x.** ::: 1"}
+{"hash":"64c34cae0d976d5f","origin":"measured","source":"x.** <-: 1"}
+{"hash":"973caf9ce4e13f31","origin":"measured","source":"x.** ->: 1"}
+{"hash":"c07d28592517b790","origin":"measured","source":"x.** \\\\: 1"}
+{"hash":"3429b071f81c7162","origin":"measured","source":"x.** |>: 1"}
+{"hash":"79bfe2b624f990a0","origin":"measured","source":"x.** =~: 1"}
+{"hash":"89159f2a73ce6832","origin":"measured","source":"x.** <: 1"}
+{"hash":"a95871c7bc745127","origin":"measured","source":"x.** >: 1"}
+{"hash":"22b75d5ec3064974","origin":"measured","source":"x.** <=: 1"}
+{"hash":"4796272e43bfc9cc","origin":"measured","source":"x.** >=: 1"}
+{"hash":"4115726337b221bf","origin":"measured","source":"x.** ===: 1"}
+{"hash":"961e906adac7f283","origin":"measured","source":"x.** !==: 1"}
+{"hash":"f710cfb72870abcc","origin":"measured","source":"x.** &&&: 1"}
+{"hash":"a380f6dda0ba718a","origin":"measured","source":"x.** |||: 1"}
+{"hash":"d67eebaa9a7e88e6","origin":"measured","source":"x.** <<<: 1"}
+{"hash":"f750a05286ebfae5","origin":"measured","source":"x.** >>>: 1"}
+{"hash":"3ec56a556ca18aff","origin":"measured","source":"x.** ~>: 1"}
+{"hash":"2f54f647e3bb142f","origin":"measured","source":"x.** <~: 1"}
+{"hash":"0f906250cea6138c","origin":"measured","source":"x.** <~>: 1"}
+{"hash":"1c88d2ab7f89d93e","origin":"measured","source":"x.** <|>: 1"}
+{"hash":"de741bfbbfd1e930","origin":"measured","source":"x.** ~>>: 1"}
+{"hash":"1b4e2467297ef599","origin":"measured","source":"x.** <<~: 1"}
+{"hash":"3efd88f695365aa9","origin":"measured","source":"x.** &: 1"}
+{"hash":"482672f0d250dd2b","origin":"measured","source":"x.** not in y"}
+{"hash":"44875717810ee8fa","origin":"measured","source":"x.** not  in y"}
+{"hash":"5a05a4bac7742791","origin":"measured","source":"x.** not\nin y"}
+{"hash":"a0f4c8c53a0a8893","origin":"measured","source":"[x.** not in y]"}
+{"hash":"e1d40fdd5cd36c9e","origin":"measured","source":"x.**\\\n"}
+{"hash":"346bf940abbd4764","origin":"measured","source":"x.** \\\n"}
+{"hash":"fdd3b420779660b7","origin":"measured","source":"x.**\n\\\n"}
+{"hash":"d4818e4ea917525d","origin":"measured","source":"x.** # c \\\n"}
+{"hash":"879b5d3098d5f7f8","origin":"measured","source":"x.** # c\n\\\n"}
+{"hash":"0d6b6b1ff4aacdb4","origin":"measured","source":"x.**\\\n\n"}
+{"hash":"7cb8ccf716bf12ff","origin":"measured","source":"://\\\n\\\n"}
+{"hash":"7a60009434fc355c","origin":"measured","source":"://\n\\\n"}
+{"hash":"0318cc10c28c3bb0","origin":"measured","source":":// # c\n\\\n"}
+{"hash":"a20b6e212f03f170","origin":"measured","source":":// # c \\\n"}
+{"hash":"1e9c60a1173bf082","origin":"measured","source":"[x.**]\\\n"}
+{"hash":"bc6794bfe6cce28e","origin":"measured","source":"x.and +: 1"}
+{"hash":"eee67339468f9b88","origin":"measured","source":"x.+ +: 1"}
+{"hash":"9da96fa4d7d1c4ed","origin":"measured","source":"x.|| +: 1"}
+{"hash":"bf370c839d1947c8","origin":"measured","source":"x.! +: 1"}
+{"hash":"57cc22a9f35bce09","origin":"measured","source":"x.nil +: 1"}
+{"hash":"d46a195d2c9fae62","origin":"measured","source":"x.do +: 1"}
+{"hash":"ea2c41a78cc81a52","origin":"measured","source":"x.end +: 1"}
+{"hash":"6d811a3d64ad57f6","origin":"measured","source":"x.in +: 1"}
+{"hash":"4d574d1e7f89ef9f","origin":"measured","source":"x.when +: 1"}
+{"hash":"478b756e2e3619d0","origin":"measured","source":"x.not +: 1"}
+{"hash":"68ce4d08d22eaccf","origin":"measured","source":"x.<> +: 1"}
+{"hash":"1dcb1dd08be4a6ed","origin":"measured","source":"x.|> +: 1"}
+{"hash":"191356de55346215","origin":"measured","source":"x.&& +: 1"}
+{"hash":"86031bb1800bbe1b","origin":"measured","source":"x... +: 1"}
+{"hash":"84d3638325aaba28","origin":"measured","source":"x.~~~ +: 1"}
+{"hash":"fbc5355928dbe601","origin":"measured","source":"x.@ +: 1"}
+{"hash":"700a14975817df85","origin":"measured","source":"x.^ +: 1"}
+{"hash":"c80d49401b7791fc","origin":"measured","source":"x.** ==/2"}
+{"hash":"0b14ede0beebc155","origin":"measured","source":"x.** in/2"}
+{"hash":"c8856e212b3c22d3","origin":"measured","source":"x.** ../2"}
+{"hash":"94b1ef2123e76deb","origin":"measured","source":"x.** |>/2"}
+{"hash":"72ab246d565516ed","origin":"measured","source":"x.** =/2"}
+{"hash":"251d438d7b654e73","origin":"measured","source":"x.** ::/2"}
+{"hash":"8b737d6fb4f2cad7","origin":"measured","source":"x.** and/2"}
+{"hash":"bf0ffc9c7d698776","origin":"measured","source":"x.** when/2"}
+{"hash":"08e89928e3abbe67","origin":"measured","source":"x.** */2"}
+{"hash":"aa78fc99eb0d87b6","origin":"measured","source":"x.** <-/2"}
+{"hash":"08045962da8529e2","origin":"measured","source":"x.** |/2"}
+{"hash":"6246235279611a57","origin":"measured","source":"x.** ++/2"}
+{"hash":"986a218b224ccd24","origin":"measured","source":"x.** <>/2"}
+{"hash":"4e166cde8647f2ca","origin":"measured","source":"x.** &&/2"}
+{"hash":"00a8d3b7a7b69a97","origin":"measured","source":"x.** =~/2"}
+{"hash":"aae25d4abf7bce95","origin":"measured","source":"x.** ~>/2"}
+{"hash":"5d77afb6987eee13","origin":"measured","source":"x.** <<~/2"}
+{"hash":"70a868057b5733fa","origin":"measured","source":"x.** or/2"}
+{"hash":"069e65674a64f1c0","origin":"measured","source":"x.** !/2"}
+{"hash":"55dd0b80b48bf40a","origin":"measured","source":"x.** ^/2"}
+{"hash":"bfed50d6afe0884f","origin":"measured","source":"x.** @/2"}
+{"hash":"c168d50acd0e4ccd","origin":"measured","source":"x.** &/2"}
+{"hash":"ee354394591c9502","origin":"measured","source":"x.** ~~~/2"}
+{"hash":"13cdb112e361d3ff","origin":"measured","source":"x.** not/2"}
+{"hash":"68ab7ebcb1bdb47a","origin":"measured","source":"x.** ==\n/2"}
+{"hash":"ec830bdcc1fd2165","origin":"measured","source":"x.** in\n/2"}
+{"hash":"2b317528d546f3d3","origin":"measured","source":"x.** ==  \n /2"}
+{"hash":"19d3904c9ca5e26a","origin":"measured","source":"x.** ==\n\n/2"}
+{"hash":"bb0a8224bbc29bf1","origin":"measured","source":"x.** == # c\n/2"}
+{"hash":"c88ce65cf4560917","origin":"measured","source":"x.** ==\\\n/2"}
+{"hash":"d5510ce7743ea9e0","origin":"measured","source":"x.** == \\\n /2"}
+{"hash":"46ec1928f836dd91","origin":"measured","source":"x.** ==\\\n\n/2"}
+{"hash":"16b72daef328223a","origin":"measured","source":"x.** ==/\n2"}
+{"hash":"6eb3505a06090131","origin":"measured","source":"x.** == /2"}
+{"hash":"5eaf06d47ee85cc9","origin":"measured","source":"x.**\n==\n/2"}
+{"hash":"73bb0a94bcf62303","origin":"measured","source":"x.** not \\\nin y"}
+{"hash":"de21aab7f87804a5","origin":"measured","source":"x.** not\\\nin y"}
+{"hash":"9125187ed4386b70","origin":"measured","source":"x.** not \\\n in y"}
+{"hash":"22c9e0a615fdba7c","origin":"measured","source":"x.** not\t\\\n\tin y"}
+{"hash":"f1452f9f7c3bbe52","origin":"measured","source":"x.** not \\\n\\\nin y"}
+{"hash":"db5b2777a8271493","origin":"measured","source":"x.% +: 1"}
+{"hash":"8d2ddecae5ad8aeb","origin":"measured","source":"x.% -: 1"}
+{"hash":"2a22dea220909103","origin":"measured","source":"x.%"}
+{"hash":"96778ec1ccc988ab","origin":"measured","source":"x.** 'a\"b': 1"}
+{"hash":"9e8d0e0e52159314","origin":"measured","source":"x.** \"a\\\\b\": 1"}
+{"hash":"1ea844ab96597360","origin":"measured","source":"x.** \"a\tb\": 1"}
+{"hash":"06238a78c48dcfda","origin":"measured","source":"x.** \"a\\tb\": 1"}
+{"hash":"14137c76b884a80e","origin":"measured","source":"x.** \"a\\nb\": 1"}
+{"hash":"ecc76fef05ea91a3","origin":"measured","source":"x.** \"a\\\"b\": 1"}
+{"hash":"c0e6c5890a36d098","origin":"measured","source":"x.** \"aé\": 1"}
+{"hash":"866cd95671e2abad","origin":"measured","source":"x.** \"日本\": 1"}
+{"hash":"64d42e0a1640659d","origin":"measured","source":"x.** aé: 1"}
+{"hash":"c87631e6955ca69b","origin":"measured","source":"x.** é: 1"}
+{"hash":"bf91b23640ef3736","origin":"measured","source":"x.** \"ab\": 1"}
+{"hash":"8c1303388f60a1bc","origin":"measured","source":"x.** \"a\u0001b\": 1"}
+{"hash":"2406847ba55ec5ea","origin":"measured","source":"x.** \"a#b\": 1"}
+{"hash":"9bfef7ac08333033","origin":"measured","source":"x.** \"a\\x41\": 1"}
+{"hash":"694cc1c88a95aa8e","origin":"measured","source":"x.** \"́\": 1"}
+{"hash":"9ce6a40ded013435","origin":"measured","source":"x.**\\"}
+{"hash":"60d15e7ab501ea17","origin":"measured","source":"x.** \\"}
+{"hash":"0c9f072dd56e5cff","origin":"measured","source":":// \\"}
+{"hash":"b6d3dea62e6fbcb6","origin":"measured","source":"x.** # c \\"}
+{"hash":"65c3f1e1cbf24153","origin":"measured","source":"&=>/2"}
+{"hash":"ea07ddefd6e4534d","origin":"measured","source":"&=> /2"}
+{"hash":"229042ce7610088a","origin":"measured","source":"&=>\n/2"}
+{"hash":"a769a4c9774f5b76","origin":"measured","source":"&=>\\\n /2"}
+{"hash":"fbebdbbc429a7041","origin":"measured","source":"&=> \\\n/2"}
+{"hash":"b368d3e986edd946","origin":"measured","source":"& =>/2"}
+{"hash":"664e53b7ff206e61","origin":"measured","source":"&(=>/2)"}
+{"hash":"f4c29cee14b2cf1b","origin":"measured","source":"&(=>\\\n/2)"}
+{"hash":"777751265960251f","origin":"measured","source":"=>/2"}
+{"hash":"aa76f23827cd7632","origin":"measured","source":"=>\\\n/2"}
+{"hash":"e2ea4601e6a5b837","origin":"measured","source":"&=>/\\\n2"}
+{"hash":"a6a8bf0db61f09fd","origin":"measured","source":"[&=>\\\n/2]"}
+{"hash":"9af2b1cbd5b72e62","origin":"measured","source":"&=>\\\n/1"}
+{"hash":"d530916e4aba695e","origin":"measured","source":"&///2"}
+{"hash":"71f54b74b083765f","origin":"measured","source":"&// /2"}
+{"hash":"a8df085924b56b10","origin":"measured","source":"&//\n/2"}
+{"hash":"e570437ea260137e","origin":"measured","source":"&//\\\n /2"}
+{"hash":"100542e33f92240a","origin":"measured","source":"&// \\\n/2"}
+{"hash":"82d4768a39326256","origin":"measured","source":"& ///2"}
+{"hash":"065c038cd068efd2","origin":"measured","source":"&(///2)"}
+{"hash":"95fbe8cee6e37eb6","origin":"measured","source":"&(//\\\n/2)"}
+{"hash":"7f9dc6769897b2f6","origin":"measured","source":"///2"}
+{"hash":"e009a700276fc073","origin":"measured","source":"//\\\n/2"}
+{"hash":"7655043c490a4b14","origin":"measured","source":"&///\\\n2"}
+{"hash":"9939614285023fa1","origin":"measured","source":"[&//\\\n/2]"}
+{"hash":"35da82a5604d3d12","origin":"measured","source":"&//\\\n/1"}
+{"hash":"7152370af3dfc849","origin":"measured","source":"x.** \"a\u000bb\": 1"}
+{"hash":"de19af6a6213a276","origin":"measured","source":"x.** \"a\fb\": 1"}
+{"hash":"fa5e286e74f080ad","origin":"measured","source":"x.** \"a\bb\": 1"}
+{"hash":"5a96ce838c2b9554","origin":"measured","source":"x.** \"a\u001bb\": 1"}
+{"hash":"c3364d60656931b4","origin":"measured","source":"x.** \"a\nb\": 1"}
+{"hash":"4e923bcfe4b4ea0a","origin":"measured","source":"x.** \"a\u0007b\": 1"}
+{"hash":"d592f8f8cc12a222","origin":"measured","source":"x.** \"a\u0000b\": 1"}
+{"hash":"a2e67f499e50ae9b","origin":"measured","source":"x.** 'a\\'b': 1"}
+{"hash":"e3e5ec65f8fe8e67","origin":"measured","source":"x.** \"a\\vb\": 1"}
+{"hash":"ebd3a1b04086fba3","origin":"measured","source":"x.** \"a\\rb\": 1"}
+{"hash":"cc051167859686dd","origin":"measured","source":"x.** \"a\\fb\": 1"}
+{"hash":"1ddc0610e14c06f1","origin":"measured","source":"x.** \"a\\bb\": 1"}
+{"hash":"c8dfb240aeac0004","origin":"measured","source":"x.** \"a\\eb\": 1"}
+{"hash":"76ac18e6737abe5b","origin":"measured","source":"x.** \"a\\ab\": 1"}
+{"hash":"de49fba67fd3a0e5","origin":"measured","source":"x.** \"a\\0b\": 1"}
+{"hash":"3efaa9c68775b048","origin":"measured","source":"x.** \"a\\sb\": 1"}
+{"hash":"370a44769a5139c8","origin":"measured","source":"x.** \"a\\db\": 1"}
+{"hash":"cc714d76373ff694","origin":"measured","source":"x.** \"a\\zb\": 1"}
+{"hash":"add34dc4a818e701","origin":"measured","source":"x.** \"a\\u0041\": 1"}
+{"hash":"5a84951ef1c5e937","origin":"measured","source":"x.** \"a\\u{41}\": 1"}
+{"hash":"a38bf4a254e75a93","origin":"measured","source":"x.** \"a\t\nb\": 1"}
+{"hash":"e6f541533d7a3d4b","origin":"measured","source":"x.** ..//: 1"}
+{"hash":"ea3b329b4170163a","origin":"measured","source":"%{a => /2}"}
+{"hash":"74fde0cebff5bfdb","origin":"measured","source":"%{a =>/2}"}
+{"hash":"92152f9ce2136161","origin":"measured","source":"%{a => \\\n/2}"}
+{"hash":"35600e83d7e76cd2","origin":"measured","source":"%{a =>\n/2}"}
+{"hash":"11daf1ae93daeef4","origin":"measured","source":"[a => /2]"}
+{"hash":"3faae902e517acca","origin":"measured","source":"f(a => /2)"}
+{"hash":"ccc62b6a7a2422cf","origin":"measured","source":"%{a => 1, b =>/2}"}
+{"hash":"ee6379c0d6fadbde","origin":"measured","source":"x = =>/2"}
+{"hash":"1ecb1bead17ca1bb","origin":"measured","source":"&=>/2 |> f"}
+{"hash":"3898e2f6678483b8","origin":"measured","source":"%{=>/2}"}
+{"hash":"cec7ebd042580956","origin":"measured","source":"%{a => &=>/2}"}
+{"hash":"a9ade77c06d0ef98","origin":"measured","source":"%{a => //2}"}
+{"hash":"472c2a712fe8c53c","origin":"measured","source":"%{a => //\\\n/2}"}
+{"hash":"f1eadb9154b422ca","origin":"measured","source":"x // \\\n/2"}
+{"hash":"7a760514d87b52db","origin":"measured","source":"1..2//\\\n/2"}
+{"hash":"c58f0b37c13440ea","origin":"measured","source":"a //\n/2"}
+{"hash":"0d0c10203decb1fd","origin":"measured","source":"&(//\n/2)"}
+{"hash":"61f5b4c13b43209a","origin":"measured","source":"(&//\\\n/2)"}
+{"hash":"8b28fdad93a8c6bf","origin":"measured","source":"f(&//\\\n/2)"}
+{"hash":"b4b54e5188396592","origin":"measured","source":"{&//\\\n/2}"}
+{"hash":"09f082ad9df82859","origin":"measured","source":"&//\\\n/2 |> f"}
+{"hash":"af892fec985ce731","origin":"measured","source":"[*: 1]"}
+{"hash":"0e00187cddae3262","origin":"measured","source":"x.** =: 1"}
+{"hash":"dd72a8086bb11fac","origin":"measured","source":"[=: 1]"}
+{"hash":"f75d6f763d9f980c","origin":"measured","source":"x.** ^^^: 1"}
+{"hash":"7310bbd223242b27","origin":"measured","source":"[^^^: 1]"}
+{"hash":"e13f13798c0cde7f","origin":"measured","source":"x.** +++: 1"}
+{"hash":"c6f1c9b292797706","origin":"measured","source":"[+++: 1]"}
+{"hash":"edf401c9ce7eae90","origin":"measured","source":"x.** ---: 1"}
+{"hash":"ea2846d1321093c9","origin":"measured","source":"[---: 1]"}
+{"hash":"de08f0dc9a098282","origin":"measured","source":"x.** ...: 1"}
+{"hash":"65c4535b865659f9","origin":"measured","source":"x.** %: 1"}
+{"hash":"82d6e00497d998a4","origin":"measured","source":"[%: 1]"}
+{"hash":"3bcaca3063e21b9f","origin":"measured","source":"x.** %{}: 1"}
+{"hash":"60aa3464320c6f5d","origin":"measured","source":"[%{}: 1]"}
+{"hash":"cd7e6a3873bd903b","origin":"measured","source":"x.** {}: 1"}
+{"hash":"402653cbbdfc1be5","origin":"measured","source":"[{}: 1]"}
+{"hash":"690fcafc29e6b8b9","origin":"measured","source":"x.** <<>>: 1"}
+{"hash":"cd787d992f2a76d8","origin":"measured","source":"[<<>>: 1]"}
+{"hash":"65b2b628b6b9d2b8","origin":"measured","source":"x.** //: 1"}
+{"hash":"4eadce5c26693e3b","origin":"measured","source":"[//: 1]"}
+{"hash":"5403a7486e82dee2","origin":"measured","source":"[/: 1]"}
+{"hash":"670d7a7a54adfc10","origin":"measured","source":"[=>: 1]"}
+{"hash":"55a460692f43b53a","origin":"measured","source":"x.** .: 1"}
+{"hash":"8d44e47b708bb67b","origin":"measured","source":"[~~~: 1]"}
+{"hash":"e77618b33e9ac992","origin":"measured","source":"[->: 1]"}
+{"hash":"77b8508821a21de7","origin":"measured","source":"[<-: 1]"}
+{"hash":"b0d1d46cb643c4aa","origin":"measured","source":"[|: 1]"}
+{"hash":"641603afa39e77b4","origin":"measured","source":"[||: 1]"}
+{"hash":"cbc5e0f388bec53b","origin":"measured","source":"[&&: 1]"}
+{"hash":"7063d10d5c2da7e7","origin":"measured","source":"[&&&: 1]"}
+{"hash":"6522dd183f528637","origin":"measured","source":"[|||: 1]"}
+{"hash":"1a8acfc5d961a838","origin":"measured","source":"[!: 1]"}
+{"hash":"da860376c2d85c0c","origin":"measured","source":"[^: 1]"}
+{"hash":"2a5a9b70ed622c7b","origin":"measured","source":"[&: 1]"}
+{"hash":"1011a3a7d100102b","origin":"measured","source":"[-: 1]"}
+{"hash":"7d16bb4822d54888","origin":"measured","source":"[++: 1]"}
+{"hash":"2ad136edd00661f3","origin":"measured","source":"[--: 1]"}
+{"hash":"f73399609f01467f","origin":"measured","source":"[==: 1]"}
+{"hash":"06807174f388dee8","origin":"measured","source":"[!=: 1]"}
+{"hash":"76981705b0f56173","origin":"measured","source":"[===: 1]"}
+{"hash":"bfc6fca8892dc8be","origin":"measured","source":"[!==: 1]"}
+{"hash":"67823be570d48096","origin":"measured","source":"[=~: 1]"}
+{"hash":"93c9edaaff3df15c","origin":"measured","source":"[<: 1]"}
+{"hash":"028e4ccf6686dde7","origin":"measured","source":"[>: 1]"}
+{"hash":"0e2702049e40ca54","origin":"measured","source":"[<=: 1]"}
+{"hash":"dbb6cd3638e3c407","origin":"measured","source":"[>=: 1]"}
+{"hash":"be3c6799ff259c1a","origin":"measured","source":"[<<<: 1]"}
+{"hash":"87d0fe8c130d0b63","origin":"measured","source":"[>>>: 1]"}
+{"hash":"ebd075bdc63615d5","origin":"measured","source":"[~>: 1]"}
+{"hash":"5c5dd1afb7d26040","origin":"measured","source":"[<~: 1]"}
+{"hash":"b45c5b27188e7884","origin":"measured","source":"[<~>: 1]"}
+{"hash":"1f62d2e812327ee1","origin":"measured","source":"[<|>: 1]"}
+{"hash":"bd8b8609188fb208","origin":"measured","source":"[~>>: 1]"}
+{"hash":"221c53a813ebefb8","origin":"measured","source":"[<<~: 1]"}
+{"hash":"383b93be948e9c68","origin":"measured","source":"[|>: 1]"}
+{"hash":"8dab4986b75d5cf6","origin":"measured","source":"[true: 1]"}
+{"hash":"6c8c95eb307f9d5c","origin":"measured","source":"x.** false: 1"}
+{"hash":"d2679402faf8db7e","origin":"measured","source":"[false: 1]"}
+{"hash":"03d45d4bbf64d718","origin":"measured","source":"[nil: 1]"}
+{"hash":"c84c593a12ff7384","origin":"measured","source":"x.** Foo: 1"}
+{"hash":"f70015447993aa63","origin":"measured","source":"[Foo: 1]"}
+{"hash":"b29e29b8a8d84a89","origin":"measured","source":"x.** Foo.Bar: 1"}
+{"hash":"8a7ae5bb642eae69","origin":"measured","source":"[Foo.Bar: 1]"}
+{"hash":"1361dad8d5ae2806","origin":"measured","source":"[\\\\: 1]"}
+{"hash":"15a7e30e1ab6bd46","origin":"VersionedSyntaxTest.kt","source":"'*'"}
+{"hash":"be42c968a0042144","origin":"VersionedSyntaxTest.kt","source":"')'"}
+{"hash":"d491cddbc2d531b2","origin":"VersionedSyntaxTest.kt","source":"x.** # c"}
+{"hash":"60bdae9359a66c5e","origin":"VersionedSyntaxTest.kt","source":"(x.**)"}
+{"hash":"ac87129ec4dddbea","origin":"VersionedSyntaxTest.kt","source":"[x.**]"}
+{"hash":"cb8092ddfc907a65","origin":"VersionedSyntaxTest.kt","source":"']'"}
+{"hash":"715e521fac923ab4","origin":"VersionedSyntaxTest.kt","source":"{x.**}"}
+{"hash":"9ac43a4026f156cd","origin":"VersionedSyntaxTest.kt","source":"'}'"}
+{"hash":"96c979bb9b420f9c","origin":"VersionedSyntaxTest.kt","source":"<<x.**>>"}
+{"hash":"aacbb9ad115b03ff","origin":"VersionedSyntaxTest.kt","source":"'>>'"}
+{"hash":"198515c502e4b527","origin":"VersionedSyntaxTest.kt","source":"f(x.**, 1)"}
+{"hash":"ee1bf10803fab3db","origin":"VersionedSyntaxTest.kt","source":"','"}
+{"hash":"fe6367265befa987","origin":"VersionedSyntaxTest.kt","source":"x.**;"}
+{"hash":"cf570839c10a8376","origin":"VersionedSyntaxTest.kt","source":"';'"}
+{"hash":"277ae2f01407f0f5","origin":"VersionedSyntaxTest.kt","source":"'.'"}
+{"hash":"b1900e5dfa534230","origin":"VersionedSyntaxTest.kt","source":"'=>'"}
+{"hash":"363508bd747f652a","origin":"VersionedSyntaxTest.kt","source":"'|>'"}
+{"hash":"c874b594e3eba53a","origin":"VersionedSyntaxTest.kt","source":"'='"}
+{"hash":"4b1ddab0c20b9607","origin":"VersionedSyntaxTest.kt","source":"x.**::t"}
+{"hash":"090ac3e64a340963","origin":"VersionedSyntaxTest.kt","source":"'::'"}
+{"hash":"b5277fe4ebfd1911","origin":"VersionedSyntaxTest.kt","source":"x.** do end"}
+{"hash":"ac0b52a2ae6ef999","origin":"VersionedSyntaxTest.kt","source":"do"}
+{"hash":"ca978112ca1bbdca","origin":"VersionedSyntaxTest.kt","source":"a"}
+{"hash":"8ffa905546e1145a","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\">>]"}
+{"hash":"19a784fecd439fc9","origin":"VersionedSyntaxTest.kt","source":"'end'"}
+{"hash":"7dd530c4d36da47c","origin":"VersionedSyntaxTest.kt","source":"else"}
+{"hash":"cfea46ed28bfde30","origin":"VersionedSyntaxTest.kt","source":"'after'"}
+{"hash":"824ef7874151e9c8","origin":"VersionedSyntaxTest.kt","source":"rescue"}
+{"hash":"1696ad4e816698d4","origin":"VersionedSyntaxTest.kt","source":"'catch'"}
+{"hash":"582967534d0f909d","origin":"VersionedSyntaxTest.kt","source":"in"}
+{"hash":"0ac206cbffddd8f7","origin":"VersionedSyntaxTest.kt","source":"'\\\\\\\\'"}
+{"hash":"90e6eb5614e8ad34","origin":"VersionedSyntaxTest.kt","source":"'when'"}
+{"hash":"0f71c320597e317d","origin":"VersionedSyntaxTest.kt","source":"'not'"}
+{"hash":"b16a10a1f57c2f31","origin":"VersionedSyntaxTest.kt","source":"'_a'"}
+{"hash":"341fe62887760c9b","origin":"VersionedSyntaxTest.kt","source":"'A'"}
+{"hash":"34782bde815b93d0","origin":"VersionedSyntaxTest.kt","source":"'a?'"}
+{"hash":"5da3a4c7f1179442","origin":"VersionedSyntaxTest.kt","source":"nil"}
+{"hash":"998c28d83fb33f89","origin":"VersionedSyntaxTest.kt","source":"[<<\"a b\">>]"}
+{"hash":"2a0be1012af50c86","origin":"VersionedSyntaxTest.kt","source":"[<<>>]"}
+{"hash":"7f916dc5152905a2","origin":"VersionedSyntaxTest.kt","source":"[<<\"end\">>]"}
+{"hash":"61fef1beaacaae3f","origin":"VersionedSyntaxTest.kt","source":"'not in'"}
+{"hash":"c4765761e2a39e93","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\\"b\">>]"}
+{"hash":"c29edd67e8ce9550","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\\\b\">>]"}
+{"hash":"aa55f61ba83ad619","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\tb\">>]"}
+{"hash":"379b1ab8c5fe70b1","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\nb\">>]"}
+{"hash":"0d8997fdf50f3002","origin":"VersionedSyntaxTest.kt","source":"[<<\"a#b\">>]"}
+{"hash":"6fc842ec17f0c153","origin":"VersionedSyntaxTest.kt","source":"[<<\"é\"/utf8>>]"}
+{"hash":"1d141f9a83312b47","origin":"VersionedSyntaxTest.kt","source":"[<<\"aé\"/utf8>>]"}
+{"hash":"83c39febde373df2","origin":"VersionedSyntaxTest.kt","source":"[<<230,151,165,230,156,172>>]"}
+{"hash":"d4c3275f9e9bace0","origin":"VersionedSyntaxTest.kt","source":"[<<97,127,98>>]"}
+{"hash":"cebc8afd823ab75e","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\vb\">>]"}
+{"hash":"4ea3d617f286098e","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\fb\">>]"}
+{"hash":"b21109d4cb58dce1","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\bb\">>]"}
+{"hash":"b0296ff2634e6f93","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\eb\">>]"}
+{"hash":"8b03245f483262d3","origin":"VersionedSyntaxTest.kt","source":"[<<97,7,98>>]"}
+{"hash":"f00f8a4267bc8825","origin":"VersionedSyntaxTest.kt","source":"[<<\"a'b\">>]"}
+{"hash":"4be1b195163342b9","origin":"VersionedSyntaxTest.kt","source":"[<<\"a\\rb\">>]"}
+{"hash":"3fb445fd94b04a5c","origin":"VersionedSyntaxTest.kt","source":"[<<97,0,98>>]"}
+{"hash":"62e011faeb37ecc1","origin":"VersionedSyntaxTest.kt","source":"[<<\"azb\">>]"}
+{"hash":"ea23c53e26f51109","origin":"VersionedSyntaxTest.kt","source":"[<<\"aA\">>]"}
+{"hash":"561951c2b8c47984","origin":"VersionedSyntaxTest.kt","source":"aé"}
+{"hash":"4a99557e4033c353","origin":"VersionedSyntaxTest.kt","source":"é"}
+{"hash":"684888c0ebb17f37","origin":"VersionedSyntaxTest.kt","source":"*"}
+{"hash":"24295a9c545a402d","origin":"VersionedSyntaxTest.kt","source":"<>"}
+{"hash":"cfc0c0607a3380f7","origin":"VersionedSyntaxTest.kt","source":"++"}
+{"hash":"d8156bae0c4243d3","origin":"VersionedSyntaxTest.kt","source":"--"}
+{"hash":"29f5099b939a25cb","origin":"VersionedSyntaxTest.kt","source":"+++"}
+{"hash":"cb3f91d54eee30e5","origin":"VersionedSyntaxTest.kt","source":"---"}
+{"hash":"f16474a9900a4418","origin":"VersionedSyntaxTest.kt","source":"=="}
+{"hash":"c10987bd7cf853f6","origin":"VersionedSyntaxTest.kt","source":"!="}
+{"hash":"2cf2b04b1bae57d1","origin":"VersionedSyntaxTest.kt","source":"==="}
+{"hash":"4d51d22f3186c872","origin":"VersionedSyntaxTest.kt","source":"!=="}
+{"hash":"4868d488f79f5cad","origin":"VersionedSyntaxTest.kt","source":"=~"}
+{"hash":"dabd3aff769f07eb","origin":"VersionedSyntaxTest.kt","source":"<"}
+{"hash":"62b67e1f685b7fef","origin":"VersionedSyntaxTest.kt","source":">"}
+{"hash":"b60080dc8b8982d2","origin":"VersionedSyntaxTest.kt","source":"<="}
+{"hash":"92a00d7d91da9f0f","origin":"VersionedSyntaxTest.kt","source":">="}
+{"hash":"73e7b6f86214bc78","origin":"VersionedSyntaxTest.kt","source":"&&"}
+{"hash":"565d240f5343e625","origin":"VersionedSyntaxTest.kt","source":"||"}
+{"hash":"f0bfa9ca26cb9120","origin":"VersionedSyntaxTest.kt","source":"&&&"}
+{"hash":"be5be69f55e91af2","origin":"VersionedSyntaxTest.kt","source":"|||"}
+{"hash":"bca39427ce4cc155","origin":"VersionedSyntaxTest.kt","source":"<<<"}
+{"hash":"e93521b2f3992111","origin":"VersionedSyntaxTest.kt","source":">>>"}
+{"hash":"ff89fd3f4b97d2dc","origin":"VersionedSyntaxTest.kt","source":"^^^"}
+{"hash":"7814722b7ffb55b0","origin":"VersionedSyntaxTest.kt","source":"~>"}
+{"hash":"2a9fbcf307738d5f","origin":"VersionedSyntaxTest.kt","source":"<~"}
+{"hash":"7eeb702dd1daae27","origin":"VersionedSyntaxTest.kt","source":"<~>"}
+{"hash":"16f36726b7deacf4","origin":"VersionedSyntaxTest.kt","source":"<|>"}
+{"hash":"b8870a129eb87789","origin":"VersionedSyntaxTest.kt","source":"~>>"}
+{"hash":"156d4d13e8e2c6ac","origin":"VersionedSyntaxTest.kt","source":"<<~"}
+{"hash":"cbe5cfdf7c2118a9","origin":"VersionedSyntaxTest.kt","source":"|"}
+{"hash":"380918b946a52664","origin":"VersionedSyntaxTest.kt","source":"="}
+{"hash":"f59b4415209f2340","origin":"VersionedSyntaxTest.kt","source":"|>"}
+{"hash":"71546855d6279ef7","origin":"VersionedSyntaxTest.kt","source":"::"}
+{"hash":"4b305dbe4d59ed22","origin":"VersionedSyntaxTest.kt","source":"<-"}
+{"hash":"6201111b83a0cb5b","origin":"VersionedSyntaxTest.kt","source":"and"}
+{"hash":"7175517a370b5cd2","origin":"VersionedSyntaxTest.kt","source":"or"}
+{"hash":"15eaa75240aed625","origin":"VersionedSyntaxTest.kt","source":"when"}
+{"hash":"a318c24216defe20","origin":"VersionedSyntaxTest.kt","source":"+"}
+{"hash":"3973e022e93220f9","origin":"VersionedSyntaxTest.kt","source":"-"}
+{"hash":"c3641f8544d7c02f","origin":"VersionedSyntaxTest.kt","source":"@"}
+{"hash":"bb7208bc9b5d7c04","origin":"VersionedSyntaxTest.kt","source":"!"}
+{"hash":"74cd9ef9c7e15f57","origin":"VersionedSyntaxTest.kt","source":"^"}
+{"hash":"a03f2fd631370334","origin":"VersionedSyntaxTest.kt","source":"~~~"}
+{"hash":"71b37b9a8a57b848","origin":"VersionedSyntaxTest.kt","source":"->"}
+{"hash":"b11b4ca186c00769","origin":"VersionedSyntaxTest.kt","source":"\\\\"}
+{"hash":"951dcee3a7a4f3aa","origin":"VersionedSyntaxTest.kt","source":"&"}
+{"hash":"bbf3f11cb5b43e70","origin":"VersionedSyntaxTest.kt","source":"%"}
+{"hash":"ec037b4b2c5dbc2f","origin":"VersionedSyntaxTest.kt","source":"%{}"}
+{"hash":"44136fa355b3678a","origin":"VersionedSyntaxTest.kt","source":"{}"}
+{"hash":"4a28a8963c0242a4","origin":"VersionedSyntaxTest.kt","source":"<<>>"}
+{"hash":"0a07f659461970d8","origin":"VersionedSyntaxTest.kt","source":", "}
+{"hash":"5e9046fe814417fc","origin":"VersionedSyntaxTest.kt","source":")}'"}
+{"hash":"b5bea41b6c623f7c","origin":"VersionedSyntaxTest.kt","source":"true"}
+{"hash":"fcbcf165908dd18a","origin":"VersionedSyntaxTest.kt","source":"false"}
+{"hash":"043f5c33fd52bdf6","origin":"VersionedSyntaxTest.kt","source":"'Foo'"}
+{"hash":"4a87b3f72f5e8675","origin":"VersionedSyntaxTest.kt","source":"'..//'"}
+{"hash":"baf2b6fefdad5d67","origin":"VersionedSyntaxTest.kt","source":"x.** ..// y"}
+{"hash":"1f7afca844501c4e","origin":"VersionedSyntaxTest.kt","source":"x.** .. / y"}
+{"hash":"a232496c261d67a2","origin":"VersionedSyntaxTest.kt","source":"x.** .. // y"}
+{"hash":"06ff3c7ec643c1e9","origin":"VersionedSyntaxTest.kt","source":"x.** .. //: 1"}
+{"hash":"8a5edab282632443","origin":"VersionedSyntaxTest.kt","source":"/"}
+{"hash":"08251127937aa1fa","origin":"VersionedSyntaxTest.kt","source":"'/'"}
+{"hash":"a0b1eadd75ed74eb","origin":"VersionedSyntaxTest.kt","source":"'=='"}
+{"hash":"4b03a13367549799","origin":"VersionedSyntaxTest.kt","source":"x.**[1]"}
+{"hash":"6a8ccf81a6f87317","origin":"VersionedSyntaxTest.kt","source":"x.** y"}
+{"hash":"ba7d97515fb787f6","origin":"VersionedSyntaxTest.kt","source":"x.**\n==/2"}
+{"hash":"8422222e9c40453c","origin":"VersionedSyntaxTest.kt","source":"[x.** ==/2]"}
+{"hash":"c3798c4dbe4dfcf3","origin":"VersionedSyntaxTest.kt","source":"x.** \\\\/2"}
+{"hash":"559aead08264d579","origin":"VersionedSyntaxTest.kt","source":"A"}
+{"hash":"6b86b273ff34fce1","origin":"VersionedSyntaxTest.kt","source":"1"}
+{"hash":"bf12767b0f2a56b2","origin":"VersionedSyntaxTest.kt","source":"é"}
+{"hash":"f5c1c71686da1031","origin":"VersionedSyntaxTest.kt","source":"nfc.ex"}
+{"hash":"f066f1205e15559e","origin":"VersionedSyntaxTest.kt","source":"(code points 0x0063 0x0327 0x003F)"}
+{"hash":"f56ee271d2b15b2c","origin":"VersionedSyntaxTest.kt","source":"(code points 0x00E7 0x003F)"}
+{"hash":"0f5962d7e4c6d8ed","origin":"VersionedSyntaxTest.kt","source":"'or'"}
+{"hash":"8ee6aa32341bb939","origin":"VersionedSyntaxTest.kt","source":"'and'"}
+{"hash":"8de694e57fc133a9","origin":"VersionedSyntaxTest.kt","source":"'**'"}
+{"hash":"b5c5cc1fbe8fa86a","origin":"VersionedSyntaxTest.kt","source":":a"}
+{"hash":"fe4a5888d66b7ab3","origin":"VersionedSyntaxTest.kt","source":"{:a, :b}"}
+{"hash":"8502b894ed84f4a7","origin":"VersionedSyntaxTest.kt","source":"+foo"}
+{"hash":"ac8d8342bbb2362d","origin":"VersionedSyntaxTest.kt","source":"\"a\""}
+{"hash":"080a9ed428559ef6","origin":"VersionedSyntaxTest.kt","source":"[1]"}
+{"hash":"29f753efd88c3a74","origin":"VersionedSyntaxTest.kt","source":":b"}
+{"hash":"5cd67a1734052155","origin":"VersionedSyntaxTest.kt","source":"^a"}
+{"hash":"5e75a6ff1b5e0c61","origin":"VersionedSyntaxTest.kt","source":"@a"}
+{"hash":"1bad6b8cf97131fc","origin":"VersionedSyntaxTest.kt","source":"-1"}
+{"hash":"1ad9e14fe38f6554","origin":"VersionedSyntaxTest.kt","source":"not a"}
+{"hash":"c274891790345c56","origin":"VersionedSyntaxTest.kt","source":"-a"}
+{"hash":"0266b93cf3014995","origin":"VersionedSyntaxTest.kt","source":"!a"}
+{"hash":"51321541267d3fc2","origin":"VersionedSyntaxTest.kt","source":"~~~a"}
+{"hash":"8bafc25b16aa404e","origin":"VersionedSyntaxTest.kt","source":":c"}
+{"hash":"3aecd5bfd5c9a1af","origin":"VersionedSyntaxTest.kt","source":"eol"}
+{"hash":"380f88b812a4dfe3","origin":"VersionedSyntaxTest.kt","source":"fn -> 1 end"}
+{"hash":"f4e985ae0d7bfece","origin":"VersionedSyntaxTest.kt","source":"%{a => 1}"}
+{"hash":"e7ac0786668e0ff0","origin":"VersionedSyntaxTest.kt","source":":"}
+{"hash":"0f02c6bad08d9ff1","origin":"VersionedSyntaxTest.kt","source":">>"}
+{"hash":"0f1e18bb4143dc4b","origin":"VersionedSyntaxTest.kt","source":"fn"}
+{"hash":"cfae0d4248f7142f","origin":"VersionedSyntaxTest.kt","source":"]"}
+{"hash":"d10b36aa74a59bcf","origin":"VersionedSyntaxTest.kt","source":"}"}
+{"hash":"ba5ec51d07a4ac0e","origin":"VersionedSyntaxTest.kt","source":")"}
+{"hash":"361e48d0308f20e3","origin":"VersionedSyntaxTest.kt","source":"end"}
+{"hash":"2ef285af398f15b9","origin":"VersionedSyntaxTest.kt","source":":foo.\"บูมเมอแรง\"()"}
+{"hash":"410cf8a3c78d42c1","origin":"VersionedSyntaxTest.kt","source":"\"บูมเมอแรง\""}
+{"hash":"b2a3e9ec0c385627","origin":"VersionedSyntaxTest.kt","source":"\"➡️\""}
+{"hash":"3d68ce21f2899a47","origin":"VersionedSyntaxTest.kt","source":"\"é\""}
+{"hash":"3b017851714342af","origin":"VersionedSyntaxTest.kt","source":"'บู'"}
+{"hash":"9e02110d9093c30a","origin":"VersionedSyntaxTest.kt","source":"\"บู\""}
+{"hash":"5bf0bb99118e95bd","origin":"VersionedSyntaxTest.kt","source":":foo.\"บม\"()"}
+{"hash":"a2c2339691fc48fb","origin":"VersionedSyntaxTest.kt","source":"//"}
+{"hash":"a86d6dedf5bd962e","origin":"VersionedSyntaxTest.kt","source":"\\x"}
+{"hash":"610fe4450d41c81e","origin":"VersionedSyntaxTest.kt","source":"\\u"}
+{"hash":"8d7523f287312e48","origin":"VersionedSyntaxTest.kt","source":"\\u{110000}"}
+{"hash":"a64acb7bc3b8b423","origin":"VersionedSyntaxTest.kt","source":"\\u{D800}"}
+{"hash":"21c2d00a2b791950","origin":"VersionedSyntaxTest.kt","source":"\\xA"}
+{"hash":"b2ba1ce2bb4276b3","origin":"VersionedSyntaxTest.kt","source":"\\x{41}"}
+{"hash":"3c0bedc814e4490d","origin":"VersionedSyntaxTest.kt","source":"\"\\x{110000}\""}
+{"hash":"77ca8e50ce382002","origin":"VersionedSyntaxTest.kt","source":"\\x{110000}"}
+{"hash":"5651374e819a4ad2","origin":"VersionedSyntaxTest.kt","source":"defmodule Sample do\n  @moduledoc \"\"\"\n      x = ..\n  \"\"\"\nend\n"}
+{"hash":"20d3d600e0d0e4cb","origin":"VersionedSyntaxTest.kt","source":"x = ..\nfoo//bar\n"}
+{"hash":"a64df2660b7e9ed2","origin":"VersionedSyntaxTest.kt","source":"no_sdk.ex"}
+{"hash":"81505c3f6f8e2412","origin":"VersionedSyntaxTest.kt","source":"If you wanted to define a default argument, use (\\\\) instead. Syntax error before: '//'"}
+{"hash":"e0597c829808b8d7","origin":"VersionedSyntaxTest.kt","source":"'..'"}
+{"hash":"bba817392986f0c1","origin":"VersionedSyntaxTest.kt","source":".format(character.code)}). "}
+{"hash":"4bd9479579a30020","origin":"VersionedSyntaxTest.kt","source":"The available delimiters are: //, ||, \"\", '', (), [], {}, <>"}
+{"hash":"748c65f05e79f548","origin":"InvalidConstructTest.kt","source":":foo.Bar"}
+{"hash":"1f6c06216365f0b7","origin":"InvalidConstructTest.kt","source":":\"+\".Bar"}
+{"hash":"1164c3eee8f7592d","origin":"InvalidConstructTest.kt","source":":'foo'.Bar"}
+{"hash":"693624ac0a4c06d1","origin":"InvalidConstructTest.kt","source":"true.Bar"}
+{"hash":"2d645824906ca749","origin":"InvalidConstructTest.kt","source":"nil.Bar"}
+{"hash":"c73d188069d144cb","origin":"InvalidConstructTest.kt","source":"false.Bar"}
+{"hash":"551a09ef68f54689","origin":"InvalidConstructTest.kt","source":"(:foo).Bar"}
+{"hash":"6bb03a09eced123c","origin":"InvalidConstructTest.kt","source":"(true).Bar"}
+{"hash":"1f83cf171070b420","origin":"InvalidConstructTest.kt","source":"%:foo.Bar{}"}
+{"hash":"206e78cf0400266e","origin":"InvalidConstructTest.kt","source":":foo.Bar.baz"}
+{"hash":"f14c8f6e588238ac","origin":"InvalidConstructTest.kt","source":":foo.Bar.Baz"}
+{"hash":"11c192c25310b449","origin":"InvalidConstructTest.kt","source":":foo . Bar"}
+{"hash":"598cc6239c700889","origin":"InvalidConstructTest.kt","source":":foo.\nBar"}
+{"hash":"26656d069df760c7","origin":"InvalidConstructTest.kt","source":"alias :foo.Bar"}
+{"hash":"cdb4ee2aea69cc6a","origin":"InvalidConstructTest.kt","source":"."}
+{"hash":"70968f124509f52b","origin":"InvalidConstructTest.kt","source":":\"a#{b}\".Bar"}
+{"hash":"9a97ba1a8d4a10d7","origin":"InvalidConstructTest.kt","source":":foo.'Bar'"}
+{"hash":"f8566ec1af45b80b","origin":"InvalidConstructTest.kt","source":"\"foo\".Bar"}
+{"hash":"bd448bdce4c7c494","origin":"InvalidConstructTest.kt","source":"1.Bar"}
+{"hash":"a410ef29f1e91dc3","origin":"InvalidConstructTest.kt","source":"foo.Bar"}
+{"hash":"fdd9a13ff8785331","origin":"InvalidConstructTest.kt","source":"@foo.Bar"}
+{"hash":"a821f3e8da1f8c22","origin":"InvalidConstructTest.kt","source":":foo.{Bar}"}
+{"hash":"e925488ded4ccb43","origin":"InvalidConstructTest.kt","source":"__MODULE__.Bar"}
+{"hash":"845addd91b6d7a59","origin":"InvalidConstructTest.kt","source":"Foo.Bar"}
+{"hash":"41eb09706d9ab5c9","origin":"InvalidConstructTest.kt","source":"true.bar"}
+{"hash":"4a42faa6694e2780","origin":"InvalidConstructTest.kt","source":"fn 1 end"}
+{"hash":"337629593336be44","origin":"InvalidConstructTest.kt","source":"fn x end"}
+{"hash":"726e2c10667491e9","origin":"InvalidConstructTest.kt","source":"fn\n  1\nend"}
+{"hash":"7b6becaacc7c6934","origin":"InvalidConstructTest.kt","source":"fn 1; 2 end"}
+{"hash":"308971225bb3651c","origin":"InvalidConstructTest.kt","source":"fn -> end"}
+{"hash":"7a481e16e4385cc5","origin":"InvalidConstructTest.kt","source":"fn x -> x end"}
+{"hash":"558d2a02b3e12509","origin":"InvalidConstructTest.kt","source":"fn 1 -> 2; 3 end"}
+{"hash":"fee89c99c9dfa559","origin":"InvalidConstructTest.kt","source":"fn x -> x; 1 end"}
+{"hash":"cdcb336029b1f09b","origin":"InvalidConstructTest.kt","source":"% {}"}
+{"hash":"db4fc5d30990d290","origin":"InvalidConstructTest.kt","source":"% {"}
+{"hash":"feda5d13deaeb283","origin":"InvalidConstructTest.kt","source":"%\t{}"}
+{"hash":"e7bcae061660085b","origin":"InvalidConstructTest.kt","source":"%\t{"}
+{"hash":"9080179298d82bb3","origin":"InvalidConstructTest.kt","source":"%  {a: 1}"}
+{"hash":"23452c6b83f978be","origin":"InvalidConstructTest.kt","source":"%  {"}
+{"hash":"9786bbcf7afaac84","origin":"InvalidConstructTest.kt","source":"% {1, 2, 3}"}
+{"hash":"bf8eb6573aedcc32","origin":"InvalidConstructTest.kt","source":"%  \t{}"}
+{"hash":"69159bdad79169c2","origin":"InvalidConstructTest.kt","source":"%  \t{"}
+{"hash":"133033b8b8313a71","origin":"InvalidConstructTest.kt","source":"%\\\n{}"}
+{"hash":"eea34f2d0ab1c487","origin":"InvalidConstructTest.kt","source":"%\\\n{"}
+{"hash":"f976fdca4eae874b","origin":"InvalidConstructTest.kt","source":"%  \\\n{}"}
+{"hash":"ba6c2b179b4b3f09","origin":"InvalidConstructTest.kt","source":"%  \\\n{"}
+{"hash":"f14b86ef41995e9b","origin":"InvalidConstructTest.kt","source":"?\\u{D800}"}
+{"hash":"757993ac3ed95687","origin":"InvalidConstructTest.kt","source":"?\\x{110000}"}
+{"hash":"e00889d338e340ae","origin":"InvalidConstructTest.kt","source":"code point"}
+{"hash":"2378cec19c894da7","origin":"InvalidConstructTest.kt","source":"% Foo{}"}
+{"hash":"b596ded669baeeaf","origin":"InvalidConstructTest.kt","source":"%Foo {}"}
+{"hash":"132e9d51d456aaed","origin":"InvalidConstructTest.kt","source":"%@foo{}"}
+{"hash":"f8b20220d8c85d71","origin":"InvalidConstructTest.kt","source":"\"\\u{110000}\""}
+{"hash":"e9126f469646506b","origin":"InvalidConstructTest.kt","source":"110000"}
+{"hash":"744aa18e8169dc3f","origin":"InvalidConstructTest.kt","source":"1114112"}
+{"hash":"9e2c1761da4665e2","origin":"InvalidConstructTest.kt","source":"\"\\u{D800}\""}
+{"hash":"5c82ee6911694d1d","origin":"InvalidConstructTest.kt","source":"D800"}
+{"hash":"f74eb9ead719d5c4","origin":"InvalidConstructTest.kt","source":"55296"}
+{"hash":"e2abb8b90faadf0e","origin":"InvalidConstructTest.kt","source":"\"\\uD800\""}
+{"hash":"7624feb2a003e001","origin":"InvalidConstructTest.kt","source":"\\uD800"}
+{"hash":"307f1ca25b6cabdf","origin":"InvalidConstructTest.kt","source":"'\\u{DFFF}'"}
+{"hash":"74c547f9f0c4e465","origin":"InvalidConstructTest.kt","source":"\\u{DFFF}"}
+{"hash":"3f975a8aa1ba92bf","origin":"InvalidConstructTest.kt","source":"DFFF"}
+{"hash":"a7570518bd93862b","origin":"InvalidConstructTest.kt","source":"57343"}
+{"hash":"48d98665797a5d3f","origin":"InvalidConstructTest.kt","source":":\"\\u{110000}\""}
+{"hash":"4fea715e28cd4ea6","origin":"InvalidConstructTest.kt","source":"[\"\\u{110000}\": 1]"}
+{"hash":"7d7bd9ca7c963c3e","origin":"InvalidConstructTest.kt","source":"\"#{1}\\u{110000}\""}
+{"hash":"bd865688721aa41d","origin":"InvalidConstructTest.kt","source":"\"\"\"\n\\u{110000}\n\"\"\""}
+{"hash":"5efb14a4f0b4634d","origin":"InvalidConstructTest.kt","source":"'''\n\\u{D800}\n'''"}
+{"hash":"d9b08f8fc3a9faea","origin":"InvalidConstructTest.kt","source":"\"\\u{FFFFFF}\""}
+{"hash":"f845a824c0401edc","origin":"InvalidConstructTest.kt","source":"\\u{FFFFFF}"}
+{"hash":"824da7fe0d3a58ce","origin":"InvalidConstructTest.kt","source":"FFFFFF"}
+{"hash":"671a7bbdc6c3ee7e","origin":"InvalidConstructTest.kt","source":"16777215"}
+{"hash":"761ef82a83b5b1ec","origin":"InvalidConstructTest.kt","source":"\"\\u{d800}\""}
+{"hash":"63e1c87a9592c3d2","origin":"InvalidConstructTest.kt","source":"\\u{d800}"}
+{"hash":"94baac232398ee1f","origin":"InvalidConstructTest.kt","source":"d800"}
+{"hash":"f5ee795e3fe2f703","origin":"InvalidConstructTest.kt","source":"\"\\u{0D800}\""}
+{"hash":"a141543af57ad86d","origin":"InvalidConstructTest.kt","source":"\\u{0D800}"}
+{"hash":"2a1fe62179a55b75","origin":"InvalidConstructTest.kt","source":"0D800"}
+{"hash":"cb0c0c89b9d2e841","origin":"InvalidConstructTest.kt","source":"\"\\x{dfff}\""}
+{"hash":"b52e600023630fde","origin":"InvalidConstructTest.kt","source":"\\x{dfff}"}
+{"hash":"ebf2ce50d938e3f4","origin":"InvalidConstructTest.kt","source":"dfff"}
+{"hash":"d5eb23b2e8c8fb8c","origin":"InvalidConstructTest.kt","source":"\"\\u{10FFFF}\""}
+{"hash":"e1a3718b8c62da1f","origin":"InvalidConstructTest.kt","source":"\"\\u{FFFE}\""}
+{"hash":"8347d6a2c8154791","origin":"InvalidConstructTest.kt","source":"\"\\u{D7FF}\""}
+{"hash":"d8e6854a0b3958e5","origin":"InvalidConstructTest.kt","source":"\"\\u{E000}\""}
+{"hash":"5296cff52cb80c4e","origin":"InvalidConstructTest.kt","source":"~s(\\u{110000})"}
+{"hash":"3531f1d4f5658b90","origin":"InvalidConstructTest.kt","source":"~S(\\u{110000})"}
+{"hash":"97a5136ec6034476","origin":"InvalidConstructTest.kt","source":"~r/\\u{110000}/"}
+{"hash":"b310676102b8f4f9","origin":"InvalidConstructTest.kt","source":"=>"}
+{"hash":"490fa799d9db8049","origin":"InvalidConstructTest.kt","source":"a.\"\\u{110000}\"()"}
+{"hash":"c8bd5192d1c69cc3","origin":"InvalidConstructTest.kt","source":"defmodule Sample do\n  @moduledoc \"\"\"\n      x = :foo.Bar\n  \"\"\"\nend\n"}
+{"hash":"f9f66cc856fe5941","origin":"InvalidConstructTest.kt","source":":foo"}
+{"hash":"f4d74dd1d5db942d","origin":"InvalidConstructTest.kt","source":"must be quoted. Syntax error before: '.'"}
+{"hash":"95db86b42d972510","origin":"measured","source":"x.** ++ /2"}
+{"hash":"4d235975f9a4d8e9","origin":"measured","source":"x.** ++\t/2"}
+{"hash":"53c9052719a2698c","origin":"measured","source":"x.** --/2"}
+{"hash":"f332f6e7498ca5de","origin":"measured","source":"x.** -- /2"}
+{"hash":"7335ac22266c09c3","origin":"measured","source":"x.** --\t/2"}
+{"hash":"51a0ca790deae3e3","origin":"measured","source":"x.** <> /2"}
+{"hash":"7328317c80eaa298","origin":"measured","source":"x.** <>\t/2"}
+{"hash":"151d310623ddee76","origin":"measured","source":"x.** +++/2"}
+{"hash":"5735567bda3b60f8","origin":"measured","source":"x.** +++ /2"}
+{"hash":"25c2d14a17177256","origin":"measured","source":"x.** +++\t/2"}
+{"hash":"2b0080a5cee03c7c","origin":"measured","source":"x.** ---/2"}
+{"hash":"a8d2af1d0ee06981","origin":"measured","source":"x.** --- /2"}
+{"hash":"56aa81a9ff524739","origin":"measured","source":"x.** ---\t/2"}
+{"hash":"79624b0507199f74","origin":"measured","source":"x.** |> /2"}
+{"hash":"c75ad8cdc5ae1a7d","origin":"measured","source":"x.** |>\t/2"}
+{"hash":"331545e6d51cc09d","origin":"measured","source":"x.** <<</2"}
+{"hash":"e2dd895845732c03","origin":"measured","source":"x.** <<< /2"}
+{"hash":"136594fe9be07047","origin":"measured","source":"x.** <<<\t/2"}
+{"hash":"0b205e73b3b638ce","origin":"measured","source":"x.** >>>/2"}
+{"hash":"a0e3ac6de2627d77","origin":"measured","source":"x.** >>> /2"}
+{"hash":"c3a38018f4ee6d87","origin":"measured","source":"x.** >>>\t/2"}
+{"hash":"eff9e6c94ca52b0b","origin":"measured","source":"x.** ~> /2"}
+{"hash":"7730cb9ec326a40f","origin":"measured","source":"x.** ~>\t/2"}
+{"hash":"b577d87a2b48e640","origin":"measured","source":"x.** <~/2"}
+{"hash":"0e4321e2f5344985","origin":"measured","source":"x.** <~ /2"}
+{"hash":"392f0d4cc54a8329","origin":"measured","source":"x.** <~\t/2"}
+{"hash":"56b2cfb45a1fe359","origin":"measured","source":"x.** <~>/2"}
+{"hash":"90e0c05bb0b7a8a4","origin":"measured","source":"x.** <~> /2"}
+{"hash":"fe5bf215e5f18c6d","origin":"measured","source":"x.** <~>\t/2"}
+{"hash":"1942cad4c4e56498","origin":"measured","source":"x.** <|>/2"}
+{"hash":"64481b3ff15e649d","origin":"measured","source":"x.** <|> /2"}
+{"hash":"394d2a5dc06fbf75","origin":"measured","source":"x.** <|>\t/2"}
+{"hash":"4d359f8965f13b00","origin":"measured","source":"x.** ~>>/2"}
+{"hash":"0045e35a2426fe4f","origin":"measured","source":"x.** ~>> /2"}
+{"hash":"a22e3e431d56ba00","origin":"measured","source":"x.** ~>>\t/2"}
+{"hash":"6a264554a9494914","origin":"measured","source":"x.** <<~ /2"}
+{"hash":"0790f1035125f8fd","origin":"measured","source":"x.** <<~\t/2"}
+{"hash":"2eb32502fa3650b5","origin":"measured","source":"x.** ==\t/2"}
+{"hash":"b1e3df88d25ce79a","origin":"measured","source":"x.** !=/2"}
+{"hash":"66cecddc79b089d6","origin":"measured","source":"x.** != /2"}
+{"hash":"3a55b443c1dfd5f1","origin":"measured","source":"x.** !=\t/2"}
+{"hash":"4aedccbbc18871a4","origin":"measured","source":"x.** ===/2"}
+{"hash":"240ae369bede78e6","origin":"measured","source":"x.** === /2"}
+{"hash":"fcb36b30476d45e9","origin":"measured","source":"x.** ===\t/2"}
+{"hash":"a27a295507dc89ad","origin":"measured","source":"x.** !==/2"}
+{"hash":"088922bd4b85c638","origin":"measured","source":"x.** !== /2"}
+{"hash":"422bb369f7b33f61","origin":"measured","source":"x.** !==\t/2"}
+{"hash":"c950207e71ca13fd","origin":"measured","source":"x.** =~ /2"}
+{"hash":"8fdad88c67980226","origin":"measured","source":"x.** =~\t/2"}
+{"hash":"bc4fbb8d76c5b6b4","origin":"measured","source":"x.** </2"}
+{"hash":"41e4d8c8884ca700","origin":"measured","source":"x.** < /2"}
+{"hash":"f9ab77b1633c23d7","origin":"measured","source":"x.** <\t/2"}
+{"hash":"08d057344656c1c7","origin":"measured","source":"x.** >/2"}
+{"hash":"edc2e17d6e05043f","origin":"measured","source":"x.** > /2"}
+{"hash":"76a2ce72c51f9127","origin":"measured","source":"x.** >\t/2"}
+{"hash":"93f61a0dfdab8dc9","origin":"measured","source":"x.** <=/2"}
+{"hash":"5b9dc6af8f236b9c","origin":"measured","source":"x.** <= /2"}
+{"hash":"c183593961ae6fc5","origin":"measured","source":"x.** <=\t/2"}
+{"hash":"e7d6f33c1fbf68e5","origin":"measured","source":"x.** >=/2"}
+{"hash":"c18091bfa6ae6870","origin":"measured","source":"x.** >= /2"}
+{"hash":"32f481e755848ccc","origin":"measured","source":"x.** >=\t/2"}
+{"hash":"85899e77649af3f7","origin":"measured","source":"x.** && /2"}
+{"hash":"e901475ef4acf163","origin":"measured","source":"x.** &&\t/2"}
+{"hash":"16a37196aaba1444","origin":"measured","source":"x.** &&&/2"}
+{"hash":"6a39da82e3282613","origin":"measured","source":"x.** &&& /2"}
+{"hash":"1d6ac74265296bad","origin":"measured","source":"x.** &&&\t/2"}
+{"hash":"22f9001841818888","origin":"measured","source":"x.** ||/2"}
+{"hash":"ca377cfeea56b970","origin":"measured","source":"x.** || /2"}
+{"hash":"910f0eca9b451062","origin":"measured","source":"x.** ||\t/2"}
+{"hash":"973195b4d059895b","origin":"measured","source":"x.** |||/2"}
+{"hash":"59e096b186fec0b0","origin":"measured","source":"x.** ||| /2"}
+{"hash":"fd294598ac1f7314","origin":"measured","source":"x.** |||\t/2"}
+{"hash":"7f00a8e5dd265d3b","origin":"measured","source":"x.** and /2"}
+{"hash":"24043316eff37ca0","origin":"measured","source":"x.** and\t/2"}
+{"hash":"76ada4a6467ecaa6","origin":"measured","source":"x.** or /2"}
+{"hash":"18bc93cfd76f6242","origin":"measured","source":"x.** or\t/2"}
+{"hash":"30e8bd1462a18fbe","origin":"measured","source":"x.** <- /2"}
+{"hash":"fbc5d40ba5aed311","origin":"measured","source":"x.** <-\t/2"}
+{"hash":"5df8e9865d4c3d52","origin":"measured","source":"x.** = /2"}
+{"hash":"c6175c06a22e1788","origin":"measured","source":"x.** =\t/2"}
+{"hash":"aafd255a217f69ba","origin":"measured","source":"x.** | /2"}
+{"hash":"af08516c4a9db01b","origin":"measured","source":"x.** |\t/2"}
+{"hash":"9b0d450092d3d41d","origin":"measured","source":"x.** :: /2"}
+{"hash":"f2638f482b696dda","origin":"measured","source":"x.** ::\t/2"}
+{"hash":"c211f542fd88bd69","origin":"measured","source":"x.** ^^^/2"}
+{"hash":"35e29e66e9c8eccc","origin":"measured","source":"x.** ^^^ /2"}
+{"hash":"4a0a8d95c208ac84","origin":"measured","source":"x.** ^^^\t/2"}
+{"hash":"763df631bfcd6675","origin":"measured","source":"x.** * /2"}
+{"hash":"5f3032c4b6c3b834","origin":"measured","source":"x.** *\t/2"}
+{"hash":"9084e985ae9bb348","origin":"measured","source":"x.** .. /2"}
+{"hash":"df64708bb36d5727","origin":"measured","source":"x.** ..\t/2"}
+{"hash":"2ca54dc0d43b2e3e","origin":"measured","source":"x.** in /2"}
+{"hash":"29fa7d5b5af11c02","origin":"measured","source":"x.** in\t/2"}
+{"hash":"78452d3ad1a3ad19","origin":"measured","source":"x.** when /2"}
+{"hash":"9fecc8791cda5e61","origin":"measured","source":"x.** when\t/2"}
+{"hash":"081a5d36583e859e","origin":"measured","source":"x.** ./2"}
+{"hash":"6b8810e9646a7ed5","origin":"measured","source":"x.** . /2"}
+{"hash":"509bf1fda02761a9","origin":"measured","source":"x.** .\t/2"}
+{"hash":"af9b26df2482424e","origin":"measured","source":"x.** =>/2"}
+{"hash":"26380c2ff7e55a0b","origin":"measured","source":"x.** => /2"}
+{"hash":"bf79e8921cc1adb5","origin":"measured","source":"x.** =>\t/2"}
+{"hash":"4460f89dbb5833a0","origin":"measured","source":"x.** \\\\ /2"}
+{"hash":"b12f5f05ec3bd726","origin":"measured","source":"x.** \\\\\t/2"}
+{"hash":"6b1b5a07045fe79b","origin":"measured","source":"x.** do/2"}
+{"hash":"df797359dbdfaf85","origin":"measured","source":"x.** do /2"}
+{"hash":"895fff79ef1ae964","origin":"measured","source":"x.** do\t/2"}
+{"hash":"9e43fc6504c5af9b","origin":"measured","source":"x.** end/2"}
+{"hash":"bf720fa1f3684bca","origin":"measured","source":"x.** end /2"}
+{"hash":"876a1213ec083d45","origin":"measured","source":"x.** end\t/2"}
+{"hash":"2e76e5106bfc5c16","origin":"measured","source":"x.** else/2"}
+{"hash":"5a9494bd78b30e30","origin":"measured","source":"x.** else /2"}
+{"hash":"bd2d49d6c8e68881","origin":"measured","source":"x.** else\t/2"}
+{"hash":"b17beb34ad51fe53","origin":"measured","source":"x.** after/2"}
+{"hash":"52cd707ea19b17c5","origin":"measured","source":"x.** after /2"}
+{"hash":"807e81605b9aca1e","origin":"measured","source":"x.** after\t/2"}
+{"hash":"795d945b617eb6fc","origin":"measured","source":"x.** catch/2"}
+{"hash":"58dac0d0c8a3f888","origin":"measured","source":"x.** catch /2"}
+{"hash":"04c2f1d3dbf104d7","origin":"measured","source":"x.** catch\t/2"}
+{"hash":"d5ee0d69948a40bb","origin":"measured","source":"x.** rescue/2"}
+{"hash":"c413c00cb69abef2","origin":"measured","source":"x.** rescue /2"}
+{"hash":"7fe44ba791f9643a","origin":"measured","source":"x.** rescue\t/2"}
+{"hash":"87409b4e0812a113","origin":"measured","source":"x.** and\\\n/2"}
+{"hash":"82da2d5fb48ca38c","origin":"measured","source":"x.** in\\\n/2"}
+{"hash":"10e9316cd34b06ae","origin":"measured","source":"x.** <>\\\n/2"}
+{"hash":"7d44efccd2970753","origin":"measured","source":"x.** +\\\n/2"}
+{"hash":"c11623319043ae56","origin":"measured","source":"x.** ==\\\n /2"}
+{"hash":"2bb62379cf5f3366","origin":"measured","source":"==\\\n/2"}
+{"hash":"97a78582aad57eae","origin":"measured","source":"&==\\\n/2"}
+{"hash":"6c93d1cc6d702774","origin":"measured","source":"&<>\\\n/2"}
+{"hash":"5afd9e2df0922319","origin":"measured","source":"f ==\\\n/2"}
+{"hash":"c9da357c52672c34","origin":"measured","source":"x ==\\\n/2"}
+{"hash":"1067fac224fbae8b","origin":"measured","source":"[==\\\n/2]"}
+{"hash":"9d3c1948bad49160","origin":"measured","source":"x.y ==\\\n/2"}
+{"hash":"3c10edb4cadc9582","origin":"measured","source":"f(==\\\n/2)"}
+{"hash":"db5773b385cef9c3","origin":"measured","source":"x.** &==\\\n/2"}
+{"hash":"5b7e216a4f5dd931","origin":"measured","source":"x = ==\\\n/2"}
+{"hash":"017921c741ca9d0b","origin":"measured","source":"when\\\n/2"}
+{"hash":"bf048c97251eb108","origin":"measured","source":"x.** when\\\n/2"}
