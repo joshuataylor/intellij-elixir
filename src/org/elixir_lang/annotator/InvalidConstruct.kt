@@ -15,6 +15,7 @@ import org.elixir_lang.psi.ElixirAtom
 import org.elixir_lang.psi.ElixirAtomKeyword
 import org.elixir_lang.psi.ElixirCharToken
 import org.elixir_lang.psi.ElixirDotInfixOperator
+import org.elixir_lang.psi.ElixirEscapedCharacter
 import org.elixir_lang.psi.ElixirInterpolation
 import org.elixir_lang.psi.ElixirMapOperation
 import org.elixir_lang.psi.ElixirMatchedMultiplicationOperation
@@ -26,6 +27,8 @@ import org.elixir_lang.psi.ElixirRelativeIdentifier
 import org.elixir_lang.psi.ElixirTypes
 import org.elixir_lang.psi.ElixirUnmatchedMultiplicationOperation
 import org.elixir_lang.psi.ElixirUnmatchedQualifiedAlias
+import org.elixir_lang.psi.Quote
+import org.elixir_lang.psi.Sigil
 import org.elixir_lang.psi.UnqualifiedNoArgumentsCall
 import org.elixir_lang.psi.quoting.QuotingDialect
 import org.elixir_lang.psi.quoting.QuotingDialectResolver
@@ -40,6 +43,7 @@ internal class InvalidConstruct : Annotator, DumbAware {
             is ElixirAnonymousFunction -> anonymousFunctionWithoutClause(element)
             is ElixirMapOperation -> spaceBeforeBrace(element)
             is ElixirQuoteHexadecimalEscapeSequence -> invalidCodePoint(element)
+            is ElixirEscapedCharacter -> invalidEscape(element)
             is ElixirAtom -> divisionAtom(element)
             is ElixirMatchedMultiplicationOperation, is ElixirUnmatchedMultiplicationOperation -> operatorReference(element)
             else -> null
@@ -135,6 +139,38 @@ internal class InvalidConstruct : Annotator, DumbAware {
         return TextRange(prefix.startOffset, arguments.startOffset + 1) to "unexpected space between % and {"
     }
 
+    /**
+     * Elixir unescapes a string, charlist, quoted atom or key as it parses, and `sigil_s`, `sigil_c` and `sigil_w` when the
+     * code is compiled; other sigils receive an escape as written. A quoted call name is unescaped only from 1.18, which
+     * [VersionedSyntax] reports. On 1.11 the hexadecimal message ends with the quote's opening delimiter, Elixir's token,
+     * and a sigil's message never has the tokenizer's "Syntax error after".
+     */
+    private fun invalidEscape(escaped: ElixirEscapedCharacter): Pair<TextRange, String>? {
+        val letter = escaped.lastChild?.text?.takeIf { it == "x" || it == "u" } ?: return null
+
+        val holder = PsiTreeUtil.getParentOfType(escaped, Sigil::class.java, Quote::class.java, ElixirCharToken::class.java)
+        val delimiter = when (holder) {
+            is Sigil -> if (holder.sigilName() in UNESCAPING_SIGILS) "" else return null
+            is Quote -> when (holder.parent) {
+                is ElixirRelativeIdentifier -> return null
+                is ElixirAtom -> ":" + holder.firstChild.text
+                else -> holder.firstChild.text
+            }
+            else -> return null
+        }
+
+        val hexadecimal = letter == "x"
+
+        return escaped.textRange to when {
+            QuotingDialectResolver.dialectFor(escaped) < QuotingDialect.V1_12 ->
+                if (hexadecimal) "missing hex sequence after \\x, expected \\xHH$delimiter"
+                else "invalid Unicode sequence after \\u, expected \\uHHHH or \\u{H*}"
+            holder is Sigil -> if (hexadecimal) INVALID_HEX_ESCAPE_WHEN_COMPILED else INVALID_UNICODE_ESCAPE_WHEN_COMPILED
+            hexadecimal -> INVALID_HEX_ESCAPE
+            else -> INVALID_UNICODE_ESCAPE
+        }
+    }
+
     private fun invalidCodePoint(escape: ElixirQuoteHexadecimalEscapeSequence): Pair<TextRange, String>? {
         // Elixir unescapes a quoted remote call name only from 1.18. In `?\u{…}` it reads `?\u` and then reports a syntax
         // error before `{`.
@@ -156,8 +192,7 @@ internal class InvalidConstruct : Annotator, DumbAware {
 
             return escape.textRange to when {
                 dialect < QuotingDialect.V1_12 -> "invalid or reserved Unicode code point $codePoint"
-                hexadecimal && dialect >= QuotingDialect.V1_20 ->
-                    "invalid hex escape character, expected \\xHH where H is a hexadecimal digit. Syntax error after: \\x"
+                hexadecimal && dialect >= QuotingDialect.V1_20 -> INVALID_HEX_ESCAPE
                 else -> "invalid or reserved Unicode code point \\u{$digits}. Syntax error after: \\u"
             }
         }
@@ -166,7 +201,16 @@ internal class InvalidConstruct : Annotator, DumbAware {
     }
 }
 
+private val UNESCAPING_SIGILS = setOf("s", "c", "w")
+
 private val CLOSING_TOKENS = setOf(",", ")", ">>", "]", "}")
+
+internal const val INVALID_HEX_ESCAPE_WHEN_COMPILED = "invalid hex escape character, expected \\xHH where H is a hexadecimal digit"
+internal const val INVALID_HEX_ESCAPE = "$INVALID_HEX_ESCAPE_WHEN_COMPILED. Syntax error after: \\x"
+
+internal const val INVALID_UNICODE_ESCAPE_WHEN_COMPILED =
+    "invalid Unicode escape character, expected \\uHHHH or \\u{H*} where H is a hexadecimal digit"
+internal const val INVALID_UNICODE_ESCAPE = "$INVALID_UNICODE_ESCAPE_WHEN_COMPILED. Syntax error after: \\u"
 
 internal const val INVALID_ESCAPE_AT_END = "invalid escape \\ at end of file"
 

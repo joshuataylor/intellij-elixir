@@ -1360,3 +1360,40 @@
 {"hash":"5b7e216a4f5dd931","origin":"measured","source":"x = ==\\\n/2"}
 {"hash":"017921c741ca9d0b","origin":"measured","source":"when\\\n/2"}
 {"hash":"bf048c97251eb108","origin":"measured","source":"x.** when\\\n/2"}
+{"hash":"14c40fc4340e15fe","origin":"measured","source":"\"\\x{33h}\""}
+{"hash":"5d7da70570c28619","origin":"measured","source":"'\\x{33h}'"}
+{"hash":"86f7a280e75bb8db","origin":"measured","source":"\"\"\"\n\\x{33h}\n\"\"\""}
+{"hash":"a035a0116521f55d","origin":"measured","source":"\"\"\"\na\\x\n\"\"\""}
+{"hash":"0b7fe38aebb4b70d","origin":"measured","source":"\"\"\"\n\\x{33\n\"\"\""}
+{"hash":"5beb0869d0603180","origin":"measured","source":":\"\\x{33h}\""}
+{"hash":"6d6478272486e907","origin":"measured","source":"[\"\\x{33h}\": 1]"}
+{"hash":"75405ca94aca01be","origin":"measured","source":"[a: \"\\x{33h}\"]"}
+{"hash":"6802bc99fec62d9b","origin":"measured","source":"\"\\x\""}
+{"hash":"c798ec3ca18f8a6c","origin":"measured","source":"\"\\xg\""}
+{"hash":"41d470d547f4d243","origin":"measured","source":"\"\\x{}\""}
+{"hash":"6b809b16ba8f0c4b","origin":"measured","source":"\"\\x{33\""}
+{"hash":"00336595020204d1","origin":"measured","source":"\"\\x{zz}\""}
+{"hash":"1b0cc8d01781e505","origin":"measured","source":"\"\\x{1234567}\""}
+{"hash":"d7c084c8305a9d3a","origin":"measured","source":"\"\\xg#{1}\""}
+{"hash":"bf5ba28af3423559","origin":"measured","source":"\"\\u\""}
+{"hash":"97e9b29b30bc4f2f","origin":"measured","source":"\"\\u1\""}
+{"hash":"e852f77d9390b36c","origin":"measured","source":"\"\\u12\""}
+{"hash":"a42877b3b7845c0c","origin":"measured","source":"\"\\u123\""}
+{"hash":"b149f8460ab5682a","origin":"measured","source":"\"\\uZ\""}
+{"hash":"2687d6d9043bd5cb","origin":"measured","source":"\"\\u{}\""}
+{"hash":"416c04723ff45394","origin":"measured","source":"\"\\u{zz}\""}
+{"hash":"e6a9d909c89dc09a","origin":"measured","source":"\"\\u{33h}\""}
+{"hash":"ab1533eb11e2578d","origin":"measured","source":"\"\\u{33\""}
+{"hash":"7f62d5c137bc0555","origin":"measured","source":"\"\\u{1234567}\""}
+{"hash":"8cc8464a559522e5","origin":"measured","source":"\"\\x1\""}
+{"hash":"d3df949be652c020","origin":"measured","source":"\"\\x12\""}
+{"hash":"1675189df7499768","origin":"measured","source":"\"\\x123\""}
+{"hash":"a5ff8561164be8f2","origin":"measured","source":"\"\\x{1}\""}
+{"hash":"6d7ead38d02eb7dd","origin":"measured","source":"\"\\x{12345}\""}
+{"hash":"0c70bf1ebdd05a84","origin":"measured","source":"\"\\u1234\""}
+{"hash":"cccd6bec47697038","origin":"measured","source":"\"\\u12345\""}
+{"hash":"f2c03e0a2436557a","origin":"measured","source":"\"\\u{1}\""}
+{"hash":"32a5190dc2293d47","origin":"measured","source":"\"\\u{12345}\""}
+{"hash":"4e4d52a05beb6fc3","origin":"measured","source":"\"\"\"\n\\x12\\u1234\n\"\"\""}
+{"hash":"11bc5e8a84e27b1c","origin":"measured","source":"defmodule A do\n  @moduledoc \"\"\"\n  Doc \\x{33h} here.\n  \"\"\"\n  def f, do: 1\nend\n"}
+{"hash":"07c428de4fbfb2c4","origin":"measured","source":"defmodule A do\n  @doc \"\\x{33h}\"\n  def f, do: 1\n  def g, do: 2\nend\n"}

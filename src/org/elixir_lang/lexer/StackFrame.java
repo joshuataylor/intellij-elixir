@@ -34,10 +34,9 @@ public class StackFrame {
      */
 
     private Boolean interpolation = null;
-    private Integer lastLexicalState;
+    private final int lastLexicalState;
     private String promoter = null;
     private String sigilName = null;
-    private boolean quotedCallName = false;
 
     public StackFrame(int lastLexicalState) {
         this.lastLexicalState = lastLexicalState;
@@ -99,19 +98,7 @@ public class StackFrame {
     }
 
     public int getLastLexicalState() {
-        if (lastLexicalState == null) {
-            throw new IllegalStateException("LastLexicalState not set");
-        }
-
         return lastLexicalState;
-    }
-
-    public void setLastLexicalState(int lastLexicalState) {
-        if (this.lastLexicalState != null) {
-            throw new IllegalStateException("LastLexicalState already set");
-        }
-
-        this.lastLexicalState = lastLexicalState;
     }
 
     public String getPromoter() {
@@ -136,14 +123,6 @@ public class StackFrame {
 
     public boolean isSigil() {
         return sigilName != null;
-    }
-
-    public boolean isQuotedCallName() {
-        return quotedCallName;
-    }
-
-    public void markQuotedCallName() {
-        quotedCallName = true;
     }
 
     public IElementType sigilNameType() {

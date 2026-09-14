@@ -42,15 +42,6 @@ import org.jetbrains.annotations.Nullable;
     }
   }
 
-  private void startQuotedCallName(CharSequence quotePromoter) {
-    startQuote(quotePromoter);
-    stack.markQuotedCallName();
-  }
-
-  private boolean isQuotedCallName() {
-    return stack.isQuotedCallName();
-  }
-
   private void handleInLastState() {
     org.elixir_lang.lexer.StackFrame stackFrame = pop();
     handleInState(stackFrame.getLastLexicalState());
@@ -695,7 +686,6 @@ EOL_INSENSITIVE = {AND_SYMBOL_OPERATOR} |
 %state MULTILINE_WHITE_SPACE_MAYBE
 %state NAMED_SIGIL
 %state OCTAL_WHOLE_NUMBER
-%state QUOTED_CALL_NAME_ESCAPE_SEQUENCE
 %state REFERENCE_OPERATION
 %state SIGIL
 %state SIGIL_MODIFIERS
@@ -1141,7 +1131,7 @@ EOL_INSENSITIVE = {AND_SYMBOL_OPERATOR} |
                                                          with CALL so parser doesn't think call is no parentheses with
                                                          parenthetical or list argument. */
                                                       yybegin(CALL_MAYBE);
-                                                      startQuotedCallName(yytext());
+                                                      startQuote(yytext());
                                                       return ElixirTypes.LINE_PROMOTER; }
 
   .                                                 { handleInLastState(); }
@@ -1180,9 +1170,12 @@ EOL_INSENSITIVE = {AND_SYMBOL_OPERATOR} |
                                         return ElixirTypes.ESCAPED_CHARACTER_TOKEN;
                                     }
                                   }
-  {HEXADECIMAL_WHOLE_NUMBER_BASE} { yybegin(HEXADECIMAL_ESCAPE_SEQUENCE);
+  // An escape no release accepts leaves its letter a plain escaped character, so the quote goes on.
+  {HEXADECIMAL_WHOLE_NUMBER_BASE} / ({HEXADECIMAL_DIGIT}|{OPENING_CURLY}{HEXADECIMAL_DIGIT}{1,6}{CLOSING_CURLY})
+                                  { yybegin(HEXADECIMAL_ESCAPE_SEQUENCE);
                                     return ElixirTypes.HEXADECIMAL_WHOLE_NUMBER_BASE; }
-  {UNICODE_ESCAPE_CHARACTER}      { yybegin(UNICODE_ESCAPE_SEQUENCE);
+  {UNICODE_ESCAPE_CHARACTER} / ({HEXADECIMAL_DIGIT}{4}|{OPENING_CURLY}{HEXADECIMAL_DIGIT}{1,6}{CLOSING_CURLY})
+                                  { yybegin(UNICODE_ESCAPE_SEQUENCE);
                                     return ElixirTypes.UNICODE_ESCAPE_CHARACTER; }
   {ANY}                           { popAndBegin();
                                     return ElixirTypes.ESCAPED_CHARACTER_TOKEN; }
@@ -1264,7 +1257,7 @@ EOL_INSENSITIVE = {AND_SYMBOL_OPERATOR} |
                              }
   {ESCAPE}                   {
                                if (isInterpolating()) {
-                                 pushAndBegin(isQuotedCallName() ? QUOTED_CALL_NAME_ESCAPE_SEQUENCE : ESCAPE_SEQUENCE);
+                                 pushAndBegin(ESCAPE_SEQUENCE);
                                  return ElixirTypes.ESCAPE;
                                } else {
                                  pushAndBegin(ESCAPE_IN_LITERAL);
@@ -1453,15 +1446,6 @@ EOL_INSENSITIVE = {AND_SYMBOL_OPERATOR} |
   {NUMBER_SEPARATOR}      { return ElixirTypes.NUMBER_SEPARATOR; }
   {INVALID_OCTAL_DIGITS} { return ElixirTypes.INVALID_OCTAL_DIGITS; }
   {VALID_OCTAL_DIGITS}   { return ElixirTypes.VALID_OCTAL_DIGITS; }
-}
-
-// Before Elixir 1.18, a quoted call name keeps an invalid `\x` or `\u` escape as written, so it lexes as a plain escape.
-<QUOTED_CALL_NAME_ESCAPE_SEQUENCE> {
-  ({HEXADECIMAL_WHOLE_NUMBER_BASE}|{UNICODE_ESCAPE_CHARACTER}) /
-    ({HEXADECIMAL_DIGIT}|{OPENING_CURLY}{HEXADECIMAL_DIGIT}{1,6}{CLOSING_CURLY}) { handleInState(ESCAPE_SEQUENCE); }
-  {HEXADECIMAL_WHOLE_NUMBER_BASE}|{UNICODE_ESCAPE_CHARACTER}                     { popAndBegin();
-                                                                                   return ElixirTypes.ESCAPED_CHARACTER_TOKEN; }
-  {ANY}                                                                          { handleInState(ESCAPE_SEQUENCE); }
 }
 
 <REFERENCE_OPERATION> {

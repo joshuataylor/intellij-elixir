@@ -497,8 +497,8 @@ internal class VersionedSyntax : Annotator, DumbAware {
         if (PsiTreeUtil.getParentOfType(escaped, ElixirRelativeIdentifier::class.java) == null) return null
 
         val message = when (escaped.lastChild?.text) {
-            "x" -> HEX
-            "u" -> UNICODE
+            "x" -> INVALID_HEX_ESCAPE
+            "u" -> INVALID_UNICODE_ESCAPE
             else -> return null
         }
 
@@ -520,7 +520,7 @@ internal class VersionedSyntax : Annotator, DumbAware {
         val codePoint = digits.toLongOrNull(16) ?: return null
         if (codePoint in 0xD800..0xDFFF || codePoint > 0x10FFFF) return null
 
-        return if (dialect() >= V1_20) Problem(escape.textRange, HEX) else null
+        return if (dialect() >= V1_20) Problem(escape.textRange, INVALID_HEX_ESCAPE) else null
     }
 
     private fun column(element: PsiElement, offset: Int): Int {
@@ -540,9 +540,6 @@ internal class VersionedSyntax : Annotator, DumbAware {
 
     private companion object {
         const val NFC = "Elixir expects unquoted Unicode atoms, variables, and calls to be in NFC form."
-        const val HEX = "invalid hex escape character, expected \\xHH where H is a hexadecimal digit. Syntax error after: \\x"
-        const val UNICODE =
-            "invalid Unicode escape character, expected \\uHHHH or \\u{H*} where H is a hexadecimal digit. Syntax error after: \\u"
         const val NOT_A_LIST_OF_CHARACTERS = "errors were found at the given arguments: * 1st argument: not a list of characters"
         const val STEP =
             "the range step operator (//) must immediately follow the range definition operator (..), for example: 1..9//2. " +
