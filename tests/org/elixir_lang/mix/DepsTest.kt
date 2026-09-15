@@ -1,5 +1,6 @@
 package org.elixir_lang.mix
 
+import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.util.PsiTreeUtil
@@ -11,37 +12,37 @@ import java.util.concurrent.TimeUnit
 
 class DepsTest : PlatformTestCase() {
     /**
-     * A `deps` helper cut off by a heredoc holding an unclosed interpolation, which Elixir rejects: the
-     * heredoc leaves an access expression without exactly one child in the helper's body. Closing the helper with `end`
-     * parses differently and does not reach that step.
+     * No source parses to an access expression without exactly one child, so the test gives a second child to the one ending
+     * a `deps` helper.
      */
-    fun testDepsHelperEndingInHeredocWithUnclosedInterpolationHasNoDeps() {
+    fun testDepsHelperEndingInAccessExpressionWithoutExactlyOneChildHasNoDeps() {
         val psiFile = myFixture.configureByText(
             "mix.exs",
-            "defmodule Sample.MixProject do\n" +
-                    "  def project do\n" +
-                    "    [deps: deps()]\n" +
-                    "  end\n" +
-                    "\n" +
-                    "  defp deps do\n" +
-                    "    [ecto_dep()]\n" +
-                    "  end\n" +
-                    "\n" +
-                    "  defp ecto_dep do\n" +
-                    "    \"\"\"\n" +
-                    "#{\n"
-        )
+            """
+            defmodule Sample.MixProject do
+              def project do
+                [deps: deps()]
+              end
 
-        assertTrue(
-            "no access expression without exactly one child in ecto_dep's body, so the fixture no longer reaches that step",
-            PsiTreeUtil.findChildrenOfType(psiFile, ElixirAccessExpression::class.java).any { accessExpression ->
-                accessExpression.children.size != 1 &&
-                        PsiTreeUtil.getParentOfType(accessExpression, ElixirDoBlock::class.java)
-                            ?.parent
-                            ?.text
-                            ?.startsWith("defp ecto_dep") == true
-            }
+              defp deps do
+                [ecto_dep()]
+              end
+
+              defp ecto_dep do
+                1
+              end
+            end
+            """.trimIndent()
         )
+        val accessExpression = PsiTreeUtil.findChildrenOfType(psiFile, ElixirAccessExpression::class.java).single {
+            PsiTreeUtil.getParentOfType(it, ElixirDoBlock::class.java)?.parent?.text?.startsWith("defp ecto_dep") == true
+        }
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            accessExpression.node.addChild(accessExpression.firstChild.copy().node)
+        }
+
+        assertEquals(2, accessExpression.children.size)
 
         val gatherer = DepGatherer()
         val indicator = EmptyProgressIndicator()

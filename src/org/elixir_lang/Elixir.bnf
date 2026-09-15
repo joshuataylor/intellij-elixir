@@ -1419,7 +1419,7 @@ parenthesesArguments ::= OPENING_PARENTHESIS
  * parentheses are a call's argument list - after a `CALL` token, and after a `.` in a dot call -
  * because an argument list that does not parse there is a half-typed call rather than something to
  * back out of.  Uncommitted, the failure detaches the arguments from the call and propagates out
- * through `stabBody` and `stab` until the enclosing `do` block and every expression after it are lost.
+ * through `stabBody` and `stab`.
  *
  * `stabParenthesesSignature` keeps the uncommitted rule: it relies on backing out of an argument-list
  * reading when it meets `->`, as in `(peerName :: charlist(), fingerprint() -> boolean())`.
@@ -1957,8 +1957,9 @@ stabInfixOperator ::= STAB_OPERATOR
  */
 private stabOperationPrefix ::= stabParenthesesSignature stabInfixOperator |
                                 stabNoParenthesesSignature stabInfixOperator
-private stabBodyExpression ::= EEX_CLOSING eex EEX_OPENING |
-                               expression !(infixComma | stabInfixOperator)
+private stabBodyExpression ::= eexStabBodyExpression | elixirStabBodyExpression
+private eexStabBodyExpression ::= EEX_CLOSING eex EEX_OPENING
+private elixirStabBodyExpression ::= expression !(infixComma | stabInfixOperator)
 private stabBodyExpressionSeparator ::= EEX_EMPTY_MARKER | endOfExpression
 private stabBodyExpressionSeparatorMaybe ::= stabBodyExpressionSeparator?
 stabBody ::= stabBodyExpression (stabBodyExpressionSeparator stabBodyExpression)*
@@ -2568,7 +2569,7 @@ blockIdentifier ::= AFTER | CATCH | ELSE | RESCUE
 
 // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L313-L314
 blockItem ::= blockIdentifier endOfExpressionMaybe // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L290-L291
-              (stab endOfExpressionMaybe)? // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L313
+              (doBlockStab endOfExpressionMaybe)? // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L313
               { implements = "org.elixir_lang.psi.Quotable" methods = [quote] }
 
 // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L316-L317
@@ -2577,9 +2578,32 @@ blockList ::= blockItem+
 private eexWhitespace ::= EEX_CLOSING EEX_OPENING EEX_EMPTY_MARKER
 private doStabSeparator ::= endOfExpression | eexWhitespace
 private doStabSeparatorMaybe ::= doStabSeparator?
+
+/*
+ * `stab` for a `do` block and its block items, where an expression that does not parse is an error to the end of its
+ * line, skipping `do`/`end` pairs whole.  Through `stab` the failure propagates out of `stabBody`, so the pinned
+ * `doBlock` keeps only `do` and the enclosing block loses every expression after it.
+ *
+ * The recovery also runs after an expression that parses, so it takes a stray closer such as the `)` of `1)`.  Every
+ * token that may follow an expression in a valid `do` block is in the end set, so valid code skips nothing.
+ */
+doBlockStab ::= stabOperations | doBlockStabBody
+                { elementType = stab }
+doBlockStabBody ::= doBlockStabBodyExpression (stabBodyExpressionSeparator doBlockStabBodyExpression)*
+                    { elementType = stabBody }
+// A template's `%>` starts an expression but ends a skipped line, so its alternative is tried before the lookahead.
+private doBlockStabBodyExpression ::= eexStabBodyExpression | doBlockElixirStabBodyExpression
+private doBlockElixirStabBodyExpression ::= !doBlockStabBodyExpressionEnd elixirStabBodyExpression
+                                            {
+                                              pin = 1
+                                              recoverWhile = doBlockStabBodyExpressionRecoverWhile
+                                            }
+private doBlockStabBodyExpressionEnd ::= EOL | SEMICOLON | END | blockIdentifier | EEX_CLOSING | EEX_OPENING | EEX_EMPTY_MARKER | INTERPOLATION_END
+private doBlockStabBodyExpressionRecoverWhile ::= !doBlockStabBodyExpressionEnd
+
 // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L272-L275
 doBlock ::= DO doStabSeparatorMaybe
-            stab? stabBodyExpressionSeparatorMaybe // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L273
+            doBlockStab? stabBodyExpressionSeparatorMaybe // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L273
             blockList? stabBodyExpressionSeparatorMaybe // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L274
             END
             {
@@ -2916,7 +2940,9 @@ private sigilHeredocEscapeSequence ::= sigilHexadecimalEscapeSequence |
 
 emptyParentheses ::= OPENING_PARENTHESIS CLOSING_PARENTHESIS
                      { implements = "org.elixir_lang.psi.Quotable" methods = [quote] }
+// Committed at `#{`, so an interpolation without its `}` keeps the nodes of what it holds.
 interpolation ::= INTERPOLATION_START elixirFile INTERPOLATION_END
+                  { pin = 1 }
 
 /*
  * List

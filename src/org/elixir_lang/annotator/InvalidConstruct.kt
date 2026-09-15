@@ -10,8 +10,10 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.TokenType
+import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.psi.ElixirAccessExpression
 import org.elixir_lang.psi.ElixirAnonymousFunction
@@ -22,8 +24,11 @@ import org.elixir_lang.psi.ElixirDotInfixOperator
 import org.elixir_lang.psi.ElixirEscapedCharacter
 import org.elixir_lang.psi.ElixirHeredoc
 import org.elixir_lang.psi.ElixirInterpolatedSigilHeredoc
+import org.elixir_lang.psi.ElixirInterpolatedSigilLine
 import org.elixir_lang.psi.ElixirInterpolation
+import org.elixir_lang.psi.ElixirLine
 import org.elixir_lang.psi.ElixirLiteralSigilHeredoc
+import org.elixir_lang.psi.ElixirLiteralSigilLine
 import org.elixir_lang.psi.ElixirMapOperation
 import org.elixir_lang.psi.ElixirMatchedMultiplicationOperation
 import org.elixir_lang.psi.ElixirMatchedQualifiedAlias
@@ -52,7 +57,10 @@ internal class InvalidConstruct : Annotator, DumbAware {
             is ElixirQuoteHexadecimalEscapeSequence -> invalidCodePoint(element)
             is ElixirEscapedCharacter -> invalidEscape(element)
             is ElixirHeredoc, is ElixirInterpolatedSigilHeredoc, is ElixirLiteralSigilHeredoc -> unterminatedHeredoc(element)
-            is ElixirAtom -> divisionAtom(element)
+            is ElixirInterpolation -> unclosedInterpolation(element)
+            is ElixirLine -> if (element.parent is ElixirAtom) null else cutOffQuote(element)
+            is ElixirInterpolatedSigilLine, is ElixirLiteralSigilLine -> cutOffQuote(element)
+            is ElixirAtom -> divisionAtom(element) ?: cutOffQuote(element)
             is ElixirMatchedMultiplicationOperation, is ElixirUnmatchedMultiplicationOperation -> operatorReference(element)
             else -> null
         } ?: return
@@ -182,16 +190,17 @@ internal class InvalidConstruct : Annotator, DumbAware {
     /**
      * Elixir rejects content after a heredoc's opening first, then a missing terminator. Before 1.12 it finds a heredoc's
      * terminator line by line before it reads interpolations, so a terminator after content is rejected where it stands,
-     * which [VersionedSyntax] reports, and an enclosing heredoc can fail first. From 1.12 a heredoc the grammar stopped
-     * early, as at an unclosed interpolation, has an error Elixir reports first.
+     * which [VersionedSyntax] reports, and an enclosing heredoc can cut this one off. From 1.12 an interpolation without its
+     * `}` fails before the heredoc's terminator is looked for, as does a heredoc the grammar stopped early.
      */
     private fun unterminatedHeredoc(heredoc: PsiElement): Pair<TextRange, String>? {
         val promoter = heredoc.node.findChildByType(ElixirTypes.HEREDOC_PROMOTER) ?: return null
         val dialect = QuotingDialectResolver.dialectFor(heredoc)
+        val cutOff = if (dialect < QuotingDialect.V1_12) cutOff(heredoc) else CutOff.NONE
+
+        if (cutOff == CutOff.SUPPRESSED) return null
 
         if (hasContentAfterOpening(heredoc)) {
-            if (dialect < QuotingDialect.V1_12 && enclosingHeredocFailsFirst(heredoc)) return null
-
             val message = if (dialect < QuotingDialect.V1_15) {
                 "heredoc allows only zero or more whitespace characters followed by a new line after "
             } else {
@@ -201,20 +210,86 @@ internal class InvalidConstruct : Annotator, DumbAware {
             return promoter.textRange to message + promoter.text
         }
 
-        if (heredoc.node.findChildByType(ElixirTypes.HEREDOC_TERMINATOR) != null) return null
+        if (cutOff == CutOff.NONE) {
+            if (heredoc.node.findChildByType(ElixirTypes.HEREDOC_TERMINATOR) != null) return null
 
-        if (dialect < QuotingDialect.V1_12) {
-            val scan = scanHeredocLines(promoter)
+            if (dialect < QuotingDialect.V1_12) {
+                val scan = scanHeredocLines(promoter)
 
-            if (scan.terminatorAt != null || scan.misplaced != null || enclosingHeredocFailsFirst(heredoc)) return null
-        } else if (heredoc.textRange.endOffset < heredoc.containingFile.textLength) {
+                if (scan.terminatorAt != null || scan.misplaced != null) return null
+            } else if (heredoc.textRange.endOffset < heredoc.containingFile.textLength ||
+                PsiTreeUtil.findChildrenOfType(heredoc, ElixirInterpolation::class.java).any(::isUnclosed)
+            ) {
+                return null
+            }
+        }
+
+        return TextRange(promoter.startOffset, heredoc.textRange.endOffset) to
+            "missing terminator: ${promoter.text} (for heredoc starting at line ${lineAt(heredoc, promoter.startOffset)})"
+    }
+
+    /**
+     * Elixir reads an interpolation's content before it looks for the `}`, so only the innermost one without it fails, and only
+     * when nothing inside fails first.
+     */
+    private fun unclosedInterpolation(interpolation: ElixirInterpolation): Pair<TextRange, String>? {
+        if (!isUnclosed(interpolation)) return null
+        if (PsiTreeUtil.findChildrenOfType(interpolation, ElixirInterpolation::class.java).any(::isUnclosed)) return null
+        if (hasInnerError(interpolation)) return null
+        if (QuotingDialectResolver.dialectFor(interpolation) < QuotingDialect.V1_12 && cutOff(interpolation) == CutOff.SUPPRESSED) {
             return null
         }
 
-        val line = StringUtil.offsetToLineNumber(heredoc.containingFile.viewProvider.contents, promoter.startOffset) + 1
+        val owner = PsiTreeUtil.getParentOfType(
+            interpolation,
+            ElixirLine::class.java,
+            ElixirInterpolatedSigilLine::class.java,
+            ElixirHeredoc::class.java,
+            ElixirInterpolatedSigilHeredoc::class.java
+        ) ?: return null
+        val (name, start) = when {
+            isHeredoc(owner) -> "heredoc" to owner.node.findChildByType(ElixirTypes.HEREDOC_PROMOTER)!!.startOffset
+            owner.parent is ElixirAtom -> "atom" to owner.parent.textRange.startOffset
+            owner is Sigil -> "sigil ~${owner.sigilName()}${owner.node.findChildByType(ElixirTypes.LINE_PROMOTER)?.text.orEmpty()}" to
+                owner.textRange.startOffset
+            else -> "string" to owner.textRange.startOffset
+        }
 
-        return TextRange(promoter.startOffset, heredoc.textRange.endOffset) to
-            "missing terminator: ${promoter.text} (for heredoc starting at line $line)"
+        return interpolation.node.firstChildNode.textRange to
+            "missing interpolation terminator: \"}\" (for $name starting at line ${lineAt(interpolation, start)})"
+    }
+
+    /** A heredoc, or an escape in a string, charlist, atom or heredoc, that fails while Elixir reads [interpolation]. */
+    private fun hasInnerError(interpolation: ElixirInterpolation): Boolean =
+        PsiTreeUtil.findChildrenOfAnyType(
+            interpolation,
+            ElixirHeredoc::class.java,
+            ElixirInterpolatedSigilHeredoc::class.java,
+            ElixirLiteralSigilHeredoc::class.java
+        ).any {
+            unterminatedHeredoc(it) != null ||
+                QuotingDialectResolver.dialectFor(it) < QuotingDialect.V1_12 && misplacedHeredocTerminator(it) != null
+        } ||
+            // A sigil's escape fails only when the sigil is compiled.
+            PsiTreeUtil.findChildrenOfType(interpolation, ElixirEscapedCharacter::class.java).any { escape ->
+                PsiTreeUtil.getParentOfType(escape, *QUOTE_TYPES) !is Sigil && invalidEscape(escape) != null
+            }
+
+    /** Before 1.12, a string, charlist, sigil or quoted atom that an enclosing heredoc's terminator line cuts off first. */
+    private fun cutOffQuote(quote: PsiElement): Pair<TextRange, String>? {
+        if (QuotingDialectResolver.dialectFor(quote) >= QuotingDialect.V1_12 || cutOff(quote) != CutOff.FIRST) return null
+
+        val line = if (quote is ElixirAtom) quote.children.firstOrNull { it is ElixirLine } ?: return null else quote
+        val promoter = line.node.findChildByType(ElixirTypes.LINE_PROMOTER) ?: return null
+        val owner = when (quote) {
+            is ElixirAtom -> "atom"
+            is Sigil -> "sigil ~${quote.sigilName()}${promoter.text}"
+            else -> "string"
+        }
+        val terminator = CLOSING_DELIMITERS[promoter.text] ?: promoter.text
+
+        return quote.textRange to
+            "missing terminator: $terminator (for $owner starting at line ${lineAt(quote, quote.textRange.startOffset)})"
     }
 
     private fun invalidCodePoint(escape: ElixirQuoteHexadecimalEscapeSequence): Pair<TextRange, String>? {
@@ -251,9 +326,16 @@ private val UNESCAPING_SIGILS = setOf("s", "c", "w")
 
 private val CLOSING_TOKENS = setOf(",", ")", ">>", "]", "}")
 
-private val QUOTE_OPENINGS = setOf(ElixirTypes.HEREDOC_PROMOTER, ElixirTypes.LINE_PROMOTER, ElixirTypes.INTERPOLATION_START)
+private val CLOSING_DELIMITERS = mapOf("(" to ")", "[" to "]", "{" to "}", "<" to ">")
 
-private val QUOTE_CLOSINGS = setOf(ElixirTypes.HEREDOC_TERMINATOR, ElixirTypes.LINE_TERMINATOR, ElixirTypes.INTERPOLATION_END)
+private val QUOTE_TYPES = arrayOf(
+    ElixirLine::class.java,
+    ElixirHeredoc::class.java,
+    ElixirInterpolatedSigilLine::class.java,
+    ElixirInterpolatedSigilHeredoc::class.java,
+    ElixirLiteralSigilLine::class.java,
+    ElixirLiteralSigilHeredoc::class.java
+)
 
 internal const val INVALID_HEX_ESCAPE_WHEN_COMPILED = "invalid hex escape character, expected \\xHH where H is a hexadecimal digit"
 internal const val INVALID_HEX_ESCAPE = "$INVALID_HEX_ESCAPE_WHEN_COMPILED. Syntax error after: \\x"
@@ -287,58 +369,77 @@ internal fun hasContentAfterOpening(heredoc: PsiElement): Boolean {
     return next?.elementType != ElixirTypes.EOL
 }
 
+private enum class CutOff { NONE, SUPPRESSED, FIRST }
+
 /**
- * Whether, before 1.12, a heredoc holding [element] in an interpolation without its `}` fails before Elixir reads
- * [element]: Elixir checks a heredoc's opening line, then scans its lines for the terminator, before reading its
- * interpolations, so the heredoc fails first when its opening line has content or its terminator line does not come
- * after [element]. A line quote reads an interpolation as it reaches it.
+ * Before 1.12 Elixir ends a heredoc at its terminator line, after checking its opening line, and only then reads its
+ * interpolations, so the first quote or interpolation there that runs past that line fails and nothing after it is read.
+ * Enclosing heredocs are read outermost first. [CutOff.FIRST] means [element] is what fails; [CutOff.SUPPRESSED], that
+ * something enclosing it fails first.
  */
-private fun enclosingHeredocFailsFirst(element: PsiElement): Boolean {
-    var depth = 0
-    var interpolation: PsiElement? = null
+private fun cutOff(element: PsiElement): CutOff {
+    val heredocs = generateSequence(element.parent) { if (it is PsiFile) null else it.parent }.filter(::isHeredoc).toList()
 
-    for (leaf in generateSequence(PsiTreeUtil.prevLeaf(element)) { PsiTreeUtil.prevLeaf(it) }) {
+    for (heredoc in heredocs.asReversed()) {
         ProgressManager.checkCanceled()
 
-        val type = leaf.node.elementType
+        if (hasContentAfterOpening(heredoc)) return CutOff.SUPPRESSED
 
-        when {
-            // The lexer returns an escaped delimiter as its closing token.
-            type in QUOTE_CLOSINGS -> if (PsiTreeUtil.prevLeaf(leaf)?.node?.elementType != ElixirTypes.ESCAPE) depth++
-            type !in QUOTE_OPENINGS -> {}
-            depth > 0 -> depth--
-            type == ElixirTypes.INTERPOLATION_START -> interpolation = leaf
-            else -> {
-                if (type == ElixirTypes.HEREDOC_PROMOTER && interpolation != null && isUnclosedInterpolation(interpolation)) {
-                    if (hasContentAfterOpening(leaf.parent)) return true
+        val scan = scanHeredocLines(heredoc.node.findChildByType(ElixirTypes.HEREDOC_PROMOTER) ?: continue)
+        val terminatorAt = scan.terminatorAt
 
-                    val terminatorAt = scanHeredocLines(leaf.node).terminatorAt
-
-                    if (terminatorAt == null || terminatorAt <= element.textRange.startOffset) return true
-                }
-
-                interpolation = null
-            }
+        if (terminatorAt == null || scan.misplaced != null || terminatorAt <= element.textRange.startOffset) {
+            return CutOff.SUPPRESSED
         }
+
+        firstCutOff(heredoc, terminatorAt)?.let { return if (it == element) CutOff.FIRST else CutOff.SUPPRESSED }
     }
 
-    return false
+    return CutOff.NONE
 }
 
-private fun isUnclosedInterpolation(start: PsiElement): Boolean {
-    var depth = 0
-
-    for (leaf in generateSequence(PsiTreeUtil.nextLeaf(start)) { PsiTreeUtil.nextLeaf(it) }) {
+/**
+ * In reading order, the first heredoc, quote or interpolation under [parent] that runs past [terminatorAt]. A heredoc fails
+ * as a whole; a quote or interpolation reads its content first.
+ */
+private fun firstCutOff(parent: PsiElement, terminatorAt: Int): PsiElement? {
+    for (child in parent.children) {
         ProgressManager.checkCanceled()
 
-        when (leaf.node.elementType) {
-            ElixirTypes.INTERPOLATION_START -> depth++
-            ElixirTypes.INTERPOLATION_END -> if (depth == 0) return false else depth--
+        if (child.textRange.startOffset >= terminatorAt) return null
+
+        if (isHeredoc(child)) {
+            if (closingAt(child, ElixirTypes.HEREDOC_TERMINATOR) >= terminatorAt) return child
+            continue
         }
+
+        // A quoted atom's content is its line, which must not stand in for the atom.
+        val content = if (child is ElixirAtom) child.children.firstOrNull { it is ElixirLine } else child
+        val closing = when {
+            child is ElixirInterpolation -> closingAt(child, ElixirTypes.INTERPOLATION_END)
+            content is ElixirLine || content is Sigil -> closingAt(content, ElixirTypes.LINE_TERMINATOR)
+            else -> null
+        }
+
+        if (content != null && closing != null && closing >= terminatorAt) return firstCutOff(content, terminatorAt) ?: child
+
+        firstCutOff(child, terminatorAt)?.let { return it }
     }
 
-    return true
+    return null
 }
+
+private fun closingAt(element: PsiElement, type: IElementType): Int =
+    element.node.findChildByType(type)?.startOffset ?: Int.MAX_VALUE
+
+private fun isHeredoc(element: PsiElement): Boolean =
+    element is ElixirHeredoc || element is ElixirInterpolatedSigilHeredoc || element is ElixirLiteralSigilHeredoc
+
+private fun isUnclosed(interpolation: ElixirInterpolation): Boolean =
+    interpolation.node.findChildByType(ElixirTypes.INTERPOLATION_END) == null
+
+private fun lineAt(element: PsiElement, offset: Int): Int =
+    StringUtil.offsetToLineNumber(element.containingFile.viewProvider.contents, offset) + 1
 
 /** Where the terminator line's terminator starts, or the first misplaced terminator; neither when the file ends first. */
 private class HeredocScan(val terminatorAt: Int?, val misplaced: TextRange?)
