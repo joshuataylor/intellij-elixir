@@ -2,8 +2,6 @@ Elixir File(0,6)
   ElixirAccessExpressionImpl(ACCESS_EXPRESSION)(0,6)
     ElixirHeredocImpl(HEREDOC)(0,6)
       PsiElement(Heredoc Promoter (""", '''))(''''')(0,3)
-      PsiErrorElement:'\\n, \\r\\n' expected, got '''''(3,3)
-        <empty list>
       ElixirHeredocPrefixImpl(HEREDOC_PREFIX)(3,3)
         <empty list>
       PsiElement(Heredoc Terminator (""", '''))(''''')(3,6)

@@ -28,11 +28,14 @@ import org.elixir_lang.psi.ElixirContainerAssociationOperation
 import org.elixir_lang.psi.ElixirDoBlock
 import org.elixir_lang.psi.ElixirEnclosedHexadecimalEscapeSequence
 import org.elixir_lang.psi.ElixirEscapedCharacter
+import org.elixir_lang.psi.ElixirHeredoc
+import org.elixir_lang.psi.ElixirInterpolatedSigilHeredoc
 import org.elixir_lang.psi.ElixirInterpolation
 import org.elixir_lang.psi.ElixirKeywordKey
 import org.elixir_lang.psi.ElixirKeywordPair
 import org.elixir_lang.psi.ElixirKeywords
 import org.elixir_lang.psi.ElixirList
+import org.elixir_lang.psi.ElixirLiteralSigilHeredoc
 import org.elixir_lang.psi.ElixirMapArguments
 import org.elixir_lang.psi.ElixirMapOperation
 import org.elixir_lang.psi.ElixirMatchedMultiplicationOperation
@@ -100,8 +103,21 @@ internal class VersionedSyntax : Annotator, DumbAware {
             is ElixirRelativeIdentifier -> graphemeCluster(element, dialect)
             is ElixirEscapedCharacter -> escapedCharacter(element, dialect)
             is ElixirQuoteHexadecimalEscapeSequence -> hexadecimalEscape(element, dialect)
+            is ElixirHeredoc, is ElixirInterpolatedSigilHeredoc, is ElixirLiteralSigilHeredoc -> heredocTerminatorAfterContent(element, dialect)
             else -> if (element.firstChild == null) leaf(element, dialect) else null
         }
+
+    /** Before 1.12 Elixir rejects a heredoc terminator after content where it stands, once the opening line is valid. */
+    private fun heredocTerminatorAfterContent(heredoc: PsiElement, dialect: () -> QuotingDialect): Problem? {
+        if (dialect() >= V1_12 || hasContentAfterOpening(heredoc)) return null
+        val range = misplacedHeredocTerminator(heredoc) ?: return null
+
+        return Problem(
+            range,
+            "invalid location for heredoc terminator, please escape token or move it to its own line: " +
+                range.subSequence(heredoc.containingFile.viewProvider.contents)
+        )
+    }
 
     private fun leaf(leaf: PsiElement, dialect: () -> QuotingDialect): Problem? =
         when (leaf.node.elementType) {
@@ -497,8 +513,8 @@ internal class VersionedSyntax : Annotator, DumbAware {
         if (PsiTreeUtil.getParentOfType(escaped, ElixirRelativeIdentifier::class.java) == null) return null
 
         val message = when (escaped.lastChild?.text) {
-            "x" -> HEX
-            "u" -> UNICODE
+            "x" -> INVALID_HEX_ESCAPE
+            "u" -> INVALID_UNICODE_ESCAPE
             else -> return null
         }
 
@@ -520,7 +536,7 @@ internal class VersionedSyntax : Annotator, DumbAware {
         val codePoint = digits.toLongOrNull(16) ?: return null
         if (codePoint in 0xD800..0xDFFF || codePoint > 0x10FFFF) return null
 
-        return if (dialect() >= V1_20) Problem(escape.textRange, HEX) else null
+        return if (dialect() >= V1_20) Problem(escape.textRange, INVALID_HEX_ESCAPE) else null
     }
 
     private fun column(element: PsiElement, offset: Int): Int {
@@ -540,9 +556,6 @@ internal class VersionedSyntax : Annotator, DumbAware {
 
     private companion object {
         const val NFC = "Elixir expects unquoted Unicode atoms, variables, and calls to be in NFC form."
-        const val HEX = "invalid hex escape character, expected \\xHH where H is a hexadecimal digit. Syntax error after: \\x"
-        const val UNICODE =
-            "invalid Unicode escape character, expected \\uHHHH or \\u{H*} where H is a hexadecimal digit. Syntax error after: \\u"
         const val NOT_A_LIST_OF_CHARACTERS = "errors were found at the given arguments: * 1st argument: not a list of characters"
         const val STEP =
             "the range step operator (//) must immediately follow the range definition operator (..), for example: 1..9//2. " +
