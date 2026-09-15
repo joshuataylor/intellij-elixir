@@ -1457,6 +1457,42 @@
 {"hash":"5efdb62d745529a8","origin":"measured","source":"'''\n#{\n\"\"\"\n'''\n\"\"\""}
 {"hash":"95c73e0ee44a6e16","origin":"measured","source":"\"\"\"\n#{\n'''\n#{\n\"\"\"\nfoo\n'''"}
 {"hash":"d6dc1b7057f22010","origin":"measured","source":"'''\n#{\"\n'''\n\"\n\"\"\"\nfoo"}
+{"hash":"a50ee9199d164615","origin":"measured","source":"\"\"\"\n#{'\n\"\"\"\n'\nfoo"}
+{"hash":"d29a2eeb21b4392a","origin":"measured","source":"'''\n#{~s(\n'''\n)\nfoo"}
+{"hash":"492e6f078b9b99dc","origin":"measured","source":"'''\n#{:\"\n'''\n\"\nfoo"}
+{"hash":"247fd1404da3bde3","origin":"measured","source":"\"\"\"\n#{\n'''\n\"\"\"\n'''"}
+{"hash":"d97e7fbc779fe100","origin":"measured","source":"'''\n#{\"\n'''\n\"}\n'''"}
+{"hash":"39226f481639528f","origin":"measured","source":"~s'''\n#{\"\n'''\n\"}\n'''"}
+{"hash":"f2ffa132cf46c95e","origin":"measured","source":"'''\n#{\"a\nb\"\n'''\n}"}
+{"hash":"b71e1f08a01b7b37","origin":"measured","source":"'''\n#{\"\"\"\n'''\n\"\"\"}\n'''"}
+{"hash":"3e5898a025edc849","origin":"measured","source":"\"\"\"\n#{'\\xZ'}\n"}
+{"hash":"f57f88f8b9bb967a","origin":"measured","source":"\"\"\"\n#{:\"\\xZ\"}\n"}
+{"hash":"7adb884e56b41e66","origin":"measured","source":"\"\"\"\n#{\"\\u{zz}\"}\n"}
+{"hash":"475e6fef1226a6bd","origin":"measured","source":"~s\"\"\"\n#{\"\\xZ\"}\n"}
+{"hash":"eac59e4685a2a4aa","origin":"measured","source":"\"\"\"\n#{\"\\xZ\"}\n\"\"\""}
+{"hash":"0470112944466d24","origin":"measured","source":"\"\"\"\n#{'''\n\\xZ\n'''}\n"}
+{"hash":"f72da046b47ad4f3","origin":"measured","source":"\"\"\"\na\n#{\"\\xZ\"}\nb\n"}
+{"hash":"0d17c694645ef40d","origin":"measured","source":"\"\"\"\n#{~c\"\\xZ\"}\n"}
+{"hash":"0e79758c10480aa2","origin":"measured","source":"\"#{\"\"\"x\n"}
+{"hash":"5c7a8fc35c322467","origin":"measured","source":"\"#{\"\"\"\nfoo\n\"\"\"\n\"bar\""}
+{"hash":"5bac7575a6fb6056","origin":"measured","source":"\"#{\"\"\"\nfoo\n\"\"\"}\""}
+{"hash":"807d1f73b7e933fa","origin":"measured","source":"defmodule A do\n  @doc \"#{\"\"\"x\n  def f, do: 1\nend"}
+{"hash":"7972d9cb1ba20543","origin":"measured","source":"\"#{"}
+{"hash":"1e077b810901dcf4","origin":"measured","source":"'#{"}
+{"hash":"8f1e21537c659a16","origin":"measured","source":"~s(#{"}
+{"hash":"43150a38c1116148","origin":"measured","source":":\"#{"}
+{"hash":"6bc0d38800be127d","origin":"measured","source":"~s\"\"\"\n#{\n"}
+{"hash":"53d518d1bf8176c8","origin":"measured","source":"'''\n#{\n"}
+{"hash":"9270726a374ff23e","origin":"measured","source":"~c\"#{"}
+{"hash":"4f00b9fd12701941","origin":"measured","source":"\"a#{b"}
+{"hash":"f50a8864d9851ee1","origin":"measured","source":"[\"#{\": 1]"}
+{"hash":"8a5c7e156f0f905c","origin":"measured","source":"\"#{\nfoo"}
+{"hash":"2b96bd81f78bd19c","origin":"measured","source":"\"\"\"\n#{\nfoo\n\"\"\""}
+{"hash":"4eb5e02969b3c34e","origin":"measured","source":"\"\"\"\na #{b\n"}
+{"hash":"a5cc77113f0b79cb","origin":"measured","source":"\"#{1}#{"}
+{"hash":"8c0abd2e82dd25ff","origin":"measured","source":"\"#{\"#{"}
+{"hash":"8c35d17a2faef98b","origin":"measured","source":"~r/#{"}
+{"hash":"9996b4891759045d","origin":"measured","source":"\"#{1 +"}
 {"hash":"689d343cd2feb97d","origin":"measured","source":"defmodule A do\n  def f do\n    foo(1, 2\n  end\n  def g, do: 2\nend"}
 {"hash":"95cf60d7a57643b9","origin":"measured","source":"defmodule A do\n  def f do\n    [1, 2\n  end\n  def g, do: 2\nend"}
 {"hash":"13026b0642e0ae9c","origin":"measured","source":"defmodule A do\n  def f do\n    {1, 2\n  end\n  def g, do: 2\nend"}

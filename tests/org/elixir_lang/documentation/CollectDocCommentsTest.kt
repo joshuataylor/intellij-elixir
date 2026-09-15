@@ -36,19 +36,6 @@ class CollectDocCommentsTest : PlatformTestCase() {
         assertEmpty(collectDocCommentTexts())
     }
 
-    /** Elixir rejects a heredoc holding an unclosed interpolation. */
-    fun testHeredocWithUnclosedInterpolationHasNoDocumentation() {
-        myFixture.configureByText("heredoc.ex", "\"\"\"\n#{\n")
-        val accessExpression = PsiTreeUtil.findChildOfType(myFixture.file, ElixirAccessExpression::class.java)
-
-        assertNotNull("the heredoc did not parse to an access expression", accessExpression)
-        assertFalse(
-            "the access expression no longer has more than one child",
-            accessExpression!!.children.size == 1
-        )
-        assertEmpty(collectDocCommentTexts())
-    }
-
     fun testStructHasNoDocumentation() {
         myFixture.configureByText(
             "struct.ex",

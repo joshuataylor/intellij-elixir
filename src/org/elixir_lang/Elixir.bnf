@@ -2940,7 +2940,9 @@ private sigilHeredocEscapeSequence ::= sigilHexadecimalEscapeSequence |
 
 emptyParentheses ::= OPENING_PARENTHESIS CLOSING_PARENTHESIS
                      { implements = "org.elixir_lang.psi.Quotable" methods = [quote] }
+// Committed at `#{`, so an interpolation without its `}` keeps the nodes of what it holds.
 interpolation ::= INTERPOLATION_START elixirFile INTERPOLATION_END
+                  { pin = 1 }
 
 /*
  * List
