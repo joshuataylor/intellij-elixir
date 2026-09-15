@@ -14,6 +14,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.*
+import com.intellij.psi.impl.PsiFileEx
 import com.intellij.psi.impl.source.PsiFileImpl
 import com.intellij.psi.impl.source.PsiFileWithStubSupport
 import com.intellij.psi.impl.source.SourceTreeToPsiMap
@@ -25,6 +26,7 @@ import com.intellij.psi.stubs.*
 import com.intellij.reference.SoftReference
 import com.intellij.util.ArrayUtil
 import com.intellij.util.IncorrectOperationException
+import com.intellij.util.concurrency.ThreadingAssertions
 import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.beam.BeamReader
 import org.elixir_lang.beam.MacroNameArity
@@ -47,7 +49,7 @@ import java.lang.ref.SoftReference as JavaSoftReference
 class BeamFileImpl private constructor(
     private val fileViewProvider: FileViewProvider,
     private val isForDecompiling: Boolean
-) : ModuleElementImpl(), PsiCompiledFile, PsiFileWithStubSupport {
+) : ModuleElementImpl(), PsiCompiledFile, PsiFileWithStubSupport, PsiFileEx {
     /**
      * NOTE: you absolutely MUST NOT hold PsiLock under the mirror lock
      */
@@ -56,6 +58,8 @@ class BeamFileImpl private constructor(
 
     @Volatile
     private var mirrorFileElement: TreeElement? = null
+
+    @Volatile
     private var stub: JavaSoftReference<StubTree>? = null
 
     constructor(fileViewProvider: FileViewProvider) : this(fileViewProvider, false)
@@ -487,6 +491,27 @@ class BeamFileImpl private constructor(
         }
         setMirrors(arrayOf(module()), mirrorElement.modulars())
     }
+
+    override fun isContentsLoaded(): Boolean = cachedMirror != null
+
+    override fun onContentReload() {
+        ThreadingAssertions.assertWriteAccess()
+
+        synchronized(stubLock) {
+            val stubTree = SoftReference.dereference(stub)
+            stub = null
+            (stubTree?.root as PsiFileStubImpl<*>?)?.clearPsi("beam onContentReload")
+        }
+
+        synchronized(mirrorLock) {
+            putUserData(MODULE_DOCUMENT_LINK_KEY, null)
+            mirrorFileElement = null
+        }
+    }
+
+    // Validity stays tied to the VirtualFile: re-evaluating it after invalidation, as PsiBinaryFileImpl does, needs
+    // the @ApiStatus.Internal FileManagerEx.evaluateValidity.
+    override fun markInvalidated() {}
 
     companion object {
         private val LOGGER = Logger.getInstance(BeamFileImpl::class.java)

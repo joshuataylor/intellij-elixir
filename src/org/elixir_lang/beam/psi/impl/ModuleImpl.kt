@@ -4,6 +4,7 @@ import com.intellij.lang.ASTNode
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiInvalidElementAccessException
 import com.intellij.psi.ResolveState
 import com.intellij.psi.StubBasedPsiElement
 import com.intellij.psi.impl.source.SourceTreeToPsiMap
@@ -44,7 +45,7 @@ class ModuleImpl<T : ModuleStub<*>?>(private val stub: T) : ModuleElementImpl(),
      *
      * @return the parent of the element, or null if the element has no parent.
      */
-    override fun getParent(): PsiElement = stub!!.parentStub.psi
+    override fun getParent(): PsiElement? = stub!!.parentStub.psi
 
     @Deprecated("Deprecated in platform - use getIElementType()", replaceWith = ReplaceWith("getIElementType()"))
     override fun getElementType(): IStubElementType<*, *> = stub!!.elementType as IStubElementType<*, *>
@@ -168,9 +169,7 @@ class ModuleImpl<T : ModuleStub<*>?>(private val stub: T) : ModuleElementImpl(),
 
     override fun getNode(): ASTNode? = null
 
-    override fun getProject(): Project {
-        return parent.project
-    }
+    override fun getProject(): Project = (parent ?: throw PsiInvalidElementAccessException(this)).project
 
     companion object {
         private val LOGGER = Logger.getInstance(ModuleImpl::class.java)
