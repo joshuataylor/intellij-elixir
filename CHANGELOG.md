@@ -94,6 +94,9 @@
 
 ### Bug Fixes
 
+- [#4110](https://github.com/KronicDeth/intellij-elixir/pull/4110) [@sh41](https://github.com/sh41)
+  - **A `.beam` rebuilt on disk is now decompiled afresh instead of showing the code decompiled from its old contents.** Fixes [#4045](https://github.com/KronicDeth/intellij-elixir/issues/4045).
+
 - [#4107](https://github.com/KronicDeth/intellij-elixir/pull/4107) [@sh41](https://github.com/sh41)
   - **A line that does not parse in a `do` block is now an error on that line instead of taking the rest of the module
     with it, and an interpolation missing its `}` is marked at its `#{`.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
