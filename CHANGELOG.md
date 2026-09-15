@@ -102,6 +102,14 @@
   - **Running the Dialyzer inspection on a project with `.class` files no longer raises an IDE internal error.** Fixes
     [#3077](https://github.com/KronicDeth/intellij-elixir/issues/3077).
 
+- [#4103](https://github.com/KronicDeth/intellij-elixir/pull/4103) [@sh41](https://github.com/sh41)
+  - **Rendered documentation now also shows `@doc`, `@moduledoc` and `@typedoc` nested inside expressions, such as an
+    `if` or an `Enum.each` over a `fn` in a module body, a `quote` in a `__using__` macro, or a module defined inside a
+    function.**
+    Fixes [#4058](https://github.com/KronicDeth/intellij-elixir/issues/4058),
+    [#3135](https://github.com/KronicDeth/intellij-elixir/issues/3135) and
+    [#3675](https://github.com/KronicDeth/intellij-elixir/issues/3675).
+
 - [#4090](https://github.com/KronicDeth/intellij-elixir/pull/4090) [@sh41](https://github.com/sh41)
   - **Line continuations next to an operator, and words directly after a number, now parse as Elixir reads them.**
     Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).

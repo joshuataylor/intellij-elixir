@@ -4,7 +4,6 @@ import com.ericsson.otp.erlang.OtpErlangBinary
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.intellij.lang.documentation.DocumentationMarkup
 import com.intellij.lang.documentation.DocumentationProvider
-import com.intellij.lang.parser.GeneratedParserUtilBase.DummyBlock
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.progress.ProgressManager
@@ -22,7 +21,6 @@ import org.elixir_lang.psi.*
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.ModuleAttribute.isDocumentationName
 import org.elixir_lang.psi.call.Call
-import org.elixir_lang.psi.impl.call.macroChildCallSequence
 import org.elixir_lang.psi.impl.childExpressions
 import org.elixir_lang.psi.impl.identifierName
 import org.elixir_lang.psi.operation.capture.NonNumeric
@@ -35,7 +33,6 @@ import org.intellij.markdown.html.HtmlGenerator
 import org.intellij.markdown.parser.MarkdownParser
 import java.util.function.Consumer
 import java.util.regex.Pattern
-import com.intellij.psi.DummyBlockType.DummyBlock as ExperimentalPsiDummyBlock
 
 
 private val LOG = logger<ElixirDocumentationProvider>()
@@ -67,53 +64,13 @@ internal class ElixirDocumentationProvider : DocumentationProvider {
         file.childExpressions().forEach { collectDocComments(it, sink) }
     }
 
-    private tailrec fun collectDocComments(element: PsiElement, sink: Consumer<in PsiDocCommentBase>) {
+    private fun collectDocComments(element: PsiElement, sink: Consumer<in PsiDocCommentBase>) {
         ProgressManager.checkCanceled()
 
-        // ExperimentalPsiDummyBlock unstable, but used in 2026.1 so we need to handle it.
-        @Suppress("UnstableApiUsage")
-        when (element) {
-            is Call -> collectDocComments(element, sink)
-            // Not `stripAccessExpression()`: it returns an access expression without exactly one child unchanged, and
-            // this tail call would revisit it forever.
-            is ElixirAccessExpression -> collectDocComments(element.children.singleOrNull() ?: return, sink)
-            is DummyBlock, is ElixirAlias,
-            is ElixirAtom,
-                // Numbers
-            is ElixirDecimalFloat, is ElixirDecimalWholeNumber, is ElixirHexadecimalWholeNumber,
-                // Containers
-            is ElixirList, is ElixirMapOperation, is ElixirTuple,
-                // Strings, Charlists, and Sigils
-            is Parent,
-                // Aliases
-            is QualifiableAlias,
-            is PsiErrorElement,
-                // Errors seen in 2026.1 with this type, so ignoring.
-            is ExperimentalPsiDummyBlock
-                -> Unit
-
-            else -> {
-                LOG.warn("Don't know how to collect doc comments for ${element.javaClass.name}")
-            }
-        }
-    }
-
-    private fun collectDocComments(element: AtUnqualifiedNoParenthesesCall<*>, sink: Consumer<in PsiDocCommentBase>) {
-        val identifierName = element.atIdentifier.identifierName()
-
-        if (isDocumentationName(identifierName)) {
+        if (element is AtUnqualifiedNoParenthesesCall<*> && isDocumentationName(element.atIdentifier.identifierName())) {
             sink.accept(Comment(element))
-        }
-    }
-
-    private fun collectDocComments(call: Call, sink: Consumer<in PsiDocCommentBase>) {
-        when {
-            call is AtUnqualifiedNoParenthesesCall<*> -> collectDocComments(call, sink)
-            isModular(call) -> {
-                call.macroChildCallSequence().forEach { child ->
-                    collectDocComments(child, sink)
-                }
-            }
+        } else {
+            element.children.forEach { collectDocComments(it, sink) }
         }
     }
 
