@@ -471,7 +471,7 @@ public class ElixirParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // blockIdentifier endOfExpressionMaybe // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L290-L291
-  //               (stab endOfExpressionMaybe)?
+  //               (doBlockStab endOfExpressionMaybe)?
   public static boolean blockItem(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "blockItem")) return false;
     boolean r;
@@ -483,19 +483,19 @@ public class ElixirParser implements PsiParser, LightPsiParser {
     return r;
   }
 
-  // (stab endOfExpressionMaybe)?
+  // (doBlockStab endOfExpressionMaybe)?
   private static boolean blockItem_2(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "blockItem_2")) return false;
     blockItem_2_0(b, l + 1);
     return true;
   }
 
-  // stab endOfExpressionMaybe
+  // doBlockStab endOfExpressionMaybe
   private static boolean blockItem_2_0(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "blockItem_2_0")) return false;
     boolean r;
     Marker m = enter_section_(b);
-    r = stab(b, l + 1);
+    r = doBlockStab(b, l + 1);
     r = r && endOfExpressionMaybe(b, l + 1);
     exit_section_(b, m, null, r);
     return r;
@@ -970,7 +970,7 @@ public class ElixirParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // DO doStabSeparatorMaybe
-  //             stab? stabBodyExpressionSeparatorMaybe // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L273
+  //             doBlockStab? stabBodyExpressionSeparatorMaybe // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L273
   //             blockList? stabBodyExpressionSeparatorMaybe // @see https://github.com/elixir-lang/elixir/blob/39b6789a8625071e149f0a7347ca7a2111f7c8f2/lib/elixir/src/elixir_parser.yrl#L274
   //             END
   public static boolean doBlock(PsiBuilder b, int l) {
@@ -990,10 +990,10 @@ public class ElixirParser implements PsiParser, LightPsiParser {
     return r || p;
   }
 
-  // stab?
+  // doBlockStab?
   private static boolean doBlock_2(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "doBlock_2")) return false;
-    stab(b, l + 1);
+    doBlockStab(b, l + 1);
     return true;
   }
 
@@ -1005,11 +1005,119 @@ public class ElixirParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // !doBlockStabBodyExpressionEnd elixirStabBodyExpression
+  static boolean doBlockElixirStabBodyExpression(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockElixirStabBodyExpression")) return false;
+    boolean r, p;
+    Marker m = enter_section_(b, l, _NONE_);
+    r = doBlockElixirStabBodyExpression_0(b, l + 1);
+    p = r; // pin = 1
+    r = r && elixirStabBodyExpression(b, l + 1);
+    exit_section_(b, l, m, r, p, ElixirParser::doBlockStabBodyExpressionRecoverWhile);
+    return r || p;
+  }
+
+  // !doBlockStabBodyExpressionEnd
+  private static boolean doBlockElixirStabBodyExpression_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockElixirStabBodyExpression_0")) return false;
+    boolean r;
+    Marker m = enter_section_(b, l, _NOT_);
+    r = !doBlockStabBodyExpressionEnd(b, l + 1);
+    exit_section_(b, l, m, r, false, null);
+    return r;
+  }
+
+  /* ********************************************************** */
   // doBlock?
   static boolean doBlockMaybe(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "doBlockMaybe")) return false;
     doBlock(b, l + 1);
     return true;
+  }
+
+  /* ********************************************************** */
+  // stabOperations | doBlockStabBody
+  public static boolean doBlockStab(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockStab")) return false;
+    boolean r;
+    Marker m = enter_section_(b, l, _NONE_, STAB, "<do block stab>");
+    r = stabOperations(b, l + 1);
+    if (!r) r = doBlockStabBody(b, l + 1);
+    exit_section_(b, l, m, r, false, null);
+    return r;
+  }
+
+  /* ********************************************************** */
+  // doBlockStabBodyExpression (stabBodyExpressionSeparator doBlockStabBodyExpression)*
+  public static boolean doBlockStabBody(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockStabBody")) return false;
+    boolean r;
+    Marker m = enter_section_(b, l, _NONE_, STAB_BODY, "<do block stab body>");
+    r = doBlockStabBodyExpression(b, l + 1);
+    r = r && doBlockStabBody_1(b, l + 1);
+    exit_section_(b, l, m, r, false, null);
+    return r;
+  }
+
+  // (stabBodyExpressionSeparator doBlockStabBodyExpression)*
+  private static boolean doBlockStabBody_1(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockStabBody_1")) return false;
+    while (true) {
+      int c = current_position_(b);
+      if (!doBlockStabBody_1_0(b, l + 1)) break;
+      if (!empty_element_parsed_guard_(b, "doBlockStabBody_1", c)) break;
+    }
+    return true;
+  }
+
+  // stabBodyExpressionSeparator doBlockStabBodyExpression
+  private static boolean doBlockStabBody_1_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockStabBody_1_0")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = stabBodyExpressionSeparator(b, l + 1);
+    r = r && doBlockStabBodyExpression(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  /* ********************************************************** */
+  // eexStabBodyExpression | doBlockElixirStabBodyExpression
+  static boolean doBlockStabBodyExpression(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockStabBodyExpression")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = eexStabBodyExpression(b, l + 1);
+    if (!r) r = doBlockElixirStabBodyExpression(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  /* ********************************************************** */
+  // EOL | SEMICOLON | END | blockIdentifier | EEX_CLOSING | EEX_OPENING | EEX_EMPTY_MARKER | INTERPOLATION_END
+  static boolean doBlockStabBodyExpressionEnd(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockStabBodyExpressionEnd")) return false;
+    boolean r;
+    r = consumeToken(b, EOL);
+    if (!r) r = consumeToken(b, SEMICOLON);
+    if (!r) r = consumeToken(b, END);
+    if (!r) r = blockIdentifier(b, l + 1);
+    if (!r) r = consumeToken(b, EEX_CLOSING);
+    if (!r) r = consumeToken(b, EEX_OPENING);
+    if (!r) r = consumeToken(b, EEX_EMPTY_MARKER);
+    if (!r) r = consumeToken(b, INTERPOLATION_END);
+    return r;
+  }
+
+  /* ********************************************************** */
+  // !doBlockStabBodyExpressionEnd
+  static boolean doBlockStabBodyExpressionRecoverWhile(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockStabBodyExpressionRecoverWhile")) return false;
+    boolean r;
+    Marker m = enter_section_(b, l, _NOT_);
+    r = !doBlockStabBodyExpressionEnd(b, l + 1);
+    exit_section_(b, l, m, r, false, null);
+    return r;
   }
 
   /* ********************************************************** */
@@ -1147,6 +1255,20 @@ public class ElixirParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
+  // EEX_CLOSING eex EEX_OPENING
+  static boolean eexStabBodyExpression(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "eexStabBodyExpression")) return false;
+    if (!nextTokenIs(b, EEX_CLOSING)) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = consumeToken(b, EEX_CLOSING);
+    r = r && eex(b, l + 1);
+    r = r && consumeToken(b, EEX_OPENING);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  /* ********************************************************** */
   // EEX_OPENING (eexCommentBody | eexElixirBody) EEX_CLOSING
   public static boolean eexTag(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "eexTag")) return false;
@@ -1208,6 +1330,37 @@ public class ElixirParser implements PsiParser, LightPsiParser {
     r = expressionList(b, l + 1);
     r = r && endOfExpressionMaybe(b, l + 1);
     exit_section_(b, m, null, r);
+    return r;
+  }
+
+  /* ********************************************************** */
+  // expression !(infixComma | stabInfixOperator)
+  static boolean elixirStabBodyExpression(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "elixirStabBodyExpression")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = expression(b, l + 1);
+    r = r && elixirStabBodyExpression_1(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  // !(infixComma | stabInfixOperator)
+  private static boolean elixirStabBodyExpression_1(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "elixirStabBodyExpression_1")) return false;
+    boolean r;
+    Marker m = enter_section_(b, l, _NOT_);
+    r = !elixirStabBodyExpression_1_0(b, l + 1);
+    exit_section_(b, l, m, r, false, null);
+    return r;
+  }
+
+  // infixComma | stabInfixOperator
+  private static boolean elixirStabBodyExpression_1_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "elixirStabBodyExpression_1_0")) return false;
+    boolean r;
+    r = infixComma(b, l + 1);
+    if (!r) r = stabInfixOperator(b, l + 1);
     return r;
   }
 
@@ -3606,57 +3759,12 @@ public class ElixirParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // EEX_CLOSING eex EEX_OPENING |
-  //                                expression !(infixComma | stabInfixOperator)
+  // eexStabBodyExpression | elixirStabBodyExpression
   static boolean stabBodyExpression(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "stabBodyExpression")) return false;
     boolean r;
-    Marker m = enter_section_(b);
-    r = stabBodyExpression_0(b, l + 1);
-    if (!r) r = stabBodyExpression_1(b, l + 1);
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // EEX_CLOSING eex EEX_OPENING
-  private static boolean stabBodyExpression_0(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "stabBodyExpression_0")) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = consumeToken(b, EEX_CLOSING);
-    r = r && eex(b, l + 1);
-    r = r && consumeToken(b, EEX_OPENING);
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // expression !(infixComma | stabInfixOperator)
-  private static boolean stabBodyExpression_1(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "stabBodyExpression_1")) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = expression(b, l + 1);
-    r = r && stabBodyExpression_1_1(b, l + 1);
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // !(infixComma | stabInfixOperator)
-  private static boolean stabBodyExpression_1_1(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "stabBodyExpression_1_1")) return false;
-    boolean r;
-    Marker m = enter_section_(b, l, _NOT_);
-    r = !stabBodyExpression_1_1_0(b, l + 1);
-    exit_section_(b, l, m, r, false, null);
-    return r;
-  }
-
-  // infixComma | stabInfixOperator
-  private static boolean stabBodyExpression_1_1_0(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "stabBodyExpression_1_1_0")) return false;
-    boolean r;
-    r = infixComma(b, l + 1);
-    if (!r) r = stabInfixOperator(b, l + 1);
+    r = eexStabBodyExpression(b, l + 1);
+    if (!r) r = elixirStabBodyExpression(b, l + 1);
     return r;
   }
 

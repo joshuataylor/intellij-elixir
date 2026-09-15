@@ -94,6 +94,10 @@
 
 ### Bug Fixes
 
+- [#PR-TBD](https://github.com/KronicDeth/intellij-elixir/pull/PR-TBD) [@sh41](https://github.com/sh41)
+  - **A line that does not parse inside a `do` block no longer takes the rest of the module with it: the error stays
+    on that line.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
+
 - [#4102](https://github.com/KronicDeth/intellij-elixir/pull/4102) [@sh41](https://github.com/sh41)
   - **An invalid escape or an unterminated heredoc no longer breaks the rest of the file: documentation keeps its
     highlighting, the module keeps its structure, and the error gives Elixir's message.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).

@@ -1457,3 +1457,30 @@
 {"hash":"5efdb62d745529a8","origin":"measured","source":"'''\n#{\n\"\"\"\n'''\n\"\"\""}
 {"hash":"95c73e0ee44a6e16","origin":"measured","source":"\"\"\"\n#{\n'''\n#{\n\"\"\"\nfoo\n'''"}
 {"hash":"d6dc1b7057f22010","origin":"measured","source":"'''\n#{\"\n'''\n\"\n\"\"\"\nfoo"}
+{"hash":"689d343cd2feb97d","origin":"measured","source":"defmodule A do\n  def f do\n    foo(1, 2\n  end\n  def g, do: 2\nend"}
+{"hash":"95cf60d7a57643b9","origin":"measured","source":"defmodule A do\n  def f do\n    [1, 2\n  end\n  def g, do: 2\nend"}
+{"hash":"13026b0642e0ae9c","origin":"measured","source":"defmodule A do\n  def f do\n    {1, 2\n  end\n  def g, do: 2\nend"}
+{"hash":"e0093fef1352efa1","origin":"measured","source":"defmodule A do\n  def f do\n    %{a: 1\n  end\n  def g, do: 2\nend"}
+{"hash":"f70cd21b482d4b48","origin":"measured","source":"defmodule A do\n  def f do\n    <<1, 2\n  end\n  def g, do: 2\nend"}
+{"hash":"f7331810eb901eeb","origin":"measured","source":"defmodule A do\n  def f do\n    %A{a: 1\n  end\n  def g, do: 2\nend"}
+{"hash":"70ec50be7cdcc8da","origin":"measured","source":"defmodule A do\n  def f do\n    (1 + 2\n  end\n  def g, do: 2\nend"}
+{"hash":"7204103eef0979d9","origin":"measured","source":"defmodule A do\n  def f do\n    1 +\n  end\n  def g, do: 2\nend"}
+{"hash":"63380b4873732548","origin":"measured","source":"defmodule A do\n  def f do\n    x |>\n  end\n  def g, do: 2\nend"}
+{"hash":"2b88c3874a9a6708","origin":"measured","source":"defmodule A do\n  def f do\n    x =\n  end\n  def g, do: 2\nend"}
+{"hash":"0ff30d715e77aebf","origin":"measured","source":"defmodule A do\n  def f do\n    x when\n  end\n  def g, do: 2\nend"}
+{"hash":"60489220e9725736","origin":"measured","source":"defmodule A do\n  def f do\n    x ::\n  end\n  def g, do: 2\nend"}
+{"hash":"f6c5d654fe8010a1","origin":"measured","source":"defmodule A do\n  def f do\n    foo(a: )\n  end\n  def g, do: 2\nend"}
+{"hash":"11d543d4c0038035","origin":"measured","source":"defmodule A do\n  def f do\n    foo(1,\n  end\n  def g, do: 2\nend"}
+{"hash":"5acc5913f4d5e9a3","origin":"measured","source":"defmodule A do\n  def f do\n    [a:\n  end\n  def g, do: 2\nend"}
+{"hash":"5886334e8d2c9049","origin":"measured","source":"defmodule A do\n  def f do\n    %{a =>\n  end\n  def g, do: 2\nend"}
+{"hash":"cd960ba5a619eb60","origin":"measured","source":"defmodule A do\n  def f do\n    1)\n  end\n  def g, do: 2\nend"}
+{"hash":"23ebab8c66e3fecd","origin":"measured","source":"defmodule A do\n  def f do\n    1]\n  end\n  def g, do: 2\nend"}
+{"hash":"1672517c2672798e","origin":"measured","source":"defmodule A do\n  def f do\n    1}\n  end\n  def g, do: 2\nend"}
+{"hash":"100255c47f24265f","origin":"measured","source":"defmodule A do\n  def f do\n    fn x -> x\n  end\n  def g, do: 2\nend"}
+{"hash":"cc1899f07e3647a5","origin":"measured","source":"defmodule A do\n  def f do\n    case x do\n      1 -> 1\n  end\n  def g, do: 2\nend"}
+{"hash":"ec6c3fcc32fefc91","origin":"measured","source":"defmodule A do\n  def f do\n    if x do\n      1\n  end\n  def g, do: 2\nend"}
+{"hash":"1a209212f785bb26","origin":"measured","source":"defmodule A do\n  def f do\n    \"abc\n  end\n  def g, do: 2\nend"}
+{"hash":"b1f60cee693c72fb","origin":"measured","source":"defmodule A do\n  def f do\n    ~s(abc\n  end\n  def g, do: 2\nend"}
+{"hash":"af390e31db99fd15","origin":"measured","source":"defmodule A do\n  def f do\n    1\n  end\n  def g, do: 2\nend"}
+{"hash":"8ea2410805ef9182","origin":"measured","source":"defmodule A do\n  def f, do: )\n  def g, do: 2\nend"}
+{"hash":"ba662dc41fd0efb7","origin":"measured","source":"defmodule A do\n  def f do\n    1\n  end\n  end\n  def g, do: 2\nend"}

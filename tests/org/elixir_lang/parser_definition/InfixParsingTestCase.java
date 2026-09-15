@@ -17,14 +17,8 @@ public class InfixParsingTestCase extends ParsingTestCase {
      * Static Methods
      */
 
-    /**
-     * Deliberately NOT named {@code assertEquals}: a one-argument overload of the framework's own
-     * assertion reads as "assert this is equal to..." at the call site while actually asserting a
-     * hard-coded operator, and it silently competes with {@code Assert.assertEquals} during overload
-     * resolution.
-     */
-    private static void assertOperator(Operation operation, @NotNull String operatorText) {
-        assertEquals(operatorText, operation.operator().getText());
+    private static void assertMatchOperator(Operation operation) {
+        assertEquals("=", operation.operator().getText());
     }
 
     /*
@@ -35,15 +29,15 @@ public class InfixParsingTestCase extends ParsingTestCase {
         Operation[] operations = operations();
 
         assertEquals(1, operations.length);
-        assertOperator(operations[0], "=");
+        assertMatchOperator(operations[0]);
     }
 
     public void testIssue251WithNoLeftOperand() {
         Operation[] operations = operations();
 
-        assertEquals(2, operations.length);
-        assertOperator(operations[0], "=");
-        assertOperator(operations[1], "=");
+        assertEquals(1, operations.length);
+        assertMatchOperator(operations[0]);
+        assertTrue(operations[0].getText().startsWith("{:ok, pid} ="));
     }
 
     public void testWellFormed() {
@@ -51,8 +45,8 @@ public class InfixParsingTestCase extends ParsingTestCase {
 
         assertEquals(2, operations.length);
 
-        assertOperator(operations[0], "=");
-        assertOperator(operations[1], "=");
+        assertMatchOperator(operations[0]);
+        assertMatchOperator(operations[1]);
     }
 
     /*
