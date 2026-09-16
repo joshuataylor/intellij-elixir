@@ -10,6 +10,7 @@ import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.ModuleRootManager
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.toNioPathOrNull
 import com.intellij.platform.ide.progress.ModalTaskOwner
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
@@ -26,6 +27,7 @@ import org.elixir_lang.sdk.ProcessOutput
 import org.elixir_lang.sdk.SdkRegistrar
 import org.elixir_lang.facet.Type as ElixirFacetType
 import org.elixir_lang.sdk.elixir.ElixirSdkLookup
+import org.elixir_lang.sdk.elixir.knownOrNull
 import org.elixir_lang.sdk.elixir.sdk
 import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.erlang_dependent.elixirAdditionalData
@@ -109,6 +111,8 @@ internal class ToolManagerSdkChecker(
      */
     @RequiresReadLock
     fun collectModuleCheckData(): List<ModuleCheckData> {
+        val store = SdkVersionsStore.getInstance()
+
         return ModuleManager.getInstance(project).modules
             .filter { it.isElixirModule() }
             .map { module ->
@@ -123,11 +127,11 @@ internal class ToolManagerSdkChecker(
                 ModuleCheckData(
                     moduleName = module.name,
                     elixirSdkHomePath = elixirSdk?.homePath,
-                    elixirSdkVersion = SdkVersionsStore.getInstance().elixirVersions(elixirSdk?.homePath)
-                        ?.let { versions -> versions.elixirOtpMajor?.let { "${versions.elixirVersion}-otp-$it" } ?: versions.elixirVersion },
+                    elixirSdkVersion = store.elixirVersions(elixirSdk?.homePath)
+                        ?.let { versions -> versions.elixirOtpMajor.knownOrNull?.let { "${versions.elixirVersion}-otp-$it" } ?: versions.elixirVersion },
                     elixirSdkVersionString = elixirSdk?.versionString,
                     erlangSdkHomePath = erlangSdk?.homePath,
-                    erlangSdkVersion = SdkVersionsStore.getInstance().otpVersion(erlangSdk?.homePath),
+                    erlangSdkVersion = store.otpVersion(erlangSdk?.homePath),
                     erlangSdkVersionString = erlangSdk?.versionString,
                     contentRoot = contentRoot,
                 )
@@ -237,58 +241,100 @@ internal class ToolManagerSdkChecker(
 
             val toolName = tmVersions.toolManagerName
             val rows = mutableListOf<SdkVersionRow>()
+            val runInstall = "run `$toolName install` in " + FileUtil.toSystemIndependentName(contentRoot.toString())
 
             // --- Elixir ---
             val tmElixir = tmVersions.elixir
             val elixirHome = data.elixirSdkHomePath
-            if (tmElixir != null && elixirHome != null) {
-                val isMismatch = !isInstalledAt(elixirHome, tmElixir)
+            if (tmElixir != null) {
+                // A pinned version that is not installed is reported even when the module has no SDK.
+                val isMismatch = elixirHome != null && !isInstalledAt(elixirHome, tmElixir)
                 LOG.trace(
                     "detectMismatchIssues: '${data.moduleName}' Elixir home=$elixirHome installPath=${tmElixir.installPath}"
                 )
-                if (isMismatch) {
+                if (!tmElixir.installed) {
+                    LOG.info("'${data.moduleName}': $toolName's Elixir ${tmElixir.version} is not installed")
+                    issues.add(
+                        ModuleSdkIssue(
+                            moduleName = data.moduleName,
+                            issue = (data.elixirSdkVersion ?: elixirHome)?.let { configured ->
+                                "Elixir SDK is $configured but $toolName's ${tmElixir.version} is not installed - " +
+                                    runInstall
+                            } ?: "$toolName resolves Elixir ${tmElixir.version}, which is not installed - $runInstall",
+                            isDangling = false,
+                        )
+                    )
+                } else if (isMismatch) {
                     LOG.info("'${data.moduleName}': Elixir SDK at $elixirHome is not $toolName's ${tmElixir.version}")
                     issues.add(
                         ModuleSdkIssue(
                             moduleName = data.moduleName,
-                            issue = when {
-                                !tmElixir.installed ->
-                                    "Elixir SDK is ${data.elixirSdkVersion ?: elixirHome} but $toolName's ${tmElixir.version} is not installed"
-                                data.elixirSdkVersion == null || data.elixirSdkVersion == tmElixir.version ->
+                            issue =
+                                if (data.elixirSdkVersion == null || data.elixirSdkVersion == tmElixir.version) {
                                     "Elixir SDK at $elixirHome is not $toolName's ${tmElixir.version} at ${tmElixir.installPath}"
-                                else ->
+                                } else {
                                     "Elixir SDK is ${data.elixirSdkVersion} but $toolName resolves ${tmElixir.version}"
-                            },
+                                },
                             isDangling = false,
                         )
                     )
                 }
-                rows.add(SdkVersionRow("Elixir", data.elixirSdkVersionString ?: data.elixirSdkVersion, tmElixir.version, isMismatch))
+                if (elixirHome != null) {
+                    rows.add(
+                        SdkVersionRow(
+                            "Elixir",
+                            data.elixirSdkVersionString ?: data.elixirSdkVersion,
+                            tmElixir.version,
+                            isMismatch,
+                            tmElixir.installed,
+                        )
+                    )
+                }
             }
 
             // --- Erlang ---
             val tmErlang = tmVersions.erlang
             val erlangHome = data.erlangSdkHomePath
-            if (tmErlang != null && erlangHome != null) {
-                val isMismatch = !isInstalledAt(erlangHome, tmErlang)
-                if (isMismatch) {
+            if (tmErlang != null) {
+                val isMismatch = erlangHome != null && !isInstalledAt(erlangHome, tmErlang)
+                if (!tmErlang.installed) {
+                    LOG.info("'${data.moduleName}': $toolName's Erlang ${tmErlang.version} is not installed")
+                    issues.add(
+                        ModuleSdkIssue(
+                            moduleName = data.moduleName,
+                            issue = (data.erlangSdkVersion ?: erlangHome)?.let { configured ->
+                                "Internal Erlang SDK is $configured but $toolName's ${tmErlang.version} is not " +
+                                    "installed - $runInstall"
+                            } ?: "$toolName resolves Erlang ${tmErlang.version}, which is not installed - $runInstall",
+                            isDangling = false,
+                        )
+                    )
+                } else if (isMismatch) {
                     LOG.info("'${data.moduleName}': Erlang SDK at $erlangHome is not $toolName's ${tmErlang.version}")
                     issues.add(
                         ModuleSdkIssue(
                             moduleName = data.moduleName,
-                            issue = when {
-                                !tmErlang.installed ->
-                                    "Internal Erlang SDK ${data.erlangSdkVersion ?: erlangHome} does not match $toolName's ${tmErlang.version}, which is not installed"
-                                data.erlangSdkVersion == null || data.erlangSdkVersion == tmErlang.version ->
+                            issue =
+                                if (data.erlangSdkVersion == null || data.erlangSdkVersion == tmErlang.version) {
                                     "Internal Erlang SDK at $erlangHome is not $toolName's ${tmErlang.version} at ${tmErlang.installPath}"
-                                else ->
+                                } else {
                                     "Internal Erlang SDK ${data.erlangSdkVersion} does not match $toolName (${tmErlang.version})"
-                            },
+                                },
                             isDangling = false,
                         )
                     )
                 }
-                rows.add(SdkVersionRow("Erlang", data.erlangSdkVersionString ?: data.erlangSdkVersion, tmErlang.version, isMismatch))
+                if (erlangHome != null) {
+                    rows.add(
+                        SdkVersionRow(
+                            "Erlang",
+                            data.erlangSdkVersionString ?: data.erlangSdkVersion,
+                            tmErlang.version,
+                            isMismatch,
+                            tmErlang.installed,
+                        )
+                    )
+                }
             }
 
             if (rows.any { it.isMismatch }) {
@@ -301,7 +347,7 @@ internal class ToolManagerSdkChecker(
 
     /**
      * Builds the map of module name → [ToolManagerVersions] for every Elixir module whose
-     * content root has an *installed* tool-manager Elixir version.
+     * content root has an *installed* tool-manager Elixir version, and its Erlang installed too if one is pinned.
      *
      * Only [ToolManagerResult.Success] entries are considered; [ToolManagerResult.Error] entries
      * are ignored here (the widget surfaces them through a separate notification path).
@@ -316,7 +362,8 @@ internal class ToolManagerSdkChecker(
         for (data in moduleCheckData) {
             val contentRoot = data.contentRoot ?: continue
             val versions = (toolManagerResultsByRoot[contentRoot] as? ToolManagerResult.Success)?.versions ?: continue
-            if (versions.elixir?.installed == true) {
+            // A pinned Erlang not installed yet would register the Elixir SDK with none.
+            if (versions.elixir?.installed == true && versions.erlang?.installed != false) {
                 result[data.moduleName] = versions
             }
         }
@@ -363,7 +410,8 @@ internal class ToolManagerSdkChecker(
                 val elixirPath = elixirEntry.installPath
                 if (elixirPath in elixirSdkByInstallPath) continue
 
-                val erlangSdk = versions.erlang?.let { erlang ->
+                // An entry the tool manager resolves but has not installed has no directory to register.
+                val erlangSdk = versions.erlang?.takeIf { it.installed }?.let { erlang ->
                     LOG.trace("configureSdks: registering Erlang SDK at '${erlang.installPath}'")
                     SdkRegistrar.registerOrUpdateErlangSdk(erlang.installPath)
                 }

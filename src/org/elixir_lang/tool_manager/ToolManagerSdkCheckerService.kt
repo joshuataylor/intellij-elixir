@@ -125,7 +125,7 @@ internal class ToolManagerSdkCheckerService(private val project: Project) : Disp
                     // Reinstall refresh triggers after each scan so dynamically discovered
                     // file lists (e.g. from `mise config ls`) stay up to date.
                     withContext(Dispatchers.IO) {
-                        installRefreshTriggers(contentRoots)
+                        installRefreshTriggers(contentRoots, results)
                     }
                 }
         }
@@ -137,7 +137,7 @@ internal class ToolManagerSdkCheckerService(private val project: Project) : Disp
      * Disposes any previously installed triggers first.  Must be called on a background IO thread
      * (trigger implementations may run CLI commands to discover watched files).
      */
-    private fun installRefreshTriggers(contentRoots: List<Path>) {
+    private fun installRefreshTriggers(contentRoots: List<Path>, results: Map<Path, ToolManagerResult?>) {
         // Swap is atomic and returns the fresh lifetime; register onto that reference (not the
         // field) so a concurrent settings-change reset cannot redirect our registrations.
         val newLifetime = swapTriggerLifetime()
@@ -149,7 +149,7 @@ internal class ToolManagerSdkCheckerService(private val project: Project) : Disp
             .forEach { manager ->
                 val trigger = manager.createRefreshTrigger() ?: return@forEach
                 LOG.debug("Installing refresh trigger for '${manager.name}' in '${project.name}'")
-                val triggerDisposable = trigger.install(project, contentRoots) {
+                val triggerDisposable = trigger.install(project, contentRoots, results) {
                     LOG.debug("Refresh trigger fired for '${manager.name}', requesting scan of '${project.name}'")
                     requestScan()
                 }

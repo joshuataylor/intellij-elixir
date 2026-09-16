@@ -6,8 +6,17 @@ import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.mise.MiseResult
+import org.elixir_lang.mise.MiseToolEntry
+import org.elixir_lang.mise.MiseVersions
+import org.elixir_lang.tool_manager.mise.MiseInstallPoll.Check
+import org.elixir_lang.tool_manager.mise.MiseRefreshTrigger.Tool
+import org.elixir_lang.tool_manager.ToolEntry
+import org.elixir_lang.tool_manager.ToolManagerResult
+import org.elixir_lang.tool_manager.ToolManagerVersions
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
+import java.nio.file.Path
 
 /**
  * Unit tests for [MiseRefreshTrigger.shouldTrigger] (internal).
@@ -43,6 +52,8 @@ class MiseRefreshTriggerTest : PlatformTestCase() {
         return mock(VFileCreateEvent::class.java).also {
             `when`(it.parent).thenReturn(parent)
             `when`(it.childName).thenReturn(childName)
+            // What the platform computes: a create event's own path is the created child's, not its parent's.
+            `when`(it.path).thenReturn("$parentPath/$childName")
         }
     }
 
@@ -223,5 +234,151 @@ class MiseRefreshTriggerTest : PlatformTestCase() {
                 ""
             )
         )
+    }
+
+    // -------------------------------------------------------------------------
+    // The installs directory - a pinned version being installed or uninstalled
+    // -------------------------------------------------------------------------
+
+    private val elixirDir = "/home/user/.local/share/mise/installs/elixir"
+    private val erlangDir = "/home/user/.local/share/mise/installs/erlang"
+
+    private fun createDirectory(parentPath: String, childName: String): VFileCreateEvent =
+        create(parentPath, childName).also { `when`(it.isDirectory).thenReturn(true) }
+
+    private fun success(elixir: ToolEntry?, erlang: ToolEntry?): ToolManagerResult =
+        ToolManagerResult.Success(object : ToolManagerVersions {
+            override val toolManagerName = "mise"
+            override val elixir = elixir
+            override val erlang = erlang
+        })
+
+    fun testInstallWatches_takeEachPinOfEachRoot() {
+        val root = Path.of("/project")
+        val watches = MiseRefreshTrigger.installWatches(
+            mapOf(
+                root to success(
+                    ToolEntry("1.20.5-otp-28", "$elixirDir/1.20.5-otp-28", installed = true),
+                    ToolEntry("28.1", "$erlangDir/28.1", installed = false),
+                ),
+                Path.of("/unpinned") to success(null, null),
+                Path.of("/untrusted") to ToolManagerResult.Error("mise", "not trusted"),
+                Path.of("/unmanaged") to null,
+            )
+        )
+
+        assertEquals(
+            listOf(
+                MiseRefreshTrigger.InstallWatch(Tool.ELIXIR, root, "$elixirDir/1.20.5-otp-28", installed = true),
+                MiseRefreshTrigger.InstallWatch(Tool.ERLANG, root, "$erlangDir/28.1", installed = false),
+            ),
+            watches,
+        )
+    }
+
+    fun testInstallWatches_normaliseSeparators() {
+        val watches = MiseRefreshTrigger.installWatches(
+            mapOf(Path.of("C:/project") to success(ToolEntry("1.20.5", """C:\mise\installs\elixir\1.20.5""", false), null))
+        )
+
+        assertEquals("C:/mise/installs/elixir/1.20.5", watches.single().installPath)
+    }
+
+    fun testStartsAnInstall_aVersionDirectoryInAPendingToolDir() {
+        assertTrue(
+            "mise creates the version's directory as the install starts",
+            MiseRefreshTrigger.startsAnInstall(createDirectory(elixirDir, "1.20.5-otp-28"), setOf(elixirDir))
+        )
+    }
+
+    fun testStartsAnInstall_aFileInAPendingToolDir_isNot() {
+        assertFalse(
+            MiseRefreshTrigger.startsAnInstall(create(elixirDir, ".mise.backend.toml"), setOf(elixirDir))
+        )
+    }
+
+    fun testStartsAnInstall_aDirectoryInsideAVersion_isNot() {
+        assertFalse(
+            MiseRefreshTrigger.startsAnInstall(createDirectory("$elixirDir/1.20.5-otp-28", "bin"), setOf(elixirDir))
+        )
+    }
+
+    fun testStartsAnInstall_aToolDirWithNothingPending_isNot() {
+        assertFalse(
+            "only a pin that is not installed is waited for",
+            MiseRefreshTrigger.startsAnInstall(createDirectory(erlangDir, "28.1"), setOf(elixirDir))
+        )
+    }
+
+    fun testUninstalls_theInstallPath() {
+        assertTrue(
+            MiseRefreshTrigger.uninstalls(delete("$elixirDir/1.20.5-otp-28"), setOf("$elixirDir/1.20.5-otp-28"))
+        )
+    }
+
+    fun testUninstalls_theToolDir() {
+        assertTrue(
+            "removing the last version of a tool can remove its directory in one event",
+            MiseRefreshTrigger.uninstalls(delete(elixirDir), setOf("$elixirDir/1.20.5-otp-28"))
+        )
+    }
+
+    fun testUninstalls_theInstallsDir() {
+        assertTrue(
+            MiseRefreshTrigger.uninstalls(delete(elixirDir.substringBeforeLast('/')), setOf("$elixirDir/1.20.5-otp-28"))
+        )
+    }
+
+    fun testUninstalls_aSiblingVersion_isNot() {
+        assertFalse(
+            MiseRefreshTrigger.uninstalls(delete("$elixirDir/1.20.5-otp-27"), setOf("$elixirDir/1.20.5-otp-28"))
+        )
+    }
+
+    fun testUninstalls_aPathSharingOnlyAPrefix_isNot() {
+        assertFalse(
+            MiseRefreshTrigger.uninstalls(delete("$elixirDir/1.20"), setOf("$elixirDir/1.20.5-otp-28"))
+        )
+    }
+
+    fun testUninstalls_aCreate_isNot() {
+        assertFalse(
+            MiseRefreshTrigger.uninstalls(createDirectory(elixirDir, "1.20.5-otp-28"), setOf("$elixirDir/1.20.5-otp-28"))
+        )
+    }
+
+    private fun mise(elixirInstalled: Boolean?, erlangInstalled: Boolean? = null): MiseResult =
+        MiseResult.Success(
+            MiseVersions(
+                elixirInstalled?.let { MiseToolEntry("1.20.5", "1.20", "$elixirDir/1.20.5", null, null, it, true) },
+                erlangInstalled?.let { MiseToolEntry("28.1", "28", "$erlangDir/28.1", null, null, it, true) },
+            )
+        )
+
+    fun testCheck_thePendingToolIsNowInstalled() {
+        assertEquals(Check.INSTALLED, MiseRefreshTrigger.checkOf(mise(elixirInstalled = true), setOf(Tool.ELIXIR)))
+    }
+
+    fun testCheck_thePendingToolIsStillNotInstalled() {
+        assertEquals(Check.NOT_YET, MiseRefreshTrigger.checkOf(mise(elixirInstalled = false), setOf(Tool.ELIXIR)))
+    }
+
+    fun testCheck_anotherToolBeingInstalledIsNotTheOneWaitedFor() {
+        assertEquals(
+            Check.NOT_YET,
+            MiseRefreshTrigger.checkOf(mise(elixirInstalled = true, erlangInstalled = false), setOf(Tool.ERLANG)),
+        )
+    }
+
+    fun testCheck_theToolNoLongerPinnedIsNotAnAnswer() {
+        assertEquals(Check.NOT_YET, MiseRefreshTrigger.checkOf(mise(elixirInstalled = null), setOf(Tool.ELIXIR)))
+    }
+
+    fun testCheck_miseFailing() {
+        assertEquals(Check.FAILED, MiseRefreshTrigger.checkOf(null, setOf(Tool.ELIXIR)))
+    }
+
+    fun testCheck_anUntrustedConfig() {
+        assertEquals(Check.FAILED, MiseRefreshTrigger.checkOf(MiseResult.UntrustedConfig("/project/mise.toml"), setOf(Tool.ELIXIR)))
     }
 }

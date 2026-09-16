@@ -30,6 +30,7 @@ import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import com.intellij.util.messages.MessageBusConnection
+import com.intellij.util.ui.UIUtil
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -42,6 +43,7 @@ import org.elixir_lang.mix.project.ProjectModuleSetupValidator.FolderMarkIssue
 import org.elixir_lang.mixContentRoots
 import org.elixir_lang.mix.Project as MixProject
 import org.elixir_lang.sdk.SdkEbinPaths
+import org.elixir_lang.sdk.SdkVersionsListener
 import org.elixir_lang.sdk.elixir.ElixirSdkLookup
 import org.elixir_lang.sdk.elixir.ElixirSdkMutation
 import org.elixir_lang.sdk.elixir.ElixirSdkValidation
@@ -144,6 +146,16 @@ class ElixirEditorBasedSdkWidget(
 ) : EditorBasedStatusBarPopup(project, isWriteableFileRequired = false, scope = scope) {
 
     companion object {
+        internal fun versionTableTitle(table: SdkVersionTable): String =
+            if (table.rows.any { !it.isInstalled }) {
+                "Elixir SDK: '${table.moduleName}' - ${table.toolManagerName} version not installed"
+            } else {
+                "Elixir SDK: '${table.moduleName}' Version Mismatch"
+            }
+
+        /** Not for a module SDK error: it resets the module to the project SDK, undoing what a tool manager chose. */
+        internal fun offersReconfigure(status: SdkStatus): Boolean = status is SdkStatus.FolderMarkWarning
+
         const val ID = "ElixirSdkStatus"
     }
 
@@ -339,6 +351,16 @@ class ElixirEditorBasedSdkWidget(
             update()
             notificationScanRequests.tryEmit(Unit)
         })
+
+        // Registration fills the version store after the SDK table's add is published, so scans made from that add
+        // can predate the versions. Both calls only emit to flows, so they are safe from the filling coroutine.
+        connection.subscribe(
+            SdkVersionsListener.TOPIC,
+            SdkVersionsListener { _, _ ->
+                update()
+                notificationScanRequests.tryEmit(Unit)
+            },
+        )
 
         // Tool manager settings change (enable/disable a manager in Settings -> Elixir -> Tool Managers).
         // The user explicitly changed which managers are active, so they must see the current state
@@ -554,7 +576,7 @@ class ElixirEditorBasedSdkWidget(
             }
         }
 
-        // For OTP mismatch, offer "Don't warn for this SDK" (suppress flag) and "Configure...".
+        // For OTP mismatch, offer "Don't warn for this SDK" (suppress flag) and "Configure…".
         if (sdkStatus is SdkStatus.OtpMismatch) {
             val affectedElixirSdk = sdkStatus.elixirSdk
             notification.addAction(object : AnAction("Don't Warn for This SDK") {
@@ -583,8 +605,8 @@ class ElixirEditorBasedSdkWidget(
             })
         }
 
-        // "Reconfigure Now" - for module SDK errors and folder mark warnings.
-        if (sdkStatus is SdkStatus.ModuleSdkError || sdkStatus is SdkStatus.FolderMarkWarning) {
+        // "Reconfigure Now" - for folder mark warnings.
+        if (offersReconfigure(sdkStatus)) {
             val reconfigureAction = ActionManager.getInstance().getAction("Elixir.ReconfigureModuleSetup")
             if (reconfigureAction != null) {
                 notification.addAction(object : AnAction("Reconfigure Now") {
@@ -708,7 +730,7 @@ class ElixirEditorBasedSdkWidget(
                     val table = status.sdkVersionTables[moduleName]
                     if (table != null) {
                         NotificationContent(
-                            "Elixir SDK: '$moduleName' Version Mismatch",
+                            versionTableTitle(table),
                             buildSdkVersionTableHtml(table),
                             NotificationType.WARNING
                         )
@@ -898,32 +920,43 @@ class ElixirEditorBasedSdkWidget(
             }
         }
 
-    private fun buildSdkVersionTableHtml(table: SdkVersionTable): String {
-        val okColor   = ColorUtil.toHtmlColor(JBColor(0x388A34, 0x499C54))
+    internal fun buildSdkVersionTableHtml(table: SdkVersionTable): String {
+        val okColor = ColorUtil.toHtmlColor(JBColor(0x388A34, 0x499C54))
         val warnColor = ColorUtil.toHtmlColor(JBColor(0xBB8522, 0xC89B3C))
+        val errorColor = ColorUtil.toHtmlColor(JBColor(0xC7222D, 0xE55765))
+        val quietColor = ColorUtil.toHtmlColor(UIUtil.getContextHelpForeground())
+        // Swing gives an empty cell no width, so the gap between columns is spaces - few, as the balloon's width is
+        // fixed and a wider table scrolls.
+        val gap = "<td nowrap>&nbsp;&nbsp;</td>"
         return buildString {
-            append("<table>")
-            append("<tr><td></td><td></td><td><b>SDK</b></td><td><b>${table.toolManagerName}</b></td></tr>")
+            append("<table cellspacing=\"0\" cellpadding=\"1\">")
+            append("<tr><td nowrap></td>$gap")
+            append("<td nowrap><font color=\"$quietColor\">Configured SDK</font></td>$gap")
+            append("<td nowrap><font color=\"$quietColor\">${table.toolManagerName}</font></td></tr>")
             for (row in table.rows) {
                 val configured = row.configuredVersion ?: "-"
-                val tm = row.toolManagerVersion ?: "-"
-                if (row.isMismatch) {
-                    append("<tr>")
-                    append("<td><font color=\"$warnColor\">&#x26A0;</font></td>")
-                    append("<td><b>${row.label}:</b></td>")
-                    append("<td><b>$configured</b></td>")
-                    append("<td><b>$tm</b></td>")
-                    append("</tr>")
-                } else {
-                    append("<tr>")
-                    append("<td><font color=\"$okColor\">&#x2713;</font></td>")
-                    append("<td>${row.label}:</td>")
-                    append("<td>$configured</td>")
-                    append("<td>$tm</td>")
-                    append("</tr>")
+                val toolManager = row.toolManagerVersion ?: "-"
+                val mark = if (row.isMismatch) "<font color=\"$warnColor\">&#x26A0;</font>" else "<font color=\"$okColor\">&#x2713;</font>"
+                // A single-module notification omits the issue text, so this cell must say it is not installed.
+                val toolManagerCell = when {
+                    // Swing drops a trailing <br>, so the blank line that separates the next row needs content.
+                    !row.isInstalled ->
+                        "<font color=\"$errorColor\"><b>$toolManager</b><br><font size=\"-1\">not installed</font></font><br>&nbsp;"
+                    row.isMismatch -> "<b>$toolManager</b>"
+                    else -> toolManager
                 }
+                append("<tr valign=\"top\"><td nowrap>$mark&nbsp;${row.label}</td>$gap")
+                // The one cell left to wrap: an SDK name can outgrow the balloon, which has a fixed width.
+                append("<td>$configured</td>$gap<td nowrap>$toolManagerCell</td></tr>")
             }
             append("</table>")
+            if (table.rows.any { !it.isInstalled }) {
+                append(
+                    "<p style=\"margin-top: 6px\"><font color=\"$errorColor\">You need to run " +
+                        "<code><b>${table.toolManagerName} install</b></code><br>" +
+                        "in the <code>${table.moduleName}</code> module directory.</font></p>"
+                )
+            }
         }
     }
 

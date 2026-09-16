@@ -2,20 +2,28 @@ package org.elixir_lang.tool_manager.mise
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
+import com.intellij.util.concurrency.AppExecutorUtil
 import org.elixir_lang.mise.Mise
+import org.elixir_lang.mise.MiseResult
 import org.elixir_lang.tool_manager.ToolManagerRefreshTrigger
+import org.elixir_lang.tool_manager.ToolManagerResult
+import org.elixir_lang.util.loadForEvents
 import org.jetbrains.annotations.VisibleForTesting
+import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 
 private val LOG = logger<MiseRefreshTrigger>()
 
@@ -45,17 +53,41 @@ private val MISE_CONFIG_PATTERNS = listOf(
  *    - Any watched exact file is modified or deleted.
  *    - A file matching [MISE_CONFIG_PATTERNS] is created inside a content root directory
  *      (handles the case where the user adds a new config file not yet known to mise).
+ *    - A pin the last scan reported installed is removed, or one it reported not installed finishes installing.
  */
 object MiseRefreshTrigger : ToolManagerRefreshTrigger {
 
     override fun install(
         project: Project,
         contentRoots: List<Path>,
+        results: Map<Path, ToolManagerResult?>,
         onChangeDetected: () -> Unit,
     ): Disposable {
-        val lifetime = Disposer.newDisposable("MiseRefreshTrigger")
+        val lifetime = Disposer.newCheckedDisposable("MiseRefreshTrigger")
 
-        // --- 1. Discover exact config files from mise for each content root ---
+        // --- 1. The pins the last scan reported, and the directories mise installs them in ---
+        // mise creates a version's directory as the install starts and reports it installed only at the end, so a
+        // directory appearing beside a pin that is not installed starts a poll of mise rather than a re-scan.
+        val installWatches = installWatches(results)
+        val installedPaths = installWatches.filter { it.installed }.mapTo(mutableSetOf()) { it.installPath }
+        val pending = installWatches.filterNot { it.installed }
+        val pendingToolDirs = pending.mapTo(mutableSetOf()) { it.toolDir }
+        val pendingPaths = pending.mapTo(mutableSetOf()) { it.installPath }
+        val poll = project.service<MiseInstallPoll>()
+        // Before anything that runs mise, so a running poll is handed its next trigger as soon as it can be.
+        poll.follow(
+            pending.takeIf { it.isNotEmpty() }?.let {
+                MiseInstallPoll.Pending(
+                    check = { checkPending(it) },
+                    onInstalled = onChangeDetected,
+                    owner = lifetime,
+                    installPaths = pendingPaths,
+                )
+            }
+        )
+        val startPoll = { poll.start() }
+
+        // --- 2. Discover exact config files from mise for each content root ---
         // Mise.configFiles() already converts WSL Linux paths to Windows UNC paths (see Mise.kt),
         // so Path objects here are always host-native absolute paths.
         // Normalise to forward slashes so strings match VFileEvent.path values.
@@ -70,7 +102,7 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
 
         LOG.debug("install: watching ${exactPaths.size} exact file(s) across ${contentRoots.size} content root(s)")
 
-        // --- 2. Discover the mise trusted-configs directory ---
+        // --- 3. Discover the mise trusted-configs directory ---
         // Watching this directory lets us detect when the user runs `mise trust`, which writes a
         // file here but does not touch any of the watched config files themselves.
         val trustedConfigsDirString: String = contentRoots.firstOrNull()
@@ -80,7 +112,7 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
             ?.also { LOG.debug("install: also watching trusted-configs dir: $it") }
             ?: ""
 
-        // --- 3. Register LocalFileSystem watch roots ---
+        // --- 4. Register LocalFileSystem watch roots ---
         // Watch each exact file individually (handles files outside the project, e.g. ~/.config/mise/config.toml).
         // Also watch each content root directory (non-recursive) so new files can be detected.
         // Watch the trusted-configs directory so `mise trust` runs trigger a re-scan.
@@ -89,11 +121,17 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
         val watchPaths: Set<String> = exactPaths +
                 contentRoots.map { FileUtil.toSystemIndependentName(it.toString()) } +
                 listOfNotNull(trustedConfigsDirString.takeIf { it.isNotEmpty() })
-        val watchRequests = mutableSetOf<LocalFileSystem.WatchRequest>()
+        val watchRequests: MutableSet<LocalFileSystem.WatchRequest> = ConcurrentHashMap.newKeySet()
         val lfs = LocalFileSystem.getInstance()
         for (path in watchPaths) {
             lfs.addRootToWatch(path, /* watchRecursively = */ false)
                 ?.let { watchRequests.add(it) }
+        }
+        // A tool directory may not exist until its first install, so the directory holding it is watched too, and it is
+        // loaded when it appears.
+        val loadedWhenCreated: Set<String> = installWatches.mapTo(linkedSetOf()) { it.toolDir }
+        for (dir in loadedWhenCreated.map { it.substringBeforeLast('/') } + loadedWhenCreated) {
+            watchAndLoad(lfs, dir, watchRequests)
         }
 
         // Unregister all watch requests when the trigger is disposed.
@@ -102,18 +140,45 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
             LOG.trace("install: removed ${watchRequests.size} watch request(s)")
         }
 
-        // Normalise content root strings to forward slashes to match VFileCreateEvent.parent.path.
+        // An install already running, or one interrupted, has created its directory before this trigger could see it.
+        for (path in pendingPaths) if (Files.isDirectory(Path.of(path))) poll.startOnce(path)
+
+        // Normalise content root strings to forward slashes to match the paths VFS events report.
         val contentRootStrings: Set<String> = contentRoots.map { FileUtil.toSystemIndependentName(it.toString()) }.toSet()
 
-        // --- 4. Subscribe BulkFileListener for VFS change events ---
+        // --- 5. Subscribe BulkFileListener for VFS change events ---
         ApplicationManager.getApplication().messageBus
             .connect(lifetime)
             .subscribe(
                 com.intellij.openapi.vfs.VirtualFileManager.VFS_CHANGES,
                 object : BulkFileListener {
                     override fun after(events: List<VFileEvent>) {
+                        // Loading a directory lists it, which must not happen inside the write action events arrive in.
                         for (event in events) {
-                            if (shouldTrigger(event, exactPaths, contentRootStrings, trustedConfigsDirString)) {
+                            if (event is VFileCreateEvent && event.isDirectory && event.path in loadedWhenCreated) {
+                                AppExecutorUtil.getAppExecutorService().execute {
+                                    if (lifetime.isDisposed) return@execute
+                                    watchAndLoad(lfs, event.path, watchRequests)
+                                    // Disposal may have removed the watches before this one was added.
+                                    if (lifetime.isDisposed) {
+                                        lfs.removeWatchedRoots(watchRequests)
+                                    } else if (event.path in pendingToolDirs) {
+                                        startPoll()
+                                    }
+                                }
+                            }
+                        }
+                        for (event in events) {
+                            if (startsAnInstall(event, pendingToolDirs)) {
+                                LOG.debug("install: '${event.path}' started installing, polling mise until it has")
+                                startPoll()
+                            } else if (uninstalls(event, installedPaths) || shouldTrigger(
+                                    event,
+                                    exactPaths,
+                                    contentRootStrings,
+                                    trustedConfigsDirString,
+                                )
+                            ) {
                                 LOG.debug("install: change detected via ${event::class.simpleName} on '${event.path}', triggering re-scan")
                                 onChangeDetected()
                                 return  // one call per batch is sufficient; scan is debounced
@@ -125,6 +190,65 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
 
         return lifetime
     }
+
+    /** Blocks on `mise ls` once per root, so it runs only inside the poll, off every lock. */
+    private fun checkPending(pending: List<InstallWatch>): MiseInstallPoll.Check {
+        val checks = pending.groupBy({ it.root }, { it.tool }).map { (root, tools) ->
+            checkOf(Mise.resolveVersions(root), tools.toSet())
+        }
+        return when {
+            MiseInstallPoll.Check.INSTALLED in checks -> MiseInstallPoll.Check.INSTALLED
+            MiseInstallPoll.Check.FAILED in checks -> MiseInstallPoll.Check.FAILED
+            else -> MiseInstallPoll.Check.NOT_YET
+        }
+    }
+
+    @VisibleForTesting
+    internal fun watchAndLoad(
+        lfs: LocalFileSystem,
+        dir: String,
+        watchRequests: MutableSet<LocalFileSystem.WatchRequest>,
+    ): VirtualFile? {
+        lfs.addRootToWatch(dir, /* watchRecursively = */ false)?.let(watchRequests::add)
+        return lfs.loadForEvents(dir)
+    }
+
+    internal enum class Tool { ELIXIR, ERLANG }
+
+    internal data class InstallWatch(val tool: Tool, val root: Path, val installPath: String, val installed: Boolean) {
+        val toolDir: String get() = installPath.substringBeforeLast('/')
+    }
+
+    @VisibleForTesting
+    internal fun checkOf(result: MiseResult?, tools: Set<Tool>): MiseInstallPoll.Check {
+        val versions = (result as? MiseResult.Success)?.versions ?: return MiseInstallPoll.Check.FAILED
+        val installed = tools.any { tool ->
+            when (tool) {
+                Tool.ELIXIR -> versions.elixir
+                Tool.ERLANG -> versions.erlang
+            }?.installed == true
+        }
+
+        return if (installed) MiseInstallPoll.Check.INSTALLED else MiseInstallPoll.Check.NOT_YET
+    }
+
+    @VisibleForTesting
+    internal fun installWatches(results: Map<Path, ToolManagerResult?>): List<InstallWatch> =
+        results.flatMap { (root, result) ->
+            val versions = (result as? ToolManagerResult.Success)?.versions ?: return@flatMap emptyList()
+            listOfNotNull(
+                versions.elixir?.let { InstallWatch(Tool.ELIXIR, root, FileUtil.toSystemIndependentName(it.installPath), it.installed) },
+                versions.erlang?.let { InstallWatch(Tool.ERLANG, root, FileUtil.toSystemIndependentName(it.installPath), it.installed) },
+            )
+        }
+
+    @VisibleForTesting
+    internal fun startsAnInstall(event: VFileEvent, pendingToolDirs: Set<String>): Boolean =
+        event is VFileCreateEvent && event.isDirectory && event.path.substringBeforeLast('/') in pendingToolDirs
+
+    @VisibleForTesting
+    internal fun uninstalls(event: VFileEvent, installedPaths: Set<String>): Boolean =
+        event is VFileDeleteEvent && installedPaths.any { it == event.path || it.startsWith("${event.path}/") }
 
     @VisibleForTesting
     internal fun shouldTrigger(

@@ -34,6 +34,7 @@ fun interface ToolManagerRefreshTrigger {
      *
      * @param project          The project this trigger belongs to.
      * @param contentRoots     Content roots that were most recently scanned.
+     * @param results          What that scan found for each of [contentRoots].
      * @param onChangeDetected Called (on any thread) when a re-scan should be triggered.
      *                         Implementations must call this at most once per logical change event;
      *                         the scan service debounces multiple rapid calls automatically.
@@ -43,6 +44,7 @@ fun interface ToolManagerRefreshTrigger {
     fun install(
         project: Project,
         contentRoots: List<Path>,
+        results: Map<Path, ToolManagerResult?>,
         onChangeDetected: () -> Unit,
     ): Disposable
 }

@@ -52,7 +52,8 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
     private fun erlangEntry(
         version: String,
         installPath: String = "/mise/installs/erlang/$version",
-    ) = ToolEntry(version, installPath, installed = true)
+        installed: Boolean = true,
+    ) = ToolEntry(version, installPath, installed)
 
     private fun moduleData(
         moduleName: String,
@@ -182,6 +183,30 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
                 listOf(moduleData("mod", contentRoot = path)),
                 mapOf(path to success(v)),
             ).isEmpty()
+        )
+    }
+
+    fun testBuildAssignments_pinnedErlangNotInstalled_excluded() {
+        val path = Paths.get("/project")
+        val v = versions(
+            elixir = elixirEntry("1.19.5-otp-28", "/elixir-1.19.5-otp-28"),
+            erlang = erlangEntry("28.1.2", installed = false),
+        )
+        assertTrue(
+            "configuring now would register the Elixir SDK with no Erlang; mise install comes first",
+            checker.buildAssignments(listOf(moduleData("mod", contentRoot = path)), mapOf(path to success(v))).isEmpty(),
+        )
+    }
+
+    fun testBuildAssignments_pinnedErlangInstalled_included() {
+        val path = Paths.get("/project")
+        val v = versions(
+            elixir = elixirEntry("1.19.5-otp-28", "/elixir-1.19.5-otp-28"),
+            erlang = erlangEntry("28.1.2"),
+        )
+        assertEquals(
+            setOf("mod"),
+            checker.buildAssignments(listOf(moduleData("mod", contentRoot = path)), mapOf(path to success(v))).keys,
         )
     }
 
@@ -324,6 +349,71 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
         issues.forEach { assertTrue("'${it.issue}' must say the version is not installed", it.issue.contains("not installed")) }
     }
 
+    fun testDetectMismatch_versionNotInstalled_issueTellsTheUserToInstallItInTheContentRoot() {
+        val path = Paths.get("/project")
+        val (issues, _) = detect(
+            moduleData(
+                "mod",
+                elixirHome = "/usr/local/elixir",
+                elixirVersion = "1.20.5",
+                contentRoot = path,
+            ),
+            results = mapOf(
+                path to success(versions(
+                    elixir = elixirEntry("1.21.0", "/mise/installs/elixir/1.21.0", installed = false),
+                ))
+            ),
+        )
+
+        val issue = issues.single().issue
+        assertTrue("'$issue' must name the command that fixes it", issue.contains("mise install"))
+        assertTrue("'$issue' must name the directory to run it in", issue.contains("/project"))
+    }
+
+    fun testDetectMismatch_versionNotInstalled_rowSaysSoSoTheTableCanShowIt() {
+        val path = Paths.get("/project")
+        val (_, tables) = detect(
+            moduleData(
+                "mod",
+                elixirHome = "/usr/local/elixir",
+                elixirVersion = "1.20.5",
+                contentRoot = path,
+            ),
+            results = mapOf(
+                path to success(versions(
+                    elixir = elixirEntry("1.21.0", "/mise/installs/elixir/1.21.0", installed = false),
+                ))
+            ),
+        )
+
+        assertFalse(
+            "a single module renders the table and never the issue text, so the row carries the state",
+            tables["mod"]!!.rows.single().isInstalled,
+        )
+    }
+
+    fun testDetectMismatch_installedVersionAtAnotherPath_rowIsStillInstalled() {
+        val path = Paths.get("/project")
+        val (_, tables) = detect(
+            moduleData(
+                "mod",
+                elixirHome = "/usr/local/elixir",
+                elixirVersion = "1.20.5",
+                contentRoot = path,
+            ),
+            results = mapOf(
+                path to success(versions(
+                    elixir = elixirEntry("1.21.0", "/mise/installs/elixir/1.21.0", installed = true),
+                ))
+            ),
+        )
+
+        assertTrue(
+            "a mismatch at a different path is not a missing installation",
+            tables["mod"]!!.rows.single().isInstalled,
+        )
+    }
+
     fun testDetectMismatch_elixirHomeIsTheInstallPath_noIssueNoTable() {
         val path = Paths.get("/project")
         val installPath = "/mise/installs/elixir/1.17.3-otp-27"
@@ -377,8 +467,26 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
             results = mapOf(path to success(versions(elixir = elixirEntry("1.17.3", "/mise/installs/elixir/1.17.3")))),
         )
 
-        assertTrue("No issue when no SDK is configured", issues.isEmpty())
+        assertTrue("No issue when no SDK is configured and the pinned version is installed", issues.isEmpty())
         assertTrue("No table when no issue", tables.isEmpty())
+    }
+
+    fun testDetectMismatch_noConfiguredElixirSdkAndThePinnedVersionIsNotInstalled_saysToInstallIt() {
+        val path = Paths.get("/project")
+        val (issues, tables) = detect(
+            moduleData("mod", elixirHome = null, contentRoot = path),
+            results = mapOf(
+                path to success(versions(
+                    elixir = elixirEntry("1.21.0", "/mise/installs/elixir/1.21.0", installed = false),
+                ))
+            ),
+        )
+
+        val issue = issues.single().issue
+        assertTrue("'$issue' must name the version that is not installed", issue.contains("1.21.0"))
+        assertTrue("'$issue' must name the command that fixes it", issue.contains("mise install"))
+        assertFalse("'$issue' must not describe an SDK that is not configured", issue.contains("null"))
+        assertTrue("a row compares against a configured version, and there is none", tables.isEmpty())
     }
 
     // -------------------------------------------------------------------------
@@ -456,6 +564,24 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
 
         assertTrue(issues.isEmpty())
         assertTrue(tables.isEmpty())
+    }
+
+    fun testDetectMismatch_noPairedErlangSdkAndThePinnedVersionIsNotInstalled_saysToInstallIt() {
+        val path = Paths.get("/project")
+        val (issues, tables) = detect(
+            moduleData("mod", erlangHome = null, contentRoot = path),
+            results = mapOf(
+                path to success(versions(
+                    erlang = ToolEntry("29.0", "/mise/installs/erlang/29.0", installed = false),
+                ))
+            ),
+        )
+
+        val issue = issues.single().issue
+        assertTrue("'$issue' must name the version that is not installed", issue.contains("29.0"))
+        assertTrue("'$issue' must name the command that fixes it", issue.contains("mise install"))
+        assertFalse("'$issue' must not describe an SDK that is not configured", issue.contains("null"))
+        assertTrue("a row compares against a configured version, and there is none", tables.isEmpty())
     }
 
     // -------------------------------------------------------------------------

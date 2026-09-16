@@ -87,17 +87,39 @@ class MiseTest : PlatformTestCase() {
         assertEquals("1.13.4", result!!.elixir!!.version)
     }
 
-    fun testParseOutput_notInstalledEntrySkipped() {
+    fun testParseOutput_notInstalledEntryKept() {
+        // What mise prints for a pinned version it has not installed: neither installed nor active.
         val json = """
             {
-              "elixir": [{"version":"1.15.7","requested_version":"1.15.7","install_path":"/installs/elixir/1.15.7","installed":false,"active":true}]
+              "elixir": [{"version":"1.15.7","requested_version":"1.15.7","install_path":"/installs/elixir/1.15.7","installed":false,"active":false}]
             }
         """.trimIndent()
 
         val result = Mise.parseOutput(json, workDir)
 
         assertNotNull(result)
-        assertNull(result!!.elixir)
+        assertNotNull("a pinned version that is not installed is what the user must be told about", result!!.elixir)
+        assertEquals("1.15.7", result.elixir!!.version)
+        assertFalse(result.elixir!!.installed)
+    }
+
+    fun testParseOutput_installedActiveEntryPreferredOverUninstalled() {
+        val json = """
+            {
+              "elixir": [
+                {"version":"1.15.7","requested_version":"1.15","install_path":"/installs/elixir/1.15.7","installed":false,"active":false},
+                {"version":"1.15.8","requested_version":"1.15","install_path":"/installs/elixir/1.15.8","installed":true,"active":true}
+              ]
+            }
+        """.trimIndent()
+
+        val result = Mise.parseOutput(json, workDir)
+
+        assertEquals(
+            "an installed build answers for the pin before one that is only requested",
+            "1.15.8",
+            result!!.elixir!!.version,
+        )
     }
 
     fun testParseOutput_notActiveEntrySkipped() {

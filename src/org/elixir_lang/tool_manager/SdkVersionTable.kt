@@ -14,6 +14,8 @@ data class SdkVersionRow(
     val configuredVersion: String?,
     val toolManagerVersion: String?,
     val isMismatch: Boolean,
+    /** False when the tool manager resolves a version it has not installed, which needs a different fix. */
+    val isInstalled: Boolean,
 )
 
 /**

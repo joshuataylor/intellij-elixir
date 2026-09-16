@@ -286,13 +286,9 @@ object Mise {
             val allTools = gson.fromJson(json, type) as? Map<String, List<RawMiseEntry>>
                 ?: return null
 
-            val elixir = allTools["elixir"]
-                ?.firstOrNull { it.installed == true && it.active == true }
-                ?.toMiseToolEntry(workDir)
+            val elixir = allTools["elixir"]?.activeEntry()?.toMiseToolEntry(workDir)
 
-            val erlang = allTools["erlang"]
-                ?.firstOrNull { it.installed == true && it.active == true }
-                ?.toMiseToolEntry(workDir)
+            val erlang = allTools["erlang"]?.activeEntry()?.toMiseToolEntry(workDir)
 
             MiseVersions(elixir, erlang)
         } catch (e: Exception) {
@@ -300,6 +296,10 @@ object Mise {
             null
         }
     }
+
+    /** The installed, active build; failing that, one not installed, which mise also reports as inactive. */
+    private fun List<RawMiseEntry>.activeEntry(): RawMiseEntry? =
+        firstOrNull { it.installed == true && it.active == true } ?: firstOrNull { it.installed == false }
 
     private fun RawMiseEntry.toMiseToolEntry(workDir: Path): MiseToolEntry? {
         val v = version ?: return null

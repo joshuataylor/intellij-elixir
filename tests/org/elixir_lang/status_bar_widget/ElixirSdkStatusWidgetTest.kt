@@ -23,6 +23,8 @@ import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.facet.Type
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.tool_manager.ModuleSdkIssue
+import org.elixir_lang.tool_manager.SdkVersionRow
+import org.elixir_lang.tool_manager.SdkVersionTable
 
 /**
  * Tests for [ElixirEditorBasedSdkWidget] detection logic (notification scan methods).
@@ -318,6 +320,56 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     // -------------------------------------------------------------------------
     // Smoke tests (regression)
     // -------------------------------------------------------------------------
+
+    // -------------------------------------------------------------------------
+    // The version table, which is all a single-module notification shows
+    // -------------------------------------------------------------------------
+
+    private fun table(isInstalled: Boolean) = SdkVersionTable(
+        moduleName = module.name,
+        toolManagerName = "mise",
+        rows = listOf(SdkVersionRow("Elixir", "1.20.5", "1.21.0", isMismatch = true, isInstalled = isInstalled)),
+    )
+
+    fun testAnUninstalledRowSaysSoAndNamesTheCommandThatInstallsIt() {
+        val html = createWidget().buildSdkVersionTableHtml(table(isInstalled = false))
+
+        assertTrue("one module renders this table and never the issue text; got: $html", html.contains("not installed"))
+        assertTrue("got: $html", html.contains("mise install"))
+    }
+
+    fun testTheTitleSaysAVersionIsNotInstalled() {
+        assertEquals(
+            "Elixir SDK: '${module.name}' - mise version not installed",
+            ElixirEditorBasedSdkWidget.versionTableTitle(table(isInstalled = false)),
+        )
+    }
+
+    fun testTheTitleOfAMismatchAtAnotherPathSaysMismatch() {
+        assertEquals(
+            "Elixir SDK: '${module.name}' Version Mismatch",
+            ElixirEditorBasedSdkWidget.versionTableTitle(table(isInstalled = true)),
+        )
+    }
+
+    fun testReconfigureIsOfferedOnlyForFolderMarks() {
+        assertFalse(
+            "it resets a module to the project SDK, which undoes the SDK the tool manager chose",
+            ElixirEditorBasedSdkWidget.offersReconfigure(SdkStatus.ModuleSdkError(null, null, emptyList())),
+        )
+        assertTrue(
+            ElixirEditorBasedSdkWidget.offersReconfigure(
+                SdkStatus.FolderMarkWarning(ProjectJdkImpl("folder", ElixirSdkType.instance, "/fake", ""), "1.20.5", emptyList())
+            )
+        )
+    }
+
+    fun testAMismatchAtAnotherPathOffersNoInstall() {
+        val html = createWidget().buildSdkVersionTableHtml(table(isInstalled = true))
+
+        assertFalse("the version is installed, just not the one configured; got: $html", html.contains("not installed"))
+        assertFalse("got: $html", html.contains("mise install"))
+    }
 
     fun testWidgetIdConstant() {
         assertEquals("ElixirSdkStatus", ElixirEditorBasedSdkWidget.ID)
