@@ -177,8 +177,8 @@ class ElixirEditorBasedSdkWidget(
      * separate heavier path (O(modules × orderEntries)) that we debounce independently to
      * avoid redundant work during bulk rootsChanged events.
      *
-     * Primary trigger: `mix deps.get` → VFS detects new files under `deps/` and `_build/` →
-     * Mix dep sync updates libraries → each per-dep `libraryModifiableModel.commit()` and
+     * Primary trigger: `mix deps.get` -> VFS detects new files under `deps/` and `_build/` ->
+     * Mix dep sync updates libraries -> each per-dep `libraryModifiableModel.commit()` and
      * `ModuleRootManager.modifiableModel.commit()` fires a separate rootsChanged event.
      * A Phoenix project with 30 deps can easily generate 60–90+ events in quick succession.
      */
@@ -343,7 +343,7 @@ class ElixirEditorBasedSdkWidget(
             notificationScanRequests.tryEmit(Unit)
         })
 
-        // Tool manager settings change (enable/disable a manager in Settings → Elixir → Tool Managers).
+        // Tool manager settings change (enable/disable a manager in Settings -> Elixir -> Tool Managers).
         // The user explicitly changed which managers are active, so they must see the current state
         // even if the overall SdkStatus category (e.g. NotConfigured) has not changed.  Without
         // this reset the notification deduplication would suppress the updated message that includes
@@ -373,7 +373,7 @@ class ElixirEditorBasedSdkWidget(
         val moduleName = if (count > 1) module.name else null
 
         // Shared classification + tooltip text (see ModuleSdkStatus), also used by the
-        // Settings → Elixir per-module SDK page so the status text lives in one place.
+        // Settings -> Elixir per-module SDK page so the status text lives in one place.
         val status = ModuleSdkStatus.of(elixirSdk)
         val toolTip = status.summaryHtml(moduleName)
         return when (status) {
@@ -562,7 +562,7 @@ class ElixirEditorBasedSdkWidget(
             }
         }
 
-        // For OTP mismatch, offer "Don't warn for this SDK" (suppress flag) and "Configure…".
+        // For OTP mismatch, offer "Don't warn for this SDK" (suppress flag) and "Configure...".
         if (sdkStatus is SdkStatus.OtpMismatch) {
             val affectedElixirSdk = sdkStatus.elixirSdk
             notification.addAction(object : AnAction("Don't Warn for This SDK") {
@@ -767,7 +767,7 @@ class ElixirEditorBasedSdkWidget(
     /**
      * Finds the active Elixir SDK by scanning all Elixir modules.
      *
-     * Uses [ElixirSdkLookup.resolve] (module overload) which checks Facet SDK → module SDK → project SDK,
+     * Uses [ElixirSdkLookup.resolve] (module overload) which checks Facet SDK -> module SDK -> project SDK,
      * returning the first non-null result. This covers both Rich IDEs (JdkOrderEntry) and Small IDEs
      * (Facet library entry) without additional branching.
      *
@@ -849,7 +849,7 @@ class ElixirEditorBasedSdkWidget(
                     issues.add(
                         ModuleSdkIssue(
                             module.name,
-                            "Elixir Facet SDK is not configured (stale reference). Reconfigure in Settings → Languages → Elixir.",
+                            "Elixir Facet SDK is not configured (stale reference). Reconfigure in Settings -> Languages -> Elixir.",
                             isDangling = true
                         )
                     )
@@ -945,9 +945,9 @@ class ElixirEditorBasedSdkWidget(
         val sdkWord = StringUtil.pluralize("SDK", sdkNames.size)
         val sdkList = sdkNames.joinToString(", ") { "'$it'" }
         val navigationHint = if (moduleCount == 1) {
-            "Project Structure → Modules → ${moduleNames.first()} → Dependencies → Module SDK. Set it to \"Project SDK\""
+            "Project Structure -> Modules -> ${moduleNames.first()} -> Dependencies -> Module SDK. Set it to \"Project SDK\""
         } else {
-            "Project Structure → Modules → <module> → Dependencies → Module SDK. Set each to \"Project SDK\""
+            "Project Structure -> Modules -> <module> -> Dependencies -> Module SDK. Set each to \"Project SDK\""
         }
         return "$moduleWord $moduleList $verb non-existent $sdkWord $sdkList. Code insight will not work until fixed in $navigationHint."
     }

@@ -62,7 +62,7 @@ class TypeNamingTest : PlatformTestCase() {
     }
 
     fun testGetDefaultSdkName_withVersion() {
-        val release = Release("26", "26.0.1")
+        val release = Release.parse("26.0.1")!!
         val name = Type.getDefaultSdkName(
             "/Users/josh/.local/share/mise/installs/erlang/26.0.1",
             release

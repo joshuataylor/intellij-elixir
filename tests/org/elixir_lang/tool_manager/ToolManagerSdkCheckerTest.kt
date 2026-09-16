@@ -252,7 +252,7 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
             moduleCheckData = listOf(moduleData("mod", erlangHome = erlangHome, contentRoot = path)),
             toolManagerResultsByRoot = mapOf(path to success(versions(erlang = erlangEntry("27.3.4")))),
             elixirVersionBySdk = emptyMap(),
-            erlangReleaseByHomePath = mapOf(erlangHome to Release("27", "27.3.4")),
+            erlangReleaseByHomePath = mapOf(erlangHome to Release.parse("27.3.4")!!),
             elixirVersionByInstallPath = emptyMap(),
         )
         assertTrue("No issues when Erlang OTP majors match", issues.isEmpty())
@@ -266,7 +266,7 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
             moduleCheckData = listOf(moduleData("myModule", erlangHome = erlangHome, contentRoot = path)),
             toolManagerResultsByRoot = mapOf(path to success(versions(erlang = erlangEntry("27.3.4")))),
             elixirVersionBySdk = emptyMap(),
-            erlangReleaseByHomePath = mapOf(erlangHome to Release("26", "26.2.5")),
+            erlangReleaseByHomePath = mapOf(erlangHome to Release.parse("26.2.5")!!),
             elixirVersionByInstallPath = emptyMap(),
         )
         assertEquals(1, issues.size)
@@ -300,7 +300,7 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
                 ))
             ),
             elixirVersionBySdk = mapOf(sdk to "1.17.3"),
-            erlangReleaseByHomePath = mapOf(erlangHome to Release("26", "26.2.5")),
+            erlangReleaseByHomePath = mapOf(erlangHome to Release.parse("26.2.5")!!),
             elixirVersionByInstallPath = mapOf(elixirInstall to "1.18.0"),
         )
         assertEquals("Two issues for two mismatches", 2, issues.size)
@@ -327,7 +327,7 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
                 ))
             ),
             elixirVersionBySdk = mapOf(sdk to "1.17.3"),
-            erlangReleaseByHomePath = mapOf(erlangHome to Release("27", "27.3.4")),
+            erlangReleaseByHomePath = mapOf(erlangHome to Release.parse("27.3.4")!!),
             elixirVersionByInstallPath = mapOf(elixirInstall to "1.17.3"),
         )
         assertTrue("No issues when all versions match", issues.isEmpty())

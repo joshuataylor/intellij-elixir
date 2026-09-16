@@ -85,8 +85,9 @@ object ErlangVersionDetector {
             return null
         }
 
-        val otpMajor = otpMajorDir.name
-        val release = Release(otpMajor, otpVersion)
+        val release = Release.parse(otpVersion)
+            ?: Release.ofOtpMajor(otpMajorDir.name, otpVersion)
+            ?: return null
         cache[cacheKey] = release
         LOGGER.debug("Detected Erlang release: $release (from ${otpVersionFile.path})")
         return release

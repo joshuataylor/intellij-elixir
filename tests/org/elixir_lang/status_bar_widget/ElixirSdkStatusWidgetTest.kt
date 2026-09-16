@@ -32,14 +32,14 @@ import org.elixir_lang.tool_manager.ModuleSdkIssue
  * [ElixirEditorBasedSdkWidget.findModuleLevelElixirSdk].
  *
  * Tests scenarios from the project-sdk-fixes plan (adapted for the new widget class):
- * 1a. Project SDK = Java, module SDK = Elixir → no NotConfigured, no mismatch
- * 1b. Project SDK = Java, module SDK = Elixir → no mismatch issues
- * 2.  Project SDK = null, module SDK = Elixir → no NotConfigured
- * 3.  Project SDK = Elixir A, module SDK = Elixir B → mismatch reported
- * 5.  No Elixir modules → widget factory isAvailable() = false
- * 6.  Small IDE: stale Facet SDK reference, Elixir SDKs exist → dangling issue
- * 7.  Small IDE: Facet SDK resolves correctly → no issue
- * 8.  Small IDE: stale Facet SDK reference, no Elixir SDKs in table → no dangling (NotConfigured)
+ * 1a. Project SDK = Java, module SDK = Elixir -> no NotConfigured, no mismatch
+ * 1b. Project SDK = Java, module SDK = Elixir -> no mismatch issues
+ * 2.  Project SDK = null, module SDK = Elixir -> no NotConfigured
+ * 3.  Project SDK = Elixir A, module SDK = Elixir B -> mismatch reported
+ * 5.  No Elixir modules -> widget factory isAvailable() = false
+ * 6.  Small IDE: stale Facet SDK reference, Elixir SDKs exist -> dangling issue
+ * 7.  Small IDE: Facet SDK resolves correctly -> no issue
+ * 8.  Small IDE: stale Facet SDK reference, no Elixir SDKs in table -> no dangling (NotConfigured)
  */
 class ElixirSdkStatusWidgetTest : PlatformTestCase() {
 
@@ -212,7 +212,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 3: Project SDK = Elixir A, module SDK = Elixir B → mismatch reported
+    // Scenario 3: Project SDK = Elixir A, module SDK = Elixir B -> mismatch reported
     // -------------------------------------------------------------------------
 
     fun testMismatchReportedWhenModuleSdkDiffersFromElixirProjectSdk() {
@@ -232,7 +232,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 5: No Elixir modules → widget factory isAvailable = false
+    // Scenario 5: No Elixir modules -> widget factory isAvailable = false
     // -------------------------------------------------------------------------
 
     fun testWidgetFactoryNotAvailableWhenNoElixirModules() {
@@ -246,7 +246,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 6: Small IDE - stale Facet SDK, SDKs exist → dangling issue
+    // Scenario 6: Small IDE - stale Facet SDK, SDKs exist -> dangling issue
     // -------------------------------------------------------------------------
 
     @RequiresEdt
@@ -259,7 +259,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         }
         addedSdks.remove(staleSdk)
 
-        // Register a different SDK so Facet.sdks().isNotEmpty() → stale (not NotConfigured)
+        // Register a different SDK so Facet.sdks().isNotEmpty() -> stale (not NotConfigured)
         createAndRegisterElixirSdk("Elixir 1.18")
 
         // Do NOT call setModuleSdk() - no JdkOrderEntry, simulating Small IDE path
@@ -274,7 +274,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 7: Small IDE - Facet SDK resolves correctly → no issue
+    // Scenario 7: Small IDE - Facet SDK resolves correctly -> no issue
     // -------------------------------------------------------------------------
 
     fun testNoDanglingWhenFacetSdkResolvesCorrectly() {
@@ -291,7 +291,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     }
 
     // -------------------------------------------------------------------------
-    // Scenario 8: Small IDE - stale Facet SDK, NO Elixir SDKs in table → no dangling
+    // Scenario 8: Small IDE - stale Facet SDK, NO Elixir SDKs in table -> no dangling
     // -------------------------------------------------------------------------
 
     @RequiresEdt
