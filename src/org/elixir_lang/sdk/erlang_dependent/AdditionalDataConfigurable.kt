@@ -28,7 +28,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.elixir_lang.debug
-import org.elixir_lang.sdk.elixir.ElixirBuildInfo
+import org.elixir_lang.sdk.SdkVersionsFiller
 import org.elixir_lang.sdk.elixir.ElixirErlangClasspath.addNewCodePathsFromInternErlangSdk
 import org.elixir_lang.sdk.elixir.ElixirErlangClasspath.removeCodePathsFromInternalErlangSdk
 import org.elixir_lang.sdk.elixir.ElixirSdkMutation
@@ -300,7 +300,7 @@ class AdditionalDataConfigurable(
             internalErlangSdksComboBoxModel.addElement(erlangSdk)
         } else {
             LOG.debug("[internalErlangSdkUpdate] Selecting existing Erlang SDK in combo box: ${erlangSdk.name}")
-            internalErlangSdksComboBoxModel.setSelectedItem(erlangSdk)
+            internalErlangSdksComboBoxModel.selectedItem = erlangSdk
         }
     }
 
@@ -510,19 +510,15 @@ class AdditionalDataConfigurable(
         // inside a write action on apply and reset.
         val elixirHome = myElixirSdk.homePath ?: return hideOtpMismatchWarning()
         val erlangHome = selectedErlangSdk.homePath ?: return hideOtpMismatchWarning()
-        // Always null here: the dialog gets a clone, and the key is on the registered SDK.
-        val cachedElixirOtpMajor = myElixirSdk.getUserData(ElixirBuildInfo.ELIXIR_OTP_MAJOR_KEY)
 
         // This label's state is owned by the asynchronous detection below and is written once, when
         // the result lands. Touching it here would repaint the row twice and, because GridBagLayout
         // skips invisible components, reflow every row under it in between.
         otpMismatchJob = otpScope().launch {
             val mismatch = withContext(otpDetectionDispatcher) {
-                ElixirSdkValidation.detectOtpMismatch(
-                    elixirHome = elixirHome,
-                    cachedElixirOtpMajor = cachedElixirOtpMajor,
-                    erlangHome = erlangHome,
-                )
+                SdkVersionsFiller.fillIfUnread(elixirHome)
+                SdkVersionsFiller.fillIfUnread(erlangHome)
+                ElixirSdkValidation.detectOtpMismatch(elixirHome, erlangHome)
             }
 
             // Unqualified UI dispatch defaults to nonModal, which would hold the update until this

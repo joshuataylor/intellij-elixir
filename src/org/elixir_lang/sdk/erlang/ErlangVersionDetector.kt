@@ -7,17 +7,14 @@ import org.elixir_lang.sdk.wsl.wslCompat
 import java.io.File
 
 /**
- * Detects the installed Erlang/OTP SDK version by reading the filesystem - no subprocess required.
+ * Reads an Erlang/OTP installation's version from the filesystem - no subprocess required.
  *
  * The canonical source of truth for an installed OTP release is:
  *   `<sdkHome>/releases/<N>/OTP_VERSION`
  * where `<N>` is the OTP major release directory (e.g. `26`).
  *
- * [detectRelease] must NOT be called on the EDT. WSL paths (\\wsl.localhost\...) involve
- * the Plan 9 filesystem redirector and directory/file access can take 50–200 ms.
- * Call only from background threads or [kotlinx.coroutines.Dispatchers.IO] contexts.
- * [org.elixir_lang.sdk.SdkVersionsStore] holds what this read, keyed by the home, so code that only needs the
- * version reads it from there rather than coming back here.
+ * Only [org.elixir_lang.sdk.SdkVersionsFiller] should read it; everything else reads what it found from
+ * [org.elixir_lang.sdk.SdkVersionsStore], which needs no I/O.
  */
 object ErlangVersionDetector {
     private val LOGGER = Logger.getInstance(ErlangVersionDetector::class.java)
@@ -41,8 +38,11 @@ object ErlangVersionDetector {
     }
 
     /**
-     * [canonicalHome] has already been resolved by the caller, so a caller that needed the resolved path itself does
-     * not pay for resolving it twice - on a WSL home that is uncached I/O that boots the distro.
+     * Reads the installed Erlang/OTP version from `<canonicalHome>/releases/<N>/OTP_VERSION`, or `null` if the
+     * `releases/` directory or `OTP_VERSION` file is absent or unreadable.
+     *
+     * Must NOT be called on the EDT: on a `\\wsl.localhost` home every directory and file access goes through the
+     * Plan 9 redirector.
      */
     @RequiresBackgroundThread
     fun detectReleaseAt(canonicalHome: String): Release? {

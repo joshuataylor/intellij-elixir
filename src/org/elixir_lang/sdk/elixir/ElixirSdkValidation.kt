@@ -10,9 +10,8 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.sdk.erlang.ErlangVersionDetector
+import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
-import org.elixir_lang.sdk.wsl.wslCompat
 import java.util.concurrent.Callable
 
 /**
@@ -33,86 +32,36 @@ object ElixirSdkValidation {
      * major of its currently paired Erlang IDE SDK.
      *
      * Returns `(elixirOtpMajor, erlangOtpMajor)` when they differ, `null` when they match,
-     * when either side cannot be determined (e.g. missing BEAM file, missing Erlang SDK),
-     * or when the user has suppressed this warning for the SDK.
+     * when either side is not known (e.g. an Elixir built before the beam carried a major, a home not
+     * read yet, a missing Erlang SDK), or when the user has suppressed this warning for the SDK.
      *
-     * Must be called on a background thread. Callers must NOT wrap this call in a read action:
-     * it takes its own short read action internally to resolve the paired Erlang SDK, then does
-     * the (potentially WSL-booting) file I/O in [detectOtpMismatch] with no lock held. An outer
-     * read action would hold the lock across that I/O too - see
-     * `canonicalizePath` for why that risks freezing the IDE.
-     *
-     * From EDT-context code, launch this on a background coroutine rather than wrapping it in
-     * [org.elixir_lang.util.runWithEdtGuard]: that helper does not drop read access - see its KDoc.
+     * Must be called on a background thread, for the read action that resolves the paired Erlang SDK.
      */
     @RequiresBackgroundThread
     fun detectOtpMismatch(sdk: Sdk): Pair<String, String>? {
         ThreadingAssertions.assertBackgroundThread()
-        val erlangSdk = ReadAction.nonBlocking(Callable { pairedErlangSdkForMismatchCheck(sdk) })
-            .executeSynchronously() ?: return null
-        return detectOtpMismatch(sdk, erlangSdk)
+        return ReadAction.nonBlocking(Callable { otpMismatchOf(sdk) }).executeSynchronously()
     }
 
-    /**
-     * Resolves the Erlang SDK to compare [sdk] against for [detectOtpMismatch], or `null` when
-     * there is nothing to compare (no pairing, or the user suppressed the warning).
-     *
-     * Requires a read lock: reads [SdkAdditionalData] and resolves the paired Erlang SDK via
-     * [SdkAdditionalData.getErlangSdk], which may access the SDK table through
-     * [org.elixir_lang.sdk.erlang_dependent.ErlangSdkResolver]. Performs no file I/O.
-     */
     @RequiresReadLock
-    private fun pairedErlangSdkForMismatchCheck(sdk: Sdk): Sdk? {
+    private fun otpMismatchOf(sdk: Sdk): Pair<String, String>? {
         ThreadingAssertions.assertReadAccess()
         val additionalData = sdk.sdkAdditionalData as? SdkAdditionalData ?: return null
         if (additionalData.isSuppressOtpMismatchWarning()) return null
-        return additionalData.getErlangSdk()
+        val erlangSdk = additionalData.getErlangSdk() ?: return null
+
+        return detectOtpMismatch(sdk.homePath ?: return null, erlangSdk.homePath ?: return null)
     }
 
     /**
-     * Detects OTP major mismatch between a given Elixir SDK and a given Erlang SDK.
-     *
-     * Not for a settings dialog - see the three-argument overload below.
-     *
-     * Returns `(elixirOtpMajor, erlangOtpMajor)` when they differ, `null` when they match or
-     * when either side cannot be determined.
-     *
-     * Must NOT be called on the EDT - reads `Elixir.System.beam` and `OTP_VERSION` from disk.
+     * For homes read on the EDT from a settings dialog's editable copies, which `SdkEditor` commits to inside a write
+     * action. Reads only [SdkVersionsStore].
      */
-    @RequiresBackgroundThread
-    fun detectOtpMismatch(elixirSdk: Sdk, erlangSdk: Sdk): Pair<String, String>? {
-        ThreadingAssertions.assertBackgroundThread()
-        val elixirHome = elixirSdk.homePath ?: return null
-        val erlangHome = erlangSdk.homePath ?: return null
-        return detectOtpMismatch(
-            elixirHome,
-            elixirSdk.getUserData(ElixirBuildInfo.ELIXIR_OTP_MAJOR_KEY),
-            erlangHome,
-        )
-    }
+    fun detectOtpMismatch(elixirHome: String, erlangHome: String): Pair<String, String>? {
+        val store = SdkVersionsStore.getInstance()
+        val elixirOtpMajor = store.elixirVersions(elixirHome)?.elixirOtpMajor?.knownOrNull ?: return null
+        val erlangOtpMajor = store.otpRelease(erlangHome)?.otpMajor ?: return null
 
-    /**
-     * Prefer this overload whenever the SDKs are a settings dialog's editable copies. `SdkEditor`
-     * hands the same mutable `Sdk` to its `AdditionalDataConfigurable` and commits a modificator to
-     * it inside a write action on both apply and reset, so a background thread that holds the `Sdk`
-     * and reads `homePath` races that commit. Read the values on the EDT and pass them here.
-     *
-     * A null [cachedElixirOtpMajor] makes this read `Elixir.System.beam` from disk.
-     *
-     * Must NOT be called on the EDT, and must NOT be called under a read lock - it resolves
-     * symlinks and reads `Elixir.System.beam` and `OTP_VERSION` from disk.
-     */
-    @RequiresBackgroundThread
-    fun detectOtpMismatch(
-        elixirHome: String,
-        cachedElixirOtpMajor: String?,
-        erlangHome: String,
-    ): Pair<String, String>? {
-        ThreadingAssertions.assertBackgroundThread()
-        val elixirOtpMajor = cachedElixirOtpMajor
-            ?: ElixirBuildInfo.elixirOtpRelease(wslCompat.canonicalizePath(elixirHome))
-            ?: return null
-        val erlangOtpMajor = ErlangVersionDetector.detectRelease(erlangHome)?.otpMajor ?: return null
         return if (elixirOtpMajor != erlangOtpMajor) elixirOtpMajor to erlangOtpMajor else null
     }
 

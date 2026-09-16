@@ -3,14 +3,11 @@ package org.elixir_lang.sdk.elixir
 import com.ericsson.otp.erlang.OtpErlangBinary
 import com.intellij.openapi.diagnostic.ControlFlowException
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.util.Key
 import com.intellij.util.concurrency.ThreadingAssertions
 import org.elixir_lang.beam.BeamReader
 import org.elixir_lang.beam.ReadResult
-import org.jetbrains.annotations.TestOnly
 import java.io.File
 import java.util.concurrent.CancellationException
-import java.util.concurrent.ConcurrentHashMap
 import org.elixir_lang.beam.chunk.code.operation.Code as OpCode
 import org.elixir_lang.beam.term.Atom as BeamAtom
 import org.elixir_lang.beam.term.List as BeamList
@@ -26,60 +23,24 @@ object ElixirBuildInfo {
     private val LOG = Logger.getInstance(ElixirBuildInfo::class.java)
 
     /**
-     * The mtime in the key is what stops a rebuilt SDK at the same path being served a stale
-     * major, and is why [org.elixir_lang.sdk.erlang.ErlangVersionDetector] keys its own the same way.
-     */
-    private val cache: ConcurrentHashMap<String, String> = ConcurrentHashMap()
-
-    /** The cache is process-wide, so a test that needs a cold read has to clear it. */
-    @TestOnly
-    fun clearCache() {
-        cache.clear()
-    }
-
-    /**
-     * UserData key for caching the compiled-against OTP major on a [com.intellij.openapi.projectRoots.Sdk]
-     * instance. E.g. `"26"`. Set during SDK registration; never re-computed from EDT.
-     */
-    val ELIXIR_OTP_MAJOR_KEY: Key<String> = Key.create("ELIXIR_OTP_MAJOR")
-
-    /**
      * Extracts the compiled-against OTP release from `Elixir.System.beam`'s `build_info/0`
      * function literal map (the `otp_release` key).
      *
      * Returns the OTP major version string (e.g. `"26"`) or `null` if the BEAM file is
      * absent, cannot be parsed, or does not contain the expected map structure.
      *
-     * Must be called with a canonical (WSL-resolved) home path.
-     *
-     * Must NOT be called on the EDT - reads a ~40KB BEAM file via [File.readBytes].
-     * On WSL UNC paths (`\\wsl.localhost\...`) this goes through the Plan 9 filesystem
-     * redirector and can take 50–200 ms. From a code path that may be invoked on the EDT,
-     * launch this on a background coroutine. Do NOT reach for
-     * [org.elixir_lang.util.runWithEdtGuard]: it moves the work off the EDT but does not drop read
-     * access - see its KDoc.
-     *
-     * Two callers have not been moved yet and still wrap this in that helper -
-     * `Type.suggestSdkName` and
-     * `Type.versionStringForHome` - because both are synchronous `SdkType` work that must return a
-     * value to the platform. They remain exposed to that failure; see issue #3955.
+     * Must be called with a canonical (WSL-resolved) home path, off the EDT: it reads a ~40KB BEAM file, which on a
+     * `\\wsl.localhost` home goes through the Plan 9 redirector. Only [org.elixir_lang.sdk.SdkVersionsFiller] calls
+     * this; everything else reads what it found from [org.elixir_lang.sdk.SdkVersionsStore].
      */
     fun elixirOtpRelease(canonicalHome: String): String? {
         ThreadingAssertions.assertBackgroundThread()
         val beamFile = File(canonicalHome, "lib/elixir/ebin/Elixir.System.beam")
-        val mtime = beamFile.lastModified()
-        if (mtime == 0L) return null
-
-        val cacheKey = "$canonicalHome@$mtime"
-        // "" caches a definitive absence - a BEAM that parsed but carries no otp_release, i.e.
-        // Elixir below 1.6. A FAILED read is not cached, because a failure that is not the file's
-        // fault - a WSL redirector blip, a lock - leaves the bytes and the mtime alone, so the entry
-        // would be served until something else edits the file.
-        cache[cacheKey]?.let { return it.ifEmpty { null } }
+        if (!beamFile.exists()) return null
 
         return when (val outcome = readOtpRelease(beamFile)) {
-            is OtpRelease.Found -> outcome.major.also { cache[cacheKey] = it }
-            OtpRelease.Absent -> null.also { cache[cacheKey] = "" }
+            is OtpRelease.Found -> outcome.major
+            OtpRelease.Absent -> null
             is OtpRelease.Unreadable -> {
                 LOG.debug("Could not read otp_release from ${beamFile.path}: ${outcome.reason}", outcome.cause)
                 null

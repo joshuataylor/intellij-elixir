@@ -79,8 +79,6 @@ class RefreshAllElixirSdksAction : AnAction() {
             // Check OTP mismatches for each Elixir SDK after refresh (informational).
             // ElixirSdkValidation.detectOtpMismatch handles the suppress flag internally.
             for (elixirSdk in allElixirSdks) {
-                // detectOtpMismatch takes its own short read action internally and does its file
-                // I/O unlocked - do not wrap this call in an outer read action.
                 val mismatch = ElixirSdkValidation.detectOtpMismatch(elixirSdk) ?: continue
                 otpMismatches.add(
                     "'${elixirSdk.name}' compiled for OTP ${mismatch.first} but paired with OTP ${mismatch.second}"
