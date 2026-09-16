@@ -10,6 +10,9 @@ import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.testFramework.common.runAll
 import org.elixir_lang.Facet
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.sdk.SdkFixtures
+import org.elixir_lang.sdk.SdkVersionWatchService
+import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.elixir.ModuleSdkStatus
 import org.elixir_lang.sdk.elixir.summaryHtml
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
@@ -48,6 +51,7 @@ class ModuleSdkConfigurableTest : PlatformTestCase() {
                 added.clear()
             },
             { SdksService.getInstance()!!.resetForTests() },
+            { SdkVersionsStore.getInstance().clearForTests() },
             { super.tearDown() },
         )
     }
@@ -108,11 +112,39 @@ class ModuleSdkConfigurableTest : PlatformTestCase() {
         configurable.reset()   // selects the module's Facet SDK
 
         val expected = "<html>${ModuleSdkStatus.of(sdk).summaryHtml()}</html>"
-        val labelTexts = descendants(component).filterIsInstance<JLabel>().map { it.text }
-        assertTrue(
-            "status line should render the shared status text.\n  expected: $expected\n  labels:   $labelTexts",
-            labelTexts.any { it == expected },
-        )
+        // Awaited, not read once: the status is classified off the EDT.
+        SdkFixtures.waitUntil(
+            "status line should render the shared status text; expected: $expected",
+        ) {
+            descendants(component).filterIsInstance<JLabel>().any { it.text == expected }
+        }
+    }
+
+    fun testPickingAnSdkNoOpenProjectUsesReadsItsInstallation() {
+        val homePath = SdkFixtures.elixirHome("1.20.5")
+        // Installed here rather than relied on: registering an SDK reads it only while the watch service is
+        // listening, and whether it already is depends on what else ran in this JVM first.
+        SdkVersionWatchService.install(testRootDisposable)
+        val sdk = SdkFixtures.register(SdkFixtures.elixirSdk("Elixir Module Test Unread", homePath), testRootDisposable)
+        SdksService.getInstance()!!.resetForTests()
+
+        val component = moduleConfigurable().createComponent()
+        val combo = descendants(component).filterIsInstance<JComboBox<*>>().single()
+
+        // Registering reads the home; that read is awaited and discarded to model an SDK loaded from `jdk.table.xml`
+        // that nothing has read, so only picking it can satisfy the assertion below.
+        SdkFixtures.waitUntil("registering an SDK should read it") {
+            SdkVersionsStore.getInstance().elixirVersions(homePath) != null
+        }
+        SdkVersionsStore.getInstance().clearForTests()
+
+        combo.selectedItem = (0 until combo.itemCount)
+            .mapNotNull { combo.getItemAt(it) as? Sdk }
+            .single { it.name == sdk.name }
+
+        SdkFixtures.waitUntil("picking an SDK should read the installation it points at, not report it invalid") {
+            SdkVersionsStore.getInstance().elixirVersions(homePath)?.elixirVersion == "1.20.5"
+        }
     }
 
     fun testDisposeUIResourcesDetachesSdkChooser() {
@@ -136,6 +168,28 @@ class ModuleSdkConfigurableTest : PlatformTestCase() {
             before + 1,
             combo.itemCount,
         )
+    }
+
+    /**
+     * Unless `disposeUIResources` drops `rootPanel`, `createComponent` returns the cached panel, whose status updates
+     * launch on the cancelled scope and never land.
+     */
+    fun testAPanelRebuiltAfterDisposalStillUpdatesItsStatusLine() {
+        val sdk = registerElixirSdk("Elixir Module Test Rebuilt")
+        setFacetSdk(sdk)
+        val configurable = moduleConfigurable()
+        configurable.createComponent()
+        configurable.disposeUIResources()
+
+        val rebuilt = configurable.createComponent()
+        configurable.reset()
+
+        val expected = "<html>${ModuleSdkStatus.of(sdk).summaryHtml()}</html>"
+        SdkFixtures.waitUntil(
+            "a panel rebuilt after disposal must still render its status; expected: $expected",
+        ) {
+            descendants(rebuilt).filterIsInstance<JLabel>().any { it.text == expected }
+        }
     }
 
     fun testApplyWritesFacetSdk() {

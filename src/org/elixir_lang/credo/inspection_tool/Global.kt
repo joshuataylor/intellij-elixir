@@ -253,18 +253,23 @@ internal class Global : GlobalInspectionTool() {
                 override fun compute(indicator: ProgressIndicator): ProcessOutput {
                     indicator.isIndeterminate = true
 
+                    // This inspection runs with `isReadActionNeeded = false`, and Mix.commandLine resolves the
+                    // paired Erlang SDK, which needs a read lock.
                     val commandLine =
-                        Mix
-                            .commandLine(
-                                environment,
-                                workingDirectory,
-                                elixirSdk,
-                                erlParameters,
-                                elixirParameters,
-                                false,
-                                project,
-                                false
-                            )
+                        ReadAction.nonBlocking(
+                            Callable {
+                                Mix.commandLine(
+                                    environment,
+                                    workingDirectory,
+                                    elixirSdk,
+                                    erlParameters,
+                                    elixirParameters,
+                                    false,
+                                    project,
+                                    false
+                                )
+                            }
+                        ).executeSynchronously()
                             .withCharset(StandardCharsets.UTF_8)
                             .withWorkDirectory(workingDirectory)
                             .apply { addParameters("credo", "--format", "flycheck", "--mute-exit-status") }

@@ -1,5 +1,6 @@
 package org.elixir_lang.dialyzer.service
 
+import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.configurations.ParametersList
 import com.intellij.execution.process.ProcessEvent
 import com.intellij.execution.process.ProcessHandlerFactory
@@ -54,20 +55,26 @@ internal class DialyzerServiceImpl : DialyzerService {
         throw DialyzerException("Error while running Dialyzer: ${ex.message}", ex)
     }
 
-    private fun run(workingDirectory: String, elixirSdk: Sdk, project: Project): Pair<String, String> {
-        log.info("Dialyzer starting...")
-        val erlArgumentList = ParametersList.parse(erlArguments).toList()
-        val elixirArgumentList = ParametersList.parse(elixirArguments).toList()
-        val mixArgumentList = ParametersList.parse(mixArguments).toList()
-        val commandLine =
+    /**
+     * The inspection runs with `isReadActionNeeded = false`, so the platform holds no read lock, and
+     * [Mix.commandLine] resolves the paired Erlang SDK, which needs one.
+     */
+    internal fun commandLine(workingDirectory: String, elixirSdk: Sdk, project: Project): GeneralCommandLine =
+        ReadAction.nonBlocking(Callable {
             Mix.commandLine(
                 emptyMap(),
                 workingDirectory,
                 elixirSdk,
-                erlArgumentList,
-                elixirArgumentList,
+                ParametersList.parse(erlArguments).toList(),
+                ParametersList.parse(elixirArguments).toList(),
                 project = project,
             )
+        }).executeSynchronously()
+
+    private fun run(workingDirectory: String, elixirSdk: Sdk, project: Project): Pair<String, String> {
+        log.info("Dialyzer starting...")
+        val mixArgumentList = ParametersList.parse(mixArguments).toList()
+        val commandLine = commandLine(workingDirectory, elixirSdk, project)
         commandLine.addParameters(mixArgumentList)
         // Note: add "--force-check" to the Mix arguments in the Dialyzer settings panel
         // if you need dialyxir to re-analyse all callers after a type-contract-only change

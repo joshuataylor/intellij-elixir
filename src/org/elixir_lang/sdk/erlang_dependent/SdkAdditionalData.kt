@@ -23,7 +23,7 @@ import org.jdom.Element
  * ## Resolution Order
  *
  * 1. `erlangSdkHomePath` (stable, survives rename) - looked up by home path in ProjectJdkTable
- * 2. `erlangSdkName` (legacy fallback) - looked up by name; self-heals by writing resolved path back
+ * 2. `erlangSdkName` (legacy fallback) - looked up by name; the resolver commits the resolved path back
  * 3. Both absent → NOT_CONFIGURED
  *
  * ## Cache Behavior
@@ -48,9 +48,9 @@ class SdkAdditionalData :
     Cloneable {
     private val elixirSdk: Sdk
 
+    // @Volatile: renaming an Erlang SDK in the settings dialog writes these in place, outside the write lock.
+
     // Primary stable identity - survives SDK renames.
-    // @Volatile ensures background-thread writes (self-heal in ErlangSdkResolver) are immediately
-    // visible to the EDT reading these fields in writeExternal, without requiring a write lock.
     @Volatile
     private var erlangSdkHomePath: String? = null
 
@@ -60,11 +60,12 @@ class SdkAdditionalData :
 
     // User acknowledged the OTP mismatch for this SDK - skip warnings until re-enabled.
     // Does NOT reset on Erlang SDK pairing change (the user said "I know what I'm doing").
-    @Volatile
     private var suppressOtpMismatchWarning: Boolean = false
 
     // Runtime cache - lazily populated, cleared when invalid
     // Not persisted, not cloned
+    // Written by concurrent resolvers under the shared read lock, so only a hint: every read is revalidated against
+    // the SDK table.
     @Transient
     private var cachedErlangSdk: Sdk? = null
 
@@ -131,8 +132,6 @@ class SdkAdditionalData :
 
     @Throws(WriteExternalException::class)
     fun writeExternal(element: Element) {
-        // Snapshot both @Volatile fields into locals before writing so that a concurrent
-        // self-heal write in ErlangSdkResolver cannot produce a torn (home, name) pair.
         val homePath = erlangSdkHomePath
         val name = erlangSdkName
         homePath?.let { element.setAttribute(ERLANG_SDK_HOME_PATH, it) }

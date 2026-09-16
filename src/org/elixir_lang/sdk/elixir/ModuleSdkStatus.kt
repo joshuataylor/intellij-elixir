@@ -1,7 +1,10 @@
 package org.elixir_lang.sdk.elixir
 
 import com.intellij.openapi.projectRoots.Sdk
+import com.intellij.openapi.projectRoots.SdkModel
+import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
+import org.elixir_lang.util.ReadActions
 
 /**
  * Shared classification of a module's Elixir SDK, so the status text shown by the status-bar
@@ -16,15 +19,26 @@ sealed interface ModuleSdkStatus {
     data class Ready(val elixirSdk: Sdk, val erlangSdk: Sdk) : ModuleSdkStatus
 
     companion object {
-        /** Classifies [elixirSdk] (typically the SDK resolved for a module, or a candidate SDK). */
-        fun of(elixirSdk: Sdk?): ModuleSdkStatus {
+        /**
+         * @param sdkModel the settings dialog's model, where there is one: an SDK added in that dialog is not in the
+         * SDK table until committed, so without it a fresh pairing reports its Erlang dependency missing.
+         * @param knownHomePath the home the caller filled the store from; re-reading the live SDK could see another
+         * home if an edit was committed in between.
+         */
+        fun of(elixirSdk: Sdk?, sdkModel: SdkModel? = null, knownHomePath: String? = null): ModuleSdkStatus {
             if (elixirSdk == null) return NoSdk
-            val sdkType = elixirSdk.sdkType as? Type ?: return Invalid(elixirSdk)
-            val homePath = elixirSdk.homePath ?: return Invalid(elixirSdk)
-            if (!sdkType.isValidSdkHome(homePath)) return Invalid(elixirSdk)
-            val erlangSdk = (elixirSdk.sdkAdditionalData as? SdkAdditionalData)?.getErlangSdk()
-                ?: return MissingErlang(elixirSdk)
-            return Ready(elixirSdk, erlangSdk)
+
+            // One lock over every model read: a settings dialog commits a modificator to its editable clone inside a
+            // write action, so separate reads could straddle that commit and classify a half-applied SDK.
+            return ReadActions.compute {
+                if (elixirSdk.sdkType !is Type) return@compute Invalid(elixirSdk)
+                val homePath = knownHomePath ?: elixirSdk.homePath ?: return@compute Invalid(elixirSdk)
+                // A recorded version is what makes the home an installation; nothing here touches the filesystem.
+                if (SdkVersionsStore.getInstance().elixirVersions(homePath) == null) return@compute Invalid(elixirSdk)
+                val erlangSdk = (elixirSdk.sdkAdditionalData as? SdkAdditionalData)?.getErlangSdk(sdkModel)
+                    ?: return@compute MissingErlang(elixirSdk)
+                Ready(elixirSdk, erlangSdk)
+            }
         }
     }
 }

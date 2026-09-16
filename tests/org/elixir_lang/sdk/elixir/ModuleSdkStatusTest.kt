@@ -3,6 +3,7 @@ package org.elixir_lang.sdk.elixir
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 
 /**
@@ -11,7 +12,35 @@ import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
  */
 class ModuleSdkStatusTest : PlatformTestCase() {
 
+    override fun tearDown() {
+        try {
+            SdkVersionsStore.getInstance().clearForTests()
+        } finally {
+            super.tearDown()
+        }
+    }
+
     private fun elixirSdk(name: String): Sdk = ProjectJdkImpl(name, ElixirSdkType.instance)
+
+    private fun elixirSdkAt(name: String, homePath: String): Sdk =
+        ProjectJdkImpl(name, ElixirSdkType.instance, homePath, "")
+
+    fun testOfSdkWhoseInstallationHasNoRecordedVersionIsInvalid() {
+        // Validity comes from the store, not the directory, and nothing has read this home.
+        val status = ModuleSdkStatus.of(elixirSdkAt("Unrecorded Elixir", "/fake/elixir/unrecorded"))
+
+        assertTrue("expected Invalid, got $status", status is ModuleSdkStatus.Invalid)
+    }
+
+    fun testOfSdkWhoseInstallationHasARecordedVersionIsNotInvalid() {
+        val homePath = "/fake/elixir/recorded"
+        SdkVersionsStore.getInstance()
+            .record(homePath, homePath, ElixirVersions("1.20.5", OtpMajor.Known("27")), null)
+
+        val status = ModuleSdkStatus.of(elixirSdkAt("Recorded Elixir", homePath))
+
+        assertTrue("expected MissingErlang once the home is known, got $status", status is ModuleSdkStatus.MissingErlang)
+    }
 
     fun testOfNull() {
         assertEquals(ModuleSdkStatus.NoSdk, ModuleSdkStatus.of(null))
