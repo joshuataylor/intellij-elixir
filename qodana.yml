@@ -27,7 +27,6 @@ include:
   - name: CallingMethodShouldBeRequiresBlockingContext
   - name: ExtensionClassShouldBeFinalAndNonPublic
   - name: OptionalDependencyViaDependsTag
-  - name: PathAnnotationInspection
   - name: SerializableCtor
 exclude:
   - name: All
