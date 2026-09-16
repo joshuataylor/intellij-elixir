@@ -317,8 +317,7 @@ enum class QuotingDialect {
         /**
          * The dialect for an Elixir version, or [FALLBACK] when [version] carries no version number.
          *
-         * [version] may be a bare canonical version (`"1.16.2"`, as
-         * `ElixirVersionDetector.ELIXIR_VERSION_KEY` holds it), a mise-style version with a build
+         * [version] may be a bare version (`"1.16.2"`), a mise-style version with a build
          * tag (`"1.13.4-otp-24"`), or a whole SDK version string
          * (`"mise Elixir 1.13.4 (OTP 24)"`). Anything after the version number is ignored, which
          * also means a pre-release resolves as its release.

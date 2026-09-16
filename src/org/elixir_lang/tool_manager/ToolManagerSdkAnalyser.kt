@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.elixir_lang.sdk.elixir.Type
 import org.elixir_lang.util.ElixirCoroutineService
 import com.intellij.util.messages.Topic
 import java.nio.file.Path
@@ -114,29 +113,13 @@ internal class ToolManagerSdkAnalyser(private val project: Project) : Disposable
                     LOG.debug("Running tool manager analysis for '${project.name}'")
 
                     val moduleCheckData = readAction { checker.collectModuleCheckData() }
-
-                    val elixirVersionByInstallPath: Map<String, String?>
-                    val erlangReleaseByHomePath: Map<String, org.elixir_lang.sdk.erlang.Release?>
-                    val elixirVersionBySdk: Map<Sdk, String?>
-                    withContext(Dispatchers.IO) {
-                        elixirVersionByInstallPath = checker.collectElixirVersionByInstallPath(scanResults)
-                        erlangReleaseByHomePath = checker.collectErlangReleaseByHomePath(moduleCheckData)
-                        elixirVersionBySdk = moduleCheckData
-                            .mapNotNull { it.elixirSdk }
-                            .distinct()
-                            .associateWith { sdk ->
-                                Type.canonicalVersion(sdk).also { v ->
-                                    LOG.trace("analysis: canonicalVersion('${sdk.name}') = $v")
-                                }
-                            }
-                    }
+                    val canonicalPathByPath =
+                        withContext(Dispatchers.IO) { checker.canonicalPaths(moduleCheckData, scanResults) }
 
                     val (tmIssues, sdkVersionTables) = checker.detectMismatchIssues(
                         moduleCheckData = moduleCheckData,
                         toolManagerResultsByRoot = scanResults,
-                        elixirVersionBySdk = elixirVersionBySdk,
-                        erlangReleaseByHomePath = erlangReleaseByHomePath,
-                        elixirVersionByInstallPath = elixirVersionByInstallPath,
+                        canonicalPathByPath = canonicalPathByPath,
                     )
                     val tmAssignments = checker.buildAssignments(moduleCheckData, scanResults)
                     val toolManagerErrors = checker.collectErrors(scanResults)
@@ -146,7 +129,6 @@ internal class ToolManagerSdkAnalyser(private val project: Project) : Disposable
                         tmAssignments = tmAssignments,
                         sdkVersionTables = sdkVersionTables,
                         toolManagerErrors = toolManagerErrors,
-                        elixirVersionByInstallPath = elixirVersionByInstallPath,
                     )
                     latestAnalysis = result
                     LOG.debug(

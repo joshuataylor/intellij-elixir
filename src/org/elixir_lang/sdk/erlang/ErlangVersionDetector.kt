@@ -3,7 +3,6 @@ package org.elixir_lang.sdk.erlang
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
-import org.elixir_lang.sdk.wsl.wslCompat
 import java.io.File
 
 /**
@@ -13,29 +12,11 @@ import java.io.File
  *   `<sdkHome>/releases/<N>/OTP_VERSION`
  * where `<N>` is the OTP major release directory (e.g. `26`).
  *
- * Only [org.elixir_lang.sdk.SdkVersionsFiller] should read it; everything else reads what it found from
+ * Only [org.elixir_lang.sdk.SdkVersionsFiller] calls this; everything else reads what it found from
  * [org.elixir_lang.sdk.SdkVersionsStore], which needs no I/O.
  */
 object ErlangVersionDetector {
     private val LOGGER = Logger.getInstance(ErlangVersionDetector::class.java)
-
-    /**
-     * Reads the installed Erlang/OTP version from `<sdkHome>/releases/<N>/OTP_VERSION`.
-     *
-     * Returns a [Release] with the OTP major and full patch version, or `null` if the
-     * `releases/` directory or `OTP_VERSION` file is absent or unreadable.
-     *
-     * An `OTP_VERSION` that is not an OTP version keeps its text and takes its major from the `releases/<N>`
-     * directory it sits in, so a packaged install is still usable.
-     *
-     * Must NOT be called on the EDT - see class KDoc.
-     */
-    @RequiresBackgroundThread
-    fun detectRelease(sdkHome: String): Release? {
-        ThreadingAssertions.assertBackgroundThread()
-
-        return detectReleaseAt(wslCompat.canonicalizePath(sdkHome))
-    }
 
     /**
      * Reads the installed Erlang/OTP version from `<canonicalHome>/releases/<N>/OTP_VERSION`, or `null` if the

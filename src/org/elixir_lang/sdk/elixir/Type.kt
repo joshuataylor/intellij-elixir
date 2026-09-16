@@ -10,8 +10,6 @@ import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.util.InvalidDataException
 import com.intellij.openapi.util.WriteExternalException
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
-import org.apache.commons.io.FilenameUtils
 import org.elixir_lang.Icons
 import org.elixir_lang.cli.getExecutableFilepathWslSafe
 import org.elixir_lang.jps.shared.ElixirSdkTypeId
@@ -37,7 +35,7 @@ class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.ELIXIR_SD
         SdkHomePaths.adjustSelectedSdkHome(homePath, "elixir")
 
     override fun getDefaultDocumentationUrl(sdk: Sdk): String? =
-        getDefaultDocumentationUrl(sdk.getUserData(ElixirVersionDetector.ELIXIR_VERSION_KEY))
+        getDefaultDocumentationUrl(SdkVersionsStore.getInstance().elixirVersions(sdk.homePath)?.elixirVersion)
 
     override fun getHomeChooserDescriptor(): FileChooserDescriptor =
         org.elixir_lang.sdk.Type.createHomeChooserDescriptor(presentableName, ::validateSdkHomePath)
@@ -274,10 +272,6 @@ ELIXIR_SDK_HOME
             }
             return org.elixir_lang.sdk.Type.appendWslSuffix(base, sdkHome)
         }
-
-        @JvmStatic
-        @RequiresBackgroundThread
-        fun canonicalVersion(sdk: Sdk): String? = ElixirVersionDetector.canonicalVersion(sdk)
 
         @JvmStatic
         internal fun setupSdkTableListener() {

@@ -1,19 +1,12 @@
 package org.elixir_lang.sdk.elixir
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.projectRoots.Sdk
-import com.intellij.openapi.util.Key
-import com.intellij.openapi.util.UserDataHolderEx
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
-import org.elixir_lang.sdk.wsl.wslCompat
-import org.elixir_lang.util.runWithEdtGuard
 import java.io.File
 import java.util.regex.Pattern
 
 object ElixirVersionDetector {
-    val ELIXIR_VERSION_KEY = Key.create<String>("ELIXIR_CANONICAL_VERSION")
     private val LOG = Logger.getInstance(ElixirVersionDetector::class.java)
 
     /** Matches `{vsn, "X.Y.Z"}` (or any quoted value) anywhere in an Erlang `.app` file.
@@ -56,50 +49,5 @@ object ElixirVersionDetector {
             LOG.debug("Failed to read ${appFile.path}", e)
             null
         }
-    }
-
-    internal fun elixirVersion(sdkHome: String, resolvedVersion: String?): String? {
-        if (!resolvedVersion.isNullOrBlank()) {
-            return resolvedVersion
-        }
-        return runWithEdtGuard("Detecting Elixir SDK version...") {
-            readElixirAppVersion(wslCompat.canonicalizePath(sdkHome))
-        }
-    }
-
-    /**
-     * Returns the bare canonical Elixir version string for [sdk] (e.g. `"1.15.7"`), or `null`
-     * if the SDK is not an Elixir SDK or the version cannot be determined.
-     *
-     * The result is cached on the [sdk] instance via [UserDataHolderEx] after the first call.
-     * On a cold start (after IDE restart, before any SDK setup has run), the backing
-     * [ElixirVersionDetector.elixirVersion] reads `elixir.app` from the SDK home directory.
-     * That file I/O **must not** happen while a read lock is held - doing so blocks write
-     * actions and may be very slow on WSL UNC paths.  Always call this from a background
-     * thread or an IO coroutine dispatcher, never from inside `readAction { }`.
-     */
-    @RequiresBackgroundThread
-    fun canonicalVersion(sdk: Sdk): String? {
-        ThreadingAssertions.assertBackgroundThread()
-
-        if (sdk.sdkType !== Type.instance) return null
-
-        sdk.getUserData(ELIXIR_VERSION_KEY)?.let { return it }
-
-        // Cold path: reads elixir.app - must not be called under a read lock.
-        check(!ApplicationManager.getApplication().holdsReadLock()) {
-            "canonicalVersion() reads elixir.app and must not be called under a read lock"
-        }
-
-        val homePath = sdk.homePath ?: return null
-        val version = elixirVersion(homePath, null) ?: return null
-
-        val existing = (sdk as? UserDataHolderEx)?.putUserDataIfAbsent(ELIXIR_VERSION_KEY, version)
-        if (existing != null) {
-            return existing
-        }
-
-        sdk.putUserData(ELIXIR_VERSION_KEY, version)
-        return version
     }
 }

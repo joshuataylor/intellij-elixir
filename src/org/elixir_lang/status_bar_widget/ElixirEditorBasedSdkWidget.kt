@@ -114,12 +114,9 @@ internal sealed interface SdkStatus {
      * action.
      *
      * [toolManagerVersions] carries the full tool-manager result (used for configuration).
-     * [elixirCanonicalVersion] is the bare version string read from the install's `elixir.app`,
-     * pre-computed so the notification can display it without further I/O.
      */
     data class NotConfiguredToolManagerAvailable(
         val toolManagerVersions: ToolManagerVersions,
-        val elixirCanonicalVersion: String?,
     ) : SdkStatus
 
     /**
@@ -465,7 +462,6 @@ class ElixirEditorBasedSdkWidget(
         val tmAssignments = tmAnalysis?.tmAssignments ?: emptyMap()
         val sdkVersionTables = tmAnalysis?.sdkVersionTables ?: emptyMap()
         val toolManagerErrors = tmAnalysis?.toolManagerErrors ?: emptyList()
-        val elixirVersionByInstallPath = tmAnalysis?.elixirVersionByInstallPath ?: emptyMap()
 
         val sdkStatus: SdkStatus = when {
             moduleSdkIssues.isNotEmpty() ->
@@ -475,9 +471,7 @@ class ElixirEditorBasedSdkWidget(
                 SdkStatus.FolderMarkWarning(elixirSdk, elixirVersion, folderMarkIssues)
 
             elixirSdk == null && tmAssignments.isNotEmpty() -> {
-                val firstVersions = tmAssignments.values.first()
-                val canonicalVersion = firstVersions.elixir?.installPath?.let { elixirVersionByInstallPath[it] }
-                SdkStatus.NotConfiguredToolManagerAvailable(firstVersions, canonicalVersion)
+                SdkStatus.NotConfiguredToolManagerAvailable(tmAssignments.values.first())
             }
 
             // No SDK and no tool-manager assignments.  If tool manager errors are present they
@@ -634,7 +628,7 @@ class ElixirEditorBasedSdkWidget(
             is SdkStatus.Configured -> null
             is SdkStatus.NotConfigured -> "not-configured"
             is SdkStatus.NotConfiguredToolManagerAvailable ->
-                "not-configured-tm:${status.toolManagerVersions.toolManagerName}:${status.elixirCanonicalVersion ?: status.toolManagerVersions.elixir?.version}"
+                "not-configured-tm:${status.toolManagerVersions.toolManagerName}:${status.toolManagerVersions.elixir?.version}"
             is SdkStatus.InvalidSdk -> "partial:${status.issue}"
             is SdkStatus.ClasspathIssue -> "warning:${status.issues.sorted().joinToString(",")}"
             is SdkStatus.OtpMismatch ->
@@ -667,9 +661,7 @@ class ElixirEditorBasedSdkWidget(
 
         is SdkStatus.NotConfiguredToolManagerAvailable -> {
             val toolName = status.toolManagerVersions.toolManagerName
-            val displayVersion = status.elixirCanonicalVersion
-                ?: status.toolManagerVersions.elixir?.version
-                ?: "unknown"
+            val displayVersion = status.toolManagerVersions.elixir?.version ?: "unknown"
             NotificationContent(
                 "Elixir SDK Not Configured",
                 "No Elixir SDK configured, but Elixir $displayVersion is available via $toolName.",
