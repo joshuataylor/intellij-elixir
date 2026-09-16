@@ -42,7 +42,7 @@ object ElixirInternalErlangSdkSetup {
      * 1. Explicit SDK stored in UserData (set by the wizard when creating Erlang + Elixir together)
      * 2. Already-linked SDK from existing SdkAdditionalData, looked up in [sdkModel] before
      *    ProjectJdkTable so a dependency chosen in the same dialog resolves before it is committed
-     * 3. Any registered Erlang SDK in ProjectJdkTable
+     * 3. The Erlang SDK in [sdkModel], or failing a model ProjectJdkTable, that best runs the Elixir build
      * 4. Prompt the user to pick a mise-installed Erlang SDK (mise Elixir SDKs only)
      */
     internal fun configureInternalErlangSdk(
@@ -58,7 +58,7 @@ object ElixirInternalErlangSdkSetup {
 
         val erlangSdk = explicitErlangSdk
             ?: existingErlangSdk
-            ?: ReadActions.compute { ErlangSdkResolver.findAnyRegistered() }?.also { LOG.trace { "[${elixirSdk.name}] Resolution: found via findAnyRegistered: '${it.name}'" } }
+            ?: bestRegisteredFor(elixirSdk, sdkModel)?.also { LOG.trace { "[${elixirSdk.name}] Resolution: found via bestRegisteredFor: '${it.name}'" } }
             ?: promptForMiseErlangSdk(elixirSdk)?.also { LOG.trace { "[${elixirSdk.name}] Resolution: found via promptForMiseErlangSdk: '${it.name}'" } }
 
         if (erlangSdk != null) {
@@ -80,6 +80,15 @@ object ElixirInternalErlangSdkSetup {
             LOG.warn("No Erlang SDK found, Elixir SDK will be incomplete")
         }
         return erlangSdk
+    }
+
+    /** The pairing is never revisited, so every version it compares is read before it is made. */
+    private fun bestRegisteredFor(elixirSdk: Sdk, sdkModel: SdkModel?): Sdk? {
+        val candidateHomes =
+            ReadActions.compute { ErlangSdkResolver.candidatesFor(elixirSdk, sdkModel).mapNotNull(Sdk::getHomePath) }
+        SdkVersionsFiller.fillIfUnreadBlocking(listOfNotNull(elixirSdk.homePath) + candidateHomes)
+
+        return ReadActions.compute { ErlangSdkResolver.bestRegisteredFor(elixirSdk, sdkModel) }
     }
 
     /**
