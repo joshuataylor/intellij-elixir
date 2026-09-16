@@ -317,7 +317,7 @@ private fun appendCallDefinitions(
     debugInfo: DebugInfo?,
     documentation: Documentation?
 ) {
-    val options = options(macroNameAritySortedSetByMacro)
+    val options = decompilerOptions(macroNameAritySortedSetByMacro)
 
     for (macro in MACRO_ORDER) {
         val macroNameAritySortedSet = macroNameAritySortedSetByMacro[macro]
@@ -372,7 +372,7 @@ private fun appendCallDefinitions(
 
 private const val definitionLimit = 500
 
-private fun options(macroNameAritySortedSet: Map<String, SortedSet<MacroNameArity>>): Options {
+internal fun decompilerOptions(macroNameAritySortedSet: Map<String, SortedSet<MacroNameArity>>): Options {
     val defmacroCount = macroNameAritySortedSet[DEFMACRO]?.size ?: 0
     val defCount = macroNameAritySortedSet[DEF]?.size ?: 0
     val publicCount = defmacroCount + defCount

@@ -75,15 +75,18 @@ object Sequence {
     fun toMacroStringDeclaredScope(term: OtpErlangList,
                                    scope: Scope,
                                    joiner: (List<MacroString>) -> String): MacroStringDeclaredScope =
+            toMacroStringListDeclaredScope(term, scope).let { (macroStringList, declaredScope) ->
+                val string = joiner(macroStringList)
+
+                MacroStringDeclaredScope(string, doBlock = false, declaredScope)
+            }
+
+    fun toMacroStringListDeclaredScope(term: OtpErlangList, scope: Scope): Pair<List<MacroString>, Scope> =
             term.fold(Pair(mutableListOf<MacroString>(), scope)) { (accMacroStringList, accScope), qualifier ->
                 val (qualifierMacroString, qualifierDeclaredScope) = Qualifier.toMacroStringDeclaredScope(qualifier, accScope)
                 accMacroStringList.add(qualifierMacroString)
 
                 Pair(accMacroStringList, accScope.union(qualifierDeclaredScope))
-            }.let { (macroStringList, declaredScope) ->
-                val string = joiner(macroStringList)
-
-                MacroStringDeclaredScope(string, doBlock = false, declaredScope)
             }
 
     fun toMacroStringDeclaredScope(term: OtpErlangObject?,

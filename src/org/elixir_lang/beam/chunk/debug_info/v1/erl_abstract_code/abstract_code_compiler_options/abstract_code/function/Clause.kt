@@ -1,5 +1,6 @@
 package org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.function
 
+import com.ericsson.otp.erlang.OtpErlangList
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.*
@@ -44,10 +45,37 @@ class Clause(val attributes: Attributes, val function: Function, val term: OtpEr
     private fun guardSequenceString(): String =
             org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.Clause.guardSequenceString(term)
 
-    private fun patternSequenceMacroStringDeclaredScope() =
-            toPatternSequence(term)
-                    ?.let { Sequence.toMacroStringDeclaredScope(it, function.decompiler, function.macroNameArity) }
-                    ?: Sequence.unknown()
+    val parameters: List<String> by lazy {
+        patternStringsDeclaredScope
+                ?.let { (patternStrings, _) ->
+                    function.decompiler.signatureParameters(function.macroNameArity, patternStrings).toList()
+                }
+                .orEmpty()
+    }
+
+    private val patternStringsDeclaredScope: Pair<Array<String>, Scope>? by lazy {
+        (toPatternSequence(term) as? OtpErlangList)
+                ?.let { Sequence.toMacroStringListDeclaredScope(it, Scope.EMPTY.copy(pinning = true)) }
+                ?.let { (macroStringList, declaredScope) ->
+                    macroStringList.map(MacroString::string).toTypedArray() to declaredScope
+                }
+    }
+
+    private fun patternSequenceMacroStringDeclaredScope(): MacroStringDeclaredScope =
+            when (toPatternSequence(term)) {
+                null -> Sequence.unknown()
+                else -> patternStringsDeclaredScope?.let { (patternStrings, declaredScope) ->
+                    val signature = StringBuilder()
+                    function.decompiler.appendSignature(
+                            signature,
+                            function.macroNameArity,
+                            function.macroNameArity.name,
+                            patternStrings
+                    )
+
+                    MacroStringDeclaredScope(signature.toString(), doBlock = false, declaredScope)
+                } ?: Sequence.unknown(Scope.EMPTY.copy(pinning = true))
+            }
 
     companion object {
         fun from(term: OtpErlangObject, attributes: Attributes, function: Function): Clause? =

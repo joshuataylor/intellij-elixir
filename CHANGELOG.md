@@ -401,6 +401,10 @@
 
 ### Threading / Platform Hygiene
 
+- [#PR-TBD](https://github.com/KronicDeth/intellij-elixir/pull/PR-TBD) [@sh41](https://github.com/sh41)
+  - **The `.beam` index now stores each compiled function's parameters as the decompiled source shows them, so
+    every `.beam` is re-indexed once after updating.** Refs [#4046](https://github.com/KronicDeth/intellij-elixir/issues/4046).
+
 - [#4062](https://github.com/KronicDeth/intellij-elixir/pull/4062) [@sh41](https://github.com/sh41)
   - **The Erlang SDK's OTP-mismatch warning is detected without holding the settings dialog's read
     lock.** Refs [#3955](https://github.com/KronicDeth/intellij-elixir/issues/3955).

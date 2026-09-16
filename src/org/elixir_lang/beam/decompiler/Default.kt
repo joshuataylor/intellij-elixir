@@ -31,7 +31,7 @@ open class Default : MacroNameArity() {
                 .append(" ")
     }
 
-    open fun parameters(macroNameArity: org.elixir_lang.beam.MacroNameArity): Array<String> =
+    override fun parameters(macroNameArity: org.elixir_lang.beam.MacroNameArity): Array<String> =
             (0 until  macroNameArity.arity)
                     .map { i ->
                         "p${i}"
