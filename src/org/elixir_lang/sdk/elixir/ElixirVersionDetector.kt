@@ -36,7 +36,7 @@ object ElixirVersionDetector {
      * goes through the Plan 9 filesystem redirector and can block for 50–200 ms.
      */
     @RequiresBackgroundThread
-    private fun readElixirAppVersion(canonicalHome: String): String? {
+    internal fun readElixirAppVersion(canonicalHome: String): String? {
         ThreadingAssertions.assertBackgroundThread()
         val appFile = File(canonicalHome, "lib/elixir/ebin/elixir.app")
         if (!appFile.exists()) {

@@ -2,9 +2,9 @@ package org.elixir_lang.sdk.erlang
 
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.concurrency.ThreadingAssertions
+import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import org.elixir_lang.sdk.wsl.wslCompat
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Detects the installed Erlang/OTP SDK version by reading the filesystem - no subprocess required.
@@ -16,15 +16,11 @@ import java.util.concurrent.ConcurrentHashMap
  * [detectRelease] must NOT be called on the EDT. WSL paths (\\wsl.localhost\...) involve
  * the Plan 9 filesystem redirector and directory/file access can take 50–200 ms.
  * Call only from background threads or [kotlinx.coroutines.Dispatchers.IO] contexts.
- * The result is stored on the SDK object at registration time; subsequent accesses read
- * the persisted value and do not call this function.
+ * [org.elixir_lang.sdk.SdkVersionsStore] holds what this read, keyed by the home, so code that only needs the
+ * version reads it from there rather than coming back here.
  */
 object ErlangVersionDetector {
     private val LOGGER = Logger.getInstance(ErlangVersionDetector::class.java)
-
-    // Keyed by "$canonicalHomePath@$otpVersionFileMtime" so entries for replaced OTP installs
-    // are superseded automatically.
-    private val cache: ConcurrentHashMap<String, Release> = ConcurrentHashMap()
 
     /**
      * Reads the installed Erlang/OTP version from `<sdkHome>/releases/<N>/OTP_VERSION`.
@@ -32,16 +28,25 @@ object ErlangVersionDetector {
      * Returns a [Release] with the OTP major and full patch version, or `null` if the
      * `releases/` directory or `OTP_VERSION` file is absent or unreadable.
      *
-     * When Erlang is patched in place via `otp_patch_apply`, the version string is
-     * suffixed with `**` (e.g. `"26.2.5.1**"`). This suffix is stripped before
-     * constructing the [Release].
+     * An `OTP_VERSION` that is not an OTP version keeps its text and takes its major from the `releases/<N>`
+     * directory it sits in, so a packaged install is still usable.
      *
      * Must NOT be called on the EDT - see class KDoc.
      */
+    @RequiresBackgroundThread
     fun detectRelease(sdkHome: String): Release? {
         ThreadingAssertions.assertBackgroundThread()
 
-        val canonicalHome = wslCompat.canonicalizePath(sdkHome)
+        return detectReleaseAt(wslCompat.canonicalizePath(sdkHome))
+    }
+
+    /**
+     * [canonicalHome] has already been resolved by the caller, so a caller that needed the resolved path itself does
+     * not pay for resolving it twice - on a WSL home that is uncached I/O that boots the distro.
+     */
+    @RequiresBackgroundThread
+    fun detectReleaseAt(canonicalHome: String): Release? {
+        ThreadingAssertions.assertBackgroundThread()
         val releasesDir = File(canonicalHome, "releases")
 
         val otpMajorDir = if (!releasesDir.exists()) {
@@ -57,38 +62,26 @@ object ErlangVersionDetector {
         }
 
         val otpVersionFile = File(otpMajorDir, "OTP_VERSION")
-        val mtime = otpVersionFile.lastModified()
-        if (mtime == 0L) {
-            LOGGER.debug("OTP_VERSION file not found or unreadable: ${otpVersionFile.path}")
-            return null
-        }
-
-        val cacheKey = "$canonicalHome@$mtime"
-        // Fast path: return cached result if present.
-        // Two threads with the same key can both miss and both compute - this is intentional.
-        // The computation is a single file-read, the result is deterministic, and ConcurrentHashMap
-        // guarantees the winning put is visible to all subsequent reads. Wrapping in computeIfAbsent
-        // would prevent the double-compute but requires the entire fallible read to live inside the
-        // lambda, where early returns are not possible (non-inline). The benign race is the simpler
-        // and correct tradeoff here.
-        cache[cacheKey]?.let { return it }
-
-        val otpVersion = try {
-            otpVersionFile.readText().trim().trimEnd('*')
+        val text = try {
+            otpVersionFile.readText()
         } catch (e: Exception) {
-            LOGGER.warn("Could not read OTP_VERSION from ${otpVersionFile.path}", e)
+            LOGGER.debug("Could not read OTP_VERSION from ${otpVersionFile.path}", e)
             return null
         }
 
-        if (otpVersion.isBlank()) {
+        if (text.isBlank()) {
             LOGGER.warn("OTP_VERSION file is empty: ${otpVersionFile.path}")
             return null
         }
 
+        val otpVersion = text.trim().trimEnd('*').trimEnd()
+        val otpMajor = otpMajorDir.name
+        // A packager's leading numbers are kept when they agree with the directory; when they contradict it, as
+        // `8.2 (OTP 27)` under `releases/27` does, the directory wins.
         val release = Release.parse(otpVersion)
-            ?: Release.ofOtpMajor(otpMajorDir.name, otpVersion)
+            ?: (Release.of(otpVersion)?.takeIf { it.otpMajor == otpMajor } ?: Release.ofOtpMajor(otpMajor, otpVersion))
+                ?.also { LOGGER.warn("OTP_VERSION file does not hold an OTP version: ${otpVersionFile.path}") }
             ?: return null
-        cache[cacheKey] = release
         LOGGER.debug("Detected Erlang release: $release (from ${otpVersionFile.path})")
         return release
     }
