@@ -4,6 +4,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.util.Computable
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.platform.ide.progress.ModalTaskOwner
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
@@ -101,6 +102,15 @@ internal object SdkVersionsFiller {
         for (homePath in readAction { homePathsUsedBy(project) }) {
             fillIfUnread(homePath)
         }
+    }
+
+    /**
+     * For a caller that cannot suspend, such as the platform's pre-scan dumb task, which may run inside a write action
+     * (then nothing is read). The model read is a plain one: a non-blocking read never returns while the EDT waits on
+     * this thread.
+     */
+    fun fillUsedByBlocking(project: Project) {
+        fillIfUnreadBlocking(ApplicationManager.getApplication().runReadAction(Computable { homePathsUsedBy(project) }))
     }
 
     /** Skips a home already read: resolving it again is uncached I/O, and a change to its files is the watcher's. */

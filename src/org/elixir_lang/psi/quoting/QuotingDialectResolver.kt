@@ -9,9 +9,11 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.util.CachedValue
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
+import com.intellij.testFramework.LightVirtualFile
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.sdk.elixir.ElixirVersionDetector
+import org.elixir_lang.sdk.ElixirLanguageLevelPusher
+import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.elixir.ElixirSdkLookup
 import org.elixir_lang.sdk.elixir.sdk
 import org.jetbrains.annotations.TestOnly
@@ -57,7 +59,8 @@ object QuotingDialectResolver {
             // rest of the session.
             CachedValueProvider.Result.create(
                 resolve(file),
-                ProjectRootModificationTracker.getInstance(file.project)
+                ProjectRootModificationTracker.getInstance(file.project),
+                SdkVersionsStore.getInstance(),
             )
         }
     }
@@ -65,23 +68,24 @@ object QuotingDialectResolver {
     @RequiresReadLock
     private fun resolve(file: PsiFile): QuotingDialect {
         ThreadingAssertions.assertReadAccess()
+        pushed(file)?.let { return it }
         val sdk = ElixirSdkLookup.resolve(file).sdk ?: return QuotingDialect.FALLBACK
 
         return QuotingDialect.of(version(sdk))
     }
 
-    /**
-     * The Elixir version recorded on [sdk], without reading `elixir.app`.
-     *
-     * Deliberately **not** `ElixirVersionDetector.canonicalVersion(sdk)`: that falls back to file
-     * I/O on a cold cache, and it is annotated `@RequiresBackgroundThread` and asserts no read lock
-     * is held - both of which quoting violates, since it runs synchronously inside a read action
-     * and on the EDT. The user data is the same value that call would cache, and the SDK's version
-     * string carries the version too (`"mise Elixir 1.13.4 (OTP 24)"`), so between them a
-     * configured SDK is covered without ever going to disk.
-     */
-    private fun version(sdk: Sdk): String? =
-        sdk.getUserData(ElixirVersionDetector.ELIXIR_VERSION_KEY) ?: sdk.versionString
+    /** Indexing parses a copy in a `LightVirtualFile`, which is in no directory, so its original's is read. */
+    @Suppress("UnstableApiUsage")
+    private fun pushed(file: PsiFile): QuotingDialect? {
+        val virtualFile = file.originalFile.viewProvider.virtualFile
+        val original = (virtualFile as? LightVirtualFile)?.originalFile ?: virtualFile
+        val name = ElixirLanguageLevelPusher.KEY.getPersistentValue(original.parent) ?: return null
+
+        return QuotingDialect.entries.firstOrNull { it.name == name }
+    }
+
+    /** From the store, never the files: quoting runs synchronously inside a read action and on the EDT. */
+    private fun version(sdk: Sdk): String? = SdkVersionsStore.getInstance().elixirVersions(sdk.homePath)?.elixirVersion
 
     /**
      * Forces [dialect] for every element in [project], or clears the override when it is null.

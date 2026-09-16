@@ -2,6 +2,7 @@ package org.elixir_lang.sdk
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.util.ModificationTracker
 import com.intellij.openapi.util.SystemInfoRt
 import org.elixir_lang.sdk.elixir.ElixirVersions
 import org.elixir_lang.sdk.erlang.Release
@@ -9,6 +10,7 @@ import org.elixir_lang.sdk.wsl.wslCompat
 import org.jetbrains.annotations.TestOnly
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * What an Elixir or Erlang installation reports about itself, so it can be had under a read lock with no file I/O.
@@ -20,8 +22,9 @@ import java.util.concurrent.ConcurrentHashMap
  * has been forgotten since.
  */
 @Service(Service.Level.APP)
-class SdkVersionsStore {
+class SdkVersionsStore : ModificationTracker {
     private val byHomePath = ConcurrentHashMap<String, Install>()
+    private val modificationCount = AtomicLong()
 
     /**
      * [canonicalHome] differs from the key when the SDK is configured through a symlink, so both spellings are
@@ -119,7 +122,10 @@ class SdkVersionsStore {
         publish(setOf(key), updated.canonicalHome)
     }
 
+    override fun getModificationCount(): Long = modificationCount.get()
+
     private fun publish(homeKeys: Set<String>, canonicalKey: String) {
+        modificationCount.incrementAndGet()
         ApplicationManager.getApplication().messageBus.syncPublisher(SdkVersionsListener.TOPIC)
             .sdkVersionsChanged(homeKeys, canonicalKey)
     }
@@ -129,6 +135,7 @@ class SdkVersionsStore {
     @TestOnly
     fun clearForTests() {
         byHomePath.clear()
+        modificationCount.incrementAndGet()
     }
 
     companion object {
