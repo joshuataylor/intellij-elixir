@@ -2,6 +2,7 @@ package org.elixir_lang.sdk
 
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.WriteAction
+import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.util.Disposer
@@ -18,12 +19,6 @@ import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 
-/**
- * Only the installations an open project uses are watched: loading a path into the VFS to watch it boots the WSL
- * distro serving it, and a registered SDK nothing has opened is a distro the user did not ask to start. Pruning still
- * compares against every registered home, or it would forget the installations of SDKs no open project uses.
- * Registering the watch roots themselves is [SdkVersionFileWatcher]'s; this only decides what to watch.
- */
 class SdkVersionWatchServiceTest : PlatformTestCase() {
     override fun tearDown() {
         try {
@@ -34,63 +29,50 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         }
     }
 
-    fun testTheHomesAModuleUsesAndTheErlangSdkPairedWithThem() {
-        val erlangSdk = register(SdkFixtures.erlangSdk("Watched Erlang", erlangHome("27", "27.3.4")))
-        val elixirSdk = register(SdkFixtures.elixirSdk("Watched Elixir", elixirHome("1.20.5")))
-        SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
-        ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
+    fun testEveryHomeTheStoreHoldsIsWatched() {
+        val erlang = erlangHome("27", "27.3.4")
+        val elixir = elixirHome("1.20.5")
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(erlang)
+            SdkVersionsFiller.fill(elixir)
+        }
 
         assertEquals(
-            setOfNotNull(installationKey(erlangSdk.homePath), installationKey(elixirSdk.homePath)),
+            setOfNotNull(installationKey(erlang), installationKey(elixir)),
             SdkVersionWatchService.homesToWatch(),
         )
     }
 
-    fun testAnSdkNoOpenProjectUsesIsNotWatched() {
-        // Watching it would load its version files into the VFS, which on a `\\wsl.localhost` home boots the distro.
-        register(SdkFixtures.elixirSdk("Registered Elsewhere", elixirHome("1.20.5")))
-
-        assertEmpty(SdkVersionWatchService.homesToWatch())
-    }
-
-    fun testEveryRegisteredHomeIsStillOfferedToPruning() {
-        val unused = register(SdkFixtures.erlangSdk("Registered Erlang", erlangHome("27", "27.3.4")))
-
-        assertTrue(
-            "pruning forgets what it is not shown, so it is shown every registered home, watched or not",
-            installationKey(unused.homePath) in SdkVersionWatchService.registeredHomes(),
-        )
-    }
-
-    fun testAnSdkWithNoHomeIsNotWatched() {
-        val homeless = register(SdkFixtures.elixirSdk("Homeless Elixir", ""))
-        ModuleRootModificationUtil.setModuleSdk(module, homeless)
-
-        assertEmpty(SdkVersionWatchService.homesToWatch())
-    }
-
-    fun testTheSameHomeReachedTwiceIsWatchedOnce() {
+    @RequiresEdt
+    fun testRemovingTheOnlySdkOnAHomeForgetsIt() {
+        SdkVersionWatchService.install(testRootDisposable)
         val home = erlangHome("27", "27.3.4")
-        val erlangSdk = register(SdkFixtures.erlangSdk("Shared Erlang", home))
-        val elixirSdk = register(SdkFixtures.elixirSdk("Sharing Elixir", home))
-        SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
-        ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
+        val erlangSdk = register(SdkFixtures.erlangSdk("Removed Erlang", home))
+        SdkFixtures.waitUntil("precondition: adding the SDK reads its home") {
+            SdkVersionsStore.getInstance().otpVersion(home) != null
+        }
 
-        assertEquals(setOfNotNull(installationKey(home)), SdkVersionWatchService.homesToWatch())
+        WriteAction.run<Throwable> { ProjectJdkTable.getInstance().removeJdk(erlangSdk) }
+
+        SdkFixtures.waitUntil("an installation no SDK points at must stop being held, and so watched") {
+            SdkVersionsStore.getInstance().otpVersion(home) == null
+        }
     }
 
-    fun testAModuleWithNoSdkWatchesNothing() {
-        val elixirSdk = register(SdkFixtures.elixirSdk("Unassigned Elixir", elixirHome("1.20.5")))
-        ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
-        assertEquals(
-            "precondition: watched while the module uses it",
-            setOfNotNull(installationKey(elixirSdk.homePath)),
-            SdkVersionWatchService.homesToWatch(),
+    fun testRemovingOneOfTwoSdksOnAHomeKeepsIt() {
+        val home = elixirHome("1.20.5")
+        val removed = register(SdkFixtures.elixirSdk("Removed Elixir", home))
+        register(SdkFixtures.elixirSdk("Kept Elixir", home))
+        runSuspendOnPooledThread { SdkVersionsFiller.fill(home) }
+        WriteAction.run<Throwable> { ProjectJdkTable.getInstance().removeJdk(removed) }
+
+        // Driven directly: removal hands this to a coroutine, and asserting that nothing happened needs to know it ran.
+        runSuspendOnPooledThread { SdkVersionWatchService.forgetUnlessRegistered(home) }
+
+        assertNotNull(
+            "two Elixir SDKs pairing one build with different Erlang SDKs share a home",
+            SdkVersionsStore.getInstance().elixirVersions(home),
         )
-
-        ModuleRootModificationUtil.setModuleSdk(module, null)
-
-        assertEmpty(SdkVersionWatchService.homesToWatch())
     }
 
     fun testWatchingRefusesToRunUnderAReadAction() {
@@ -151,7 +133,10 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         SdkVersionWatchService.install(testRootDisposable)
         // Driven rather than awaited: `install` starts the first watch on a coroutine, and a file rewritten before
         // that registration lands is a change nothing was watching for.
-        runSuspendOnPooledThread { SdkVersionWatchService.rewatch() }
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(home)
+            SdkVersionWatchService.rewatch()
+        }
 
         val otpVersionFile = LocalFileSystem.getInstance()
             .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")
@@ -165,26 +150,24 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         }
     }
 
-    /**
-     * What a mutation proves this guards: disabling [SdkVersionWatchService.rewatch] reddens it. Nulling the
-     * live installation does **not** - so this is not a guard on `install`'s `installed === installation` check,
-     * whatever the arrangement of two installs might suggest.
-     */
     @RequiresEdt
     fun testAnInstallationStillWatchesAfterAnEarlierInstallIsDisposed() {
         val home = erlangHome("27", "27.3.4")
         val erlangSdk = register(SdkFixtures.erlangSdk("Reinstalled Erlang", home))
         val elixirSdk = register(SdkFixtures.elixirSdk("Reinstalling Elixir", elixirHome("1.20.5")))
         SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
-        // The module is given its SDK only after the disposal below. Until then there is nothing to watch, so
-        // neither install registers a watch and the one this asserts can only come from the rewatch that follows.
+        // The home is read only after the disposal below. Until then there is nothing to watch, so neither install
+        // registers a watch and the one this asserts can only come from the rewatch that follows.
         val first = Disposer.newDisposable(testRootDisposable, "first install")
         SdkVersionWatchService.install(first)
         SdkVersionWatchService.install(testRootDisposable)
 
         Disposer.dispose(first)
         ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
-        runSuspendOnPooledThread { SdkVersionWatchService.rewatch() }
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(home)
+            SdkVersionWatchService.rewatch()
+        }
 
         val otpVersionFile = LocalFileSystem.getInstance()
             .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")
@@ -202,18 +185,14 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     }
 
     /**
-     * The case the watch exists for that no other test can reach: the installation is replaced while nothing is
-     * watching, as an upgrade does with the IDE shut. The file is already in the VFS from the previous session, so
-     * the load the watch performs finds a cached entry - and `findChild` compares neither timestamp nor length.
-     *
-     * [testAVersionFileThatChangesIsReadAgain] cannot stand in for this: it writes through the VFS, on a file the
-     * watch is already registered on, so it exercises the in-session path only.
+     * The installation is replaced after it was read but before it was watched. The file is already in the VFS, so the
+     * load the watch performs finds a cached entry - and `findChild` compares neither timestamp nor length.
      */
     @RequiresEdt
     fun testAnInstallationReplacedWhileNothingWatchedIsReadAgain() {
         val home = erlangHome("27", "27.3.4")
         val otpVersionFile = File(home, "releases/27/OTP_VERSION")
-        // Loaded first, as a previous session would have left it.
+        // Loaded first, as reading it earlier would have left it.
         val loaded = LocalFileSystem.getInstance()
             .refreshAndFindFileByPath(FileUtil.toSystemIndependentName(otpVersionFile.path))
         assertNotNull("precondition: the version file is in the VFS before anything watches it", loaded)
@@ -251,6 +230,52 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
             revalidated.isNotEmpty()
         }
     }
+
+    /**
+     * The SDK is registered before the watch is installed and assigned to the module after, so the table reports
+     * nothing and only the module roots say its installation is now in use.
+     */
+    @RequiresEdt
+    fun testAnAlreadyRegisteredSdkAssignedToAModuleIsWatched() {
+        val home = erlangHome("27", "27.3.4")
+        val erlangSdk = register(SdkFixtures.erlangSdk("Assigned Later Erlang", home))
+        val elixirSdk = register(SdkFixtures.elixirSdk("Assigned Later Elixir", elixirHome("1.20.5")))
+        SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
+        SdkVersionWatchService.install(testRootDisposable)
+
+        ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
+
+        val otpVersionFile = LocalFileSystem.getInstance()
+            .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")
+        assertNotNull("precondition: the version file of the assigned SDK is in the VFS", otpVersionFile)
+        assertFalse(
+            "precondition: the asserted version is not already held",
+            SdkVersionsStore.getInstance().otpVersion(home) == "27.4.1",
+        )
+        // Rewritten on each pass: the assignment hands the rewatch to a coroutine there is nothing here to await.
+        SdkFixtures.waitUntil("assigning a registered SDK to a module must put its installation under watch") {
+            WriteAction.run<Throwable> { VfsUtil.saveText(otpVersionFile!!, "27.4.1\n") }
+            SdkVersionsStore.getInstance().otpVersion(home) == "27.4.1"
+        }
+    }
+
+    /**
+     * A value re-read changes the store without changing which homes it holds, and each rebuild lists `releases/` and
+     * refreshes the VFS per home, so an unchanged set must cost nothing.
+     */
+    @RequiresEdt
+    fun testRewatchingAnUnchangedSetDoesNotRebuildTheWatch() {
+        val home = elixirHome("1.20.5")
+        runSuspendOnPooledThread { SdkVersionsFiller.fill(home) }
+        SdkVersionWatchService.install(testRootDisposable)
+
+        // Settles `install`'s own first watch, which runs on a coroutine and could otherwise be the one that builds it.
+        rewatch()
+
+        assertFalse("a rewatch for a set already watched must not rebuild it", rewatch())
+    }
+
+    private fun rewatch(): Boolean = runSuspendOnPooledThread { SdkVersionWatchService.rewatch() }
 
     private fun register(sdk: Sdk): Sdk = SdkFixtures.register(sdk, testRootDisposable)
 }

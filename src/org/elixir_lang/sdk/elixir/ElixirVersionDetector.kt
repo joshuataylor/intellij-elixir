@@ -10,13 +10,11 @@ import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import org.elixir_lang.sdk.wsl.wslCompat
 import org.elixir_lang.util.runWithEdtGuard
 import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
 
 object ElixirVersionDetector {
     val ELIXIR_VERSION_KEY = Key.create<String>("ELIXIR_CANONICAL_VERSION")
     private val LOG = Logger.getInstance(ElixirVersionDetector::class.java)
-    private val versionByHomePath: MutableMap<String, String> = ConcurrentHashMap()
 
     /** Matches `{vsn, "X.Y.Z"}` (or any quoted value) anywhere in an Erlang `.app` file.
      *  Allows optional whitespace around the key, comma, value, and closing brace. */
@@ -29,11 +27,10 @@ object ElixirVersionDetector {
      * form `{application, elixir, [{vsn, "X.Y.Z"}, ...]}.`. Parsing the `vsn` field via regex is
      * safe because the value is always a simple string literal in OTP `.app` files.
      *
-     * Entries are cached by `"$canonicalHome@$appFileMtime"` so stale entries are evicted
-     * automatically when the Elixir installation is replaced without restarting the IDE.
-     *
      * Must NOT be called on the EDT - file I/O on WSL UNC paths (`\\wsl.localhost\...`)
-     * goes through the Plan 9 filesystem redirector and can block for 50–200 ms.
+     * goes through the Plan 9 filesystem redirector and can block for 50–200 ms. Only
+     * [org.elixir_lang.sdk.SdkVersionsFiller] calls this; everything else reads what it found from
+     * [org.elixir_lang.sdk.SdkVersionsStore].
      */
     @RequiresBackgroundThread
     internal fun readElixirAppVersion(canonicalHome: String): String? {
@@ -43,18 +40,11 @@ object ElixirVersionDetector {
             LOG.debug("elixir.app not found at ${appFile.path}")
             return null
         }
-        val lastModified = appFile.lastModified()
-        val cacheKey = "$canonicalHome@$lastModified"
-        versionByHomePath[cacheKey]?.let { return it }
         return try {
             val content = appFile.readText(Charsets.UTF_8)
             val matcher = VSN_PATTERN.matcher(content)
             if (matcher.find()) {
-                val version = matcher.group(1).trim()
-                if (version.isNotEmpty()) {
-                    versionByHomePath[cacheKey] = version
-                    version
-                } else {
+                matcher.group(1).trim().ifEmpty {
                     LOG.debug("Empty vsn field in ${appFile.path}")
                     null
                 }

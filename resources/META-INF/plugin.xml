@@ -513,6 +513,8 @@
 
     <projectListeners>
         <listener class="org.elixir_lang.mix.sync.MixDepsBulkFileListener" topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+        <listener class="org.elixir_lang.sdk.SdkVersionModuleRootListener"
+                  topic="com.intellij.openapi.roots.ModuleRootListener"/>
     </projectListeners>
 
     <actions>

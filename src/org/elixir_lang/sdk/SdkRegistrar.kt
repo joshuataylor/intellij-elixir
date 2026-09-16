@@ -10,9 +10,8 @@ import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import com.intellij.util.concurrency.annotations.RequiresWriteLock
-import org.elixir_lang.sdk.elixir.ElixirBuildInfo
 import org.elixir_lang.sdk.elixir.ElixirSdkMutation
-import org.elixir_lang.sdk.erlang.ErlangVersionDetector
+import org.elixir_lang.sdk.elixir.knownOrNull
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import org.elixir_lang.sdk.erlang_dependent.resolveErlangSdkOrNullAndNotify
 import org.elixir_lang.sdk.wsl.wslCompat
@@ -26,21 +25,33 @@ object SdkRegistrar {
      * Shared by both the suspend ([registerOrUpdateErlangSdk]) and synchronous
      * ([org.elixir_lang.sdk.elixir.ElixirInternalErlangSdkSetup.registerErlangSdk]) registration paths.
      */
-    internal fun prepareErlangSdk(homePath: String, resolvedVersion: String? = null): ProjectJdkImpl? {
-        val canonicalHomePath = canonicalHomePath(homePath) ?: return null
+    internal fun prepareErlangSdk(
+        homePath: String,
+        resolvedVersion: String? = null,
+        alreadyCanonical: Boolean = false,
+    ): PreparedErlangSdk? {
+        val canonicalHomePath = if (alreadyCanonical) homePath else canonicalHomePath(homePath) ?: return null
         val sdkType = ErlangSdkType.instance
-        val versionString = ErlangSdkType.versionStringForHome(canonicalHomePath, resolvedVersion) ?: return null
-        val sdkName = ErlangSdkType.suggestSdkNameForHome(canonicalHomePath, resolvedVersion)
-        return ProjectJdkImpl(sdkName, sdkType, canonicalHomePath, versionString)
+        // The suspend path has filled the store already; the synchronous one arrives with nothing read.
+        if (!alreadyCanonical) SdkVersionsFiller.fillIfUnreadBlocking(canonicalHomePath)
+        val release = SdkVersionsStore.getInstance().otpRelease(canonicalHomePath)
+        val versionString =
+            ErlangSdkType.versionStringForHome(canonicalHomePath, resolvedVersion, release) ?: return null
+        val sdkName = ErlangSdkType.suggestSdkNameForHome(canonicalHomePath, resolvedVersion, release)
+        return PreparedErlangSdk(ProjectJdkImpl(sdkName, sdkType, canonicalHomePath, versionString))
     }
+
+    internal class PreparedErlangSdk(val template: ProjectJdkImpl)
 
     suspend fun registerOrUpdateErlangSdk(
         homePath: String,
         resolvedVersion: String? = null,
     ): Sdk? {
-        val template = prepareErlangSdk(homePath, resolvedVersion) ?: return null
+        val canonicalHomePath = canonicalHomePath(homePath) ?: return null
+        SdkVersionsFiller.fillCanonical(canonicalHomePath)
+        val prepared = prepareErlangSdk(canonicalHomePath, resolvedVersion, alreadyCanonical = true) ?: return null
         val registeredSdk = edtWriteAction {
-            registerOrUpdatePreparedErlangSdk(template, ProjectJdkTable.getInstance())
+            registerOrUpdatePreparedErlangSdk(prepared, ProjectJdkTable.getInstance())
         }
         ErlangSdkType.instance.setupSdkPaths(registeredSdk)
         return registeredSdk
@@ -55,29 +66,29 @@ object SdkRegistrar {
     ): Sdk? {
         val canonicalHomePath = canonicalHomePath(homePath) ?: return null
         val sdkType = ElixirSdkType.instance
+        SdkVersionsFiller.fillCanonical(canonicalHomePath)
 
-        // Derive compiled-against OTP major from Elixir.System.beam - no subprocess
-        val otpMajor = ElixirBuildInfo.elixirOtpRelease(canonicalHomePath)
+        val versions = SdkVersionsStore.getInstance().elixirVersions(canonicalHomePath)
+        val otpMajor = versions?.elixirOtpMajor?.knownOrNull
+        val elixirVersion = resolvedVersion ?: versions?.elixirVersion
 
         // Fast path: confirmed exact match - erlangSdkHomePath is persisted and Erlang home matches.
-        // Capture whether erlangSdkName is stale in the same read action as the lookup so we can
-        // sync it under a write action without an extra round-trip.
+        // Capture whether erlangSdkName is stale in the same read action as the lookup, so a rename can be synced
+        // under a write action without an extra round-trip.
         // Both allJdks access and sdkAdditionalData reads require a read lock.
         val confirmedResult: Pair<Sdk, Boolean>? = readAction {
             val sdk = findElixirSdkByVariant(canonicalHomePath, erlangSdk)?.takeIf {
                 (it.sdkAdditionalData as? SdkAdditionalData)?.getErlangSdkHomePath() != null
             } ?: return@readAction null
-            val nameStale = (sdk.sdkAdditionalData as? SdkAdditionalData)?.getErlangSdkName() != erlangSdk?.name
-            sdk to nameStale
+            val data = sdk.sdkAdditionalData as? SdkAdditionalData
+            sdk to (data?.getErlangSdkName() != erlangSdk?.name)
         }
         if (confirmedResult != null) {
             val (confirmedExisting, nameIsStale) = confirmedResult
             // Sync stale erlangSdkName under a write action when the Erlang SDK was renamed after
             // pairing. Home path still matches, so no re-registration is needed.
             if (nameIsStale && erlangSdk != null) {
-                edtWriteAction {
-                    ElixirSdkMutation.applyDependencySelection(confirmedExisting, erlangSdk)
-                }
+                edtWriteAction { ElixirSdkMutation.applyDependencySelection(confirmedExisting, erlangSdk) }
             }
             return confirmedExisting
         }
@@ -87,12 +98,14 @@ object SdkRegistrar {
         val existing = readAction { findElixirSdkByVariant(canonicalHomePath, erlangSdk) }
 
         // Compute version/name only when a write will be needed (new SDK or legacy update).
-        val erlangFullVersion = erlangSdk?.homePath?.let {
-            ErlangVersionDetector.detectRelease(it)?.otpVersion
+        val erlangFullVersion = erlangSdk?.homePath?.let { erlangHome ->
+            SdkVersionsFiller.fillIfUnread(erlangHome)
+            SdkVersionsStore.getInstance().otpVersion(erlangHome)
         }
-        val versionString = ElixirSdkType.versionStringForHome(canonicalHomePath, resolvedVersion) ?: return null
+        val versionString =
+                ElixirSdkType.versionStringForHome(canonicalHomePath, elixirVersion, versions) ?: return null
         val sdkName =
-                ElixirSdkType.suggestSdkNameForHome(canonicalHomePath, resolvedVersion, otpMajor, erlangFullVersion)
+                ElixirSdkType.suggestSdkNameForHome(canonicalHomePath, elixirVersion, otpMajor, erlangFullVersion)
 
         // Perform SDK registration + Erlang attachment atomically so the SDK is never visible
         // in a half-configured state (added to table but Erlang dependency not yet attached).
@@ -104,7 +117,6 @@ object SdkRegistrar {
             val sdk = registerOrUpdate(existing, updatedSdk, table)
 
             // Attach Erlang dependency - done inside the same write action for atomicity
-            sdk.putUserData(ElixirBuildInfo.ELIXIR_OTP_MAJOR_KEY, otpMajor)
             ElixirSdkMutation.applyDependencySelection(
                 elixirSdk = sdk,
                 erlangSdk = erlangSdk,
@@ -130,13 +142,12 @@ object SdkRegistrar {
 
     @RequiresWriteLock
     internal fun registerOrUpdatePreparedErlangSdk(
-        template: ProjectJdkImpl,
+        prepared: PreparedErlangSdk,
         table: ProjectJdkTable,
     ): Sdk {
         ThreadingAssertions.assertWriteAccess()
-        val homePath = template.homePath
-            ?: return registerOrUpdate(null, template, table)
-        val existing = findSdkByHomePath(template.sdkType, homePath, table)
+        val template = prepared.template
+        val existing = template.homePath?.let { findSdkByHomePath(template.sdkType, it, table) }
         return registerOrUpdate(existing, template, table)
     }
 

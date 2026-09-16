@@ -12,6 +12,7 @@ import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.notification.setup_sdk.Notifier
+import org.elixir_lang.sdk.SdkVersionsFiller
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.sdk.elixir.ElixirSdkLookup
@@ -51,6 +52,10 @@ class RefreshActiveElixirSdkAction : AnAction() {
             ModalTaskOwner.project(project), "Refreshing Active SDK Paths"
         ) {
             val elixirSdkType = ElixirSdkType.instance
+            // Read again rather than only if unread: refreshing is the user saying an installation changed.
+            for (homePath in (activeErlangSdks + activeElixirSdks).mapNotNull { it.homePath }.distinct()) {
+                SdkVersionsFiller.fill(homePath)
+            }
 
             // Refresh active Elixir SDKs
             for (elixirSdk in activeElixirSdks) {

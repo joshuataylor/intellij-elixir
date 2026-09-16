@@ -11,6 +11,8 @@ import com.intellij.openapi.projectRoots.SdkType
 import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.vfs.VirtualFile
 import org.elixir_lang.cli.getExecutableFilepathWslSafe
+import org.elixir_lang.sdk.SdkVersionsFiller
+import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.jps.shared.ErlangSdkTypeId
 import org.elixir_lang.jps.shared.cli.CliTool
 import org.elixir_lang.jps.shared.sdk.SdkPaths
@@ -25,7 +27,7 @@ import org.jdom.Element
 import java.io.File
 import java.nio.file.Path
 
-class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
+internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
     companion object {
         /**
          * Every application's `src` directory under [homePath], in whatever order
@@ -87,13 +89,14 @@ class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
         internal fun suggestSdkNameForHome(
             sdkHome: String,
             resolvedVersion: String?,
+            release: Release? = null,
         ): String {
             val normalizedVersion = resolvedVersion?.takeIf { it.isNotBlank() }
             val baseName =
                 if (normalizedVersion == null) {
                     getDefaultSdkName(
                         sdkHome,
-                        runWithEdtGuard("Detecting Erlang SDK…") { ErlangVersionDetector.detectRelease(sdkHome) },
+                        release ?: SdkVersionsStore.getInstance().otpRelease(sdkHome),
                     )
                 } else {
                     val source = SdkPaths.detectSource(sdkHome)
@@ -115,10 +118,12 @@ class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
         internal fun versionStringForHome(
             sdkHome: String,
             resolvedVersion: String?,
+            release: Release? = null,
         ): String? {
             val normalizedVersion = resolvedVersion?.takeIf { it.isNotBlank() }
             val version = normalizedVersion
-                ?: runWithEdtGuard("Detecting Erlang SDK…") { ErlangVersionDetector.detectRelease(sdkHome) }?.otpVersion
+                ?: (release ?: SdkVersionsStore.getInstance().otpRelease(sdkHome))
+                    ?.otpVersion
                 ?: return null
             val displayVersion =
                 if (normalizedVersion == null) {
@@ -254,24 +259,13 @@ class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
         currentSdkName: String?,
         sdkHome: String,
     ): String {
+        SdkVersionsFiller.fillIfUnreadBlocking(sdkHome)
         return suggestSdkNameForHome(sdkHome, null)
     }
 
-    /**
-     * Returns a display string for the Erlang/OTP version at [sdkHome], or `null` if the
-     * version cannot be detected.
-     *
-     * The platform calls this override from the EDT (e.g. in the SDK settings dialog).
-     * [runWithEdtGuard] ensures [ErlangVersionDetector.detectRelease] (which asserts a background
-     * thread) is never called directly on the EDT.
-     *
-     * It does not drop read access either, so this remains exposed to #3955 should a caller ever
-     * invoke it from inside a read action. It cannot move to a coroutine: the platform needs a
-     * value back synchronously.
-     */
     override fun getVersionString(sdkHome: String): String? {
-        val release = runWithEdtGuard("Detecting Erlang SDK…") { ErlangVersionDetector.detectRelease(sdkHome) }
-            ?: return null
+        SdkVersionsFiller.fillIfUnreadBlocking(sdkHome)
+        val release = SdkVersionsStore.getInstance().otpRelease(sdkHome) ?: return null
         val dirVersion = File(sdkHome).name
         val displayVersion = if (dirVersion.startsWith(release.otpMajor)) dirVersion else release.otpVersion
         return erlangDisplayString(SdkPaths.detectSource(sdkHome), displayVersion)
@@ -284,10 +278,12 @@ class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
 
     override fun getPresentableName(): String = name
 
+    /**
+     * Saves nothing: the OTP version is held by [org.elixir_lang.sdk.SdkVersionsStore] under the home.
+     */
     override fun saveAdditionalData(
         additionalData: com.intellij.openapi.projectRoots.SdkAdditionalData,
         additional: Element,
-    ) {
-        // Intentionally left blank
-    }
+    ) = Unit
+
 }
