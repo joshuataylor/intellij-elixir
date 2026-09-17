@@ -421,8 +421,8 @@ defmodule Ecto.Changeset do
     end end)
   end
 
-  def assoc_constraint(x0, x1) do
-    super(x0, x1, [])
+  def assoc_constraint(changeset, assoc) do
+    super(changeset, assoc, [])
   end
 
   @doc ~S"""
@@ -551,8 +551,8 @@ defmodule Ecto.Changeset do
     cast(data, module.__changeset__(), %{}, params, permitted, opts)
   end
 
-  def cast_assoc(x0, x1) do
-    super(x0, x1, [])
+  def cast_assoc(changeset, name) do
+    super(changeset, name, [])
   end
 
   @doc ~S"""
@@ -676,8 +676,8 @@ defmodule Ecto.Changeset do
     cast_relation(:assoc, changeset, name, opts)
   end
 
-  def cast_embed(x0, x1) do
-    super(x0, x1, [])
+  def cast_embed(changeset, name) do
+    super(changeset, name, [])
   end
 
   @doc ~S"""
@@ -795,8 +795,8 @@ defmodule Ecto.Changeset do
     )
   end
 
-  def check_constraint(x0, x1) do
-    super(x0, x1, [])
+  def check_constraint(changeset, field) do
+    super(changeset, field, [])
   end
 
   @doc ~S"""
@@ -883,8 +883,8 @@ defmodule Ecto.Changeset do
     Map.update!(changeset, :changes, fn x1 -> :maps.remove(key, x1) end)
   end
 
-  def exclusion_constraint(x0, x1) do
-    super(x0, x1, [])
+  def exclusion_constraint(changeset, field) do
+    super(changeset, field, [])
   end
 
   @doc ~S"""
@@ -1053,8 +1053,8 @@ defmodule Ecto.Changeset do
     end
   end
 
-  def foreign_key_constraint(x0, x1) do
-    super(x0, x1, [])
+  def foreign_key_constraint(changeset, field) do
+    super(changeset, field, [])
   end
 
   @doc ~S"""
@@ -1227,8 +1227,8 @@ defmodule Ecto.Changeset do
     # body not decompiled
   end
 
-  def no_assoc_constraint(x0, x1) do
-    super(x0, x1, [])
+  def no_assoc_constraint(changeset, assoc) do
+    super(changeset, assoc, [])
   end
 
   @doc ~S"""
@@ -1279,8 +1279,8 @@ defmodule Ecto.Changeset do
     )
   end
 
-  def optimistic_lock(x0, x1) do
-    super(x0, x1, &:increment_with_rollover/1)
+  def optimistic_lock(data_or_changeset, field) do
+    super(data_or_changeset, field, &:increment_with_rollover/1)
   end
 
   @doc ~S"""
@@ -1697,8 +1697,8 @@ defmodule Ecto.Changeset do
     merge_related_keys(merge_keyword_keys(Enum.reverse(validations), msg_func, changeset), changes, types, msg_func, &:traverse_validations/2)
   end
 
-  def unique_constraint(x0, x1) do
-    super(x0, x1, [])
+  def unique_constraint(changeset, field) do
+    super(changeset, field, [])
   end
 
   @doc ~S"""
@@ -1824,8 +1824,8 @@ defmodule Ecto.Changeset do
     )
   end
 
-  def unsafe_validate_unique(x0, x1, x2) do
-    super(x0, x1, x2, [])
+  def unsafe_validate_unique(changeset, fields, repo) do
+    super(changeset, fields, repo, [])
   end
 
   @doc ~S"""
@@ -2071,8 +2071,8 @@ defmodule Ecto.Changeset do
     changeset
   end
 
-  def validate_exclusion(x0, x1, x2) do
-    super(x0, x1, x2, [])
+  def validate_exclusion(changeset, field, data) do
+    super(changeset, field, data, [])
   end
 
   @doc ~S"""
@@ -2099,8 +2099,8 @@ defmodule Ecto.Changeset do
     end)
   end
 
-  def validate_format(x0, x1, x2) do
-    super(x0, x1, x2, [])
+  def validate_format(changeset, field, format) do
+    super(changeset, field, format, [])
   end
 
   @doc ~S"""
@@ -2126,8 +2126,8 @@ defmodule Ecto.Changeset do
     end end)
   end
 
-  def validate_inclusion(x0, x1, x2) do
-    super(x0, x1, x2, [])
+  def validate_inclusion(changeset, field, data) do
+    super(changeset, field, data, [])
   end
 
   @doc ~S"""
@@ -2313,8 +2313,8 @@ defmodule Ecto.Changeset do
     )
   end
 
-  def validate_subset(x0, x1, x2) do
-    super(x0, x1, x2, [])
+  def validate_subset(changeset, field, data) do
+    super(changeset, field, data, [])
   end
 
   @doc ~S"""
@@ -2954,8 +2954,8 @@ defmodule Ecto.Changeset do
     end)
   end
 
-  defp message(x0, x1) do
-    super(x0, :message, x1)
+  defp message(opts, default) do
+    super(opts, :message, default)
   end
 
   defp message(opts, key, default) do

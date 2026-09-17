@@ -5,6 +5,7 @@ import org.elixir_lang.beam.chunk.Keyword
 import org.elixir_lang.beam.chunk.debug_info.logger
 import org.elixir_lang.beam.chunk.debug_info.v1.elixir_erl.V1
 import org.elixir_lang.beam.chunk.debug_info.v1.elixir_erl.v1.definitions.definition.Clause
+import org.elixir_lang.beam.chunk.debug_info.v1.elixir_erl.v1.definitions.definition.DefaultArgumentClause
 import org.elixir_lang.beam.decompiler.Options
 import org.elixir_lang.beam.term.inspect
 
@@ -17,7 +18,17 @@ class Definition(
 ) {
     private val nameArityTuple: OtpErlangTuple? = nameArityTuple(nameArity)
 
-    val clauses: List<Clause>? by lazy { clauses(clauses, this) }
+    internal val clausesTerm: OtpErlangObject = clauses
+    val clauses: List<Clause>? by lazy { clauses(clausesTerm, this) }
+
+    // Only the decompiled source is renamed; the chunk viewer shows the clauses as the `.beam` stores them.
+    private val namedClauses: List<Clause>? by lazy {
+        (clausesTerm as? OtpErlangList)
+            ?.let { DefaultArgumentClause.named(it, this) }
+            ?.takeIf { it !== clausesTerm }
+            ?.let { clauses(it, this) }
+            ?: this.clauses
+    }
     val macro: String? = macro(macro)
     val metdata: Keyword? = org.elixir_lang.beam.chunk.from(metadata)
 
@@ -47,7 +58,7 @@ class Definition(
      * The clauses [toMacroString] renders, or `null` when it renders nothing.
      */
     fun renderedClauses(options: Options): List<Clause>? =
-            clauses
+            namedClauses
                     ?.takeIf { macro != null && it.isNotEmpty() && it.size < options.clauseLimit }
 
     fun toMacroString(options: Options): String? =

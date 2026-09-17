@@ -73,8 +73,19 @@ class CallDefinitionStubSignatureTest : PlatformTestCase() {
         assertSignature("Issue575", "def", "&&&", 2, listOf("left", "right"), false)
     }
 
+    // `cast/4`'s first clause has a pattern argument, so its default-argument clause keeps the compiler's names.
     fun testElixirCompilerGeneratedNamesAreFlagged() {
         assertSignature("Elixir.Ecto.Changeset", "def", "cast", 3, listOf("x0", "x1", "x2"), true)
+    }
+
+    // Elixir default-argument clauses
+
+    fun testDefaultArgumentClauseTakesNamesFromTheClauseItCalls() {
+        assertSignature("Docs/Elixir.Kernel", "defmacro", "def", 1, listOf("call"), false)
+    }
+
+    fun testDefaultArgumentClauseOfAFunctionTakesNamesFromTheClauseItCalls() {
+        assertSignature("Docs/Elixir.Kernel", "def", "inspect", 1, listOf("term"), false)
     }
 
     fun testDefinitionsThatCannotBeRenderedKeepTheRestOfTheModule() {

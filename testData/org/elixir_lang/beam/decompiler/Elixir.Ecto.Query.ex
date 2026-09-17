@@ -375,8 +375,8 @@ defmodule Ecto.Query do
 
   # Macros
 
-  defmacro distinct(x0, x1) do
-    super(x0, [], x1)
+  defmacro distinct(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -422,8 +422,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Distinct.build(query, binding, expr, __CALLER__)
   end
 
-  defmacro dynamic(x0) do
-    super([], x0)
+  defmacro dynamic(expr) do
+    super([], expr)
   end
 
   @doc ~S"""
@@ -594,8 +594,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Combination.build(:except_all, query, other_query, __CALLER__)
   end
 
-  defmacro from(x0) do
-    super(x0, [])
+  defmacro from(expr) do
+    super(expr, [])
   end
 
   @doc ~S"""
@@ -667,8 +667,8 @@ defmodule Ecto.Query do
     )
   end
 
-  defmacro group_by(x0, x1) do
-    super(x0, [], x1)
+  defmacro group_by(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -709,8 +709,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.GroupBy.build(query, binding, expr, __CALLER__)
   end
 
-  defmacro having(x0, x1) do
-    super(x0, [], x1)
+  defmacro having(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -797,12 +797,12 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Combination.build(:intersect_all, query, other_query, __CALLER__)
   end
 
-  defmacro join(x0, x1, x2) do
-    super(x0, x1, [], x2, [])
+  defmacro join(query, qual, expr) do
+    super(query, qual, [], expr, [])
   end
 
-  defmacro join(x0, x1, x2, x3) do
-    super(x0, x1, x2, x3, [])
+  defmacro join(query, qual, binding, expr) do
+    super(query, qual, binding, expr, [])
   end
 
   @doc ~S"""
@@ -955,8 +955,8 @@ defmodule Ecto.Query do
     raise(ArgumentError, <<"invalid binding passed to Ecto.Query.join/5, should be "::binary(), "list of variables, got: "::binary(), Macro.to_string(binding)::binary()>>)
   end
 
-  defmacro limit(x0, x1) do
-    super(x0, [], x1)
+  defmacro limit(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -981,8 +981,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.LimitOffset.build(:limit, query, binding, expr, __CALLER__)
   end
 
-  defmacro lock(x0, x1) do
-    super(x0, [], x1)
+  defmacro lock(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1014,8 +1014,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Lock.build(query, binding, expr, __CALLER__)
   end
 
-  defmacro offset(x0, x1) do
-    super(x0, [], x1)
+  defmacro offset(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1041,8 +1041,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.LimitOffset.build(:offset, query, binding, expr, __CALLER__)
   end
 
-  defmacro or_having(x0, x1) do
-    super(x0, [], x1)
+  defmacro or_having(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1068,8 +1068,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Filter.build(:having, :or, query, binding, expr, __CALLER__)
   end
 
-  defmacro or_where(x0, x1) do
-    super(x0, [], x1)
+  defmacro or_where(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1122,8 +1122,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Filter.build(:where, :or, query, binding, expr, __CALLER__)
   end
 
-  defmacro order_by(x0, x1) do
-    super(x0, [], x1)
+  defmacro order_by(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1184,8 +1184,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.OrderBy.build(query, binding, expr, __CALLER__)
   end
 
-  defmacro preload(x0, x1) do
-    super(x0, [], x1)
+  defmacro preload(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1342,8 +1342,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Preload.build(query, bindings, expr, __CALLER__)
   end
 
-  defmacro select(x0, x1) do
-    super(x0, [], x1)
+  defmacro select(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1407,8 +1407,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Select.build(:select, query, binding, expr, __CALLER__)
   end
 
-  defmacro select_merge(x0, x1) do
-    super(x0, [], x1)
+  defmacro select_merge(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1524,8 +1524,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Combination.build(:union_all, query, other_query, __CALLER__)
   end
 
-  defmacro update(x0, x1) do
-    super(x0, [], x1)
+  defmacro update(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1577,8 +1577,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Update.build(query, binding, expr, __CALLER__)
   end
 
-  defmacro where(x0, x1) do
-    super(x0, [], x1)
+  defmacro where(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1614,8 +1614,8 @@ defmodule Ecto.Query do
     Ecto.Query.Builder.Filter.build(:where, :and, query, binding, expr, __CALLER__)
   end
 
-  defmacro windows(x0, x1) do
-    super(x0, [], x1)
+  defmacro windows(query, expr) do
+    super(query, [], expr)
   end
 
   @doc ~S"""
@@ -1893,8 +1893,8 @@ defmodule Ecto.Query do
     has_named_binding?(Ecto.Queryable.to_query(queryable), key)
   end
 
-  def last(x0) do
-    super(x0, nil)
+  def last(queryable) do
+    super(queryable, nil)
   end
 
   @doc ~S"""
@@ -1984,8 +1984,8 @@ defmodule Ecto.Query do
     reverse_order(Ecto.Queryable.to_query(queryable))
   end
 
-  def subquery(x0) do
-    super(x0, [])
+  def subquery(query) do
+    super(query, [])
   end
 
   @doc ~S"""

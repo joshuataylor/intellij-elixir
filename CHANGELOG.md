@@ -15,6 +15,10 @@
 
 ### Enhancements
 
+- [#4115](https://github.com/KronicDeth/intellij-elixir/pull/4115) [@sh41](https://github.com/sh41)
+  - **Decompiled `.beam` files show real parameter names instead of `x0` for most Elixir functions with default
+    arguments.** Refs [#4046](https://github.com/KronicDeth/intellij-elixir/issues/4046).
+
 - [#4090](https://github.com/KronicDeth/intellij-elixir/pull/4090) [@sh41](https://github.com/sh41)
   - **Syntax the module's Elixir release rejects, such as `..` before 1.14 or `foo//bar` from 1.12, is now reported as an
     error.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).
@@ -400,10 +404,6 @@
     no longer freeze if WSL is slow or hangs while starting.**
 
 ### Threading / Platform Hygiene
-
-- [#PR-TBD](https://github.com/KronicDeth/intellij-elixir/pull/PR-TBD) [@sh41](https://github.com/sh41)
-  - **The `.beam` index now stores each compiled function's parameters as the decompiled source shows them, so
-    every `.beam` is re-indexed once after updating.** Refs [#4046](https://github.com/KronicDeth/intellij-elixir/issues/4046).
 
 - [#4062](https://github.com/KronicDeth/intellij-elixir/pull/4062) [@sh41](https://github.com/sh41)
   - **The Erlang SDK's OTP-mismatch warning is detected without holding the settings dialog's read
