@@ -2,12 +2,15 @@ package org.elixir_lang.parser;
 
 import com.intellij.lang.PsiBuilder;
 import com.intellij.lang.parser.GeneratedParserUtilBase;
+import com.intellij.openapi.progress.ProgressManager;
 import com.intellij.openapi.util.Key;
 import com.intellij.psi.TokenType;
 import com.intellij.psi.tree.IElementType;
+import com.intellij.psi.tree.TokenSet;
 import org.elixir_lang.psi.ElixirTypes;
 import org.elixir_lang.psi.quoting.QuotingDialect;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Helpers the grammar calls as external rules, {@code <<name>>}.
@@ -20,6 +23,110 @@ import org.jetbrains.annotations.NotNull;
 public class ElixirParserUtil extends GeneratedParserUtilBase {
     /** Set by {@code File.doParseContents}; absent for builders created by any other route. */
     public static final Key<QuotingDialect> DIALECT = Key.create("ELIXIR_PARSE_DIALECT");
+
+    private static final TokenSet GROUP_OPENERS = TokenSet.create(
+            ElixirTypes.DO,
+            ElixirTypes.FN,
+            ElixirTypes.INTERPOLATION_START,
+            ElixirTypes.OPENING_BIT,
+            ElixirTypes.OPENING_BRACKET,
+            ElixirTypes.OPENING_CURLY,
+            ElixirTypes.OPENING_PARENTHESIS
+    );
+
+    private static final TokenSet GROUP_CLOSERS = TokenSet.create(
+            ElixirTypes.CLOSING_BIT,
+            ElixirTypes.CLOSING_BRACKET,
+            ElixirTypes.CLOSING_CURLY,
+            ElixirTypes.CLOSING_PARENTHESIS,
+            ElixirTypes.END,
+            ElixirTypes.INTERPOLATION_END
+    );
+
+    /** Group delimiters the lexer also emits for a name after {@code .}, as in {@code range.end}. */
+    private static final TokenSet NAMEABLE_DELIMITERS = TokenSet.create(ElixirTypes.DO, ElixirTypes.END);
+
+    /** What {@link WordAfterNumber} rewrites, which for {@code do} and {@code end} are group delimiters. */
+    private static final TokenSet REMAPPABLE = TokenSet.create(
+            ElixirTypes.INVALID_BINARY_DIGITS,
+            ElixirTypes.INVALID_DECIMAL_DIGITS,
+            ElixirTypes.INVALID_HEXADECIMAL_DIGITS,
+            ElixirTypes.INVALID_OCTAL_DIGITS
+    );
+
+    /**
+     * The token at {@code steps} as the builder will see it. The remapper rewrites a token only once the builder reaches
+     * it, so ahead of it {@link PsiBuilder#rawLookup} still shows invalid digits where it will show a keyword.
+     * {@code File.doParseContents} installs the remapper with the {@link #DIALECT}; without one nothing is remapped.
+     */
+    private static @Nullable IElementType remapped(@NotNull PsiBuilder builder, int steps) {
+        IElementType tokenType = builder.rawLookup(steps);
+
+        if (!REMAPPABLE.contains(tokenType)) {
+            return tokenType;
+        }
+
+        QuotingDialect dialect = builder.getUserData(DIALECT);
+
+        return dialect == null
+                ? tokenType
+                : new WordAfterNumber(dialect).filter(
+                        tokenType,
+                        builder.rawTokenTypeStart(steps),
+                        builder.rawTokenTypeStart(steps + 1),
+                        builder.getOriginalText()
+                );
+    }
+
+    /**
+     * Whether the {@code stab} starting here can hold a stab operation: whether a {@code ->} appears at the group
+     * nesting the scan starts from before a closer leaves it. Without the check, a {@code stab} holding no {@code ->}
+     * parses its contents twice - once as a signature that then fails for want of {@code ->}, once as a body - and
+     * since every parenthesised expression is a {@code stab}, the doubling compounds once per level of nesting.
+     * <p>
+     * A stab operation's signature is group-balanced, so the {@code ->} it would consume is always reached before the
+     * scan leaves that nesting.
+     */
+    public static boolean stabOperationAhead(@NotNull PsiBuilder builder, int level) {
+        int depth = 0;
+
+        for (int steps = 0; ; steps++) {
+            ProgressManager.checkCanceled();
+
+            IElementType tokenType = remapped(builder, steps);
+
+            if (tokenType == null) {
+                return false;
+            } else if (NAMEABLE_DELIMITERS.contains(tokenType) && afterDot(builder, steps)) {
+                continue;
+            } else if (GROUP_OPENERS.contains(tokenType)) {
+                depth++;
+            } else if (GROUP_CLOSERS.contains(tokenType)) {
+                if (depth == 0) {
+                    return false;
+                }
+
+                depth--;
+            } else if (depth == 0 && tokenType == ElixirTypes.STAB_OPERATOR) {
+                return true;
+            }
+        }
+    }
+
+    /**
+     * Whether the token at {@code steps} follows a {@code .}. The lexer reaches the state that names a field or
+     * function only through {@code .}, and only whitespace and comments can come between.
+     */
+    private static boolean afterDot(@NotNull PsiBuilder builder, int steps) {
+        int back = steps - 1;
+        IElementType previous = builder.rawLookup(back);
+
+        while (previous == TokenType.WHITE_SPACE || previous == ElixirTypes.COMMENT) {
+            previous = builder.rawLookup(--back);
+        }
+
+        return previous == ElixirTypes.DOT_OPERATOR;
+    }
 
     /**
      * Whether the {@code &} just consumed is joined to what follows, making the two one capture

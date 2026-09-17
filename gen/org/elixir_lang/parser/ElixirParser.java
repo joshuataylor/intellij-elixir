@@ -207,7 +207,6 @@ public class ElixirParser implements PsiParser, LightPsiParser {
 
   /* ********************************************************** */
   // FN endOfExpressionMaybe
-  //                       // -> is required, so use stabOperations directly and not stab as would be used used in `doBlock`
   //                       stab stabBodyExpressionSeparatorMaybe
   //                       END
   public static boolean anonymousFunction(PsiBuilder b, int l) {
@@ -3714,14 +3713,25 @@ public class ElixirParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // stabOperations | stabBody
+  // <<stabOperationAhead>> stabOperations | stabBody
   public static boolean stab(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "stab")) return false;
     boolean r;
     Marker m = enter_section_(b, l, _NONE_, STAB, "<stab>");
-    r = stabOperations(b, l + 1);
+    r = stab_0(b, l + 1);
     if (!r) r = stabBody(b, l + 1);
     exit_section_(b, l, m, r, false, null);
+    return r;
+  }
+
+  // <<stabOperationAhead>> stabOperations
+  private static boolean stab_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "stab_0")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = stabOperationAhead(b, l + 1);
+    r = r && stabOperations(b, l + 1);
+    exit_section_(b, m, null, r);
     return r;
   }
 
