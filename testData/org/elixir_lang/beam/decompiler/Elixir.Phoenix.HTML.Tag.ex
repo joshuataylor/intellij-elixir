@@ -70,8 +70,8 @@ defmodule Phoenix.HTML.Tag do
     tag(:meta, charset: "UTF-8", name: "csrf-token", content: Plug.CSRFProtection.get_csrf_token(), "csrf-param": "_csrf_token", "method-param": "_method")
   end
 
-  def form_tag(x0) do
-    super(x0, [])
+  def form_tag(action) do
+    super(action, [])
   end
 
   @doc ~S"""
@@ -152,8 +152,8 @@ defmodule Phoenix.HTML.Tag do
     Phoenix.HTML.html_escape([form_tag(action, options), block, Phoenix.HTML.raw("</form>")])
   end
 
-  def img_tag(x0) do
-    super(x0, [])
+  def img_tag(src) do
+    super(src, [])
   end
 
   @doc ~S"""

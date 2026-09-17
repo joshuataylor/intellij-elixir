@@ -27,6 +27,17 @@ abstract class MacroNameArity {
     abstract fun append(decompiled: StringBuilder,
                         macroNameArity: MacroNameArity)
 
+    /**
+     * The names this decompiler invents for a definition whose `.beam` records none.
+     */
+    abstract fun parameters(macroNameArity: MacroNameArity): Array<String>
+
+    /**
+     * The parameters [appendSignature] renders when given [parameters].
+     */
+    open fun signatureParameters(macroNameArity: MacroNameArity, parameters: Array<String>): Array<String> =
+            parameters
+
     abstract fun appendSignature(decompiled: StringBuilder,
                                  macroNameArity: MacroNameArity,
                                  name: String,

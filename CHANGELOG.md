@@ -15,6 +15,10 @@
 
 ### Enhancements
 
+- [#4115](https://github.com/KronicDeth/intellij-elixir/pull/4115) [@sh41](https://github.com/sh41)
+  - **Decompiled `.beam` files show real parameter names instead of `x0` for most Elixir functions with default
+    arguments.** Refs [#4046](https://github.com/KronicDeth/intellij-elixir/issues/4046).
+
 - [#4090](https://github.com/KronicDeth/intellij-elixir/pull/4090) [@sh41](https://github.com/sh41)
   - **Syntax the module's Elixir release rejects, such as `..` before 1.14 or `foo//bar` from 1.12, is now reported as an
     error.** Refs [#4080](https://github.com/KronicDeth/intellij-elixir/issues/4080).

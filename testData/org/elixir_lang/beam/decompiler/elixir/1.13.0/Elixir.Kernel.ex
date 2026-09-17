@@ -638,8 +638,8 @@ defmodule Kernel do
     )
   end
 
-  defmacro def(x0) do
-    super(x0, nil)
+  defmacro def(call) do
+    super(call, nil)
   end
 
   @doc ~S"""
@@ -931,8 +931,8 @@ defmodule Kernel do
     define_guard(:defmacrop, guard, __CALLER__)
   end
 
-  defmacro defimpl(x0, x1) do
-    super(x0, x1, [])
+  defmacro defimpl(name, opts) do
+    super(name, opts, [])
   end
 
   @doc ~S"""
@@ -955,8 +955,8 @@ defmodule Kernel do
     )
   end
 
-  defmacro defmacro(x0) do
-    super(x0, nil)
+  defmacro defmacro(call) do
+    super(call, nil)
   end
 
   @doc ~S"""
@@ -988,8 +988,8 @@ defmodule Kernel do
     define(:defmacro, call, expr, __CALLER__)
   end
 
-  defmacro defmacrop(x0) do
-    super(x0, nil)
+  defmacro defmacrop(call) do
+    super(call, nil)
   end
 
   @doc ~S"""
@@ -1173,8 +1173,8 @@ defmodule Kernel do
     {{:".", [], [{:__aliases__, [alias: false], [:"Module"]}, :make_overridable]}, [], [{:__MODULE__, [], Kernel}, keywords_or_behaviour]}
   end
 
-  defmacro defp(x0) do
-    super(x0, nil)
+  defmacro defp(call) do
+    super(call, nil)
   end
 
   @doc ~S"""
@@ -2507,8 +2507,8 @@ defmodule Kernel do
     end
   end
 
-  defmacro use(x0) do
-    super(x0, [])
+  defmacro use(module) do
+    super(module, [])
   end
 
   @doc ~S"""
@@ -3776,8 +3776,8 @@ defmodule Kernel do
     :erlang.hd(list)
   end
 
-  def inspect(x0) do
-    super(x0, [])
+  def inspect(term) do
+    super(term, [])
   end
 
   @doc ~S"""
@@ -4574,8 +4574,8 @@ defmodule Kernel do
     :erlang.spawn_monitor(module, fun, args)
   end
 
-  def struct(x0) do
-    super(x0, [])
+  def struct(struct) do
+    super(struct, [])
   end
 
   @doc ~S"""
@@ -4634,8 +4634,8 @@ defmodule Kernel do
     end)
   end
 
-  def struct!(x0) do
-    super(x0, [])
+  def struct!(struct) do
+    super(struct, [])
   end
 
   @doc ~S"""

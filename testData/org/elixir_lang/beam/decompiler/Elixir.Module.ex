@@ -917,8 +917,8 @@ defmodule Module do
     )
   end
 
-  def get_attribute(x0, x1) do
-    super(x0, x1, nil)
+  def get_attribute(module, key) do
+    super(module, key, nil)
   end
 
   @doc ~S"""
@@ -1320,8 +1320,8 @@ defmodule Module do
     {total, defaults}
   end
 
-  defp assert_not_compiled!(x0, x1) do
-    super(x0, x1, "")
+  defp assert_not_compiled!(function_name_arity, module) do
+    super(function_name_arity, module, "")
   end
 
   defp assert_not_compiled!(function_name_arity, module, extra_msg) do

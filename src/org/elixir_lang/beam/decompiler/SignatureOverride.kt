@@ -15,36 +15,22 @@ object SignatureOverride : Default() {
      */
     override fun accept(beamLanguage: String, nameArity: NameArity): Boolean = nameArity.name == "__struct__"
 
-    /**
-     * Append the decompiled source for `macroNameArity` to `decompiled`.
-     *
-     * @param decompiled the decompiled source so far
-     */
-    override fun append(decompiled: StringBuilder, macroNameArity: org.elixir_lang.beam.MacroNameArity) {
+    override fun parameters(macroNameArity: org.elixir_lang.beam.MacroNameArity): Array<String> =
+        signatureParameters(macroNameArity, super.parameters(macroNameArity))
+
+    override fun signatureParameters(
+        macroNameArity: org.elixir_lang.beam.MacroNameArity,
+        parameters: Array<String>
+    ): Array<String> =
         when (macroNameArity.arity) {
-            1 -> {
-                decompiled
-                    .append("  ")
-                    .append(macroNameArity.macro)
-                    .append(" ")
-                appendSignature(decompiled, macroNameArity, "__struct__", arrayOf("kv"))
-                appendBody(decompiled)
-            }
-            else -> super.append(decompiled, macroNameArity)
+            1 -> arrayOf("kv")
+            else -> parameters
         }
-    }
 
     override fun appendSignature(decompiled: StringBuilder,
                                  macroNameArity: org.elixir_lang.beam.MacroNameArity,
                                  name: String,
                                  parameters: Array<String>) {
-        val (nameOverride, argumentsOverride) = when (macroNameArity.arity) {
-            1 -> {
-                Pair("__struct__", arrayOf("kv"))
-            }
-            else -> Pair(name, parameters)
-        }
-
-        super.appendSignature(decompiled, macroNameArity, nameOverride, argumentsOverride)
+        super.appendSignature(decompiled, macroNameArity, name, signatureParameters(macroNameArity, parameters))
     }
 }

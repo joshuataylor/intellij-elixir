@@ -16,14 +16,17 @@ import org.elixir_lang.beam.chunk.beam_documentation.docs.documented.None
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.AbstractCodeCompileOptions
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.attribute.Spec
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.attribute.Type
-import org.elixir_lang.beam.decompiler.Default
+import org.elixir_lang.beam.decompiler.ClauseSource
 import org.elixir_lang.beam.decompiler.Options
-import org.elixir_lang.beam.decompiler.appendNotDecompiledBody
 import org.elixir_lang.beam.decompiler.ReservedTypeName
-import org.elixir_lang.beam.decompiler.decompiler
-import org.elixir_lang.model.psi.type.TypeBuiltins.BUILTIN_ARITY_BY_NAME
+import org.elixir_lang.beam.decompiler.appendNotDecompiledBody
+import org.elixir_lang.beam.decompiler.clauseSource
 import org.elixir_lang.beam.term.inspect
-import org.elixir_lang.psi.call.name.Function.*
+import org.elixir_lang.model.psi.type.TypeBuiltins.BUILTIN_ARITY_BY_NAME
+import org.elixir_lang.psi.call.name.Function.DEF
+import org.elixir_lang.psi.call.name.Function.DEFMACRO
+import org.elixir_lang.psi.call.name.Function.DEFMACROP
+import org.elixir_lang.psi.call.name.Function.DEFP
 import org.elixir_lang.psi.call.name.Module
 import java.util.*
 
@@ -314,7 +317,7 @@ private fun appendCallDefinitions(
     debugInfo: DebugInfo?,
     documentation: Documentation?
 ) {
-    val options = options(macroNameAritySortedSetByMacro)
+    val options = decompilerOptions(macroNameAritySortedSetByMacro)
 
     for (macro in MACRO_ORDER) {
         val macroNameAritySortedSet = macroNameAritySortedSetByMacro[macro]
@@ -369,7 +372,7 @@ private fun appendCallDefinitions(
 
 private const val definitionLimit = 500
 
-private fun options(macroNameAritySortedSet: Map<String, SortedSet<MacroNameArity>>): Options {
+internal fun decompilerOptions(macroNameAritySortedSet: Map<String, SortedSet<MacroNameArity>>): Options {
     val defmacroCount = macroNameAritySortedSet[DEFMACRO]?.size ?: 0
     val defCount = macroNameAritySortedSet[DEF]?.size ?: 0
     val publicCount = defmacroCount + defCount
@@ -498,97 +501,30 @@ private fun appendMacroNameArity(
     debugInfo: DebugInfo?,
     documentation: Documentation?,
     options: Options
-) =
-    appendMacroNameArity(decompiled, macroNameArity, debugInfo, options) ||
-            appendMacroNameArity(decompiled, macroNameArity, documentation)
+) {
+    when (val source = clauseSource(macroNameArity, debugInfo, { documentation }, options)) {
+        is ClauseSource.ErlangAbstractCode -> {
+            var macroString = source.function.toMacroString(options)
 
-private fun appendMacroNameArity(
-    decompiled: StringBuilder,
-    macroNameArity: MacroNameArity,
-    debugInfo: DebugInfo?,
-    options: Options
-): Boolean =
-    when (debugInfo) {
-        is AbstractCodeCompileOptions ->
-            appendMacroNameArity(decompiled, macroNameArity, debugInfo, options)
-        is org.elixir_lang.beam.chunk.debug_info.v1.elixir_erl.V1 ->
-            appendMacroNameArity(decompiled, macroNameArity, debugInfo, options)
-        else -> false
-    }
-
-private fun appendMacroNameArity(
-    decompiled: StringBuilder,
-    macroNameArity: MacroNameArity,
-    debugInfo: AbstractCodeCompileOptions,
-    options: Options
-): Boolean =
-    when (macroNameArity.macro) {
-        DEF, DEFP -> {
-            val function = debugInfo.functions.byNameArity[macroNameArity.toNameArity()]
-
-            if (function != null) {
-                var macroString = function.toMacroString(options)
-
-                // The Erlang abstract code Function always hardcodes macro as DEF because
-                // the AST doesn't distinguish exported/unexported. The Decompiler knows the
-                // correct macro from the export table, so fix it up here.
-                if (macroNameArity.macro == DEFP) {
-                    macroString = macroString.replaceDefWithDefp()
-                }
-
-                decompiled.append(macroString.prependIndentToNonBlank()).append('\n')
-
-                true
-            } else {
-                false
+            // The Erlang abstract code Function always hardcodes macro as DEF because
+            // the AST doesn't distinguish exported/unexported. The Decompiler knows the
+            // correct macro from the export table, so fix it up here.
+            if (macroNameArity.macro == DEFP) {
+                macroString = macroString.replaceDefWithDefp()
             }
+
+            decompiled.append(macroString.prependIndentToNonBlank()).append('\n')
         }
-        else -> false
-    }
-
-private fun appendMacroNameArity(
-    decompiled: StringBuilder,
-    macroNameArity: MacroNameArity,
-    debugInfo: org.elixir_lang.beam.chunk.debug_info.v1.elixir_erl.V1,
-    options: Options
-): Boolean =
-    debugInfo.definitions?.get(macroNameArity)?.toMacroString(options)?.let { macroString ->
-        decompiled.append(macroString.prependIndentToNonBlank()).append('\n')
-
-        true
-    } ?: false
-
-private fun appendMacroNameArity(
-    decompiled: StringBuilder,
-    macroNameArity: MacroNameArity,
-    documentation: Documentation?
-): Boolean {
-    val beamLanguage = documentation?.beamLanguage ?: "elixir"
-    val decompiler = decompiler(beamLanguage, macroNameArity.toNameArity())
-
-    return if (decompiler != null) {
-        // The signature while easier for users to read are not proper code for those that need to use unquote, so
-        // only allow signatures for default decompiler
-        if (decompiler === Default.INSTANCE) {
-            val signatures =
-                documentation?.takeIf { it.beamLanguage == "elixir" }?.docs?.signatures(macroNameArity)
-
-            if (signatures != null && signatures.isNotEmpty()) {
-                for (signature in signatures) {
-                    decompiled.append("  ").append(macroNameArity.macro).append(' ')
-                    decompiled.append(signature.replace("\r", ""))
-                    appendNotDecompiledBody(decompiled)
-                }
-            } else {
-                decompiler.append(decompiled, macroNameArity)
+        is ClauseSource.ElixirDebugInfo ->
+            decompiled.append(source.definition.toMacroString(options)!!.prependIndentToNonBlank()).append('\n')
+        is ClauseSource.DocsSignatures ->
+            for (signature in source.signatures) {
+                decompiled.append("  ").append(macroNameArity.macro).append(' ')
+                decompiled.append(signature.replace("\r", ""))
+                appendNotDecompiledBody(decompiled)
             }
-        } else {
-            decompiler.append(decompiled, macroNameArity)
-        }
-
-        true
-    } else {
-        false
+        is ClauseSource.Generated -> source.decompiler.append(decompiled, macroNameArity)
+        null -> Unit
     }
 }
 
