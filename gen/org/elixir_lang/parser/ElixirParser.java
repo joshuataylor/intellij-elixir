@@ -1035,14 +1035,25 @@ public class ElixirParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // stabOperations | doBlockStabBody
+  // <<stabOperationAhead>> stabOperations | doBlockStabBody
   public static boolean doBlockStab(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "doBlockStab")) return false;
     boolean r;
     Marker m = enter_section_(b, l, _NONE_, STAB, "<do block stab>");
-    r = stabOperations(b, l + 1);
+    r = doBlockStab_0(b, l + 1);
     if (!r) r = doBlockStabBody(b, l + 1);
     exit_section_(b, l, m, r, false, null);
+    return r;
+  }
+
+  // <<stabOperationAhead>> stabOperations
+  private static boolean doBlockStab_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "doBlockStab_0")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = stabOperationAhead(b, l + 1);
+    r = r && stabOperations(b, l + 1);
+    exit_section_(b, m, null, r);
     return r;
   }
 
@@ -3001,82 +3012,15 @@ public class ElixirParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // matchedExpression infixComma noParenthesesKeywords |
-  //                                        matchedExpression (infixComma noParenthesesExpression)+ (infixComma noParenthesesKeywords)?
+  // <<commaAhead>> matchedExpression infixComma noParenthesesManyArgumentsTail
   static boolean noParenthesesManyArguments(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "noParenthesesManyArguments")) return false;
     boolean r;
     Marker m = enter_section_(b);
-    r = noParenthesesManyArguments_0(b, l + 1);
-    if (!r) r = noParenthesesManyArguments_1(b, l + 1);
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // matchedExpression infixComma noParenthesesKeywords
-  private static boolean noParenthesesManyArguments_0(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "noParenthesesManyArguments_0")) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = matchedExpression(b, l + 1, -1);
+    r = commaAhead(b, l + 1);
+    r = r && matchedExpression(b, l + 1, -1);
     r = r && infixComma(b, l + 1);
-    r = r && noParenthesesKeywords(b, l + 1);
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // matchedExpression (infixComma noParenthesesExpression)+ (infixComma noParenthesesKeywords)?
-  private static boolean noParenthesesManyArguments_1(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "noParenthesesManyArguments_1")) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = matchedExpression(b, l + 1, -1);
-    r = r && noParenthesesManyArguments_1_1(b, l + 1);
-    r = r && noParenthesesManyArguments_1_2(b, l + 1);
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // (infixComma noParenthesesExpression)+
-  private static boolean noParenthesesManyArguments_1_1(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "noParenthesesManyArguments_1_1")) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = noParenthesesManyArguments_1_1_0(b, l + 1);
-    while (r) {
-      int c = current_position_(b);
-      if (!noParenthesesManyArguments_1_1_0(b, l + 1)) break;
-      if (!empty_element_parsed_guard_(b, "noParenthesesManyArguments_1_1", c)) break;
-    }
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // infixComma noParenthesesExpression
-  private static boolean noParenthesesManyArguments_1_1_0(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "noParenthesesManyArguments_1_1_0")) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = infixComma(b, l + 1);
-    r = r && noParenthesesExpression(b, l + 1);
-    exit_section_(b, m, null, r);
-    return r;
-  }
-
-  // (infixComma noParenthesesKeywords)?
-  private static boolean noParenthesesManyArguments_1_2(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "noParenthesesManyArguments_1_2")) return false;
-    noParenthesesManyArguments_1_2_0(b, l + 1);
-    return true;
-  }
-
-  // infixComma noParenthesesKeywords
-  private static boolean noParenthesesManyArguments_1_2_0(PsiBuilder b, int l) {
-    if (!recursion_guard_(b, l, "noParenthesesManyArguments_1_2_0")) return false;
-    boolean r;
-    Marker m = enter_section_(b);
-    r = infixComma(b, l + 1);
-    r = r && noParenthesesKeywords(b, l + 1);
+    r = r && noParenthesesManyArgumentsTail(b, l + 1);
     exit_section_(b, m, null, r);
     return r;
   }
@@ -3089,6 +3033,71 @@ public class ElixirParser implements PsiParser, LightPsiParser {
     boolean r;
     r = noParenthesesManyArguments(b, l + 1);
     if (!r) r = noParenthesesStrict(b, l + 1);
+    return r;
+  }
+
+  /* ********************************************************** */
+  // noParenthesesKeywords |
+  //                                            noParenthesesExpression (infixComma noParenthesesExpression)* (infixComma noParenthesesKeywords)?
+  static boolean noParenthesesManyArgumentsTail(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "noParenthesesManyArgumentsTail")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = noParenthesesKeywords(b, l + 1);
+    if (!r) r = noParenthesesManyArgumentsTail_1(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  // noParenthesesExpression (infixComma noParenthesesExpression)* (infixComma noParenthesesKeywords)?
+  private static boolean noParenthesesManyArgumentsTail_1(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "noParenthesesManyArgumentsTail_1")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = noParenthesesExpression(b, l + 1);
+    r = r && noParenthesesManyArgumentsTail_1_1(b, l + 1);
+    r = r && noParenthesesManyArgumentsTail_1_2(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  // (infixComma noParenthesesExpression)*
+  private static boolean noParenthesesManyArgumentsTail_1_1(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "noParenthesesManyArgumentsTail_1_1")) return false;
+    while (true) {
+      int c = current_position_(b);
+      if (!noParenthesesManyArgumentsTail_1_1_0(b, l + 1)) break;
+      if (!empty_element_parsed_guard_(b, "noParenthesesManyArgumentsTail_1_1", c)) break;
+    }
+    return true;
+  }
+
+  // infixComma noParenthesesExpression
+  private static boolean noParenthesesManyArgumentsTail_1_1_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "noParenthesesManyArgumentsTail_1_1_0")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = infixComma(b, l + 1);
+    r = r && noParenthesesExpression(b, l + 1);
+    exit_section_(b, m, null, r);
+    return r;
+  }
+
+  // (infixComma noParenthesesKeywords)?
+  private static boolean noParenthesesManyArgumentsTail_1_2(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "noParenthesesManyArgumentsTail_1_2")) return false;
+    noParenthesesManyArgumentsTail_1_2_0(b, l + 1);
+    return true;
+  }
+
+  // infixComma noParenthesesKeywords
+  private static boolean noParenthesesManyArgumentsTail_1_2_0(PsiBuilder b, int l) {
+    if (!recursion_guard_(b, l, "noParenthesesManyArgumentsTail_1_2_0")) return false;
+    boolean r;
+    Marker m = enter_section_(b);
+    r = infixComma(b, l + 1);
+    r = r && noParenthesesKeywords(b, l + 1);
+    exit_section_(b, m, null, r);
     return r;
   }
 

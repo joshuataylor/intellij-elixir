@@ -603,8 +603,9 @@ noParenthesesStrict ::= emptyParentheses |
 /* 1. (positional, keywords)
    2. (positional, positional)
    3. (positional, positional, keywords) */
-private noParenthesesManyArguments ::= matchedExpression infixComma noParenthesesKeywords |
-                                       matchedExpression (infixComma noParenthesesExpression)+ (infixComma noParenthesesKeywords)?
+private noParenthesesManyArguments ::= <<commaAhead>> matchedExpression infixComma noParenthesesManyArgumentsTail
+private noParenthesesManyArgumentsTail ::= noParenthesesKeywords |
+                                           noParenthesesExpression (infixComma noParenthesesExpression)* (infixComma noParenthesesKeywords)?
 private noParenthesesManyArgumentsStrict ::= noParenthesesManyArguments |
                                              noParenthesesStrict
 
@@ -2586,7 +2587,7 @@ private doStabSeparatorMaybe ::= doStabSeparator?
  * The recovery also runs after an expression that parses, so it takes a stray closer such as the `)` of `1)`.  Every
  * token that may follow an expression in a valid `do` block is in the end set, so valid code skips nothing.
  */
-doBlockStab ::= stabOperations | doBlockStabBody
+doBlockStab ::= <<stabOperationAhead>> stabOperations | doBlockStabBody
                 { elementType = stab }
 doBlockStabBody ::= doBlockStabBodyExpression (stabBodyExpressionSeparator doBlockStabBodyExpression)*
                     { elementType = stabBody }
