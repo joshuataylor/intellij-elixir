@@ -10,6 +10,7 @@ import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.ModuleRootManager
+import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.toNioPathOrNull
 import com.intellij.platform.ide.progress.ModalTaskOwner
@@ -480,8 +481,7 @@ internal class ToolManagerSdkChecker(
     /**
      * Assigns [elixirSdk] to [module] using the SDK representation appropriate for the running IDE.
      *
-     * - **Rich IDEs**: the Java-module SDK ([ModuleRootManager] modifiable model), and the Elixir facet's SDK when
-     *   the module has one.
+     * - **Rich IDEs**: the Java-module SDK ([ModuleRootManager] modifiable model).
      * - **Small IDEs** (RubyMine, etc.): the Elixir **Facet** SDK, which is stored as a
      *   module-library reference (see [org.elixir_lang.Facet.sdk]) and is what
      *   [org.elixir_lang.sdk.elixir.ElixirSdkLookup] resolves there. The module SDK is not read
@@ -503,18 +503,8 @@ internal class ToolManagerSdkChecker(
             facet.sdk = elixirSdk
             LOG.info("configureSdks: set Facet SDK '${elixirSdk.name}' → '${module.name}' (small IDE)")
         } else {
-            val modifiableModel = ModuleRootManager.getInstance(module).modifiableModel
-            var committed = false
-            try {
-                modifiableModel.sdk = elixirSdk
-                modifiableModel.commit()
-                committed = true
-                LOG.info("configureSdks: committed '${elixirSdk.name}' → '${module.name}'")
-            } finally {
-                if (!committed) modifiableModel.dispose()
-            }
-            // A project also opened in a small IDE keeps the facet set up there, which the lookup reads first.
-            FacetManager.getInstance(module).getFacetByType(Facet.ID)?.sdk = elixirSdk
+            ModuleRootModificationUtil.updateModel(module) { it.sdk = elixirSdk }
+            LOG.info("configureSdks: committed '${elixirSdk.name}' → '${module.name}'")
         }
     }
 }

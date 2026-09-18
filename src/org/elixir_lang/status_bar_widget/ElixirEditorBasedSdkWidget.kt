@@ -42,6 +42,7 @@ import org.elixir_lang.mix.project.ProjectModuleSetupValidator
 import org.elixir_lang.mix.project.ProjectModuleSetupValidator.FolderMarkIssue
 import org.elixir_lang.mixContentRoots
 import org.elixir_lang.mix.Project as MixProject
+import org.elixir_lang.sdk.ProcessOutput.isSmallIde
 import org.elixir_lang.sdk.SdkEbinPaths
 import org.elixir_lang.sdk.SdkVersionsListener
 import org.elixir_lang.sdk.elixir.ElixirSdkLookup
@@ -155,6 +156,40 @@ class ElixirEditorBasedSdkWidget(
 
         /** Not for a module SDK error: it resets the module to the project SDK, undoing what a tool manager chose. */
         internal fun offersReconfigure(status: SdkStatus): Boolean = status is SdkStatus.FolderMarkWarning
+
+        internal fun danglingMessage(moduleNames: List<String>, sdkNames: List<String>, targetName: String): String {
+            val moduleCount = moduleNames.size
+            val moduleWord = StringUtil.pluralize("Module", moduleCount)
+            val moduleList = formatNameList(moduleNames)
+            val verb = if (moduleCount == 1) "references" else "reference"
+            val sdkWord = StringUtil.pluralize("SDK", sdkNames.size)
+            val sdkList = sdkNames.joinToString(", ") { "'$it'" }
+            // A facet whose SDK was deleted names none, so there is no missing SDK to name.
+            val problem = if (sdkNames.isEmpty()) {
+                "$moduleWord $moduleList ${if (moduleCount == 1) "has" else "have"} no Elixir SDK"
+            } else {
+                "$moduleWord $moduleList $verb non-existent $sdkWord $sdkList"
+            }
+            val navigationHint = when {
+                targetName != "Project Structure" && moduleCount == 1 ->
+                    "Settings -> Languages & Frameworks -> Elixir. Pick an Elixir SDK for '${moduleNames.first()}'"
+                targetName != "Project Structure" ->
+                    "Settings -> Languages & Frameworks -> Elixir. Pick an Elixir SDK for each module"
+                moduleCount == 1 ->
+                    "Project Structure -> Modules -> ${moduleNames.first()} -> Dependencies -> Module SDK. Set it to \"Project SDK\""
+                else ->
+                    "Project Structure -> Modules -> <module> -> Dependencies -> Module SDK. Set each to \"Project SDK\""
+            }
+            return "$problem. Code insight will not work until fixed in $navigationHint."
+        }
+
+        private fun formatNameList(names: List<String>): String {
+            return if (names.size <= 3) {
+                names.joinToString(", ") { "'$it'" }
+            } else {
+                names.take(3).joinToString(", ") { "'$it'" } + " and ${names.size - 3} more"
+            }
+        }
 
         const val ID = "ElixirSdkStatus"
     }
@@ -622,10 +657,10 @@ class ElixirEditorBasedSdkWidget(
             }
         }
 
-        notification.addAction(object : AnAction("Open Project Structure") {
+        // Left live, as the settings may be closed without a fix; a scan that finds the issue gone expires it.
+        notification.addAction(object : AnAction("Open ${SdkSettingsOpener.getInstance().targetName()}") {
             override fun actionPerformed(e: AnActionEvent) {
                 SdkSettingsOpener.getInstance().open(e)
-                notification.expire()
             }
         })
 
@@ -716,11 +751,10 @@ class ElixirEditorBasedSdkWidget(
             if (hasDangling) {
                 val danglingIssues = status.moduleSdkIssues.filter { it.isDangling }
                 val moduleNames = danglingIssues.map { it.moduleName }.distinct()
-                val sdkNames = danglingIssues
-                    .map { it.issue.substringAfter("SDK '").substringBefore("'") }.distinct()
+                val sdkNames = danglingIssues.mapNotNull { it.missingSdkName }.distinct()
                 NotificationContent(
                     "Elixir SDK Error: Module SDK ${StringUtil.pluralize("reference", moduleNames.size)} broken",
-                    formatDanglingMessage(moduleNames, sdkNames),
+                    danglingMessage(moduleNames, sdkNames, SdkSettingsOpener.getInstance().targetName()),
                     NotificationType.ERROR
                 )
             } else {
@@ -779,9 +813,8 @@ class ElixirEditorBasedSdkWidget(
     /**
      * Finds the active Elixir SDK by scanning all Elixir modules.
      *
-     * Uses [ElixirSdkLookup.resolve] (module overload) which checks Facet SDK -> module SDK -> project SDK,
-     * returning the first non-null result. This covers both Rich IDEs (JdkOrderEntry) and Small IDEs
-     * (Facet library entry) without additional branching.
+     * Uses [ElixirSdkLookup.resolve] (module overload), which reads the module SDK in a rich IDE and the Facet SDK
+     * in a small one, so neither needs branching here.
      *
      * When both the project SDK and a module SDK are Elixir, this returns the **module** SDK - the one
      * that actually drives code insight - rather than the project-level one. The mismatch between them
@@ -817,17 +850,15 @@ class ElixirEditorBasedSdkWidget(
         for (module in ModuleManager.getInstance(project).modules) {
             ProgressManager.checkCanceled()
             if (!module.isElixirModule()) continue
-
             val rootManager = ModuleRootManager.getInstance(module)
 
             // --- Rich IDE path: detect dangling/mismatch JdkOrderEntry ---
-            var hasJdkEntry = false
-            for (entry in rootManager.orderEntries) {
+            // The lookup never reads a module SDK in a small IDE, which has no settings to change one.
+            for (entry in if (isSmallIde) emptyArray() else rootManager.orderEntries) {
                 ProgressManager.checkCanceled()
                 if (entry !is JdkOrderEntry) continue
 
                 val jdkName = entry.jdkName ?: continue
-                hasJdkEntry = true
                 // Only check Elixir SDK entries (when SDK is resolvable, check its type)
                 val resolvedSdk = entry.jdk
                 if (resolvedSdk != null && resolvedSdk.sdkType !is Type) continue
@@ -835,7 +866,7 @@ class ElixirEditorBasedSdkWidget(
                 if (resolvedSdk == null) {
                     // DANGLING: SDK name exists in .iml but not in JDK table
                     issues.add(
-                        ModuleSdkIssue(module.name, "references non-existent SDK '$jdkName'", isDangling = true)
+                        ModuleSdkIssue(module.name, "references non-existent SDK '$jdkName'", isDangling = true, missingSdkName = jdkName)
                     )
                 } else if (projectSdk != null && projectSdk.sdkType is Type && resolvedSdk != projectSdk) {
                     // MISMATCH: Module uses different Elixir SDK than project in a single-version project.
@@ -851,9 +882,7 @@ class ElixirEditorBasedSdkWidget(
             }
 
             // --- Small IDE path: detect dangling Facet SDK ---
-            // Only check if the Rich IDE path didn't find any JDK entries (Small IDE modules use
-            // a Facet library entry instead of a JdkOrderEntry to hold the Elixir SDK).
-            if (!hasJdkEntry) {
+            if (isSmallIde) {
                 val facet = FacetManager.getInstance(module).getFacetByType(Facet.ID)
                 if (facet != null && Facet.sdk(module) == null && Facet.sdks().isNotEmpty()) {
                     // The module has an Elixir Facet and Elixir SDKs exist in the table, but the
@@ -960,26 +989,4 @@ class ElixirEditorBasedSdkWidget(
         }
     }
 
-    private fun formatDanglingMessage(moduleNames: List<String>, sdkNames: List<String>): String {
-        val moduleCount = moduleNames.size
-        val moduleWord = StringUtil.pluralize("Module", moduleCount)
-        val moduleList = formatNameList(moduleNames)
-        val verb = if (moduleCount == 1) "references" else "reference"
-        val sdkWord = StringUtil.pluralize("SDK", sdkNames.size)
-        val sdkList = sdkNames.joinToString(", ") { "'$it'" }
-        val navigationHint = if (moduleCount == 1) {
-            "Project Structure -> Modules -> ${moduleNames.first()} -> Dependencies -> Module SDK. Set it to \"Project SDK\""
-        } else {
-            "Project Structure -> Modules -> <module> -> Dependencies -> Module SDK. Set each to \"Project SDK\""
-        }
-        return "$moduleWord $moduleList $verb non-existent $sdkWord $sdkList. Code insight will not work until fixed in $navigationHint."
-    }
-
-    private fun formatNameList(names: List<String>): String {
-        return if (names.size <= 3) {
-            names.joinToString(", ") { "'$it'" }
-        } else {
-            names.take(3).joinToString(", ") { "'$it'" } + " and ${names.size - 3} more"
-        }
-    }
 }

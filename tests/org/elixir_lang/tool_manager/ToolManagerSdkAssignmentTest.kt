@@ -15,8 +15,8 @@ class ToolManagerSdkAssignmentTest : HeavyPlatformTestCase() {
 
     private fun sdk(name: String) = SdkFixtures.register(SdkFixtures.elixirSdk(name, "/fake/elixir/$name"), testRootDisposable)
 
-    /** A project opened in a small IDE too carries the facet it set up there, and its SDK is the one looked up first. */
-    fun testAnElixirFacetTheModuleAlreadyHasIsGivenTheSdkToo() {
+    /** IntelliJ IDEA reads the module SDK before a facet a small IDE left, so the facet is not touched. */
+    fun testAnElixirFacetTheModuleAlreadyHasIsLeftAlone() {
         val facet = WriteAction.computeAndWait<Facet, Throwable> {
             FacetUtil.addFacet(module, FacetType.findInstance(Type::class.java))
         }
@@ -27,7 +27,7 @@ class ToolManagerSdkAssignmentTest : HeavyPlatformTestCase() {
         WriteAction.runAndWait<Throwable> { checker.assignElixirSdk(module, after) }
 
         assertEquals(after, ModuleRootManager.getInstance(module).sdk)
-        assertEquals(after, facet.sdk)
+        assertEquals(before, facet.sdk)
     }
 
     fun testAModuleWithoutAnElixirFacetIsGivenNone() {

@@ -21,6 +21,9 @@ import kotlinx.coroutines.cancel
 import org.elixir_lang.Facet
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.facet.Type
+import org.elixir_lang.sdk.ProcessOutput
+import org.elixir_lang.sdk.elixir.ElixirSdkLookup
+import org.elixir_lang.sdk.elixir.sdk
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.tool_manager.ModuleSdkIssue
 import org.elixir_lang.tool_manager.SdkVersionRow
@@ -56,6 +59,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
 
     override fun tearDown() {
         try {
+            ProcessOutput.isSmallIdeOverride = null
             testScope.cancel("test tearDown")
             ModuleRootModificationUtil.setModuleSdk(module, null)
             WriteAction.run<Throwable> {
@@ -97,11 +101,13 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         }
     }
 
+    /**
+     * Setting the facet's SDK to null removes only the libraries named after an SDK still in the table, and a test may
+     * have removed that SDK, so every module library goes: a leftover makes the facet resolve in a later test.
+     */
     private fun removeElixirFacetLibraries() {
-        val facetManager = FacetManager.getInstance(module)
-        val facet = facetManager.getFacetByType(Facet.ID) ?: return
-        ApplicationManager.getApplication().runWriteAction {
-            facet.sdk = null
+        ModuleRootModificationUtil.updateModel(module) { model ->
+            model.moduleLibraryTable.libraries.forEach(model.moduleLibraryTable::removeLibrary)
         }
     }
 
@@ -253,6 +259,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
 
     @RequiresEdt
     fun testDanglingFacetSdkReportedWhenElixirSdkExistsButFacetReferenceIsStale() {
+        ProcessOutput.isSmallIdeOverride = true
         val staleSdk = createAndRegisterElixirSdk("Elixir 1.17")
         setFacetSdk(staleSdk)
 
@@ -280,6 +287,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     // -------------------------------------------------------------------------
 
     fun testNoDanglingWhenFacetSdkResolvesCorrectly() {
+        ProcessOutput.isSmallIdeOverride = true
         val registeredSdk = createAndRegisterElixirSdk("Elixir 1.17")
         setFacetSdk(registeredSdk)
 
@@ -298,6 +306,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
 
     @RequiresEdt
     fun testNoDanglingWhenNoElixirSdksExistInTable() {
+        ProcessOutput.isSmallIdeOverride = true
         val sdk = createAndRegisterElixirSdk("Elixir 1.17")
         setFacetSdk(sdk)
 
@@ -315,6 +324,132 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
             "Expected no dangling issue when no Elixir SDKs exist (this is NotConfigured); got: $issues",
             issues.isEmpty()
         )
+    }
+
+    /** A project opened in two IDEs: a small IDE set the facet, and IntelliJ IDEA's module SDK is gone. */
+    fun testIntelliJIdeaReportsABrokenModuleSdkBesideAFacetSdk() {
+        ProcessOutput.isSmallIdeOverride = false
+        setFacetSdk(createAndRegisterElixirSdk("Elixir 1.19.5"))
+        setMissingModuleSdk("Elixir set in IntelliJ IDEA")
+
+        val issues = createWidget().detectModuleSdkIssuesInTest()
+
+        assertTrue(
+            "Project Structure's module SDK is the one IntelliJ IDEA uses; got: $issues",
+            issues.any { it.isDangling && it.missingSdkName == "Elixir set in IntelliJ IDEA" },
+        )
+    }
+
+    fun testAModuleSdkMissingFromTheTableIsReportedWithoutAFacetSdk() {
+        createAndRegisterElixirSdk("Elixir 1.19.5")
+        setMissingModuleSdk("Elixir set in another IDE")
+
+        val issues = createWidget().detectModuleSdkIssuesInTest()
+
+        assertTrue(
+            "nothing else supplies an SDK, so code insight has none; got: $issues",
+            issues.any { it.isDangling && it.missingSdkName == "Elixir set in another IDE" },
+        )
+    }
+
+    fun testTheMissingSdkAdviceNamesTheSettingsPageWhereThereIsNoProjectStructure() {
+        val message = ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), listOf("Elixir 1.20.4"), "Settings")
+
+        assertTrue(message, message.contains("Settings -> Languages & Frameworks -> Elixir"))
+        assertFalse(message, message.contains("Project Structure"))
+    }
+
+    fun testTheAdviceForAFacetWithNoSdkNamesNoSdk() {
+        val message = ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), emptyList(), "Settings")
+
+        assertTrue(message, message.startsWith("Module 'my_app' has no Elixir SDK."))
+    }
+
+    fun testTheMissingSdkAdviceNamesTheModuleSdkInProjectStructure() {
+        val message = ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), listOf("Elixir 1.20.4"), "Project Structure")
+
+        assertTrue(message, message.contains("Project Structure -> Modules -> my_app -> Dependencies -> Module SDK"))
+    }
+
+    /** A small IDE has no module SDK settings, so a module SDK left by IntelliJ IDEA cannot be fixed there. */
+    fun testASmallIdeReadsOnlyTheFacet() {
+        ProcessOutput.isSmallIdeOverride = true
+        setModuleSdk(createAndRegisterElixirSdk("Elixir set in IntelliJ IDEA"))
+
+        assertNull(resolvedSdk())
+    }
+
+    fun testIntelliJIdeaFallsThroughToTheModuleSdk() {
+        ProcessOutput.isSmallIdeOverride = false
+        val moduleSdk = createAndRegisterElixirSdk("Elixir set in IntelliJ IDEA")
+        setModuleSdk(moduleSdk)
+
+        assertEquals(moduleSdk, resolvedSdk())
+    }
+
+    /** A small IDE's facet must not override what the user set in Project Structure. */
+    fun testIntelliJIdeaReadsTheModuleSdkBeforeTheFacet() {
+        ProcessOutput.isSmallIdeOverride = false
+        setFacetSdk(createAndRegisterElixirSdk("Elixir set in RubyMine"))
+        val moduleSdk = createAndRegisterElixirSdk("Elixir set in IntelliJ IDEA")
+        setModuleSdk(moduleSdk)
+
+        assertEquals(moduleSdk, resolvedSdk())
+    }
+
+    fun testIntelliJIdeaReadsTheProjectSdkBeforeTheFacet() {
+        ProcessOutput.isSmallIdeOverride = false
+        setFacetSdk(createAndRegisterElixirSdk("Elixir set in RubyMine"))
+        val projectSdk = createAndRegisterElixirSdk("Elixir set in IntelliJ IDEA")
+        setProjectSdk(projectSdk)
+        ModuleRootModificationUtil.updateModel(module) { it.inheritSdk() }
+
+        assertEquals("the module SDK is <Project SDK>", projectSdk, resolvedSdk())
+    }
+
+    fun testIntelliJIdeaDoesNotFallBackToTheFacetForABrokenModuleSdk() {
+        ProcessOutput.isSmallIdeOverride = false
+        setFacetSdk(createAndRegisterElixirSdk("Elixir set in RubyMine"))
+        setMissingModuleSdk("Elixir set in IntelliJ IDEA")
+
+        assertNull("the module SDK the user set is broken, which is reported", resolvedSdk())
+    }
+
+    fun testIntelliJIdeaDoesNotFallBackToTheFacetForAModuleWithNoSdk() {
+        ProcessOutput.isSmallIdeOverride = false
+        setFacetSdk(createAndRegisterElixirSdk("Elixir set in RubyMine"))
+        ModuleRootModificationUtil.updateModel(module) { it.inheritSdk() }
+
+        assertNull("<Project SDK> with no project SDK is no SDK", resolvedSdk())
+    }
+
+    /** IntelliJ IDEA has no settings for the facet, so one a small IDE left can never be changed there. */
+    fun testIntelliJIdeaNeverReadsTheFacet() {
+        ProcessOutput.isSmallIdeOverride = false
+        setFacetSdk(createAndRegisterElixirSdk("Elixir set in RubyMine"))
+        setModuleSdk(createJavaSdk().also { sdk -> WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(sdk) }; addedSdks.add(sdk) })
+
+        assertNull(resolvedSdk())
+    }
+
+    fun testASmallIdeDoesNotReportAModuleSdkMissingFromTheTable() {
+        ProcessOutput.isSmallIdeOverride = true
+        createAndRegisterElixirSdk("Elixir 1.19.5")
+        setMissingModuleSdk("Elixir set in IntelliJ IDEA")
+
+        val issues = createWidget().detectModuleSdkIssuesInTest()
+
+        assertFalse(
+            "only Project Structure can change a module SDK, and a small IDE has none; got: $issues",
+            issues.any { it.issue.contains("Elixir set in IntelliJ IDEA") },
+        )
+    }
+
+    private fun resolvedSdk(): Sdk? =
+        ReadAction.nonBlocking(Callable { ElixirSdkLookup.resolve(module).sdk }).executeSynchronously()
+
+    private fun setMissingModuleSdk(name: String) {
+        ModuleRootModificationUtil.updateModel(module) { it.setInvalidSdk(name, ElixirSdkType.instance.name) }
     }
 
     // -------------------------------------------------------------------------

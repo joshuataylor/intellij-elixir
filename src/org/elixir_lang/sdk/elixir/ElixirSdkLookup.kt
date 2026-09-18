@@ -7,6 +7,7 @@ import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.Sdk
+import com.intellij.openapi.roots.ModuleJdkOrderEntry
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.vfs.VirtualFile
@@ -15,6 +16,7 @@ import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.Facet
+import org.elixir_lang.sdk.ProcessOutput.isSmallIde
 import org.elixir_lang.sdk.erlang_dependent.ErlangSdkResolver
 import org.elixir_lang.sdk.erlang_dependent.ErlangSdkResult
 
@@ -46,7 +48,7 @@ val ElixirSdkResolution.sdk: Sdk? get() = (this as? ElixirSdkResolution.Ready)?.
  * a platform-provided read action (e.g. background inspection threads) must acquire one
  * explicitly via [com.intellij.openapi.application.ReadAction.nonBlocking].
  *
- * Resolution order for [Module]: Facet SDK → module SDK → project SDK.
+ * Resolution order for [Module]: module SDK → project SDK; a small IDE reads only the Facet SDK.
  *
  * Use [resolveWithErlang] when the caller needs to verify the Erlang dependency as well.
  */
@@ -66,10 +68,16 @@ object ElixirSdkLookup {
     @RequiresReadLock
     fun resolve(module: Module): ElixirSdkResolution {
         ThreadingAssertions.assertReadAccess()
-        val facetSdk = FacetManager.getInstance(module).getFacetByType(Facet.ID)?.sdk
-        if (facetSdk != null) {
-            LOG.trace("ElixirSdkLookup.resolve(module='${module.name}'): resolved from Facet → '${facetSdk.name}'")
-            return ElixirSdkResolution.Ready(facetSdk)
+        // Each IDE reads only what its settings can change: a small IDE has no module SDK settings, and IntelliJ IDEA
+        // none for the facet, which a small IDE sharing the project leaves behind.
+        if (isSmallIde) {
+            val facetSdk = FacetManager.getInstance(module).getFacetByType(Facet.ID)?.sdk
+            LOG.trace("ElixirSdkLookup.resolve(module='${module.name}'): small IDE, Facet → '${facetSdk?.name}'")
+            return facetSdk?.let(ElixirSdkResolution::Ready) ?: ElixirSdkResolution.MissingElixirSdk
+        }
+        if (hasMissingElixirModuleSdk(module)) {
+            LOG.trace("ElixirSdkLookup.resolve(module='${module.name}'): module SDK is not in the SDK table")
+            return ElixirSdkResolution.MissingElixirSdk
         }
 
         val modSdk = moduleSdk(module)
@@ -165,6 +173,12 @@ object ElixirSdkLookup {
         }
         return sdks
     }
+
+    /** An Elixir module SDK the SDK table no longer has, which [moduleSdk] cannot tell from no module SDK. */
+    private fun hasMissingElixirModuleSdk(module: Module): Boolean =
+        ModuleRootManager.getInstance(module).orderEntries.any {
+            it is ModuleJdkOrderEntry && it.jdk == null && it.jdkTypeName == Type.instance.name
+        }
 
     private fun moduleSdk(module: Module): Sdk? {
         val raw = ModuleRootManager.getInstance(module).sdk
