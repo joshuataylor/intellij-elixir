@@ -9,8 +9,11 @@ import com.intellij.ui.RowIcon;
 import org.elixir_lang.Icons;
 import org.elixir_lang.beam.psi.CallDefinition;
 import org.elixir_lang.call.Visibility;
+import org.elixir_lang.code_insight.Signature;
 import org.elixir_lang.psi.call.Call;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.List;
 
 public class CallDefinitionClause extends com.intellij.codeInsight.lookup.LookupElementRenderer<LookupElement> {
     /*
@@ -125,8 +128,8 @@ public class CallDefinitionClause extends com.intellij.codeInsight.lookup.Lookup
     private void renderBeamCallDefinition(
             @NotNull CallDefinition callDefinition,
             @NotNull LookupElementPresentation presentation) {
-        int arity = callDefinition.getNameArityInterval().getArityInterval().getMinimum();
-        presentation.appendTailText("/" + arity, true);
+        List<String> parameters = Signature.Companion.of(callDefinition).getParameters();
+        presentation.appendTailText("(" + String.join(", ", parameters) + ")", true);
 
         // Mirror the source render path's icon (navigation.item_presentation.CallDefinitionHead):
         // a RowIcon of [time (function/macro), visibility, call-definition-clause].  Only exported
