@@ -1,24 +1,29 @@
 name: Qodana
 
-# Static analysis on pull requests. Two choices are load-bearing here:
+# Static analysis on pull requests and main. Two choices are load-bearing here:
 #
-#   1. Native mode (--within-docker false). The container form gives Qodana its own Gradle home, a
-#      second multi-GB copy of a tree CI already caches. This repository is over GitHub's 10 GB
-#      Actions cache quota, so that second copy would evict the test matrix's gradle-dependencies
-#      entries. Native mode reuses the Gradle home setup-env warms, and skips a 4.15 GB image pull.
-#      It requires qodana.yml's `linter:` to be a linter NAME - an image value takes a legacy code
-#      path that forces a container regardless of this flag.
+#   1. Native mode (--within-docker false). The container form gives Qodana its own Gradle home,
+#      unwarmed by setup-env, and pulls a 4.15 GB image. It requires qodana.yml's `linter:` to be a
+#      linter NAME - an image value takes a legacy code path that forces a container regardless of
+#      this flag.
 #   2. Advisory only. The project has ~1300 findings, so any absolute quality gate fails on day one
 #      and a permanently red check gets ignored. continue-on-error keeps the signal without the
 #      false alarm; add failThreshold or a baseline to qodana.yml when the numbers justify it.
 
+# A pull request's cache writes are scoped to that pull request, so only the main-branch run writes
+# caches the others can restore.
 on:
   pull_request:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Not on main: its scan saves the caches only when it finishes, so back-to-back merges would
+  # otherwise cancel every save.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -58,9 +63,9 @@ jobs:
           # Qodana imports the Gradle project; it never runs the quoter, so the BEAM toolchain is
           # dead weight here.
           setup-elixir: 'false'
-          # Qodana's headless import resolves configurations the test matrix does not, so it must
-          # never write cache entries no other job can restore.
-          cache-read-only: 'true'
+          # Qodana's import resolves configurations the test matrix does not; the main-branch run
+          # saves them under this job's own key.
+          cache-read-only: ${{ github.event_name != 'push' }}
 
       - name: Qodana Scan
         id: qodana
@@ -69,11 +74,14 @@ jobs:
         uses: JetBrains/qodana-action@10be11607eb323a180e2b76b26c9c5cdceac3e77 # v2026.2.1
         with:
           args: "--linter qodana-jvm-community --within-docker false"
-          # Only the files the PR touches, which is the whole reason this is affordable per-PR.
-          pr-mode: true
-          # Deliberately off: Qodana's cache is multi-GB and the repository is already over the
-          # 10 GB Actions quota. The cost is re-downloading the IDE distribution each run.
-          use-caches: false
+          # Only the files the PR touches, which is the whole reason this is affordable per-PR. Off
+          # elsewhere: on main's merge commits it only produces a merge-commit checkout warning.
+          pr-mode: ${{ github.event_name == 'pull_request' }}
+          # The default keys are per ref, so a pull request would never find main's entry; restore
+          # the latest main-branch cache instead, and save only from main.
+          use-caches: true
+          cache-default-branch-only: true
+          additional-cache-key: qodana-2026.2-refs/heads/main
           upload-result: true
           artifact-name: qodana-report
           post-pr-comment: true

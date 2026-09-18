@@ -824,11 +824,16 @@ runIdePlatformsList.forEach { platform ->
 // Elixir/Erlang for the quoter build come from the mise/PATH/env-aware `resolveElixirErlangSdks`
 // (shared with testUI) - no from-source Elixir build. Its output (elixir.sdk.path / erlang.sdk.path)
 // is read by the quoter tasks and the test tasks.
+
+// Must stay in quoterCachePaths: overwrite(false) skips the download only when this zip exists.
+val quoterZip: RegularFile = cachePath.file("quoter-$quoterRefSlug.zip")
+
 val getQuoter = tasks.register<Download>("getQuoter") {
     description = "Downloads the Quoter tool"
     src("https://github.com/$quoterRepo/archive/$quoterRef.zip")
-    dest(cachePath.file("quoter-$quoterRefSlug.zip"))
+    dest(quoterZip)
     overwrite(false)
+    retries(3)
 }
 
 
@@ -919,16 +924,19 @@ val quoterService = gradle.sharedServices.registerIfAbsent("quoter", QuoterServi
 // task's own documentation. Repo-relative and forward-slashed: the same value feeds the Windows legs,
 // and actions/cache exclusion patterns are forward-slashed regardless of runner.
 tasks.register<CachePathsTask>("quoterCachePaths") {
-    description = "Reports the actions/cache path patterns for the quoter build tree"
+    description = "Reports the actions/cache path patterns for the quoter build tree and everything that feeds it"
     outputName.set("paths")
+    val projectPath = layout.projectDirectory.asFile.toPath()
     patterns.set(
         listOf(
-            layout.projectDirectory.asFile.toPath()
-                .relativize(quoterUnzippedPath.asFile.toPath())
-                .joinToString("/"),
+            quoterUnzippedPath.asFile,
+            quoterZip.asFile,
+            // Without these getQuoterDeps reinstalls hex and rebar from builds.hex.pm on every leg.
+            mixHomeForPair,
+            mixArchivesForPair,
+        ).map { projectPath.relativize(it.toPath()).joinToString("/") } +
             // Sockets, not build output - actions/cache cannot archive them.
-            "!cache/**/tmp/pipe/**",
-        )
+            "!cache/**/tmp/pipe/**"
     )
 }
 
@@ -1089,6 +1097,13 @@ tasks.named<Test>("test") {
     // the test-reports artifact in .github/workflows/shared-test.yml. (idea.log.path cannot redirect
     // them here - the IntelliJ Platform Gradle Plugin sets the sandbox log path itself and wins.)
     systemProperty("idea.split.test.logs", "true")
+}
+
+// Kotlin makes this jar a friend path of compileTestKotlin, and the file name is part of that task's
+// build-cache key. With the per-commit version in it, test compilation never came from the cache on
+// CI. The distribution is named by composedJar, which sets its own version.
+tasks.jar {
+    archiveVersion.set("")
 }
 
 tasks.named<Zip>("buildPlugin") {

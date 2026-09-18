@@ -49,6 +49,16 @@ tasks.test {
     inputs.property("elixirVersion", rootProject.extra["expectedElixirVersion"])
     inputs.property("otpVersion", rootProject.extra["expectedOtpVersion"])
 
+    // This project applies only the platform `base` plugin, so nothing sets up a sandbox: without these
+    // the system and config paths default into the extracted IDE, and TestLoggerFactory's testlog/ lands
+    // in the Gradle transform CI caches, which Gradle then reports as modified and re-extracts. Set in
+    // doFirst so the absolute paths stay out of the build-cache key.
+    val ideaPaths = layout.buildDirectory.dir("idea-test")
+    doFirst {
+        systemProperty("idea.system.path", ideaPaths.get().dir("system").asFile.absolutePath)
+        systemProperty("idea.config.path", ideaPaths.get().dir("config").asFile.absolutePath)
+    }
+
     include("**/*Test.class")
 
     // Allow the task to succeed when a global --tests filter matches nothing in this subproject
