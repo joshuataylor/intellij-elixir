@@ -174,9 +174,10 @@ jobs:
           build-scan-publish: 'true'
           skip-searchable-options: 'true'
 
-      # Restore the quoter build cache (deps + _build) so the Build quoter step goes incremental. This
-      # and its Save counterpart live here, not in setup-env, so the whole cache lifecycle sits next to
-      # the quoter build.
+      # Restore the quoter cache (the quoter source zip, its deps and _build, and the pair's hex and
+      # rebar) so the Build quoter step goes incremental without the network. This and its Save
+      # counterpart live here, not in setup-env, so the whole cache lifecycle sits next to the quoter
+      # build.
       #
       # The patterns come from the build rather than being derived here. Deriving them meant grepping
       # quoterRef out of gradle.properties and rebuilding the Elixir/OTP pair token in bash - second
@@ -227,10 +228,9 @@ jobs:
         continue-on-error: ${{ matrix.beam.continue-on-error || false }}
         run: ./gradlew $GRADLE_FLAGS releaseQuoter
 
-      # Save the quoter build (_build/deps) now that releaseQuoter has produced it - setup-env only
-      # restores this cache; it cannot save it (those dirs do not exist until this step runs).
-      # `path` must stay the shared output, never a list written out here - see Resolve quoter cache
-      # slug for what diverging from Restore costs.
+      # Saved here because the cached paths do not exist until releaseQuoter has run. `path` must stay
+      # the shared output, never a list written out here - see Resolve quoter cache paths for what
+      # diverging from Restore costs.
       - name: Save Elixir cache
         id: save-elixir-cache
         if: always() && steps.build-quoter.outcome == 'success' && steps.restore-elixir-cache.outputs.cache-hit != 'true'
