@@ -1099,6 +1099,13 @@ tasks.named<Test>("test") {
     systemProperty("idea.split.test.logs", "true")
 }
 
+// Kotlin makes this jar a friend path of compileTestKotlin, and the file name is part of that task's
+// build-cache key. With the per-commit version in it, test compilation never came from the cache on
+// CI. The distribution is named by composedJar, which sets its own version.
+tasks.jar {
+    archiveVersion.set("")
+}
+
 tasks.named<Zip>("buildPlugin") {
     doLast {
         println("Note: Timestamps in version strings and filenames of build artifacts do not change on every build due to gradle config caching.")
