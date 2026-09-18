@@ -603,8 +603,9 @@ noParenthesesStrict ::= emptyParentheses |
 /* 1. (positional, keywords)
    2. (positional, positional)
    3. (positional, positional, keywords) */
-private noParenthesesManyArguments ::= matchedExpression infixComma noParenthesesKeywords |
-                                       matchedExpression (infixComma noParenthesesExpression)+ (infixComma noParenthesesKeywords)?
+private noParenthesesManyArguments ::= <<commaAhead>> matchedExpression infixComma noParenthesesManyArgumentsTail
+private noParenthesesManyArgumentsTail ::= noParenthesesKeywords |
+                                           noParenthesesExpression (infixComma noParenthesesExpression)* (infixComma noParenthesesKeywords)?
 private noParenthesesManyArgumentsStrict ::= noParenthesesManyArguments |
                                              noParenthesesStrict
 
@@ -724,7 +725,7 @@ heredoc ::= HEREDOC_PROMOTER heredocOpening
               pin = HEREDOC_PROMOTER
             }
 // EOL is optional because when last line EOL is escaped (See https://github.com/intellij-elixir/intellij-elixir/issues/1843)
-heredocLine ::= heredocLinePrefix heredocLineBody heredocLineEnd
+heredocLine ::= <<heredocLineEndAhead>> heredocLinePrefix heredocLineBody heredocLineEnd
                 {
                   implements = [
                     "org.elixir_lang.psi.HeredocLineable"
@@ -759,7 +760,7 @@ interpolatedSigilHeredoc ::= TILDE INTERPOLATING_SIGIL_NAME HEREDOC_PROMOTER her
                                //noinspection BnfResolve
                                pin = HEREDOC_PROMOTER
                              }
-interpolatedHeredocLine ::= heredocLinePrefix interpolatedHeredocLineBody heredocLineEnd
+interpolatedHeredocLine ::= <<heredocLineEndAhead>> heredocLinePrefix interpolatedHeredocLineBody heredocLineEnd
                             {
                               implements = [
                                 "org.elixir_lang.psi.HeredocLineable"
@@ -1989,12 +1990,11 @@ private stabOperations ::= noArgumentStabOperation |
                            stabOperation (stabBodyExpressionSeparator stabOperation)*
 
 // @see https://github.com/elixir-lang/elixir/blob/de39bbaca277002797e52ffbde617ace06233a2b/lib/elixir/src/elixir_parser.yrl#L268-L269
-stab ::= stabOperations | stabBody
+stab ::= <<stabOperationAhead>> stabOperations | stabBody
          { implements = "org.elixir_lang.psi.Quotable" methods = [quote] }
 
 // @see https://github.com/elixir-lang/elixir/blob/de39bbaca277002797e52ffbde617ace06233a2b/lib/elixir/src/elixir_parser.yrl#L205
 anonymousFunction ::= FN endOfExpressionMaybe
-                      // -> is required, so use stabOperations directly and not stab as would be used used in `doBlock`
                       stab stabBodyExpressionSeparatorMaybe
                       END
                       {
@@ -2587,7 +2587,7 @@ private doStabSeparatorMaybe ::= doStabSeparator?
  * The recovery also runs after an expression that parses, so it takes a stray closer such as the `)` of `1)`.  Every
  * token that may follow an expression in a valid `do` block is in the end set, so valid code skips nothing.
  */
-doBlockStab ::= stabOperations | doBlockStabBody
+doBlockStab ::= <<stabOperationAhead>> stabOperations | doBlockStabBody
                 { elementType = stab }
 doBlockStabBody ::= doBlockStabBodyExpression (stabBodyExpressionSeparator doBlockStabBodyExpression)*
                     { elementType = stabBody }
