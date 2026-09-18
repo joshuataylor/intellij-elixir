@@ -425,6 +425,8 @@
 
 ### Build / CI
 
+- [#4120](https://github.com/intellij-elixir/intellij-elixir/pull/4120) [@sh41](https://github.com/sh41)
+  - **CI caches now skip the work they exist to skip, and the Windows test leg no longer times out saving them.**
 - [#4116](https://github.com/intellij-elixir/intellij-elixir/pull/4116) [@sh41](https://github.com/sh41)
   - **Repository links in the docs and the plugin's vendor URL point at `intellij-elixir/intellij-elixir`.**
 - [#4083](https://github.com/intellij-elixir/intellij-elixir/pull/4083) [@sh41](https://github.com/sh41)
