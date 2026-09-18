@@ -1,17 +1,15 @@
 package org.elixir_lang.code_insight
 
 import com.intellij.lang.parameterInfo.*
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.psi.Arguments
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.ElixirTypes
 import org.elixir_lang.psi.call.Call
-import org.elixir_lang.psi.impl.call.finalArguments
-import org.elixir_lang.structure_view.element.CallDefinitionHead
-import java.util.Collections.singletonList
 
-class ParameterInfo : ParameterInfoHandler<Arguments, Any> {
+class ParameterInfo : ParameterInfoHandler<Arguments, Signature> {
     override fun findElementForParameterInfo(context: CreateParameterInfoContext): Arguments? =
         findArguments(context)
 
@@ -20,41 +18,18 @@ class ParameterInfo : ParameterInfoHandler<Arguments, Any> {
 
     override fun showParameterInfo(element: Arguments, context: CreateParameterInfoContext) {
         PsiTreeUtil.getParentOfType(element, Call::class.java)?.let { call ->
-            val allClauses = call.references.flatMap { reference ->
+            val resolved = call.references.flatMap { reference ->
                 if (reference is PsiPolyVariantReference) {
-                    reference.multiResolve(true).flatMap { resolveResult ->
-                        resolveResult.element?.let {
-                            if ((it is Call) && CallDefinitionClause.`is`(it)) {
-                                singletonList(it)
-                            } else {
-                                null
-                            }
-                        } ?: emptyList()
-                    }
+                    reference.multiResolve(true).mapNotNull { it.element }
                 } else {
-                    reference.resolve()?.let { resolvedElement ->
-                        if ((resolvedElement is Call) && CallDefinitionClause.`is`(resolvedElement)) {
-                            singletonList(resolvedElement)
-                        } else {
-                            null
-                        }
-                    } ?: emptyList()
+                    listOfNotNull(reference.resolve())
                 }
             }
 
-            /* Deduplicate by (name, arity), preferring bare function heads (no do block) over
-               implementation clauses, and keep only the function actually being called - resolution also
-               returns functions the name is a prefix of, so `reduce` would otherwise be described by
-               `reduce_while` as well.
+            val signatures = signatures(resolved, call.functionName())
 
-               The references are resolved as incomplete code so that a call whose arguments are not typed
-               yet resolves at all, which is exactly when the hint is wanted: resolving them completely
-               collapses `foo/1` and `foo/2` to a single arity, and does not drop the prefix matches
-               either. Both halves were measured. */
-            val itemToShowList = preferFunctionHeadsByArity(allClauses, call.functionName())
-
-            if (itemToShowList.isNotEmpty()) {
-                context.itemsToShow = itemToShowList.toTypedArray()
+            if (signatures.isNotEmpty()) {
+                context.itemsToShow = signatures.toTypedArray()
                 context.showHint(element, element.textRange.startOffset, this)
             }
         }
@@ -70,48 +45,33 @@ class ParameterInfo : ParameterInfoHandler<Arguments, Any> {
         )
     }
 
-    override fun updateUI(p: Any?, context: ParameterInfoUIContext) {
+    override fun updateUI(p: Signature?, context: ParameterInfoUIContext) {
         if (p == null) {
             context.isUIComponentEnabled = false
         } else {
             val currentParameterIndex = context.currentParameterIndex
 
             val stringBuilder = StringBuilder()
-            var disabled = false
             var start = 0
             var end = 0
 
-            if (p is Call) {
-                if (CallDefinitionClause.`is`(p)) {
-                    CallDefinitionClause.head(p)?.let { callDefinitionClauseHead ->
-                        val stripped = CallDefinitionHead.strip(callDefinitionClauseHead)
+            p.parameters.forEachIndexed { index, parameter ->
+                if (index != 0) {
+                    stringBuilder.append(", ")
+                }
 
-                        if (stripped is Call) {
-                            stripped.finalArguments()?.let { finalArguments ->
-                                finalArguments.forEachIndexed { index, psiElement ->
-                                    if (index != 0) {
-                                        stringBuilder.append(", ")
-                                    }
+                if (index == currentParameterIndex) {
+                    start = stringBuilder.length
+                }
 
-                                    if (index == currentParameterIndex) {
-                                        start = stringBuilder.length
-                                    }
+                stringBuilder.append(parameter)
 
-                                    stringBuilder.append(psiElement.text)
-
-                                    if (index == currentParameterIndex) {
-                                        end = stringBuilder.length
-                                    }
-                                }
-
-                                disabled = finalArguments.size <= currentParameterIndex
-                            }
-                        }
-                    }
+                if (index == currentParameterIndex) {
+                    end = stringBuilder.length
                 }
             }
-            // Any other item kind leaves the builder empty and renders as "<no parameters>" below; a
-            // hint is not worth a crash.
+
+            val disabled = p.parameters.size <= currentParameterIndex
 
             if (stringBuilder.isEmpty()) {
                 stringBuilder.append("<no parameters>")
@@ -126,4 +86,17 @@ class ParameterInfo : ParameterInfoHandler<Arguments, Any> {
 
     private fun findArguments(context: ParameterInfoContext): Arguments? =
         ParameterInfoUtils.findParentOfType(context.file, context.offset, Arguments::class.java)
+
+    /* Deduplicate by (name, arity), preferring bare function heads (no do block) over implementation clauses,
+       and keep only the function actually being called - resolution also returns functions the name is a
+       prefix of, so `reduce` would otherwise be described by `reduce_while` as well.
+
+       The references are resolved as incomplete code so that a call whose arguments are not typed yet resolves
+       at all, which is exactly when the hint is wanted: resolving them completely collapses `foo/1` and `foo/2`
+       to a single arity, and does not drop the prefix matches either. */
+    private fun signatures(resolved: List<PsiElement>, name: String?): List<Signature> {
+        val clauses = resolved.filterIsInstance<Call>().filter { CallDefinitionClause.`is`(it) }
+
+        return preferFunctionHeadsByArity(clauses, name).mapNotNull { Signature.of(it) }
+    }
 }

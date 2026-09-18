@@ -5,7 +5,6 @@ import com.intellij.testFramework.utils.parameterInfo.MockCreateParameterInfoCon
 import com.intellij.testFramework.utils.parameterInfo.MockParameterInfoUIContext;
 import org.elixir_lang.PlatformTestCase;
 import org.elixir_lang.psi.Arguments;
-import org.elixir_lang.psi.call.Call;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,10 +27,10 @@ public class ParameterInfoTest extends PlatformTestCase {
         assertEquals("Multiple clause heads should be deduplicated to one entry", 1, items.length);
 
         // Render the single item and verify it shows the bare head's canonical parameters
-        Call call = assertInstanceOf(items[0], Call.class);
+        Signature signature = assertInstanceOf(items[0], Signature.class);
         MockParameterInfoUIContext<Arguments> uiContext = new MockParameterInfoUIContext<>(args);
         uiContext.setCurrentParameterIndex(0);
-        handler.updateUI(call, uiContext);
+        handler.updateUI(signature, uiContext);
 
         assertEquals("enumerable, nth, fun", uiContext.getText());
     }
@@ -158,10 +157,10 @@ public class ParameterInfoTest extends PlatformTestCase {
     private List<String> renderedParameterTexts(ParameterInfo handler, Arguments args, Object[] items) {
         return Arrays.stream(items)
                 .map(item -> {
-                    Call call = assertInstanceOf(item, Call.class);
+                    Signature signature = assertInstanceOf(item, Signature.class);
                     MockParameterInfoUIContext<Arguments> uiContext = new MockParameterInfoUIContext<>(args);
                     uiContext.setCurrentParameterIndex(0);
-                    handler.updateUI(call, uiContext);
+                    handler.updateUI(signature, uiContext);
                     return uiContext.getText();
                 })
                 .collect(Collectors.toList());
