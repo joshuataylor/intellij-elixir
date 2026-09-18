@@ -433,9 +433,9 @@ If you want to create a basic (non-`mix`) Elixir project with a `lib` directory,
      * `/usr/local/lib/elixir`
      * Nix and NixOS (`/nix/store`)
    * Windows
-     * 32-bit (`C:\Program Files\Elixir`)
-     * 64-bit (`C:\Program Files (x86)\Elixir`)
-     * (**NOTE: SDK detection only works for [Open an issue](https://github.com/intellij-elixir/intellij-elixir/issues) with information about Elixir install locations on your operating system and package manager to have SDK detection added for it.**)
+     * 64-bit (`C:\Program Files\Elixir`)
+     * 32-bit (`C:\Program Files (x86)\Elixir`)
+   * (**NOTE: SDK detection only works for the locations above. [Open an issue](https://github.com/intellij-elixir/intellij-elixir/issues) with information about Elixir install locations on your operating system and package manager to have SDK detection added for it.**)
 7. If the automatic detection doesn't find your Elixir SDK or you want to use an older version, manually select select the directory above the `bin` directory containing `elixir`, `elixirc`, `iex`, and `mix`.  If the `bin`, `lib,` or `src` directory is incorrectly selected, it will be corrected to the parent directory.
 8. Click Next after you select SDK name from the Project SDK list.
 9. Change the `Project name` to the name your want for the project
