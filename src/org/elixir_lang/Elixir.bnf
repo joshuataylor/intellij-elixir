@@ -725,7 +725,7 @@ heredoc ::= HEREDOC_PROMOTER heredocOpening
               pin = HEREDOC_PROMOTER
             }
 // EOL is optional because when last line EOL is escaped (See https://github.com/intellij-elixir/intellij-elixir/issues/1843)
-heredocLine ::= heredocLinePrefix heredocLineBody heredocLineEnd
+heredocLine ::= <<heredocLineEndAhead>> heredocLinePrefix heredocLineBody heredocLineEnd
                 {
                   implements = [
                     "org.elixir_lang.psi.HeredocLineable"
@@ -760,7 +760,7 @@ interpolatedSigilHeredoc ::= TILDE INTERPOLATING_SIGIL_NAME HEREDOC_PROMOTER her
                                //noinspection BnfResolve
                                pin = HEREDOC_PROMOTER
                              }
-interpolatedHeredocLine ::= heredocLinePrefix interpolatedHeredocLineBody heredocLineEnd
+interpolatedHeredocLine ::= <<heredocLineEndAhead>> heredocLinePrefix interpolatedHeredocLineBody heredocLineEnd
                             {
                               implements = [
                                 "org.elixir_lang.psi.HeredocLineable"

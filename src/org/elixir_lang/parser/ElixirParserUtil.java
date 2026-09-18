@@ -115,6 +115,38 @@ public class ElixirParserUtil extends GeneratedParserUtilBase {
         return aheadInGroup(builder, ElixirTypes.COMMA, COMMA_ANSWERS);
     }
 
+    /**
+     * Whether the heredoc line starting here has its end of line, rather than being cut off by the end of the file.
+     * Without the check, the last line of an unterminated heredoc is parsed as a line, fails for want of its end, and
+     * is parsed again as the unterminated last line - once more per heredoc nested in its interpolations.
+     * <p>
+     * A line's body holds no end of line outside its interpolations, so the first one at depth zero is the line's.
+     */
+    public static boolean heredocLineEndAhead(@NotNull PsiBuilder builder, int level) {
+        int depth = 0;
+
+        for (int steps = 0; ; steps++) {
+            ProgressManager.checkCanceled();
+
+            IElementType tokenType = builder.rawLookup(steps);
+
+            if (tokenType == null) {
+                return false;
+            } else if (tokenType == ElixirTypes.INTERPOLATION_START) {
+                depth++;
+            } else if (tokenType == ElixirTypes.INTERPOLATION_END) {
+                if (depth == 0) {
+                    // an interpolation this line never opened: not provably cut off
+                    return true;
+                }
+
+                depth--;
+            } else if (depth == 0 && tokenType == ElixirTypes.EOL) {
+                return true;
+            }
+        }
+    }
+
     private static final Key<ScanAnswers> STAB_OPERATOR_ANSWERS = Key.create("ELIXIR_PARSE_STAB_OPERATOR_ANSWERS");
     private static final Key<ScanAnswers> COMMA_ANSWERS = Key.create("ELIXIR_PARSE_COMMA_ANSWERS");
 

@@ -111,6 +111,12 @@ class Issue4114TestCase : ParsingTestCase() {
     fun testDeepTruncatedFor() =
         assertParsesWithinBudget(truncated(surround("for x <- (", "), do: x", 16)), valid = false)
 
+    fun testDeepTruncatedHeredocInterpolation() =
+        assertParsesWithinBudget(truncated(surround("\"\"\"\n#{", "}\n\"\"\"", 32)), valid = false)
+
+    fun testDeepTruncatedSigilHeredocInterpolation() =
+        assertParsesWithinBudget(truncated(surround("~s\"\"\"\n#{", "}\n\"\"\"", 32)), valid = false)
+
     fun testDeepClosersDeletedWith() =
         assertParsesWithinBudget(
             surround("with {:ok, a} <- (", "), do: a", 16).replaceFirst("), do: a", ", do: a"),

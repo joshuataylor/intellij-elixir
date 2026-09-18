@@ -1661,12 +1661,13 @@ public class ElixirParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // heredocLinePrefix heredocLineBody heredocLineEnd
+  // <<heredocLineEndAhead>> heredocLinePrefix heredocLineBody heredocLineEnd
   public static boolean heredocLine(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "heredocLine")) return false;
     boolean r;
     Marker m = enter_section_(b, l, _NONE_, HEREDOC_LINE, "<heredoc line>");
-    r = heredocLinePrefix(b, l + 1);
+    r = heredocLineEndAhead(b, l + 1);
+    r = r && heredocLinePrefix(b, l + 1);
     r = r && heredocLineBody(b, l + 1);
     r = r && heredocLineEnd(b, l + 1);
     exit_section_(b, l, m, r, false, null);
@@ -1902,12 +1903,13 @@ public class ElixirParser implements PsiParser, LightPsiParser {
   }
 
   /* ********************************************************** */
-  // heredocLinePrefix interpolatedHeredocLineBody heredocLineEnd
+  // <<heredocLineEndAhead>> heredocLinePrefix interpolatedHeredocLineBody heredocLineEnd
   public static boolean interpolatedHeredocLine(PsiBuilder b, int l) {
     if (!recursion_guard_(b, l, "interpolatedHeredocLine")) return false;
     boolean r;
     Marker m = enter_section_(b, l, _NONE_, INTERPOLATED_HEREDOC_LINE, "<interpolated heredoc line>");
-    r = heredocLinePrefix(b, l + 1);
+    r = heredocLineEndAhead(b, l + 1);
+    r = r && heredocLinePrefix(b, l + 1);
     r = r && interpolatedHeredocLineBody(b, l + 1);
     r = r && heredocLineEnd(b, l + 1);
     exit_section_(b, l, m, r, false, null);
