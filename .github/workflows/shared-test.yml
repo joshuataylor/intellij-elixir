@@ -103,7 +103,9 @@ jobs:
     name: test (${{ matrix.label }})
     needs: test-matrix
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # Headroom for setup-gradle's post-step cache save; Run tests has its own limit. A job cut off
+    # mid-save never records the new cache keys, so later pushes to main re-attempt the whole save.
+    timeout-minutes: 45
     # NOTE: continue-on-error is deliberately NOT set here. A job-level continue-on-error keeps the
     # workflow run green but still publishes a FAILED check run, which blocks the pull request's
     # merge button. The tolerance is applied to the Run tests step instead (see below), so an
@@ -274,6 +276,7 @@ jobs:
       # the tests becomes a merge-blocking job despite being declared informational.
       - name: Run tests
         id: test
+        timeout-minutes: 30
         continue-on-error: ${{ matrix.beam.continue-on-error || false }}
         run: ./gradlew $GRADLE_FLAGS -Dtestlogger.theme=standard check
 
