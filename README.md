@@ -284,8 +284,6 @@ Table of Contents[![Backers on Open Collective](https://opencollective.com/intel
 
 # Elixir plugin
 
-[![Build Status](https://travis-ci.org/KronicDeth/intellij-elixir.svg?branch=main)](https://travis-ci.org/KronicDeth/intellij-elixir)
-
 This is a plugin that adds support for [Elixir](http://elixir-lang.org/) to JetBrains IDEs.
 
 The plugin works both in the rich IDEs that allow alternative language SDK selection and small IDEs that are language specific.  The rich IDEs work best for IntelliJ Elixir because only in the rich IDEs can have an Elixir SDK set as the Project SDK.  In all small IDEs, the native language SDK is always there, which makes anything that uses the SDK, such as running `elixir`, `erl`, or `mix` more complicated both internally and externally in the configuration you have to setup.
