@@ -34,10 +34,10 @@ internal class ElixirSearchableOptionContributor : SearchableOptionContributor()
 
         addAliases(
             processor = processor,
-            configurableId = "language.elixir",
-            configurableDisplayName = "Elixir",
-            hit = "Elixir",
-            text = "elixir settings liveview heex sigil injection mix deps"
+            configurableId = "language.elixir.experimental",
+            configurableDisplayName = "Experimental Settings",
+            hit = "Experimental Settings",
+            text = "elixir experimental settings liveview heex sigil injection mix deps status bar widget"
         )
 
         addAliases(

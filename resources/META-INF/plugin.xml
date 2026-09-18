@@ -173,6 +173,10 @@
                                  parentId="language.elixir"
                                  displayName="Internal Erlang SDKs"
                                  provider="org.elixir_lang.facet.sdks.erlang.Provider"/>
+        <applicationConfigurable id="language.elixir.experimental"
+                                 parentId="language.elixir"
+                                 displayName="Experimental Settings"
+                                 instance="org.elixir_lang.settings.ElixirExperimentalSettingsConfigurable"/>
         <projectConfigurable id="language.elixir"
                              parentId="language"
                              displayName="Elixir"

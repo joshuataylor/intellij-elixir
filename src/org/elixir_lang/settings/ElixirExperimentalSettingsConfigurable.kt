@@ -8,22 +8,18 @@ import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.panel
 import javax.swing.JComponent
 
-private val LOG = logger<ElixirTopLevelConfigurable>()
+private val LOG = logger<ElixirExperimentalSettingsConfigurable>()
 
-/**
- * Top-level Elixir settings page for full IDEs.
- * Hosts the plugin's general settings directly, with child configurables
- * (Credo, Dialyzer, SDKs) providing additional editable settings.
- */
-class ElixirTopLevelConfigurable : Configurable, Configurable.NoScroll {
+/** The Experimental Settings page under Elixir, in every IDE. */
+internal class ElixirExperimentalSettingsConfigurable : Configurable, Configurable.NoScroll, Configurable.Beta {
     private var settingsPanel: DialogPanel? = null
     private val settings = ElixirExperimentalSettings.instance
 
-    override fun getDisplayName(): String = "Elixir"
+    override fun getDisplayName(): String = "Experimental Settings"
 
     override fun createComponent(): JComponent {
         settingsPanel = panel {
-            group("HEEx Injection in ~H Sigils code blocks") {
+            group("HEEx Injection in ~H Sigils Code Blocks") {
                 row {
                     checkBox("Enable ~H Sigil HEEx language injection")
                         .comment("Provides HEEx (HTML + Elixir) syntax highlighting and code completion within <a href='https://hexdocs.pm/phoenix_live_view/1.0.3/Phoenix.Component.html#sigil_H/2'>~H Sigils code blocks</a>, when working with Phoenix Live View HEEx templates, otherwise you'll see this as a string.<br/><br/><a href='https://github.com/intellij-elixir/intellij-elixir#h-sigil-heex-language-injection-support'>Documentation for ~H Sigil HEEx Language Injection Support.</a>")
@@ -72,18 +68,18 @@ class ElixirTopLevelConfigurable : Configurable, Configurable.NoScroll {
     }
 
     override fun apply() {
-        if (!isModified()) {
+        if (!isModified) {
             LOG.debug("No modifications detected, skipping apply")
             return
         }
 
         val oldState = settings.state.copy()
-        LOG.debug("ElixirTopLevelConfigurable.apply() - oldState: $oldState")
+        LOG.debug("ElixirExperimentalSettingsConfigurable.apply() - oldState: $oldState")
 
         settingsPanel?.apply()
 
         val newState = settings.state.copy()
-        LOG.debug("ElixirTopLevelConfigurable.apply() - newState: $newState")
+        LOG.debug("ElixirExperimentalSettingsConfigurable.apply() - newState: $newState")
 
         val messageBus = ApplicationManager.getApplication().messageBus
         messageBus.syncPublisher(ElixirExperimentalSettings.SETTINGS_CHANGED_TOPIC).settingsChanged(oldState, newState)
