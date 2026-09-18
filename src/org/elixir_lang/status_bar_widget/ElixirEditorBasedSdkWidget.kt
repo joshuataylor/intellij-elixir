@@ -157,6 +157,10 @@ class ElixirEditorBasedSdkWidget(
         /** Not for a module SDK error: it resets the module to the project SDK, undoing what a tool manager chose. */
         internal fun offersReconfigure(status: SdkStatus): Boolean = status is SdkStatus.FolderMarkWarning
 
+        internal fun otpMismatchMessage(sdkName: String, elixirOtpMajor: String, erlangOtpMajor: String): String =
+            "Elixir SDK '$sdkName' was compiled for OTP $elixirOtpMajor but is paired with OTP $erlangOtpMajor. " +
+                "This may cause runtime errors (e.g. {undef,[{elixir,start_cli,...}]})."
+
         internal fun danglingMessage(moduleNames: List<String>, sdkNames: List<String>, targetName: String): String {
             val moduleCount = moduleNames.size
             val moduleWord = StringUtil.pluralize("Module", moduleCount)
@@ -740,9 +744,7 @@ class ElixirEditorBasedSdkWidget(
 
         is SdkStatus.OtpMismatch -> NotificationContent(
             "Elixir SDK OTP Version Mismatch",
-            "Elixir ${status.elixirVersion} was compiled for OTP ${status.elixirOtpMajor} " +
-                    "but is paired with OTP ${status.erlangOtpMajor}. " +
-                    "This may cause runtime errors (e.g. {undef,[{elixir,start_cli,...}]}).",
+            otpMismatchMessage(status.elixirSdk.name, status.elixirOtpMajor, status.erlangOtpMajor),
             NotificationType.WARNING
         )
 

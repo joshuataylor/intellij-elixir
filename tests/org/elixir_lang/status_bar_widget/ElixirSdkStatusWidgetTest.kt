@@ -371,6 +371,12 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         assertTrue(message, message.contains("Project Structure -> Modules -> my_app -> Dependencies -> Module SDK"))
     }
 
+    fun testTheOtpMismatchNoticeNamesTheSdkOnce() {
+        val message = ElixirEditorBasedSdkWidget.otpMismatchMessage("mise Elixir 1.19.5-otp-27 (Erlang 28.1)", "27", "28")
+
+        assertTrue(message, message.startsWith("Elixir SDK 'mise Elixir 1.19.5-otp-27 (Erlang 28.1)' was compiled for OTP 27 but is paired with OTP 28."))
+    }
+
     /** A small IDE has no module SDK settings, so a module SDK left by IntelliJ IDEA cannot be fixed there. */
     fun testASmallIdeReadsOnlyTheFacet() {
         ProcessOutput.isSmallIdeOverride = true
