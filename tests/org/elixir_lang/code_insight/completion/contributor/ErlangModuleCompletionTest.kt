@@ -7,7 +7,7 @@ import java.io.File
 
 /**
  * Completion against a BEAM-decompiled Erlang module - the OTP stdlib case
- * [#615](https://github.com/KronicDeth/intellij-elixir/issues/615) asks for. Resolution against this
+ * [#615](https://github.com/intellij-elixir/intellij-elixir/issues/615) asks for. Resolution against this
  * same `math.beam` is pinned by `ErlangAtomQualifierTest` and `ErlangMfaTupleReferenceTest`; these
  * pin the popup.
  *

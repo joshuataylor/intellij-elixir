@@ -14,7 +14,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 
 /**
- * See https://github.com/KronicDeth/intellij-elixir/issues/196
+ * See https://github.com/intellij-elixir/intellij-elixir/issues/196
  */
 @RunWith(Parameterized.class)
 public class SigilPromoterTest extends Test {

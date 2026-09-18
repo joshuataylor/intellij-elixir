@@ -5,7 +5,7 @@ import org.elixir_lang.code_insight.completeSoleCandidateAtCaret
 import org.elixir_lang.code_insight.completionStringsAtCaret
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/1270
+ * https://github.com/intellij-elixir/intellij-elixir/issues/1270
  */
 class Issue1270Test : PlatformTestCase() {
     /**

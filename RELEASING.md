@@ -112,7 +112,7 @@ zip attached, pre-release flag set. Unlike the plugin's "What's New", that body 
 including `### Threading / Platform Hygiene` and `### Build / CI`. What is left is what the
 changelog does not carry.
 
-1. Open [releases](https://github.com/KronicDeth/intellij-elixir/releases) and edit the new release
+1. Open [releases](https://github.com/intellij-elixir/intellij-elixir/releases) and edit the new release
 2. Add thanks for the bug reporters for the release (use the Milestone filter to find issues fixed
    for the release version)
 3. Add the README updates (copy directly from `README.md`)
@@ -153,7 +153,7 @@ Open [IntelliJ Elixir - Elixir plugin for JetBrain's IntelliJ Platform](https://
 5. Paste Release Notes from GitHub in message body
 6. Add Installation Instructions link
    ```
-   [Installation Instructions](https://github.com/KronicDeth/intellij-elixir/blob/VERSION/README.md#installation)
+   [Installation Instructions](https://github.com/intellij-elixir/intellij-elixir/blob/VERSION/README.md#installation)
    ```
 7. Click "Reply" to post reply
 
@@ -165,7 +165,7 @@ Open [IntelliJ Elixir - Elixir plugin for JetBrain's IntelliJ Platform](https://
   IntelliJ Elixir vVERSION
   SUMMARY
   https://plugins.jetbrains.com/plugin/7522
-  https://github.com/KronicDeth/intellij-elixir/releases/tag/vVERSION
+  https://github.com/intellij-elixir/intellij-elixir/releases/tag/vVERSION
   #myelixirstatus
   ```
 
@@ -179,7 +179,7 @@ Open [IntelliJ Elixir - Elixir plugin for JetBrain's IntelliJ Platform](https://
 4. Put in brief bullet-points of enhancements and bug fixes
 5. Add Installation Instructions link
    ```
-   [Installation Instructions](https://github.com/KronicDeth/intellij-elixir/blob/VERSION/README.md#installation)
+   [Installation Instructions](https://github.com/intellij-elixir/intellij-elixir/blob/VERSION/README.md#installation)
    ```
 6. Click "Post this"
 7. Click "Retweet this!"

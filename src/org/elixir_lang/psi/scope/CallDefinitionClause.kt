@@ -268,7 +268,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
             if (callFile == entrance.containingFile) {
                 /* Only allow scanning back down in outer nested modules for siblings.  Prevents scanning in sibling
-                   nested modules in https://github.com/KronicDeth/intellij-elixir/issues/1270 */
+                   nested modules in https://github.com/intellij-elixir/intellij-elixir/issues/1270 */
                 modularContains(call, entrance)
             } else {
                 // done by injection or viewFile

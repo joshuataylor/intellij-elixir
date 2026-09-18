@@ -140,7 +140,7 @@ File.write!(Path.join(here, "NOTICE.md"), [
 
   `snippets.jsonl` holds, one JSON object per line, the source strings that Elixir's own parser, tokenizer,
   formatter and normalizer tests hand to the parser. They come from #{elixir_git}, which is
-  licensed under the Apache License, Version 2.0, the licence of this repository (`LICENSE.md`).
+  licensed under the Apache License, Version 2.0, the licence of this repository (`LICENSE`).
 
   It was changed as follows: `generate.exs` extracted each snippet from a string literal, sigil or charlist in
   a test file, interpreted the escapes of `~s` and `~c` sigils, and kept one copy of each snippet across the

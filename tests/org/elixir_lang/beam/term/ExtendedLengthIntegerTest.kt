@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Regression tests for https://github.com/KronicDeth/intellij-elixir/issues/1052,
+ * Regression tests for https://github.com/intellij-elixir/intellij-elixir/issues/1052,
  * "ByteSubarray.get ArrayIndexOutOfBoundsException for 0".
  *
  * A compact-term integer whose tag has bits 7-5 set to `0b111` does not carry its byte length in

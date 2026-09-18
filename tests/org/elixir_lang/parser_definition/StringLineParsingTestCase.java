@@ -33,7 +33,7 @@ public class StringLineParsingTestCase extends ParsingTestCase {
     }
 
     /* Tests that '#' for comments and '#' for interpolation are treated differently.  Covers bug reported in
-     * {@link https://github.com/KronicDeth/intellij-elixir/issues/2}.
+     * {@link https://github.com/intellij-elixir/intellij-elixir/issues/2}.
      */
     public void testInterpolationRegression() {
         // TODO replace doTest(true) with assertParsedAndQuotedCorrectly() when parser complete

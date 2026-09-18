@@ -284,8 +284,6 @@ Table of Contents[![Backers on Open Collective](https://opencollective.com/intel
 
 # Elixir plugin
 
-[![Build Status](https://travis-ci.org/KronicDeth/intellij-elixir.svg?branch=main)](https://travis-ci.org/KronicDeth/intellij-elixir)
-
 This is a plugin that adds support for [Elixir](http://elixir-lang.org/) to JetBrains IDEs.
 
 The plugin works both in the rich IDEs that allow alternative language SDK selection and small IDEs that are language specific.  The rich IDEs work best for IntelliJ Elixir because only in the rich IDEs can have an Elixir SDK set as the Project SDK.  In all small IDEs, the native language SDK is always there, which makes anything that uses the SDK, such as running `elixir`, `erl`, or `mix` more complicated both internally and externally in the configuration you have to setup.
@@ -371,7 +369,7 @@ If you've already created a `mix` project, you can load it as an Elixir project 
 5. Click Next
 6. Select a Project SDK directory by clicking Configure.
 7. The plugin will automatically find the newest version of Elixir installed. (**NOTE: SDK detection only works for
-   Linux, homebrew installs on OSX, and Windows.  [Open an issue](https://github.com/KronicDeth/intellij-elixir/issues)
+   Linux, homebrew installs on OSX, and Windows.  [Open an issue](https://github.com/intellij-elixir/intellij-elixir/issues)
    with information about Elixir install locations on your operating system and package manager to have SDK detection
    added for it.**)
 8. If the automatic detection doesn't find your Elixir SDK or you want to use an older version, manually select select
@@ -403,7 +401,7 @@ If you've already created a (non-`mix`) project, you can load it as an Elixir pr
 10. Click Next.
 11. Select a Project SDK directory by clicking Configure.
 12. The plugin will automatically find the newest version of Elixir installed. (**NOTE: SDK detection only works for
-    Linux, homebrew installs on OSX, and Windows.  [Open an issue](https://github.com/KronicDeth/intellij-elixir/issues)
+    Linux, homebrew installs on OSX, and Windows.  [Open an issue](https://github.com/intellij-elixir/intellij-elixir/issues)
     with information about Elixir install locations on your operating system and package manager to have SDK detection
     added for it.**)
 13. If the automatic detection doesn't find your Elixir SDK or you want to use an older version, manually select select
@@ -435,9 +433,9 @@ If you want to create a basic (non-`mix`) Elixir project with a `lib` directory,
      * `/usr/local/lib/elixir`
      * Nix and NixOS (`/nix/store`)
    * Windows
-     * 32-bit (`C:\Program Files\Elixir`)
-     * 64-bit (`C:\Program Files (x86)\Elixir`)
-     * (**NOTE: SDK detection only works for [Open an issue](https://github.com/KronicDeth/intellij-elixir/issues) with information about Elixir install locations on your operating system and package manager to have SDK detection added for it.**)
+     * 64-bit (`C:\Program Files\Elixir`)
+     * 32-bit (`C:\Program Files (x86)\Elixir`)
+   * (**NOTE: SDK detection only works for the locations above. [Open an issue](https://github.com/intellij-elixir/intellij-elixir/issues) with information about Elixir install locations on your operating system and package manager to have SDK detection added for it.**)
 7. If the automatic detection doesn't find your Elixir SDK or you want to use an older version, manually select select the directory above the `bin` directory containing `elixir`, `elixirc`, `iex`, and `mix`.  If the `bin`, `lib,` or `src` directory is incorrectly selected, it will be corrected to the parent directory.
 8. Click Next after you select SDK name from the Project SDK list.
 9. Change the `Project name` to the name your want for the project
@@ -3634,7 +3632,7 @@ By default as many references to other chunks and references to other parts of `
   </tbody>
 </table>
 
-If any of the inliners are incorrect or you have an argument name that makes more sense, please open an [issue](https://github.com/KronicDeth/intellij-elixir/issues).
+If any of the inliners are incorrect or you have an argument name that makes more sense, please open an [issue](https://github.com/intellij-elixir/intellij-elixir/issues).
 
 ##### `Dbgi`
 
@@ -5983,7 +5981,7 @@ To enable support for HTML syntax highlighting and component navigation:
 
 #### Providing feedback and reporting issues for the ~H Sigil HEEx Language Injection Experimental Feature
 
-Have feedback or encountered issues? Please share your thoughts, Exception Stacktraces on the dedicated [**\[Experimental Feature\] ~H Sigil HTML Injection #3678**](https://github.com/KronicDeth/intellij-elixir/issues/3678).
+Have feedback or encountered issues? Please share your thoughts, Exception Stacktraces on the dedicated [**\[Experimental Feature\] ~H Sigil HTML Injection #3678**](https://github.com/intellij-elixir/intellij-elixir/issues/3678).
 
 #### Removing the Green Background for Injected Language Fragments
 
@@ -6020,7 +6018,7 @@ If you're okay with disabling the background for all injections:
 
 ##### In browser
 
-1. Go to [releases](https://github.com/KronicDeth/intellij-elixir/releases).
+1. Go to [releases](https://github.com/intellij-elixir/intellij-elixir/releases).
 2. Download the latest release zip.
 
 ##### In IDE
@@ -6063,7 +6061,7 @@ With the `canary` repository setup:
 
 ##### In browser
 
-1. Go to [releases](https://github.com/KronicDeth/intellij-elixir/releases).
+1. Go to [releases](https://github.com/intellij-elixir/intellij-elixir/releases).
 2. Download the latest pre-release zip.
 
 ##### In IDE
@@ -6087,8 +6085,8 @@ If the plugin encounters an error, there is a custom error handler registered, s
 1. Click the red error notification in bottom right corner of the IDE window.
 ![Fatal IDE Errors](/screenshots/error_handler/IDE%20Fatal%20Errors.png?raw=true "Fatal IDE Errors")
 2. Fill in a description of what you were doing when the error occurred.
-3. Click "Open Issue against https://github.com/KronicDeth/intellij-elixir"
-4. The IDE will open your browser to https://github.com/KronicDeth/intellij-elixir/issues/new
+3. Click "Open Issue against https://github.com/intellij-elixir/intellij-elixir"
+4. The IDE will open your browser to https://github.com/intellij-elixir/intellij-elixir/issues/new
 ![Write New Issue](/screenshots/error_handler/Write%20New%20Issue.png?raw=true "Write New Issue")
 5. The title will be filled as `[auto-generated]`, but if you can summarize the issue, change the title.
 6. If the "Fatal IDE Errors" dialog has Attachments, copy their contents to the `Attachments` section of the issue body.
@@ -6099,7 +6097,7 @@ If the plugin encounters an error, there is a custom error handler registered, s
 ## Contributors
 
 This project exists thanks to all the people who contribute. [[Contribute](CONTRIBUTING.md)].
-<a href="https://github.com/KronicDeth/intellij-elixir/graphs/contributors"><img alt="Contributors" src="https://opencollective.com/intellij-elixir/contributors.svg?width=890&button=false" /></a>
+<a href="https://github.com/intellij-elixir/intellij-elixir/graphs/contributors"><img alt="Contributors" src="https://opencollective.com/intellij-elixir/contributors.svg?width=890&button=false" /></a>
 
 ## Donations
 
@@ -6128,7 +6126,7 @@ These stats are for one time donations or monthly contributions for scheduled do
 
 ### Work Time
 
-As part of the [DockYard](https://dockyard.com/)'s commitment to open source libraries and tools, it allows employees on DockYard Days (most Fridays) to work on those libraries and tools during normal work hours. As part of my ([@KronicDeth](https://github.com/KronicDeth)'s) DockYard Days, I've been able to spend the concentrated time I needed to get [EEx support](https://github.com/KronicDeth/intellij-elixir/pull/923) and [performance improvements](https://github.com/KronicDeth/intellij-elixir/pull/943) into IntelliJ Elixir that benefits both DockYard's usage of the tool on client projects, but also the community of users as a whole.  The more rapid cadence of releases would not have been possible without DockYard Days.
+As part of the [DockYard](https://dockyard.com/)'s commitment to open source libraries and tools, it allows employees on DockYard Days (most Fridays) to work on those libraries and tools during normal work hours. As part of my ([@KronicDeth](https://github.com/KronicDeth)'s) DockYard Days, I've been able to spend the concentrated time I needed to get [EEx support](https://github.com/intellij-elixir/intellij-elixir/pull/923) and [performance improvements](https://github.com/intellij-elixir/intellij-elixir/pull/943) into IntelliJ Elixir that benefits both DockYard's usage of the tool on client projects, but also the community of users as a whole.  The more rapid cadence of releases would not have been possible without DockYard Days.
 
 If you're a developer of open source libraries or tools for the [Ember](https://www.emberjs.com/) or [Elixir](https://elixir-lang.org/) communities that can benefit DockYard and its client and would like to get the opportunity to help DockYard and its client with your open source and have your own DockYard Days, [let them know](https://dockyard.com/contact/join-us)
 

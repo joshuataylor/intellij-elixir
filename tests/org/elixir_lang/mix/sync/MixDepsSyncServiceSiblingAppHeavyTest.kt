@@ -33,7 +33,7 @@ import java.util.concurrent.Callable
  * ```
  *
  * The umbrella root is deliberately not a content root of any module - that is the import shape
- * [#3990](https://github.com/KronicDeth/intellij-elixir/issues/3990) reports, and it is what makes
+ * [#3990](https://github.com/intellij-elixir/intellij-elixir/issues/3990) reports, and it is what makes
  * `app_a`'s own content root the only place the resolver starts from.
  */
 class MixDepsSyncServiceSiblingAppHeavyTest : HeavyPlatformTestCase() {

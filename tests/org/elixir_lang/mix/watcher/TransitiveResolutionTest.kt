@@ -258,7 +258,7 @@ class TransitiveResolutionTest : PlatformTestCase() {
      * The umbrella root is not always handed in. An umbrella imported one module per app gives each
      * app module only `apps/<app>` as a content root, so that is the whole root set the resolver
      * sees, and the app's deps still live under the umbrella. Refs
-     * [#3986](https://github.com/KronicDeth/intellij-elixir/issues/3986).
+     * [#3986](https://github.com/intellij-elixir/intellij-elixir/issues/3986).
      */
     fun testUmbrellaAppDepsResolveUnderTheUmbrellaWhenOnlyTheAppIsHandedIn() {
         val u = nextFixturePath()
@@ -297,7 +297,7 @@ class TransitiveResolutionTest : PlatformTestCase() {
      * A two-level chain passes as soon as the app itself can find the umbrella's `deps`, so it
      * cannot tell whether that answer carries. The third level is the discriminating one: its
      * declaring root is `deps/<dep>`, which no handed-in root is an ancestor of. Refs
-     * [#3986](https://github.com/KronicDeth/intellij-elixir/issues/3986).
+     * [#3986](https://github.com/intellij-elixir/intellij-elixir/issues/3986).
      */
     fun testDepsOfDepsResolveAtEveryDepthWhenOnlyTheAppIsHandedIn() {
         val u = nextFixturePath()
@@ -322,7 +322,7 @@ class TransitiveResolutionTest : PlatformTestCase() {
      * deps reach, so `{:app_b, in_umbrella: true}` is what makes everything `app_b` declares
      * available to `app_a`. Nothing walked into `app_b`'s `mix.exs`, so those deps reached no
      * module of the project and Go to Definition had nowhere to land. Refs
-     * [#3990](https://github.com/KronicDeth/intellij-elixir/issues/3990).
+     * [#3990](https://github.com/intellij-elixir/intellij-elixir/issues/3990).
      */
     fun testSiblingsDepsAreReachedThroughAnInUmbrellaDep() {
         val u = nextFixturePath()

@@ -723,7 +723,7 @@ heredoc ::= HEREDOC_PROMOTER heredocOpening
               //noinspection BnfResolve
               pin = HEREDOC_PROMOTER
             }
-// EOL is optional because when last line EOL is escaped (See https://github.com/KronicDeth/intellij-elixir/issues/1843)
+// EOL is optional because when last line EOL is escaped (See https://github.com/intellij-elixir/intellij-elixir/issues/1843)
 heredocLine ::= heredocLinePrefix heredocLineBody heredocLineEnd
                 {
                   implements = [
@@ -791,7 +791,7 @@ literalSigilHeredoc ::= TILDE LITERAL_SIGIL_NAME HEREDOC_PROMOTER heredocOpening
                           //noinspection BnfResolve
                           pin = HEREDOC_PROMOTER
                         }
-// EOL is optional because when last line EOL is escaped (See https://github.com/KronicDeth/intellij-elixir/issues/1843)
+// EOL is optional because when last line EOL is escaped (See https://github.com/intellij-elixir/intellij-elixir/issues/1843)
 literalHeredocLine ::= heredocLinePrefix literalHeredocLineBody heredocLineEnd
                        {
                          implements = [

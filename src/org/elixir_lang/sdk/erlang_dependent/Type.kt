@@ -49,7 +49,7 @@ abstract class Type protected constructor(name: String) : DependentSdkType(name)
     override fun isRootTypeApplicable(type: OrderRootType): Boolean {
         // Small IDEs do not register JavadocOrderRootType, so calling getInstance() there throws.
         // documentationRootType() returns null instead. See
-        // https://github.com/KronicDeth/intellij-elixir/issues/976.
+        // https://github.com/intellij-elixir/intellij-elixir/issues/976.
         return type === OrderRootType.CLASSES ||
                 type === OrderRootType.SOURCES ||
                 type === org.elixir_lang.sdk.Type.documentationRootType()

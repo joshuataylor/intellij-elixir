@@ -5,7 +5,7 @@ import com.intellij.psi.PsiPolyVariantReference
 import org.elixir_lang.PlatformTestCase
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/3405
+ * https://github.com/intellij-elixir/intellij-elixir/issues/3405
  */
 class Issue3405Test : PlatformTestCase() {
     override fun setUp() {

@@ -1427,7 +1427,7 @@ internal class ModuleAttribute : Annotator, DumbAware {
      * Assume bare aliases are incorrectly capitalized type parameters, say from someone's that's used to generics
      * in Java.
      *
-     * See https://github.com/KronicDeth/intellij-elixir/issues/694
+     * See https://github.com/intellij-elixir/intellij-elixir/issues/694
      */
     private fun typeTypeParameterNameSet(alias: ElixirAlias): Set<String> = setOf(alias.name)
 
@@ -1466,7 +1466,7 @@ internal class ModuleAttribute : Annotator, DumbAware {
                 /* Assume bare aliases are incorrectly capitalized type parameters, say from someone's that used to generics
                    in Java.
 
-                   See https://github.com/KronicDeth/intellij-elixir/issues/694 */
+                   See https://github.com/intellij-elixir/intellij-elixir/issues/694 */
                 typeTypeParameterNameSet(psiElement)
             }
 
@@ -1481,7 +1481,7 @@ internal class ModuleAttribute : Annotator, DumbAware {
 
             /* A qualified call names a type in another module, so it declares no type parameter of its own.
 
-               See https://github.com/KronicDeth/intellij-elixir/issues/1835 */
+               See https://github.com/intellij-elixir/intellij-elixir/issues/1835 */
             is QualifiedNoArgumentsCall<*> -> emptySet()
 
             // Anything else names no type parameter

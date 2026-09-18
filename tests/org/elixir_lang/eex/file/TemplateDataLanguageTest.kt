@@ -8,7 +8,7 @@ import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.PlatformTestCase
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/1387
+ * https://github.com/intellij-elixir/intellij-elixir/issues/1387
  *
  * `Type.onlyTemplateDataFileType` picks the language for the markup around `<% %>` by stripping the
  * `.eex` suffix and asking what the remaining name is, so `page.html.eex` gets HTML and a bare

@@ -7,7 +7,7 @@ Character Database files in `lib/elixir/unicode/` of
 https://github.com/elixir-lang/elixir,
 with a port of the table-building part of that repository's `lib/elixir/unicode/tokenizer.ex`. That file is
 copyright 2021 The Elixir Team and 2012 Plataformatec, and licensed under the Apache License, Version 2.0, the
-licence of this repository (`LICENSE.md`). The Unicode data is licensed under the Unicode License v3 below.
+licence of this repository (`LICENSE`). The Unicode data is licensed under the Unicode License v3 below.
 
 ## Sources
 

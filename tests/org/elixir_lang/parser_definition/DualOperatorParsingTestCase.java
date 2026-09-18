@@ -1,5 +1,7 @@
 package org.elixir_lang.parser_definition;
 
+import org.elixir_lang.psi.quoting.QuotingDialect;
+
 /**
  * Created by kadie.enheduanna.inanna on 8/3/14.
  */
@@ -40,6 +42,14 @@ public class DualOperatorParsingTestCase extends ParsingTestCase {
      */
     public void testIdentifierSpaceOperatorOperatorOperand() {
         assertParsedAndQuotedCorrectly();
+    }
+
+    /**
+     * Elixir 1.13.0 (elixir-lang/elixir bbde3cb98) lexes a unary operator before {@code /} as an identifier without a
+     * preceding {@code &}; earlier versions reject it.
+     */
+    public void testIdentifierSpaceOperatorSlashIdentifier() {
+        assertParsedAndQuotedCorrectlyFrom(QuotingDialect.V1_13);
     }
 
     public void testIdentifierSpaceOperatorSpaceCommentEOLIdentifier() {

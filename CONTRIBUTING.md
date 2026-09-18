@@ -93,7 +93,7 @@ group vocabulary and which of them publish are declared in `gradle.properties` (
 ## [Unreleased]
 
 ### Enhancements
-- [#1234](https://github.com/KronicDeth/intellij-elixir/pull/1234) - [@you](https://github.com/you)
+- [#1234](https://github.com/intellij-elixir/intellij-elixir/pull/1234) - [@you](https://github.com/you)
   - **Go-to-Declaration now works on `foo`.** Lead with what a user can now do, then name the API if
     it helps - the readers are Elixir developers, so `ElixirPsiImplUtil` is fair game once the effect
     is clear.
@@ -118,7 +118,7 @@ revert of something that never shipped. Dependabot pull requests are exempt auto
 
 ### Importing the project
 
-1. **Fork** [`KronicDeth/intellij-elixir`](https://github.com/KronicDeth/intellij-elixir) on GitHub.
+1. **Fork** [`intellij-elixir/intellij-elixir`](https://github.com/intellij-elixir/intellij-elixir) on GitHub.
    Pull requests are opened from a fork, so do this before cloning.
 2. In the IDE, choose **File > New > Project from Version Control...** (or **Clone Repository** from the
    Welcome screen).

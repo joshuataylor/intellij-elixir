@@ -6,7 +6,7 @@ import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.psi.call.Call
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/926
+ * https://github.com/intellij-elixir/intellij-elixir/issues/926
  *
  * An unqualified call in a Phoenix `.eex` template resolves into the template's view module. The
  * walk out of the template is `ElixirFile.viewFile()` (which finds `views/<dir>_view.ex` for a

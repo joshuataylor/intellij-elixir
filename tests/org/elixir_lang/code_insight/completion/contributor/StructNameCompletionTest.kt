@@ -38,7 +38,7 @@ import org.elixir_lang.code_insight.completionAttemptAtCaret
  * specific to a struct name: `%My.Us<caret>{}`, `alias My.Us<caret>` and `My.Us<caret>.foo()` all
  * offer nothing, alongside the insertion fault above. Those belong to qualified-alias completion
  * rather than to struct names, and are filed as
- * [#3987](https://github.com/KronicDeth/intellij-elixir/issues/3987).
+ * [#3987](https://github.com/intellij-elixir/intellij-elixir/issues/3987).
  */
 class StructNameCompletionTest : PlatformTestCase() {
     override fun setUp() {
@@ -74,7 +74,7 @@ class StructNameCompletionTest : PlatformTestCase() {
         )
     }
 
-    /** `%Us<caret>{}` - the case [#2691](https://github.com/KronicDeth/intellij-elixir/issues/2691) asks for. */
+    /** `%Us<caret>{}` - the case [#2691](https://github.com/intellij-elixir/intellij-elixir/issues/2691) asks for. */
     fun testStructConstructionCompletesToTheStructName() {
         configure(
             """

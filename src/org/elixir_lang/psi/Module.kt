@@ -14,7 +14,7 @@ object Module {
     fun `is`(call: Call): Boolean =
             (call.isCallingMacro(Module.KERNEL, Function.DEFMODULE, 2) &&
                     /**
-                     * See https://github.com/KronicDeth/intellij-elixir/issues/1301
+                     * See https://github.com/intellij-elixir/intellij-elixir/issues/1301
                      *
                      * Check that the this is not the redefinition of defmodule in distillery
                      */

@@ -10,7 +10,7 @@ import org.elixir_lang.psi.EexDataAstFactory
 import org.elixir_lang.psi.ElixirTypes
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/1833
+ * https://github.com/intellij-elixir/intellij-elixir/issues/1833
  *
  * [EexDataAstFactory] is registered for the Elixir language and keys on [ElixirTypes.EEX_DATA],
  * which the EEx lexer emits as well as the HEEx one, so a `.html.eex` file's Elixir root gets the

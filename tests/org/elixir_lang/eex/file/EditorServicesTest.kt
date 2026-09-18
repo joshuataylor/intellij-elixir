@@ -6,7 +6,7 @@ import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.code_insight.completionStringsAtCaret
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/1756
+ * https://github.com/intellij-elixir/intellij-elixir/issues/1756
  *
  * The editor services an `*.html.eex` gets for its markup half - reformatting, the Enter handler,
  * quote auto-closing and HTML completion - all resolve through the data language the template's view

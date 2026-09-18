@@ -94,7 +94,7 @@ class CallDefinitionClause : CompletionProvider<CompletionParameters>() {
          * `Kernel` calls whose first argument is a module name rather than an expression.
          *
          * The other module-name positions this does not reach are listed in
-         * [#4051](https://github.com/KronicDeth/intellij-elixir/issues/4051).
+         * [#4051](https://github.com/intellij-elixir/intellij-elixir/issues/4051).
          */
         private val MODULE_NAMING_FUNCTION_NAMES = setOf(
             Function.ALIAS,
