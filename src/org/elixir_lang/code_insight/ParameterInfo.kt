@@ -4,6 +4,7 @@ import com.intellij.lang.parameterInfo.*
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.util.PsiTreeUtil
+import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.psi.Arguments
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.ElixirTypes
@@ -93,10 +94,18 @@ class ParameterInfo : ParameterInfoHandler<Arguments, Signature> {
 
        The references are resolved as incomplete code so that a call whose arguments are not typed yet resolves
        at all, which is exactly when the hint is wanted: resolving them completely collapses `foo/1` and `foo/2`
-       to a single arity, and does not drop the prefix matches either. */
+       to a single arity, and does not drop the prefix matches either.
+
+       A `.beam` definition is read from its stub: this runs on the EDT, and decompiling a module to reach its
+       mirror can take hundreds of milliseconds. */
     private fun signatures(resolved: List<PsiElement>, name: String?): List<Signature> {
         val clauses = resolved.filterIsInstance<Call>().filter { CallDefinitionClause.`is`(it) }
+        val beamDefinitions = resolved.filterIsInstance<BeamCallDefinition>()
 
-        return preferFunctionHeadsByArity(clauses, name).mapNotNull { Signature.of(it) }
+        return preferFunctionHeadsByArity(clauses, name).mapNotNull { Signature.of(it) } +
+            beamDefinitions
+                .map { Signature.of(it) }
+                .filter { name == null || it.nameArityInterval.name == name }
+                .distinctBy { it.nameArityInterval }
     }
 }

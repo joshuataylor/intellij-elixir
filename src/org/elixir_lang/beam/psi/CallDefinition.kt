@@ -10,4 +10,7 @@ interface CallDefinition : BeamSymbol, MaybeExported {
 
     val time: Time
     val nameArityInterval: NameArityInterval
+
+    /** The first clause's parameters as the stub stores them. */
+    val parameters: List<String>
 }

@@ -101,4 +101,7 @@ class CallDefinitionImpl<T : CallDefinitionStub<*>>(private val stub: T) : Modul
 
         NameArityInterval(stub.name, ArityInterval(arity, arity))
     }
+
+    override val parameters: List<String>
+        get() = stub.parameters()
 }
