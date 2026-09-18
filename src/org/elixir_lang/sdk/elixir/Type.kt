@@ -58,7 +58,7 @@ class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.ELIXIR_SD
      *
      * @return Map
      */
-    private fun homePathByVersion(path: Path?): Map<SdkHomeKey, String> {
+    internal fun homePathByVersion(path: Path?): Map<SdkHomeKey, String> {
         return SdkHomeScan.homePathByVersion(
             path, SdkHomeScan.Config(
                 toolName = "elixir",
@@ -118,7 +118,7 @@ ELIXIR_SDK_HOME
         return true
     }
 
-    @Deprecated("Deprecated in Java")
+    @Deprecated("Deprecated in Java", ReplaceWith("suggestHomePaths(null).firstOrNull()"))
     // IntelliJ SDKType still requires this deprecated override.
     @Suppress("DEPRECATION")
     override fun suggestHomePath(): String? = suggestHomePaths().firstOrNull()
@@ -127,7 +127,7 @@ ELIXIR_SDK_HOME
         return homePathByVersion(path).values.firstOrNull()
     }
 
-    @Deprecated("Deprecated in Java")
+    @Deprecated("Deprecated in Java", ReplaceWith("suggestHomePaths(null)"))
     override fun suggestHomePaths(): Collection<String> = homePathByVersion(null).values
     override fun suggestHomePaths(project: Project?): @Unmodifiable Collection<String> =
         // SdkDetectionContext falls back to the wizard's import/new-project directory when the

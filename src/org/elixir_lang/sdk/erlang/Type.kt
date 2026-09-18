@@ -22,10 +22,13 @@ import org.elixir_lang.sdk.SdkEbinPaths
 import org.elixir_lang.sdk.SdkHomeKey
 import org.elixir_lang.sdk.SdkHomePaths
 import org.elixir_lang.sdk.SdkHomeScan
+import org.elixir_lang.sdk.SdkHomeChooser
 import org.elixir_lang.sdk.erlang_dependent.AdditionalDataConfigurable
 import org.jdom.Element
 import java.io.File
 import java.nio.file.Path
+import java.util.function.Consumer
+import javax.swing.JComponent
 
 internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
     companion object {
@@ -226,14 +229,27 @@ internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
     }
 
     @Suppress("DEPRECATION")
-    @Deprecated("Deprecated in Java")
+    @Deprecated("Deprecated in Java", ReplaceWith("suggestHomePaths(null).firstOrNull()"))
     override fun suggestHomePath(): String? = suggestHomePaths().firstOrNull()
 
-    @Deprecated("Deprecated in Java")
+    @Deprecated("Deprecated in Java", ReplaceWith("suggestHomePaths(null)"))
     override fun suggestHomePaths(): Collection<String> = homePathByVersion().values
 
     override fun suggestHomePath(path: Path): String? {
         return homePathByVersion(path).values.firstOrNull()
+    }
+
+    /** Without it the platform picks the home itself, and its check against `user.home` rejects every WSL home. */
+    override fun supportsCustomCreateUI(): Boolean = true
+
+    override fun showCustomCreateUI(
+        sdkModel: SdkModel,
+        parentComponent: JComponent,
+        selectedSdk: Sdk?,
+        sdkCreatedCallback: Consumer<in Sdk>,
+    ) {
+        val basePath = SdkHomeChooser.defaultBasePath(SdkHomeChooser.projectOf(parentComponent))
+        SdkHomeChooser.createSdk(sdkModel, this, basePath, onCreated = sdkCreatedCallback::accept)
     }
 
     override fun suggestHomePaths(project: Project?): Collection<String> {
