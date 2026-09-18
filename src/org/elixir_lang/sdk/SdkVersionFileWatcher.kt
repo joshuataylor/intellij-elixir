@@ -2,6 +2,7 @@ package org.elixir_lang.sdk
 
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -11,6 +12,7 @@ import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import com.intellij.util.concurrency.ThreadingAssertions
+import org.elixir_lang.util.WslFlatWatchRefresh
 import org.elixir_lang.util.loadForEvents
 import org.jetbrains.annotations.VisibleForTesting
 import java.io.File
@@ -104,6 +106,7 @@ internal object SdkVersionFileWatcher {
             localFileSystem.addRootToWatch(path, false)?.also { watched.add(path) }
         }
         Disposer.register(parentDisposable) { localFileSystem.removeWatchedRoots(watchRequests) }
+        service<WslFlatWatchRefresh>().follow(homeByWatchedPath.keys, parentDisposable)
 
         // Finding a file the VFS already has compares neither timestamp nor length, so an installation replaced while
         // nothing was watching goes unnoticed unless it is marked dirty first.

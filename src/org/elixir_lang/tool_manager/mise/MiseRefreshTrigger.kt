@@ -19,6 +19,7 @@ import org.elixir_lang.mise.Mise
 import org.elixir_lang.mise.MiseResult
 import org.elixir_lang.tool_manager.ToolManagerRefreshTrigger
 import org.elixir_lang.tool_manager.ToolManagerResult
+import org.elixir_lang.util.WslFlatWatchRefresh
 import org.elixir_lang.util.loadForEvents
 import org.jetbrains.annotations.VisibleForTesting
 import java.nio.file.Files
@@ -129,6 +130,8 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
         val watchRequests: MutableSet<LocalFileSystem.WatchRequest> = ConcurrentHashMap.newKeySet()
         val lfs = LocalFileSystem.getInstance()
         watchPaths(lfs, watchPaths, watchRequests)
+        val wslFlatWatchRefresh = service<WslFlatWatchRefresh>()
+        wslFlatWatchRefresh.follow(watchPaths, lifetime)
 
         // Unregister all watch requests when the trigger is disposed.
         Disposer.register(lifetime) {
@@ -158,10 +161,13 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
                                     // Disposal may have removed the watches before this one was added.
                                     if (lifetime.isDisposed) {
                                         lfs.removeWatchedRoots(watchRequests)
-                                    } else if (event.path in pendingToolDirs) {
-                                        startPoll()
-                                    } else if (hasFile) {
-                                        onChangeDetected()
+                                    } else {
+                                        wslFlatWatchRefresh.follow(listOf(event.path), lifetime)
+                                        if (event.path in pendingToolDirs) {
+                                            startPoll()
+                                        } else if (hasFile) {
+                                            onChangeDetected()
+                                        }
                                     }
                                 }
                             }
