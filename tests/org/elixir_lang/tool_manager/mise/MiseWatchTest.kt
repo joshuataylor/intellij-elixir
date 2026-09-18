@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
  * The VFS turns what the file watcher reports into events only for files it has loaded, so these run a real refresh
  * over real directories rather than handing [MiseRefreshTrigger.shouldTrigger] an event.
  */
-class MiseInstallsWatchTest : HeavyPlatformTestCase() {
+class MiseWatchTest : HeavyPlatformTestCase() {
     private val lfs get() = LocalFileSystem.getInstance()
     private val watchRequests: MutableSet<LocalFileSystem.WatchRequest> = ConcurrentHashMap.newKeySet()
     private lateinit var root: Path
@@ -79,6 +79,44 @@ class MiseInstallsWatchTest : HeavyPlatformTestCase() {
         val events = events { Files.createDirectories(elixir.resolve("1.20.5-otp-28")) }
 
         assertTrue(events.toString(), events.any { MiseRefreshTrigger.startsAnInstall(it, setOf(path(elixir))) })
+    }
+
+    fun testAFileCreatedInTrustedConfigsIsReported() {
+        val trustedConfigs = Files.createDirectories(root.resolve("state/trusted-configs"))
+        Files.writeString(trustedConfigs.resolve("project-a"), "")
+        MiseRefreshTrigger.watchPaths(lfs, listOf(path(trustedConfigs)), watchRequests)
+
+        val events = events { Files.writeString(trustedConfigs.resolve("project-b"), "") }
+
+        assertTrue(events.toString(), events.any { it is VFileCreateEvent && it.path == path(trustedConfigs.resolve("project-b")) })
+    }
+
+    fun testAConfigFileOutsideTheProjectReportsItsChange() {
+        val config = Files.writeString(Files.createDirectories(root.resolve("config/mise")).resolve("config.toml"), "")
+        MiseRefreshTrigger.watchPaths(lfs, listOf(path(config)), watchRequests)
+
+        val events = events {
+            Files.writeString(config, "[tools]\nelixir = \"1.20.5-otp-28\"")
+            Files.setLastModifiedTime(config, java.nio.file.attribute.FileTime.fromMillis(System.currentTimeMillis() + 5_000))
+        }
+
+        assertTrue(events.toString(), events.any { it is VFileContentChangeEvent && it.path == path(config) })
+    }
+
+    fun testATrustedConfigsDirectoryCreatedByTheFirstTrustIsFollowed() {
+        val state = Files.createDirectories(root.resolve("state"))
+        MiseRefreshTrigger.watchPaths(lfs, listOf(path(state), path(state.resolve("trusted-configs"))), watchRequests)
+        val trustedConfigs = state.resolve("trusted-configs")
+        val created = events { Files.writeString(Files.createDirectories(trustedConfigs).resolve("project-a"), "") }
+        assertTrue("precondition: $created", created.any { it is VFileCreateEvent && it.path == path(trustedConfigs) })
+
+        assertTrue(
+            "the trust that created the directory wrote its file before the directory was loaded",
+            MiseRefreshTrigger.directoryCreated(lfs, path(trustedConfigs), watchRequests),
+        )
+        val events = events { Files.writeString(trustedConfigs.resolve("project-b"), "") }
+
+        assertTrue(events.toString(), events.any { it is VFileCreateEvent && it.path == path(trustedConfigs.resolve("project-b")) })
     }
 
     private fun path(path: Path): String = FileUtil.toSystemIndependentName(path.toString())

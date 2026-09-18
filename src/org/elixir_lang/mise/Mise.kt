@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
+import com.intellij.execution.process.ProcessOutput
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.util.concurrency.ThreadingAssertions
@@ -216,17 +217,19 @@ object Mise {
             val commandLine = GeneralCommandLine("mise", "doctor", "--json")
                 .withWorkDirectory(workDir.toFile())
             val handler = CapturingProcessHandler(commandLine)
-            val output = handler.runProcess(TIMEOUT_MS)
-            if (output.exitCode != 0) {
-                LOG.debug("mise doctor --json exited with ${output.exitCode} in $workDir")
-                return null
-            }
-            parseDoctorStateDir(output.stdout, workDir.toString())
+            stateDirFrom(handler.runProcess(TIMEOUT_MS), workDir.toString())
                 .also { LOG.trace("stateDir: resolved to $it") }
         } catch (e: Exception) {
             LOG.debug("mise doctor --json failed in $workDir: ${e.message}")
             null
         }
+    }
+
+    @VisibleForTesting
+    internal fun stateDirFrom(output: ProcessOutput, workDirString: String): Path? {
+        // `mise doctor` exits non-zero whenever it finds a problem, such as a pinned tool not installed.
+        if (output.exitCode != 0) LOG.debug("mise doctor --json exited with ${output.exitCode} in $workDirString")
+        return parseDoctorStateDir(output.stdout, workDirString)
     }
 
     /**

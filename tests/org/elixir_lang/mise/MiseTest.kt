@@ -1,5 +1,6 @@
 package org.elixir_lang.mise
 
+import com.intellij.execution.process.ProcessOutput
 import org.elixir_lang.PlatformTestCase
 import java.nio.file.Path
 
@@ -266,6 +267,22 @@ class MiseTest : PlatformTestCase() {
     // -------------------------------------------------------------------------
     // parseDoctorStateDir
     // -------------------------------------------------------------------------
+
+    fun testStateDirFrom_aFailingExitStillPrintsTheDirectories() {
+        // `mise doctor` exits 1 while any tool is missing, and still reports its directories.
+        val json = """{"dirs":{"state":"/home/user/.local/state/mise"}}"""
+
+        val result = Mise.stateDirFrom(ProcessOutput(json, "", 1, false, false), "/home/user/project")
+
+        assertEquals(
+            "/home/user/.local/state/mise",
+            com.intellij.openapi.util.io.FileUtil.toSystemIndependentName(result!!.toString()),
+        )
+    }
+
+    fun testStateDirFrom_outputThatIsNotJson_returnsNull() {
+        assertNull(Mise.stateDirFrom(ProcessOutput("mise: command failed", "", 1, false, false), "/home/user/project"))
+    }
 
     fun testParseDoctorStateDir_typicalJson_extractsStatePath() {
         val json = """{"dirs":{"state":"/home/user/.local/state/mise","data":"/home/user/.local/share/mise"}}"""

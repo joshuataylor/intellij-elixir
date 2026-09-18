@@ -118,21 +118,17 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
         // Watch the trusted-configs directory so `mise trust` runs trigger a re-scan.
         // Both exactPaths and content root strings are in system-independent (forward-slash) form,
         // which LocalFileSystem normalises internally.
+        // The trusted-configs and tool directories may not exist until mise first writes to them, so the directory
+        // holding each is watched too, and each is loaded when it appears.
+        val loadedWhenCreated: Set<String> = installWatches.mapTo(linkedSetOf()) { it.toolDir } +
+            listOfNotNull(trustedConfigsDirString.takeIf { it.isNotEmpty() })
         val watchPaths: Set<String> = exactPaths +
                 contentRoots.map { FileUtil.toSystemIndependentName(it.toString()) } +
-                listOfNotNull(trustedConfigsDirString.takeIf { it.isNotEmpty() })
+                loadedWhenCreated.map { it.substringBeforeLast('/') } +
+                loadedWhenCreated
         val watchRequests: MutableSet<LocalFileSystem.WatchRequest> = ConcurrentHashMap.newKeySet()
         val lfs = LocalFileSystem.getInstance()
-        for (path in watchPaths) {
-            lfs.addRootToWatch(path, /* watchRecursively = */ false)
-                ?.let { watchRequests.add(it) }
-        }
-        // A tool directory may not exist until its first install, so the directory holding it is watched too, and it is
-        // loaded when it appears.
-        val loadedWhenCreated: Set<String> = installWatches.mapTo(linkedSetOf()) { it.toolDir }
-        for (dir in loadedWhenCreated.map { it.substringBeforeLast('/') } + loadedWhenCreated) {
-            watchAndLoad(lfs, dir, watchRequests)
-        }
+        watchPaths(lfs, watchPaths, watchRequests)
 
         // Unregister all watch requests when the trigger is disposed.
         Disposer.register(lifetime) {
@@ -158,12 +154,14 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
                             if (event is VFileCreateEvent && event.isDirectory && event.path in loadedWhenCreated) {
                                 AppExecutorUtil.getAppExecutorService().execute {
                                     if (lifetime.isDisposed) return@execute
-                                    watchAndLoad(lfs, event.path, watchRequests)
+                                    val hasFile = directoryCreated(lfs, event.path, watchRequests)
                                     // Disposal may have removed the watches before this one was added.
                                     if (lifetime.isDisposed) {
                                         lfs.removeWatchedRoots(watchRequests)
                                     } else if (event.path in pendingToolDirs) {
                                         startPoll()
+                                    } else if (hasFile) {
+                                        onChangeDetected()
                                     }
                                 }
                             }
@@ -204,6 +202,15 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
     }
 
     @VisibleForTesting
+    internal fun watchPaths(
+        lfs: LocalFileSystem,
+        paths: Collection<String>,
+        watchRequests: MutableSet<LocalFileSystem.WatchRequest>,
+    ) {
+        for (path in paths) watchAndLoad(lfs, path, watchRequests)
+    }
+
+    @VisibleForTesting
     internal fun watchAndLoad(
         lfs: LocalFileSystem,
         dir: String,
@@ -212,6 +219,17 @@ object MiseRefreshTrigger : ToolManagerRefreshTrigger {
         lfs.addRootToWatch(dir, /* watchRecursively = */ false)?.let(watchRequests::add)
         return lfs.loadForEvents(dir)
     }
+
+    /**
+     * Whether whatever created [dir], such as a first `mise trust`, had already written a file into it by the time it
+     * was loaded, since that file raises no event of its own.
+     */
+    @VisibleForTesting
+    internal fun directoryCreated(
+        lfs: LocalFileSystem,
+        dir: String,
+        watchRequests: MutableSet<LocalFileSystem.WatchRequest>,
+    ): Boolean = watchAndLoad(lfs, dir, watchRequests)?.children?.any { !it.isDirectory } == true
 
     internal enum class Tool { ELIXIR, ERLANG }
 
