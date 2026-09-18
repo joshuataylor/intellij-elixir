@@ -13,7 +13,10 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Helpers the grammar calls as external rules, {@code <<name>>}.
@@ -26,6 +29,199 @@ import java.util.Map;
 public class ElixirParserUtil extends GeneratedParserUtilBase {
     /** Set by {@code File.doParseContents}; absent for builders created by any other route. */
     public static final Key<QuotingDialect> DIALECT = Key.create("ELIXIR_PARSE_DIALECT");
+
+    /*
+     * The rules that open a nesting group, the token each starts with, and the element type its section closes with.
+     * All share one generated shape - `nextTokenIs(opening)`, then `enter_section_(b)`, then
+     * `exit_section_(b, m, TYPE, r)` - with no pin and no recovery, so a failure rolls the builder back to the opening.
+     */
+    private static final String[] GROUP_RULES =
+            {"anonymousFunction", "bitString", "list", "mapArguments", "parentheticalStab", "tuple"};
+    private static final IElementType[] GROUP_OPENINGS = {
+            ElixirTypes.FN,
+            ElixirTypes.OPENING_BIT,
+            ElixirTypes.OPENING_BRACKET,
+            ElixirTypes.OPENING_CURLY,
+            ElixirTypes.OPENING_PARENTHESIS,
+            ElixirTypes.OPENING_CURLY
+    };
+    private static final IElementType[] GROUP_TYPES = {
+            ElixirTypes.ANONYMOUS_FUNCTION,
+            ElixirTypes.BIT_STRING,
+            ElixirTypes.LIST,
+            ElixirTypes.MAP_ARGUMENTS,
+            ElixirTypes.PARENTHETICAL_STAB,
+            ElixirTypes.TUPLE
+    };
+
+    private static final Key<GroupFailures> GROUP_FAILURES = Key.create("ELIXIR_PARSE_GROUP_FAILURES");
+
+    /**
+     * GrammarKit's guard, failing at once a nesting group that has already failed at the same token, and every rule
+     * below the file's statement list once the recursion limit has been reached at {@value #LIMIT_TOKENS_BEFORE_ABORT}
+     * tokens.
+     * <p>
+     * A group's outcome depends on where it starts and on the room GrammarKit's recursion limit leaves, so a failure
+     * that never reached the limit fails the same way whichever route and level reach the group, and one that did fails
+     * at every deeper level. A replay leaves no expected tokens for the enclosing sections, so in broken source their
+     * error recovery can skip fewer tokens than after the group's real failure.
+     * <p>
+     * A branch that is tried and abandoned can reach the limit at a few tokens while the accepted parse stays under it.
+     * A statement nested past the limit reaches it again after each error recovery resumes, at a new token each time,
+     * and on some shapes that costs seconds; the abort keeps the statements before that one, and the file's root section
+     * takes the rest as one error. The count restarts only at the file's own statements, so the statements inside one
+     * module count together.
+     * <p>
+     * Hides {@link GeneratedParserUtilBase#recursion_guard_}: the generated parser static-imports this class.
+     */
+    public static boolean recursion_guard_(PsiBuilder builder, int level, String funcName) {
+        GroupFailures failures = builder.getUserData(GROUP_FAILURES);
+
+        if (failures == null) {
+            failures = new GroupFailures();
+            builder.putUserData(GROUP_FAILURES, failures);
+        }
+
+        if (failures.statementListLevel < 0 && "expressionList".equals(funcName)) {
+            failures.statementListLevel = level;
+        }
+
+        // `expressionList ::= expression (endOfExpression expression)*`: each of the file's statements starts here
+        if (level <= failures.statementListLevel + 3 &&
+                "expression".equals(funcName) &&
+                builder.rawTokenIndex() > failures.lastLimitToken) {
+            failures.limitTokens.clear();
+        }
+
+        if (failures.limitTokens.size() >= LIMIT_TOKENS_BEFORE_ABORT && level > failures.statementListLevel) {
+            return false;
+        }
+
+        if (!GeneratedParserUtilBase.recursion_guard_(builder, level, funcName)) {
+            int token = builder.rawTokenIndex();
+            failures.limitsReached++;
+            failures.limitTokens.add(token);
+            failures.lastLimitToken = Math.max(failures.lastLimitToken, token);
+
+            return false;
+        }
+
+        int group = indexOf(GROUP_RULES, funcName);
+
+        // the rule's own `nextTokenIs` would skip the same whitespace, so the index is where its section starts
+        if (group >= 0 && builder.getTokenType() == GROUP_OPENINGS[group]) {
+            long key = GroupFailures.key(group, builder.rawTokenIndex());
+
+            if (failures.failed(key, level)) {
+                return false;
+            }
+
+            failures.enter(group, key, level);
+        }
+
+        return true;
+    }
+
+    /**
+     * Branches that are tried and abandoned reach the recursion limit at a few tokens; source nested past it, at
+     * hundreds or thousands.
+     */
+    static final int LIMIT_TOKENS_BEFORE_ABORT = 16;
+
+    /** Records a nesting group's failure for {@link #recursion_guard_}; hides the base method like it. */
+    public static void exit_section_(@NotNull PsiBuilder builder,
+                                     @NotNull PsiBuilder.Marker marker,
+                                     @Nullable IElementType elementType,
+                                     boolean result) {
+        GeneratedParserUtilBase.exit_section_(builder, marker, elementType, result);
+
+        int group = indexOf(GROUP_TYPES, elementType);
+
+        if (group >= 0) {
+            GroupFailures failures = builder.getUserData(GROUP_FAILURES);
+
+            if (failures != null) {
+                failures.exit(group, result);
+            }
+        }
+    }
+
+    private static int indexOf(@NotNull Object[] identities, @Nullable Object object) {
+        for (int index = 0; index < identities.length; index++) {
+            // rule names are literals, so interned
+            if (identities[index] == object) {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    /** The groups being parsed, innermost last, and where each group failed. */
+    private static final class GroupFailures {
+        /** The shallowest level each failure holds at: zero where the failure never reached the recursion limit. */
+        private final Map<Long, Integer> failedFromLevel = new HashMap<>();
+        private long[] open = new long[16];
+        private int[] openGroups = new int[16];
+        private int[] openLevels = new int[16];
+        private int[] openLimitsReached = new int[16];
+        private int openSize = 0;
+        int limitsReached = 0;
+        /** The tokens where the recursion limit was reached in the current statement of the file. */
+        final Set<Integer> limitTokens = new HashSet<>();
+        int lastLimitToken = -1;
+        /** The recursion level of the file's statement list, which has to finish for the statements to be kept. */
+        int statementListLevel = -1;
+
+        static long key(int group, int start) {
+            return ((long) start << 8) | group;
+        }
+
+        boolean failed(long key, int level) {
+            Integer from = failedFromLevel.get(key);
+
+            if (from == null || level < from) {
+                return false;
+            }
+
+            // the replayed failure reached the limit, so the groups around it depend on their level too
+            if (from > 0) {
+                limitsReached++;
+            }
+
+            return true;
+        }
+
+        void enter(int group, long key, int level) {
+            if (openSize == open.length) {
+                open = Arrays.copyOf(open, openSize * 2);
+                openGroups = Arrays.copyOf(openGroups, openSize * 2);
+                openLevels = Arrays.copyOf(openLevels, openSize * 2);
+                openLimitsReached = Arrays.copyOf(openLimitsReached, openSize * 2);
+            }
+
+            open[openSize] = key;
+            openGroups[openSize] = group;
+            openLevels[openSize] = level;
+            openLimitsReached[openSize] = limitsReached;
+            openSize++;
+        }
+
+        void exit(int group, boolean result) {
+            if (openSize == 0 || openGroups[openSize - 1] != group) {
+                // a section exited without its entry being seen; drop what cannot be matched
+                openSize = 0;
+                return;
+            }
+
+            long key = open[--openSize];
+
+            if (!result) {
+                int from = openLimitsReached[openSize] == limitsReached ? 0 : openLevels[openSize];
+                failedFromLevel.merge(key, from, Math::min);
+            }
+        }
+    }
 
     private static final TokenSet GROUP_OPENERS = TokenSet.create(
             ElixirTypes.DO,

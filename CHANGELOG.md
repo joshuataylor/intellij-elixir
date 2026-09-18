@@ -98,6 +98,9 @@
 
 ### Bug Fixes
 
+- [#4121](https://github.com/intellij-elixir/intellij-elixir/pull/4121) [@sh41](https://github.com/sh41)
+  - **Deeply nested code, complete or half-typed, no longer takes minutes to parse.** Fixes [#4114](https://github.com/intellij-elixir/intellij-elixir/issues/4114).
+
 - [#4110](https://github.com/intellij-elixir/intellij-elixir/pull/4110) [@sh41](https://github.com/sh41)
   - **A `.beam` rebuilt on disk is now decompiled afresh instead of showing the code decompiled from its old contents.** Fixes [#4045](https://github.com/intellij-elixir/intellij-elixir/issues/4045).
 
