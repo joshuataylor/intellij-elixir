@@ -7,7 +7,7 @@ import org.elixir_lang.PlatformTestCase
 /**
  * Does `Code > Auto-Indent Lines` actually indent Elixir?
  *
- * https://github.com/KronicDeth/intellij-elixir/issues/1077 reports it doing nothing in WebStorm, with
+ * https://github.com/intellij-elixir/intellij-elixir/issues/1077 reports it doing nothing in WebStorm, with
  * no reproduction ever supplied. Nothing under `tests/` exercised this action, so its behaviour was
  * simply unasserted rather than known-good or known-broken. These tests establish which.
  *

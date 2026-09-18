@@ -8,7 +8,7 @@ import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
 
 /**
- * Regression tests for https://github.com/KronicDeth/intellij-elixir/issues/976.
+ * Regression tests for https://github.com/intellij-elixir/intellij-elixir/issues/976.
  *
  * On a small IDE - PhpStorm, WebStorm, RubyMine and friends - `JavadocOrderRootType` is not
  * registered, so `JavadocOrderRootType.getInstance()` throws

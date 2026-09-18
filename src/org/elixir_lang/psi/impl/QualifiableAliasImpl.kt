@@ -209,7 +209,7 @@ object QualifiableAliasImpl {
             is ElixirInterpolation,
                 // Typing an alias on a new line in the body of function
             is ElixirStabBody,
-                // https://github.com/KronicDeth/intellij-elixir/issues/2839
+                // https://github.com/intellij-elixir/intellij-elixir/issues/2839
                 //
                 // params do
                 //   requires :keys, type: List[String], default: []

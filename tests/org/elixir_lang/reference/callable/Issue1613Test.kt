@@ -7,7 +7,7 @@ import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.code_insight.gotoDeclarationTargetsAtCaret
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/1613
+ * https://github.com/intellij-elixir/intellij-elixir/issues/1613
  *
  * Cmd-Click on a usage of a function declared by `defdelegate` navigated nowhere, while the same
  * gesture on a `def` worked. Both halves are asserted because the report is a comparison between

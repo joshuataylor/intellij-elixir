@@ -5,7 +5,7 @@ import com.intellij.psi.codeStyle.CodeStyleManager
 import org.elixir_lang.PlatformTestCase
 
 /**
- * Regression tests for https://github.com/KronicDeth/intellij-elixir/issues/1075,
+ * Regression tests for https://github.com/intellij-elixir/intellij-elixir/issues/1075,
  * "accessExpressions should be flattened with buildAccessExpressionChildren".
  *
  * `Block`'s constructor asserts it is never handed an `ACCESS_EXPRESSION` - those are flattened

@@ -32,7 +32,7 @@ If you depended on the ability of go to either the source or decompiled module o
 
 ## v6.0.0
 
-IntelliJ IDEA `v14.1.X` is no longer supported because [it lacked the necessary APIs to support concurrent test tracking](https://github.com/KronicDeth/intellij-elixir/pull/732) in the Test Results pane.  You will need to update to a newer version (15+) of IntelliJ IDEA or equivalent JetBrains IDE generation.
+IntelliJ IDEA `v14.1.X` is no longer supported because [it lacked the necessary APIs to support concurrent test tracking](https://github.com/intellij-elixir/intellij-elixir/pull/732) in the Test Results pane.  You will need to update to a newer version (15+) of IntelliJ IDEA or equivalent JetBrains IDE generation.
 
 ## v5.0.0
 
@@ -88,7 +88,7 @@ previously opened as an Empty Project.
 10. Click Next.
 10. Select a Project SDK directory by clicking Configure.
 11. The plugin will automatically find the newest version of Elixir installed. (**NOTE: SDK detection only works for
-    homebrew installs on OSX.  [Open an issue](https://github.com/KronicDeth/intellij-elixir/issues) with information
+    homebrew installs on OSX.  [Open an issue](https://github.com/intellij-elixir/intellij-elixir/issues) with information
     about Elixir install locations on your operating system and package manager to have SDK detection added for it.**)
 12. If the automatic detection doesn't find your Elixir SDK or you want to use an older version, manually select select
     the directory above the `bin` directory containing `elixir`, `elixirc`, `iex`, and `mix`.

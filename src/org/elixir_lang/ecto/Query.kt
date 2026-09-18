@@ -139,7 +139,7 @@ private object From : NameArityRangeWalker("from", 1..2) {
                     // Ecto's `from/2` keywords are a finite, documented set and a new one may declare
                     // bindings, so an unlisted key is reported rather than passed over.
                     else -> {
-                        // https://github.com/KronicDeth/intellij-elixir/issues/3171
+                        // https://github.com/intellij-elixir/intellij-elixir/issues/3171
                         // Missing list around preload arguments
                         if (!fromKeywords.prevSiblingSequence().filterIsInstance<QuotableKeywordPair>().drop(1).any {
                                 it.keywordKey.text in arrayOf("preload")

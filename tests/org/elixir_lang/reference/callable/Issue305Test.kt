@@ -9,7 +9,7 @@ import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.call.Call
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/305
+ * https://github.com/intellij-elixir/intellij-elixir/issues/305
  *
  * A macro's arguments are quoted, so in a match they can bind - `session(id, user) = raw` declares
  * both `id` and `user`, the way `Record.defrecord`'s generated accessors are used to destructure an

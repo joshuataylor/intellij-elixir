@@ -76,7 +76,7 @@ class CommentByLineCommentTest : PlatformTestCase() {
 
     /**
      * The reporter's second ask on
-     * [#2872](https://github.com/KronicDeth/intellij-elixir/issues/2872): a new comment lines up with
+     * [#2872](https://github.com/intellij-elixir/intellij-elixir/issues/2872): a new comment lines up with
      * an already-commented line above it rather than with its own code.
      *
      * `CommentByLineCommentHandler.computeMinIndent` reads the line before the block and folds that

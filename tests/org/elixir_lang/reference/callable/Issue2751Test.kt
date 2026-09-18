@@ -5,7 +5,7 @@ import com.intellij.codeInsight.lookup.LookupElementBuilder
 import org.elixir_lang.PlatformTestCase
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/2751
+ * https://github.com/intellij-elixir/intellij-elixir/issues/2751
  */
 class Issue2751Test : PlatformTestCase() {
     fun testInsideIf() {

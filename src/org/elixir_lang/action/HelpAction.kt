@@ -9,7 +9,7 @@ class HelpAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val ref = Plugin.version?.let { "v$it" } ?: "main"
 
-        BrowserUtil.browse("https://github.com/KronicDeth/intellij-elixir/blob/$ref/README.md")
+        BrowserUtil.browse("https://github.com/intellij-elixir/intellij-elixir/blob/$ref/README.md")
     }
 
     override fun isDumbAware(): Boolean = true

@@ -16,13 +16,13 @@ public class Deserialized {
     private static final byte[] BEGIN;
     private static final byte[] END;
     /* Increase from `0` to enable guards to check for mismatches between reads and writes, such as in
-       https://github.com/KronicDeth/intellij-elixir/issues/767 */
+       https://github.com/intellij-elixir/intellij-elixir/issues/767 */
     private static final int GUARD_LENGTH = 0;
     private static final Logger LOGGER = Logger.getInstance(Deserialized.class);
     /* Set > than experimentally observed valid values.  >= 15 is needed to accommodate `geo`'s 15 Protocol `impl`s for
-       `String.Chars` in https://github.com/KronicDeth/intellij-elixir/issues/2698.
+       `String.Chars` in https://github.com/intellij-elixir/intellij-elixir/issues/2698.
        >= 25 is needed to accommodate `OpenApiSpex`'s 25 Protocol `impl`s for `Extendable` in
-        https://github.com/KronicDeth/intellij-elixir/pull/3717#issuecomment-3627833524 */
+        https://github.com/intellij-elixir/intellij-elixir/pull/3717#issuecomment-3627833524 */
     private static final int INFO_NAME_SET_SIZE = 30;
     private static final int WARN_NAME_SET_SIZE = 60;
     private static final int ERROR_NAME_SET_SIZE = 100;

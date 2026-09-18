@@ -148,7 +148,7 @@ public class YYInitialTest extends TokenTest {
                         {"identifier?", ElixirTypes.IDENTIFIER_TOKEN, ElixirFlexLexer.AFTER_UNQUALIFIED_IDENTIFIER, true},
                         {"in", ElixirTypes.IN_OPERATOR, ElixirFlexLexer.KEYWORD_PAIR_OR_MULTILINE_WHITE_SPACE_MAYBE, true},
                         {"inner", ElixirTypes.IDENTIFIER_TOKEN, ElixirFlexLexer.AFTER_UNQUALIFIED_IDENTIFIER, true},
-                        // https://github.com/KronicDeth/intellij-elixir/issues/1211 regression test
+                        // https://github.com/intellij-elixir/intellij-elixir/issues/1211 regression test
                         {"name@lang: ", ElixirTypes.ATOM_FRAGMENT, ElixirFlexLexer.KEYWORD_PAIR_MAYBE, false},
                         {"nil", ElixirTypes.NIL, ElixirFlexLexer.ADDITION_OR_KEYWORD_PAIR_OR_SUBTRACTION_OR_WHITE_SPACE_MAYBE, true},
                         {"nils", ElixirTypes.IDENTIFIER_TOKEN, ElixirFlexLexer.AFTER_UNQUALIFIED_IDENTIFIER, true},

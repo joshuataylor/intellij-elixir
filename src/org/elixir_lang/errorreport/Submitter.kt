@@ -48,7 +48,7 @@ class Submitter : ErrorReportSubmitter() {
     }
 
     companion object {
-        private const val ORGANIZATION = "KronicDeth"
+        private const val ORGANIZATION = "intellij-elixir"
         private const val REPOSITORY = "intellij-elixir"
         private const val REPOSITORY_URL = "https://github.com/$ORGANIZATION/$REPOSITORY"
         const val ISSUES_URL = "$REPOSITORY_URL/issues"

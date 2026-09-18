@@ -7,7 +7,7 @@ import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.psi.call.Call
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/1793
+ * https://github.com/intellij-elixir/intellij-elixir/issues/1793
  *
  * A variable bound in one EEx tag and used in a later one, both inside the same block-spanning
  * `<%= if ... do %>` ... `<% end %>`, resolves - and the `ElixirEex` node the grammar puts inside the

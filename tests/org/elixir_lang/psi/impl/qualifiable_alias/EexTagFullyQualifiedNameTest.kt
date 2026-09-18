@@ -8,7 +8,7 @@ import org.elixir_lang.psi.QualifiableAlias
 import org.elixir_lang.psi.outerMostQualifiableAlias
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/3278
+ * https://github.com/intellij-elixir/intellij-elixir/issues/3278
  *
  * `QualifiableAliasImpl.prependQualifiers` walks from an alias toward the file root and matches each
  * ancestor against a `when`. An EEx tag was absent from it, so an alias written inside `<%= ... %>`

@@ -174,15 +174,15 @@ class Settings(moduleFilters: List<ModuleFilter> = defaultModuleFilters()):
                 ModuleFilter(pattern = "URI"),
                 ModuleFilter(pattern = "Version"),
                 ModuleFilter(pattern = ":cow*"),
-                // See https://github.com/KronicDeth/intellij-elixir/issues/1307
+                // See https://github.com/intellij-elixir/intellij-elixir/issues/1307
                 ModuleFilter(pattern = ":crypto"),
                 ModuleFilter(pattern = ":elixir_*"),
-                // See https://github.com/KronicDeth/intellij-elixir/issues/915
+                // See https://github.com/intellij-elixir/intellij-elixir/issues/915
                 ModuleFilter(pattern = ":erocksdb"),
-                // See https://github.com/KronicDeth/intellij-elixir/issues/989
+                // See https://github.com/intellij-elixir/intellij-elixir/issues/989
                 ModuleFilter(pattern = ":lz4"),
                 ModuleFilter(pattern = ":ranch*"),
-                // See https://github.com/KronicDeth/intellij-elixir/issues/989
+                // See https://github.com/intellij-elixir/intellij-elixir/issues/989
                 ModuleFilter(pattern = ":re2")
         )
 

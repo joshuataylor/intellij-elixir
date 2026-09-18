@@ -22,7 +22,7 @@ public class ModuleAttributeTest extends PlatformTestCase {
      */
 
     /**
-     * See https://github.com/KronicDeth/intellij-elixir/issues/413
+     * See https://github.com/intellij-elixir/intellij-elixir/issues/413
      */
     public void testIssue413() {
         myFixture.configureByFiles("typespec_test.exs");
@@ -30,7 +30,7 @@ public class ModuleAttributeTest extends PlatformTestCase {
     }
 
     /**
-     * See https://github.com/KronicDeth/intellij-elixir/issues/438
+     * See https://github.com/intellij-elixir/intellij-elixir/issues/438
      */
     public void testIssue438() {
         myFixture.configureByFiles("missing_type_operator.ex");

@@ -7,7 +7,7 @@ import com.intellij.openapi.fileTypes.PlainTextLanguage
 import org.elixir_lang.PlatformTestCase
 
 /**
- * https://github.com/KronicDeth/intellij-elixir/issues/1426
+ * https://github.com/intellij-elixir/intellij-elixir/issues/1426
  *
  * Emmet resolves its context by language, through the leaf the multi-rooted view provider returns
  * for the caret, so in a template it depends on which root claims that offset rather than on which
