@@ -1,7 +1,9 @@
 package org.elixir_lang.reference.callable
 
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.psi.PsiPolyVariantReference
 import org.elixir_lang.beam.BeamLibraryTestCase
+import org.elixir_lang.beam.psi.BeamFileImpl
 import java.io.File
 
 /**
@@ -42,6 +44,22 @@ class ErlangAtomQualifierTest : BeamLibraryTestCase() {
             "the function reference within a BEAM module should resolve",
             resolved
         )
+    }
+
+    /**
+     * Resolution runs on the EDT for parameter info, where decompiling a large module takes hundreds of
+     * milliseconds, so resolving into a `.beam` must not build its mirror.
+     */
+    fun testResolvingDoesNotDecompileTheModule() {
+        myFixture.configureByFiles("erlang_atom_qualifier.ex")
+        val math = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(File(ebinDirectory, "math.beam"))!!
+        val beamFile = myFixture.psiManager.findFile(math) as BeamFileImpl
+        assertNull("math.beam was decompiled before resolving", beamFile.cachedMirror)
+
+        val reference = myFixture.file.findElementAt(myFixture.caretOffset)!!.parent.parent.reference
+        assertNotEmpty((reference as PsiPolyVariantReference).multiResolve(true).toList())
+
+        assertNull("Resolving decompiled math.beam", beamFile.cachedMirror)
     }
 
     /**
