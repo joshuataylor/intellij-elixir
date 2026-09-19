@@ -102,6 +102,8 @@
 
 ### Bug Fixes
 
+- [#4141](https://github.com/intellij-elixir/intellij-elixir/pull/4141) [@sh41](https://github.com/sh41)
+  - **A `@doc` whose value is an expression starting with a string, such as `@doc "text" <> "more"`, no longer reports an error on every highlighting pass.** Fixes [#4131](https://github.com/intellij-elixir/intellij-elixir/issues/4131).
 - [#4140](https://github.com/intellij-elixir/intellij-elixir/pull/4140) [@sh41](https://github.com/sh41)
   - **Errors follow the module's exact Elixir release, release candidates included, and the Erlang/OTP it runs on, so `maybe` is quoted from OTP 27.** Refs [#4080](https://github.com/intellij-elixir/intellij-elixir/issues/4080).
 - [#4135](https://github.com/intellij-elixir/intellij-elixir/pull/4135) [@sh41](https://github.com/sh41)

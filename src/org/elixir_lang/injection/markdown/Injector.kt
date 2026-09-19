@@ -7,6 +7,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.errorreport.Logger
+import org.elixir_lang.injection.PsiLanguageInjectionHost.isDocumentation
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.intellij.plugins.markdown.lang.MarkdownLanguage
@@ -26,7 +27,9 @@ class Injector : MultiHostInjector {
 
     private fun getLanguagesToInjectInQuote(registrar: MultiHostRegistrar, documentation: PsiElement) {
         when (documentation) {
-            is HeredocLiteral -> {
+            // The walk also reaches a string that only starts the value, e.g. `@doc "text" <> "more"`, which is not
+            // the documentation itself
+            is HeredocLiteral -> if (isDocumentation(documentation)) {
                 injectMarkdownInQuote(registrar, documentation)
                 injectElixirInCodeBlocksInQuote(registrar, documentation)
             }
@@ -57,7 +60,7 @@ class Injector : MultiHostInjector {
             is ElixirIdentifier,
             is ElixirAtomKeyword -> Unit
 
-            is ElixirLine -> injectMarkdownInQuote(registrar, documentation)
+            is ElixirLine -> if (isDocumentation(documentation)) injectMarkdownInQuote(registrar, documentation)
             // `deprecated:` is the one metadata key whose value is prose; any other key is data
             is QuotableKeywordPair -> if (documentation.keywordKey.text == "deprecated") {
                 getLanguagesToInjectInQuote(registrar, documentation.keywordValue)
