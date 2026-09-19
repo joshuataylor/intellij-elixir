@@ -9,7 +9,7 @@ package org.elixir_lang.tool_manager
  * Non-null results are one of:
  * - [Success] - the manager found installed versions for the root.
  * - [Error]   - the manager is applicable for the root but encountered an actionable error
- *   (e.g. a config file that needs to be trusted).  [Error.description] is a human-readable
+ *   (e.g. a config file that needs to be trusted).  [Error.description] is a human-readable HTML
  *   explanation already formatted by the concrete manager implementation; the abstract layer and
  *   the IDE widget render it verbatim without needing to know what kind of error it is.
  */
@@ -28,8 +28,9 @@ sealed interface ToolManagerResult {
      * [description] that explains the problem and tells the user how to fix it.
      *
      * @param toolManagerName  The [ElixirToolManager.name] of the manager that reported this.
-     * @param description      Human-readable explanation and fix hint, already formatted by the
-     *                         concrete manager.  The widget renders this verbatim.
+     * @param description      Human-readable explanation and fix hint as HTML, already formatted by the
+     *                         concrete manager, which escapes anything it interpolates.  The widget renders this
+     *                         verbatim.
      */
     data class Error(
         val toolManagerName: String,

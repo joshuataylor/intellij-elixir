@@ -210,6 +210,27 @@ class ToolManagerSdkCheckerTest : PlatformTestCase() {
         )
     }
 
+    fun testDetectMismatch_anUninstalledPinNamesItselfWhenTheModuleHasNoSdk() {
+        val path = Paths.get("/project")
+        val (issues, _) = detect(
+            moduleData("my_app", contentRoot = path),
+            results = mapOf(
+                path to success(
+                    versions(
+                        elixir = elixirEntry("1.19.5-otp-28", "/elixir-1.19.5-otp-28"),
+                        erlang = erlangEntry("28.1.2", installed = false),
+                    )
+                )
+            ),
+        )
+
+        assertEquals(
+            "a module with no SDK has no table row to carry it",
+            listOf(NotInstalled("mise", "Erlang", "28.1.2")),
+            issues.mapNotNull { it.notInstalled },
+        )
+    }
+
     fun testBuildAssignments_noElixirEntry_excluded() {
         val path = Paths.get("/project")
         val v = versions(elixir = null, erlang = erlangEntry("27.3"))

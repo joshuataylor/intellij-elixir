@@ -7,8 +7,11 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.ProjectManager
 
+/** Which settings a notice sends the user to; IntelliJ IDEA has one Project Structure for both. */
+enum class SettingsPage { MODULE_SDKS, SDKS }
+
 interface SdkSettingsOpener {
-    fun open(event: AnActionEvent)
+    fun open(event: AnActionEvent, page: SettingsPage = SettingsPage.SDKS)
 
     fun targetName(): String
 
@@ -19,16 +22,20 @@ interface SdkSettingsOpener {
 }
 
 internal class SettingsSdkSettingsOpener : SdkSettingsOpener {
-    override fun open(event: AnActionEvent) {
+    override fun open(event: AnActionEvent, page: SettingsPage) {
         val project = event.project ?: ProjectManager.getInstance().openProjects.firstOrNull()
-        ShowSettingsUtil.getInstance().showSettingsDialog(project, org.elixir_lang.facet.sdks.elixir.Configurable::class.java)
+        val configurable = when (page) {
+            SettingsPage.MODULE_SDKS -> org.elixir_lang.facet.configurable.Project::class.java
+            SettingsPage.SDKS -> org.elixir_lang.facet.sdks.elixir.Configurable::class.java
+        }
+        ShowSettingsUtil.getInstance().showSettingsDialog(project, configurable)
     }
 
     override fun targetName(): String = "Settings"
 }
 
 internal class ProjectStructureSdkSettingsOpener : SdkSettingsOpener {
-    override fun open(event: AnActionEvent) {
+    override fun open(event: AnActionEvent, page: SettingsPage) {
         val action = ActionManager.getInstance().getAction("ShowProjectStructureSettings")
         if (action != null) {
             ActionUtil.performAction(action, event)

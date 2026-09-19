@@ -20,6 +20,7 @@ import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.sdk.ProcessOutput
 import org.elixir_lang.sdk.elixir.ElixirSdkLookup
 import org.elixir_lang.sdk.elixir.SdkSettingsOpener
+import org.elixir_lang.sdk.elixir.SettingsPage
 import org.elixir_lang.sdk.elixir.sdk
 import org.elixir_lang.sdk.elixir.Type
 import org.elixir_lang.tool_manager.ToolManagerSdkAnalyser
@@ -63,9 +64,8 @@ internal class Provider : EditorNotificationProvider {
 }
 
 /**
- * Opens the Elixir SDK settings UI appropriate for the running IDE via [SdkSettingsOpener]:
- * the Elixir SDKs settings page in small IDEs (RubyMine, etc.) or the Project Structure dialog
- * in full IDEs.
+ * Opens where a module is given its SDK in the running IDE via [SdkSettingsOpener]: the Elixir settings page in
+ * small IDEs (RubyMine, etc.) or the Project Structure dialog in full IDEs.
  *
  * [showModuleSettings] previously called [com.intellij.openapi.roots.ui.configuration.ProjectSettingsService.openModuleSettings],
  * which is a no-op in small IDEs (their `ProjectSettingsService` reports `canOpenModuleSettings() == false`),
@@ -74,7 +74,7 @@ internal class Provider : EditorNotificationProvider {
 private fun openSdkSettings(project: Project) {
     val dataContext = SimpleDataContext.getProjectContext(project)
     val event = AnActionEvent.createEvent(dataContext, null, ActionPlaces.UNKNOWN, ActionUiKind.NONE, null)
-    SdkSettingsOpener.getInstance().open(event)
+    SdkSettingsOpener.getInstance().open(event, SettingsPage.MODULE_SDKS)
 }
 
 fun showFacetSettings(project: Project) {
@@ -104,7 +104,7 @@ private fun createSmallIDEFacetPanel(
     EditorNotificationPanel().apply {
         text = "Elixir Facet SDK is not defined"
         // Added before the "Setup" label so it renders to its LEFT. The links panel is right-anchored
-        // (BorderLayout.EAST) and packs left→right by add order, so the last-added label stays pinned
+        // (BorderLayout.EAST) and packs left->right by add order, so the last-added label stays pinned
         // to the right edge. Adding the (delayed) tool-manager label last would shift "Setup" left
         // ~10s after startup when the mise scan completes; adding it first keeps "Setup" fixed.
         addConfigureFromToolManagerLabel(project, module)

@@ -51,13 +51,16 @@ import org.elixir_lang.sdk.elixir.ElixirSdkValidation
 import org.elixir_lang.sdk.elixir.ElixirSdkValidation.detectOtpMismatch
 import org.elixir_lang.sdk.elixir.ModuleSdkStatus
 import org.elixir_lang.sdk.elixir.SdkSettingsOpener
+import org.elixir_lang.sdk.elixir.SettingsPage
 import org.elixir_lang.sdk.elixir.Type
 import org.elixir_lang.sdk.elixir.sdk
 import org.elixir_lang.sdk.elixir.summaryHtml
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import org.elixir_lang.tool_manager.ModuleSdkIssue
+import org.elixir_lang.tool_manager.NotInstalled
 import org.elixir_lang.tool_manager.SdkVersionTable
 import org.elixir_lang.tool_manager.ToolManagerAnalysisResult
+import org.elixir_lang.tool_manager.ToolManagerResult
 import org.elixir_lang.tool_manager.ToolManagerSdkAnalyser
 import org.elixir_lang.tool_manager.ToolManagerSdkCheckerService
 import org.elixir_lang.tool_manager.ToolManagerSettings
@@ -67,6 +70,7 @@ import org.elixir_lang.util.WriteActions
 import org.elixir_lang.util.awaitJpsProjectLoaded
 import java.util.concurrent.CancellationException
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 private val LOG = logger<ElixirEditorBasedSdkWidget>()
 
@@ -158,8 +162,60 @@ class ElixirEditorBasedSdkWidget(
         internal fun offersReconfigure(status: SdkStatus): Boolean = status is SdkStatus.FolderMarkWarning
 
         internal fun otpMismatchMessage(sdkName: String, elixirOtpMajor: String, erlangOtpMajor: String): String =
-            "Elixir SDK '$sdkName' was compiled for OTP $elixirOtpMajor but is paired with OTP $erlangOtpMajor. " +
-                "This may cause runtime errors (e.g. {undef,[{elixir,start_cli,...}]})."
+            StringUtil.escapeXmlEntities(
+                "Elixir SDK '$sdkName' was compiled for OTP $elixirOtpMajor but is paired with OTP $erlangOtpMajor. " +
+                    "This may cause runtime errors (e.g. {undef,[{elixir,start_cli,...}]})."
+            )
+
+        /** A description is its tool manager's own HTML; see [ToolManagerResult.Error]. */
+        internal fun toolManagerErrorLines(errors: List<ToolManagerResult.Error>): String =
+            errors.joinToString("<br>") { "&#8226; [${StringUtil.escapeXmlEntities(it.toolManagerName)}] ${it.description}" }
+
+        /** For a notice with no version table, which a module with no SDK has none of. */
+        internal fun notInstalledNote(moduleName: String, pins: List<NotInstalled>): String {
+            val toolManagerName = StringUtil.escapeXmlEntities(pins.first().toolManagerName)
+            val names = StringUtil.escapeXmlEntities(pins.joinToString(" and ") { "${it.tool} ${it.version}" })
+            val verb = if (pins.size == 1) "is" else "are"
+
+            return "<p style=\"margin-top: 6px\"><font color=\"${ColorUtil.toHtmlColor(ERROR_COLOR)}\">" +
+                "$toolManagerName's $names $verb not installed. You need to run " +
+                "<code><b>$toolManagerName install</b></code><br>in the <code>${StringUtil.escapeXmlEntities(moduleName)}</code> module directory.</font></p>"
+        }
+
+        /** An SDK's own problem is fixed on the SDKs page; a module's SDK is picked where a small IDE lists modules. */
+        internal fun settingsPageFor(status: SdkStatus): SettingsPage = when (status) {
+            is SdkStatus.OtpMismatch, is SdkStatus.InvalidSdk, is SdkStatus.ClasspathIssue -> SettingsPage.SDKS
+            else -> SettingsPage.MODULE_SDKS
+        }
+
+        /** What a notice's Configure assigns: the modules it is about, or every module when none has an SDK. */
+        internal fun configureAssignments(
+            status: SdkStatus,
+            assignments: Map<String, ToolManagerVersions>,
+        ): Map<String, ToolManagerVersions> = when (status) {
+            is SdkStatus.ModuleSdkError -> {
+                val affectedNames = status.moduleSdkIssues.mapTo(HashSet()) { it.moduleName }
+                assignments.filterKeys { it in affectedNames }
+            }
+            is SdkStatus.NotConfiguredToolManagerAvailable -> assignments
+            else -> emptyMap()
+        }
+
+        /** What each module's Configure would assign, which a notice's text does not always show. */
+        internal fun configures(assignments: Map<String, ToolManagerVersions>): Map<String, List<String?>> =
+            assignments.mapValues { (_, versions) -> listOf(versions.elixir?.installPath, versions.erlang?.installPath) }
+
+        internal fun isSameNotice(
+            one: com.intellij.notification.Notification,
+            oneConfigures: Map<String, List<String?>>,
+            other: com.intellij.notification.Notification,
+            otherConfigures: Map<String, List<String?>>,
+        ): Boolean =
+            one.title == other.title && one.content == other.content && one.type == other.type &&
+                one.actions.map { it.templateText } == other.actions.map { it.templateText } &&
+                oneConfigures == otherConfigures
+
+        private val ERROR_COLOR = JBColor(0xC7222D, 0xE55765)
 
         internal fun danglingMessage(moduleNames: List<String>, sdkNames: List<String>, targetName: String): String {
             val moduleCount = moduleNames.size
@@ -184,7 +240,7 @@ class ElixirEditorBasedSdkWidget(
                 else ->
                     "Project Structure -> Modules -> <module> -> Dependencies -> Module SDK. Set each to \"Project SDK\""
             }
-            return "$problem. Code insight will not work until fixed in $navigationHint."
+            return StringUtil.escapeXmlEntities("$problem. Code insight will not work until fixed in $navigationHint.")
         }
 
         private fun formatNameList(names: List<String>): String {
@@ -196,6 +252,9 @@ class ElixirEditorBasedSdkWidget(
         }
 
         const val ID = "ElixirSdkStatus"
+
+        /** Long enough for a scan through a WSL distro; a project whose modules have no content root gets no result. */
+        private val TOOL_MANAGER_RESULT_WAIT = 10.seconds
     }
 
     // Latest tool-manager analysis result, updated whenever ToolManagerSdkAnalyser publishes.
@@ -204,6 +263,9 @@ class ElixirEditorBasedSdkWidget(
     @Volatile
     private var latestTmAnalysis: ToolManagerAnalysisResult? = null
 
+    @Volatile
+    private var toolManagerResultWaitOver = ToolManagerSdkAnalyser.getInstanceIfRegistered(project) == null
+
     // Track last notified status to avoid spamming duplicate notifications
     @Volatile
     private var lastNotifiedIssueKey: String? = null
@@ -211,6 +273,9 @@ class ElixirEditorBasedSdkWidget(
     // The currently displayed notification - expired when the issue resolves or changes
     @Volatile
     private var activeNotification: com.intellij.notification.Notification? = null
+
+    @Volatile
+    private var activeNotificationConfigures: Map<String, List<String?>> = emptyMap()
 
     // Cached count of Elixir modules in the project.  Updated on rootsChanged (which is the
     // only event that can add/remove modules) so that getWidgetState() remains O(1) and does
@@ -242,6 +307,9 @@ class ElixirEditorBasedSdkWidget(
         // See `awaitJpsProjectLoaded` for why this uses the deprecated/internal API and the migration tickets.
         scope.launch {
             awaitJpsProjectLoaded(project)
+            notificationScanRequests.tryEmit(Unit)
+            delay(TOOL_MANAGER_RESULT_WAIT)
+            toolManagerResultWaitOver = true
             notificationScanRequests.tryEmit(Unit)
         }
 
@@ -279,6 +347,9 @@ class ElixirEditorBasedSdkWidget(
                     val modelData = readAction { collectNotificationScanModelData() }
                     val ioData = withContext(Dispatchers.IO) { collectNotificationScanIoData(modelData) }
                     val tmAnalysis = latestTmAnalysis
+                    // A notice raised before the tool manager's result would be replaced once it arrives, and the
+                    // platform keeps a replaced notice in the list, so the first one waits for it or for the timeout.
+                    if (tmAnalysis == null && !toolManagerResultWaitOver) return@collect
 
                     notifyIfNeeded(
                         moduleSdkIssues = modelData.moduleSdkIssues + (tmAnalysis?.tmIssues ?: emptyList()),
@@ -571,9 +642,6 @@ class ElixirEditorBasedSdkWidget(
         // Same issue already notified - keep the existing notification
         if (issueKey == lastNotifiedIssueKey) return
 
-        // Issue changed - expire the old notification before showing the new one
-        activeNotification?.expire()
-        activeNotification = null
         lastNotifiedIssueKey = issueKey
 
         val (title, message, type) = buildNotificationContent(sdkStatus) ?: return
@@ -582,13 +650,12 @@ class ElixirEditorBasedSdkWidget(
         // Each concrete ElixirToolManager implementation provides a human-readable description
         // and fix hint; the widget renders them verbatim without needing to know the error type.
         val fullMessage = if (toolManagerErrors.isNotEmpty()) {
-            val errorLines = toolManagerErrors.joinToString("<br>") { "&#8226; [${it.toolManagerName}] ${it.description}" }
-            "$message<br><br><b>Tool manager errors:</b><br>$errorLines"
+            "$message<br><br><b>Tool manager errors:</b><br>${toolManagerErrorLines(toolManagerErrors)}"
         } else {
             message
         }
 
-        val notification = object : com.intellij.notification.Notification("Elixir SDK", title, fullMessage, type),
+        val notification = object : com.intellij.notification.Notification("Elixir SDK", StringUtil.escapeXmlEntities(title), fullMessage, type),
             NotificationFullContent {}
 
         // "Configure from <tool manager>" - for module SDK mismatches with a tool manager assignment.
@@ -597,8 +664,7 @@ class ElixirEditorBasedSdkWidget(
         // SDK that the tool manager resolves for *its own* content root - umbrella apps with different
         // configurations get different SDKs rather than a shared one.
         if (sdkStatus is SdkStatus.ModuleSdkError) {
-            val affectedNames = sdkStatus.moduleSdkIssues.mapTo(HashSet()) { it.moduleName }
-            val relevantAssignments = tmAssignments.filterKeys { it in affectedNames }
+            val relevantAssignments = configureAssignments(sdkStatus, tmAssignments)
             if (relevantAssignments.isNotEmpty()) {
                 val toolName = sdkStatus.sdkVersionTables.values.firstOrNull()?.toolManagerName
                     ?: relevantAssignments.values.firstOrNull()?.toolManagerName
@@ -615,7 +681,7 @@ class ElixirEditorBasedSdkWidget(
             }
         }
 
-        // For OTP mismatch, offer "Don't warn for this SDK" (suppress flag) and "Configure…".
+        // For OTP mismatch, offer "Don't warn for this SDK" (suppress flag) and "Configure...".
         if (sdkStatus is SdkStatus.OtpMismatch) {
             val affectedElixirSdk = sdkStatus.elixirSdk
             notification.addAction(object : AnAction("Don't Warn for This SDK") {
@@ -664,12 +730,22 @@ class ElixirEditorBasedSdkWidget(
         // Left live, as the settings may be closed without a fix; a scan that finds the issue gone expires it.
         notification.addAction(object : AnAction("Open ${SdkSettingsOpener.getInstance().targetName()}") {
             override fun actionPerformed(e: AnActionEvent) {
-                SdkSettingsOpener.getInstance().open(e)
+                SdkSettingsOpener.getInstance().open(e, settingsPageFor(sdkStatus))
             }
         })
 
+        // An issue can change without changing what the notice says, such as a tool-manager result arriving after
+        // the first scan; publishing again would show the same notice twice.
+        val live = activeNotification
+        val notificationConfigures = configures(configureAssignments(sdkStatus, tmAssignments))
+        if (live != null && !live.isExpired &&
+            isSameNotice(live, activeNotificationConfigures, notification, notificationConfigures)
+        ) return
+        live?.expire()
+
         notification.notify(project)
         activeNotification = notification
+        activeNotificationConfigures = notificationConfigures
         LOG.info("SDK discrepancy in project '${project.name}': $message")
 
         if (sdkStatus is SdkStatus.FolderMarkWarning) {
@@ -725,20 +801,20 @@ class ElixirEditorBasedSdkWidget(
             val displayVersion = status.toolManagerVersions.elixir?.version ?: "unknown"
             NotificationContent(
                 "Elixir SDK Not Configured",
-                "No Elixir SDK configured, but Elixir $displayVersion is available via $toolName.",
+                StringUtil.escapeXmlEntities("No Elixir SDK configured, but Elixir $displayVersion is available via $toolName."),
                 NotificationType.WARNING
             )
         }
 
         is SdkStatus.InvalidSdk -> NotificationContent(
             "Elixir SDK Issue",
-            "Elixir SDK: ${status.elixirVersion ?: "Unknown"} - ${status.issue}.",
+            StringUtil.escapeXmlEntities("Elixir SDK: ${status.elixirVersion ?: "Unknown"} - ${status.issue}."),
             NotificationType.WARNING
         )
 
         is SdkStatus.ClasspathIssue -> NotificationContent(
             "Elixir SDK Warning",
-            "Elixir SDK ${status.elixirVersion}: ${status.issues.joinToString("; ")}.",
+            StringUtil.escapeXmlEntities("Elixir SDK ${status.elixirVersion}: ${status.issues.joinToString("; ")}."),
             NotificationType.WARNING
         )
 
@@ -754,9 +830,18 @@ class ElixirEditorBasedSdkWidget(
                 val danglingIssues = status.moduleSdkIssues.filter { it.isDangling }
                 val moduleNames = danglingIssues.map { it.moduleName }.distinct()
                 val sdkNames = danglingIssues.mapNotNull { it.missingSdkName }.distinct()
+                // Outranked by the missing SDK, a pin not installed would otherwise go unmentioned.
+                val notInstalledNotes = moduleNames.mapNotNull { moduleName ->
+                    status.moduleSdkIssues
+                        .filter { it.moduleName == moduleName }
+                        .mapNotNull { it.notInstalled }
+                        .takeIf { it.isNotEmpty() }
+                        ?.let { notInstalledNote(moduleName, it) }
+                }
                 NotificationContent(
                     "Elixir SDK Error: Module SDK ${StringUtil.pluralize("reference", moduleNames.size)} broken",
-                    danglingMessage(moduleNames, sdkNames, SdkSettingsOpener.getInstance().targetName()),
+                    danglingMessage(moduleNames, sdkNames, SdkSettingsOpener.getInstance().targetName()) +
+                        notInstalledNotes.joinToString(""),
                     NotificationType.ERROR
                 )
             } else {
@@ -774,7 +859,7 @@ class ElixirEditorBasedSdkWidget(
                         val issueDescriptions = status.moduleSdkIssues.joinToString("; ") { it.issue }
                         NotificationContent(
                             "Elixir SDK: '$moduleName' Version Mismatch",
-                            "Mismatch detected: $issueDescriptions.",
+                            StringUtil.escapeXmlEntities("Mismatch detected: $issueDescriptions."),
                             NotificationType.WARNING
                         )
                     }
@@ -782,7 +867,7 @@ class ElixirEditorBasedSdkWidget(
                     val summary = status.moduleSdkIssues.joinToString("; ") { "'${it.moduleName}': ${it.issue}" }
                     NotificationContent(
                         "Elixir SDK: Module Version Mismatches",
-                        "Tool manager reports version mismatches. $summary.",
+                        StringUtil.escapeXmlEntities("Tool manager reports version mismatches. $summary."),
                         NotificationType.WARNING
                     )
                 }
@@ -802,7 +887,7 @@ class ElixirEditorBasedSdkWidget(
                 }
             NotificationContent(
                 "Elixir: Project Structure Suboptimal",
-                "$summary. Some code insight features may not work correctly.",
+                StringUtil.escapeXmlEntities("$summary. Some code insight features may not work correctly."),
                 NotificationType.WARNING
             )
         }
@@ -954,19 +1039,21 @@ class ElixirEditorBasedSdkWidget(
     internal fun buildSdkVersionTableHtml(table: SdkVersionTable): String {
         val okColor = ColorUtil.toHtmlColor(JBColor(0x388A34, 0x499C54))
         val warnColor = ColorUtil.toHtmlColor(JBColor(0xBB8522, 0xC89B3C))
-        val errorColor = ColorUtil.toHtmlColor(JBColor(0xC7222D, 0xE55765))
+        val errorColor = ColorUtil.toHtmlColor(ERROR_COLOR)
         val quietColor = ColorUtil.toHtmlColor(UIUtil.getContextHelpForeground())
         // Swing gives an empty cell no width, so the gap between columns is spaces - few, as the balloon's width is
         // fixed and a wider table scrolls.
         val gap = "<td nowrap>&nbsp;&nbsp;</td>"
+        val toolManagerName = StringUtil.escapeXmlEntities(table.toolManagerName)
+        val moduleName = StringUtil.escapeXmlEntities(table.moduleName)
         return buildString {
             append("<table cellspacing=\"0\" cellpadding=\"1\">")
             append("<tr><td nowrap></td>$gap")
             append("<td nowrap><font color=\"$quietColor\">Configured SDK</font></td>$gap")
-            append("<td nowrap><font color=\"$quietColor\">${table.toolManagerName}</font></td></tr>")
+            append("<td nowrap><font color=\"$quietColor\">$toolManagerName</font></td></tr>")
             for (row in table.rows) {
-                val configured = row.configuredVersion ?: "-"
-                val toolManager = row.toolManagerVersion ?: "-"
+                val configured = StringUtil.escapeXmlEntities(row.configuredVersion ?: "-")
+                val toolManager = StringUtil.escapeXmlEntities(row.toolManagerVersion ?: "-")
                 val mark = if (row.isMismatch) "<font color=\"$warnColor\">&#x26A0;</font>" else "<font color=\"$okColor\">&#x2713;</font>"
                 // A single-module notification omits the issue text, so this cell must say it is not installed.
                 val toolManagerCell = when {
@@ -976,7 +1063,7 @@ class ElixirEditorBasedSdkWidget(
                     row.isMismatch -> "<b>$toolManager</b>"
                     else -> toolManager
                 }
-                append("<tr valign=\"top\"><td nowrap>$mark&nbsp;${row.label}</td>$gap")
+                append("<tr valign=\"top\"><td nowrap>$mark&nbsp;${StringUtil.escapeXmlEntities(row.label)}</td>$gap")
                 // The one cell left to wrap: an SDK name can outgrow the balloon, which has a fixed width.
                 append("<td>$configured</td>$gap<td nowrap>$toolManagerCell</td></tr>")
             }
@@ -984,8 +1071,8 @@ class ElixirEditorBasedSdkWidget(
             if (table.rows.any { !it.isInstalled }) {
                 append(
                     "<p style=\"margin-top: 6px\"><font color=\"$errorColor\">You need to run " +
-                        "<code><b>${table.toolManagerName} install</b></code><br>" +
-                        "in the <code>${table.moduleName}</code> module directory.</font></p>"
+                        "<code><b>$toolManagerName install</b></code><br>" +
+                        "in the <code>$moduleName</code> module directory.</font></p>"
                 )
             }
         }

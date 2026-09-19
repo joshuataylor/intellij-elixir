@@ -21,4 +21,8 @@ data class ModuleSdkIssue(
     val issue: String,
     val isDangling: Boolean,
     val missingSdkName: String? = null,
+    val notInstalled: NotInstalled? = null,
 )
+
+/** A version a tool manager pins for [tool] but has not installed. */
+data class NotInstalled(val toolManagerName: String, val tool: String, val version: String)

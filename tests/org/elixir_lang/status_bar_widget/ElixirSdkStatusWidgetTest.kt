@@ -12,6 +12,7 @@ import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.roots.ProjectRootManager
+import com.intellij.openapi.util.text.StringUtil
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import java.util.concurrent.Callable
@@ -25,6 +26,14 @@ import org.elixir_lang.sdk.ProcessOutput
 import org.elixir_lang.sdk.elixir.ElixirSdkLookup
 import org.elixir_lang.sdk.elixir.sdk
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
+import com.intellij.notification.Notification
+import com.intellij.notification.NotificationAction
+import com.intellij.notification.NotificationType
+import org.elixir_lang.tool_manager.NotInstalled
+import org.elixir_lang.tool_manager.ToolEntry
+import org.elixir_lang.tool_manager.ToolManagerResult
+import org.elixir_lang.tool_manager.ToolManagerVersions
+import org.elixir_lang.sdk.elixir.SettingsPage
 import org.elixir_lang.tool_manager.ModuleSdkIssue
 import org.elixir_lang.tool_manager.SdkVersionRow
 import org.elixir_lang.tool_manager.SdkVersionTable
@@ -353,26 +362,158 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     }
 
     fun testTheMissingSdkAdviceNamesTheSettingsPageWhereThereIsNoProjectStructure() {
-        val message = ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), listOf("Elixir 1.20.4"), "Settings")
+        val message = StringUtil.unescapeXmlEntities(ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), listOf("Elixir 1.20.4"), "Settings"))
 
         assertTrue(message, message.contains("Settings -> Languages & Frameworks -> Elixir"))
         assertFalse(message, message.contains("Project Structure"))
     }
 
     fun testTheAdviceForAFacetWithNoSdkNamesNoSdk() {
-        val message = ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), emptyList(), "Settings")
+        val message = StringUtil.unescapeXmlEntities(ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), emptyList(), "Settings"))
 
         assertTrue(message, message.startsWith("Module 'my_app' has no Elixir SDK."))
     }
 
+    fun testTheNoteForAnUninstalledPinNamesItAndTheCommand() {
+        val note = ElixirEditorBasedSdkWidget.notInstalledNote("my_app", listOf(NotInstalled("mise", "Erlang", "28.1.2")))
+
+        assertTrue(note, note.contains("mise's Erlang 28.1.2 is not installed"))
+        assertTrue(note, note.contains("mise install"))
+        assertTrue(note, note.contains("my_app"))
+    }
+
+    fun testAnIdenticalNoticeIsTheSameNotice() {
+        assertTrue(
+            ElixirEditorBasedSdkWidget.isSameNotice(
+                notice("text", "Open Settings"), emptyMap(),
+                notice("text", "Open Settings"), emptyMap(),
+            )
+        )
+    }
+
+    fun testANoticeWithOtherTextOrActionsIsNotTheSameNotice() {
+        assertFalse(
+            ElixirEditorBasedSdkWidget.isSameNotice(
+                notice("text", "Open Settings"), emptyMap(),
+                notice("other", "Open Settings"), emptyMap(),
+            )
+        )
+        assertFalse(
+            ElixirEditorBasedSdkWidget.isSameNotice(
+                notice("text", "Open Settings"), emptyMap(),
+                notice("text", "Configure from mise", "Open Settings"), emptyMap(),
+            )
+        )
+    }
+
+    /** Its text can stay the same while the tool manager's choice changes, which Configure would then apply. */
+    fun testANoticeThatWouldConfigureAnotherSdkIsNotTheSameNotice() {
+        assertFalse(
+            ElixirEditorBasedSdkWidget.isSameNotice(
+                notice("text", "Configure from mise"), mapOf("my_app" to listOf("/elixir/1.17.3", "/erlang/27.3")),
+                notice("text", "Configure from mise"), mapOf("my_app" to listOf("/elixir/1.18.4", "/erlang/27.3")),
+            )
+        )
+    }
+
+    /** Another module's assignment changing must not replace the notice, nor one of this module's be missed. */
+    fun testANoticeConfiguresOnlyTheModulesItIsAbout() {
+        val a = object : ToolManagerVersions {
+            override val toolManagerName = "mise"
+            override val elixir = ToolEntry("1.19.5-otp-28", "/elixir/a", true)
+            override val erlang = null
+        }
+        val b = object : ToolManagerVersions {
+            override val toolManagerName = "mise"
+            override val elixir = ToolEntry("1.18.4-otp-27", "/elixir/b", true)
+            override val erlang = null
+        }
+        val aOnly = SdkStatus.ModuleSdkError(null, null, listOf(ModuleSdkIssue("a", "references non-existent SDK 'x'", true)))
+
+        assertEquals(setOf("a"), ElixirEditorBasedSdkWidget.configureAssignments(aOnly, mapOf("a" to a, "b" to b)).keys)
+        assertEquals(
+            "a module with no SDK at all is configured project-wide",
+            setOf("a", "b"),
+            ElixirEditorBasedSdkWidget.configureAssignments(SdkStatus.NotConfiguredToolManagerAvailable(a), mapOf("a" to a, "b" to b)).keys,
+        )
+    }
+
+    fun testAModuleSdkNoticeOpensTheModulePageAndAnSdkNoticeTheSdksPage() {
+        val elixirSdk = createAndRegisterElixirSdk("Elixir")
+        val otpMismatch = SdkStatus.OtpMismatch(elixirSdk, elixirSdk, "1.19.5", "27", "28")
+
+        assertEquals(SettingsPage.MODULE_SDKS, ElixirEditorBasedSdkWidget.settingsPageFor(SdkStatus.NotConfigured))
+        assertEquals(
+            SettingsPage.MODULE_SDKS,
+            ElixirEditorBasedSdkWidget.settingsPageFor(SdkStatus.ModuleSdkError(null, null, emptyList())),
+        )
+        assertEquals("the Erlang pairing is set on the SDK", SettingsPage.SDKS, ElixirEditorBasedSdkWidget.settingsPageFor(otpMismatch))
+    }
+
+    private fun notice(content: String, vararg actions: String) =
+        Notification("Elixir SDK", "Elixir SDK Error", content, NotificationType.ERROR).apply {
+            for (action in actions) addAction(NotificationAction.createSimple(action) {})
+        }
+
+    /** The notice is HTML, so a raw `<module>` placeholder or a module name with `<` in it would vanish. */
+    fun testTheMissingSdkAdviceIsEscapedForHtml() {
+        val message = ElixirEditorBasedSdkWidget.danglingMessage(listOf("a<b", "c"), listOf("Elixir <1.20>"), "Project Structure")
+
+        assertFalse(message, message.contains("<"))
+        val text = StringUtil.unescapeXmlEntities(message)
+        assertTrue(text, text.contains("Modules -> <module> -> Dependencies"))
+        assertTrue(text, text.contains("'a<b'"))
+        assertTrue(text, text.contains("'Elixir <1.20>'"))
+    }
+
+    fun testTheNotInstalledNoteEscapesWhatItNames() {
+        val note = ElixirEditorBasedSdkWidget.notInstalledNote("a<b", listOf(NotInstalled("mise", "Erlang", "28.1 <rc>")))
+
+        assertTrue(note, note.contains("a&lt;b"))
+        assertTrue(note, note.contains("28.1 &lt;rc&gt;"))
+    }
+
+    /** A tool manager's description is its own HTML, such as mise's `<code>mise trust</code>`; only its name is text. */
+    fun testAToolManagerErrorKeepsItsMarkupAndEscapesItsName() {
+        val lines = ElixirEditorBasedSdkWidget.toolManagerErrorLines(
+            listOf(ToolManagerResult.Error("a<b", "Run <code>mise trust</code> in the project directory."))
+        )
+
+        assertTrue(lines, lines.contains("Run <code>mise trust</code>"))
+        assertTrue(lines, lines.contains("[a&lt;b]"))
+    }
+
+    fun testTheOtpMismatchNoticeEscapesTheSdkName() {
+        val message = ElixirEditorBasedSdkWidget.otpMismatchMessage("Elixir <local>", "27", "28")
+
+        assertFalse(message, message.contains("<"))
+        assertTrue(message, StringUtil.unescapeXmlEntities(message).contains("'Elixir <local>'"))
+    }
+
+    fun testTheVersionTableEscapesWhatItNames() {
+        val html = createWidget().buildSdkVersionTableHtml(
+            SdkVersionTable(
+                moduleName = "a<b",
+                toolManagerName = "mise",
+                rows = listOf(SdkVersionRow("Elixir", "Elixir <local>", "1.21 <rc>", isMismatch = true, isInstalled = false)),
+            )
+        )
+
+        assertTrue(html, html.contains("a&lt;b"))
+        assertTrue(html, html.contains("Elixir &lt;local&gt;"))
+        assertTrue(html, html.contains("1.21 &lt;rc&gt;"))
+    }
+
     fun testTheMissingSdkAdviceNamesTheModuleSdkInProjectStructure() {
-        val message = ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), listOf("Elixir 1.20.4"), "Project Structure")
+        val message = StringUtil.unescapeXmlEntities(ElixirEditorBasedSdkWidget.danglingMessage(listOf("my_app"), listOf("Elixir 1.20.4"), "Project Structure"))
 
         assertTrue(message, message.contains("Project Structure -> Modules -> my_app -> Dependencies -> Module SDK"))
     }
 
     fun testTheOtpMismatchNoticeNamesTheSdkOnce() {
-        val message = ElixirEditorBasedSdkWidget.otpMismatchMessage("mise Elixir 1.19.5-otp-27 (Erlang 28.1)", "27", "28")
+        val message = StringUtil.unescapeXmlEntities(
+            ElixirEditorBasedSdkWidget.otpMismatchMessage("mise Elixir 1.19.5-otp-27 (Erlang 28.1)", "27", "28")
+        )
 
         assertTrue(message, message.startsWith("Elixir SDK 'mise Elixir 1.19.5-otp-27 (Erlang 28.1)' was compiled for OTP 27 but is paired with OTP 28."))
     }

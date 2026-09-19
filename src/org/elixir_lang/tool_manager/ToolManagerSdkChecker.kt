@@ -263,6 +263,7 @@ internal class ToolManagerSdkChecker(
                                     runInstall
                             } ?: "$toolName resolves Elixir ${tmElixir.version}, which is not installed - $runInstall",
                             isDangling = false,
+                            notInstalled = NotInstalled(toolName, "Elixir", tmElixir.version),
                         )
                     )
                 } else if (isMismatch) {
@@ -308,6 +309,7 @@ internal class ToolManagerSdkChecker(
                                     "installed - $runInstall"
                             } ?: "$toolName resolves Erlang ${tmErlang.version}, which is not installed - $runInstall",
                             isDangling = false,
+                            notInstalled = NotInstalled(toolName, "Erlang", tmErlang.version),
                         )
                     )
                 } else if (isMismatch) {
