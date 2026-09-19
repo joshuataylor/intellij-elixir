@@ -103,7 +103,7 @@
 ### Bug Fixes
 
 - [#4132](https://github.com/intellij-elixir/intellij-elixir/pull/4132) [@sh41](https://github.com/sh41)
-  - **Opening the Elixir SDK settings no longer reports a slow operation on the EDT.** Fixes [#4130](https://github.com/intellij-elixir/intellij-elixir/issues/4130).
+  - **Opening the Elixir SDK or Credo settings no longer reports a slow operation on the EDT.** Fixes [#4130](https://github.com/intellij-elixir/intellij-elixir/issues/4130).
 - [#4133](https://github.com/intellij-elixir/intellij-elixir/pull/4133) [@sh41](https://github.com/sh41)
   - **Selecting an SDK in the Elixir SDKs settings no longer reports a threading error.** Fixes [#4129](https://github.com/intellij-elixir/intellij-elixir/issues/4129).
 - [#4124](https://github.com/intellij-elixir/intellij-elixir/pull/4124) [@sh41](https://github.com/sh41)
