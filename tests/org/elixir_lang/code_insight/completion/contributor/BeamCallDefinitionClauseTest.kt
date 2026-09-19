@@ -24,8 +24,8 @@ import java.io.File
  *    `import SomeBeamModule`.  Tested by [testBeamExportedFunctionAppearsInUnqualifiedCompletion].
  *
  * 2. **`element_renderer.CallDefinitionClause`** had no branch for `BeamCallDefinition`, so the
- *    tail text (arity) was missing from BEAM completion items.  Tested by
- *    [testBeamExportedFunctionRendersWithArity].
+ *    tail text was missing from BEAM completion items.  Tested by
+ *    [testBeamExportedFunctionRendersWithParameters].
  *
  * 3. The same renderer set no icon for `BeamCallDefinition`, so BEAM items rendered without the
  *    function/macro + visibility icon that source items get.  Tested by
@@ -191,33 +191,22 @@ class BeamCallDefinitionClauseTest : PlatformTestCase() {
     }
 
     /**
-     * The lookup element for a BEAM-decompiled function must render with `/arity` tail text.
-     *
-     * This verifies the fix in `element_renderer.CallDefinitionClause` that adds a
-     * `renderBeamCallDefinition` branch, since `BeamCallDefinition` is not a `Call` and the
-     * pre-fix code path left the tail text empty for BEAM elements.
+     * The lookup element for a BEAM-decompiled function renders its parameters as tail text, the way a
+     * source-defined function does.
      */
-    fun testBeamExportedFunctionRendersWithArity() {
+    fun testBeamExportedFunctionRendersWithParameters() {
         addBeamLibrary()
 
         myFixture.configureByFiles("usage.ex")
         val lookupElements: Array<LookupElement>? = myFixture.complete(CompletionType.BASIC, 1)
         assertNotNull(NO_POPUP_MESSAGE, lookupElements)
 
-        val element = lookupElements!!.firstOrNull { it.lookupString == "string_to_quoted" }
-        assertNotNull("No lookup element for 'string_to_quoted' - BEAM exported functions missing from completion", element)
+        val presentations = lookupElements!!
+            .filter { it.lookupString == "string_to_quoted" }
+            .map { element -> LookupElementPresentation().also { element.renderElement(it) } }
 
-        val presentation = LookupElementPresentation()
-        element!!.renderElement(presentation)
-
-        assertEquals("string_to_quoted", presentation.itemText)
-        // string_to_quoted/1 and string_to_quoted/2 are both exported; either renders as "/1" or "/2"
-        val tailText = presentation.tailText
-        assertNotNull("Expected '/arity' tail text for BEAM completion item, got null", tailText)
-        assertTrue(
-            "Expected tail text to start with '/' for BEAM arity, got: '$tailText'",
-            tailText!!.startsWith("/")
-        )
+        assertEquals(listOf("string_to_quoted", "string_to_quoted"), presentations.map { it.itemText })
+        assertSameElements(presentations.map { it.tailText }, "(string)", "(string, opts)")
     }
 
     /**

@@ -98,6 +98,8 @@
 
 ### Bug Fixes
 
+- [#4124](https://github.com/intellij-elixir/intellij-elixir/pull/4124) [@sh41](https://github.com/sh41)
+  - **Parameter hints and completion show the parameters of functions defined in a `.beam`.** Fixes [#4048](https://github.com/intellij-elixir/intellij-elixir/issues/4048).
 - [#4121](https://github.com/intellij-elixir/intellij-elixir/pull/4121) [@sh41](https://github.com/sh41)
   - **Deeply nested code, complete or half-typed, no longer takes minutes to parse.** Fixes [#4114](https://github.com/intellij-elixir/intellij-elixir/issues/4114).
 
