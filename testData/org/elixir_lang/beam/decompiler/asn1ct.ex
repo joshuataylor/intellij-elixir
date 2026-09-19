@@ -177,7 +177,43 @@ defmodule :asn1ct do
     end
   end
 
-  def maybe_rename_function(mode, name, pattern), do: ...
+  def maybe_rename_function(mode, name, pattern) do
+    case get_gen_state_field(:generated_functions) do
+      [] when mode == :inc_disp ->
+        add_generated_function({name, 0, pattern})
+        name
+      [] ->
+        exit({:error, {:asn1, :internal_error_exclusive_decode}})
+      l ->
+        case {mode, generated_functions_member(get(:currmod), name, l)} do
+          {_, true} ->
+            l2 = generated_functions_filter(get(:currmod), name, l)
+            case :lists.keysearch(pattern, 3, l2) do
+              false ->
+                nextIndex = length(l2)
+                suffix = :lists.concat(['_', nextIndex])
+                newName = maybe_rename_function2(type_check(name), name, suffix)
+                add_generated_function({name, nextIndex, pattern})
+                newName
+              value ->
+                suffix = make_suffix(value)
+                name2 = case name do
+                  unquote(:"Externaltypereference")(type: t) ->
+                    t
+                  _ ->
+                    name
+                end
+                :lists.concat([name2, suffix])
+            end
+          {:inc_disp, _} ->
+            add_generated_function({name, 0, pattern})
+            name
+          _ ->
+            add_generated_function({name, 0, pattern})
+            name
+        end
+    end
+  end
 
   def maybe_saved_sindex(name, pattern) do
     case get_gen_state_field(:generated_functions) do
@@ -987,9 +1023,56 @@ defmodule :asn1ct do
     :lists.reverse([innerDirectives | acc])
   end
 
-  defp create_pdec_inc_command(modName, cList = [unquote(:"ComponentType")(name: name, typespec: tS, prop: prop) | comps], tNL = [c1 | cs], acc), do: ...
+  defp create_pdec_inc_command(modName, cList = [unquote(:"ComponentType")(name: name, typespec: tS, prop: prop) | comps], tNL = [c1 | cs], acc) do
+    case c1 do
+      {name, :undecoded} ->
+        tagCommand = get_tag_command(tS, :undec, prop)
+        create_pdec_inc_command(modName, comps, cs, concat_sequential(tagCommand, acc))
+      {name, :parts} ->
+        tagCommand = get_tag_command(tS, :parts, prop)
+        create_pdec_inc_command(modName, comps, cs, concat_sequential(tagCommand, acc))
+      l when is_list(l) ->
+        create_pdec_inc_command(modName, cList, l, acc)
+      {name, restPartsList} when is_list(restPartsList) ->
+        case get_tag_command(tS, :mandatory, prop) do
+          :mandatory ->
+            innerDirectives = create_pdec_inc_command(modName, type(tS, :def), restPartsList, [])
+            create_pdec_inc_command(modName, comps, cs, [[:mandatory, innerDirectives] | acc])
+          [opt, encTag] ->
+            innerDirectives = create_pdec_inc_command(modName, type(tS, :def), restPartsList, [])
+            create_pdec_inc_command(modName, comps, cs, [[opt, encTag, innerDirectives] | acc])
+        end
+      _ ->
+        tagCommand = get_tag_command(tS, :mandatory, prop)
+        create_pdec_inc_command(modName, comps, tNL, concat_sequential(tagCommand, acc))
+    end
+  end
 
-  defp create_pdec_inc_command(modName, {:"CHOICE", [unquote(:"ComponentType")(name: c1, typespec: tS, prop: prop) | comps]}, [{^c1, directive} | rest], acc), do: ...
+  defp create_pdec_inc_command(modName, {:"CHOICE", [unquote(:"ComponentType")(name: c1, typespec: tS, prop: prop) | comps]}, [{^c1, directive} | rest], acc) do
+    case directive do
+      list when is_list(list) ->
+        tagCommand = get_tag_command(tS, :alt, prop)
+        compAcc = create_pdec_inc_command(modName, get_components(type(tS, :def)), list, [])
+        newAcc = case tagCommand do
+          [command, tag] when is_atom(command) ->
+            [[command, tag, compAcc] | acc]
+          [l1, _L2 | rest] when is_list(l1) ->
+            case :lists.reverse(tagCommand) do
+              [atom | comms] when is_atom(atom) ->
+                [concat_sequential(:lists.reverse(comms), [atom, compAcc]) | acc]
+              [[command2, tag2] | comms] ->
+                [concat_sequential(:lists.reverse(comms), [[command2, tag2, compAcc]]) | acc]
+            end
+        end
+        create_pdec_inc_command(modName, {:"CHOICE", comps}, rest, newAcc)
+      :undecoded ->
+        tagCommand = get_tag_command(tS, :alt_undec, prop)
+        create_pdec_inc_command(modName, {:"CHOICE", comps}, rest, concat_sequential(tagCommand, acc))
+      :parts ->
+        tagCommand = get_tag_command(tS, :alt_parts, prop)
+        create_pdec_inc_command(modName, {:"CHOICE", comps}, rest, concat_sequential(tagCommand, acc))
+    end
+  end
 
   defp create_pdec_inc_command(modName, {:"CHOICE", [unquote(:"ComponentType")(typespec: tS, prop: prop) | comps]}, tNL, acc) do
     tagCommand = get_tag_command(tS, :alt, prop)
@@ -1111,7 +1194,29 @@ defmodule :asn1ct do
 
   defp export_all([]), do: []
 
-  defp export_all(moduleList), do: ...
+  defp export_all(moduleList) do
+    expList = :lists.map(fn m ->
+        torVL = module(m, :typeorval)
+        mName = module(m, :name)
+        :lists.map(fn def ->
+            case def do
+              t when is_record(t, :typedef) ->
+                unquote(:"Externaltypereference")(pos: 0, module: mName, type: typedef(t, :name))
+              v when is_record(v, :valuedef) ->
+                unquote(:"Externalvaluereference")(pos: 0, module: mName, value: valuedef(v, :name))
+              c when is_record(c, :classdef) ->
+                unquote(:"Externaltypereference")(pos: 0, module: mName, type: classdef(c, :name))
+              p when is_record(p, :ptypedef) ->
+                unquote(:"Externaltypereference")(pos: 0, module: mName, type: ptypedef(p, :name))
+              pV when is_record(pV, :pvaluesetdef) ->
+                unquote(:"Externaltypereference")(pos: 0, module: mName, type: pvaluesetdef(pV, :name))
+              pO when is_record(pO, :pobjectdef) ->
+                unquote(:"Externalvaluereference")(pos: 0, module: mName, value: pobjectdef(pO, :name))
+            end
+        end, torVL)
+    end, moduleList)
+    :lists.append(expList)
+  end
 
   defp finished_warn_prints(), do: put(:warn_duplicate_defs, :undefined)
 
@@ -1445,7 +1550,50 @@ defmodule :asn1ct do
 
   defp input_file_type([]), do: {:empty_name, []}
 
-  defp input_file_type(file), do: ...
+  defp input_file_type(file) do
+    case :filename.extension(file) do
+      [] ->
+        case :file.read_file_info(:lists.concat([file, '.asn1'])) do
+          {:ok, _FileInfo} ->
+            {:single_file, :lists.concat([file, '.asn1'])}
+          _Error ->
+            case :file.read_file_info(:lists.concat([file, '.asn'])) do
+              {:ok, _FileInfo} ->
+                {:single_file, :lists.concat([file, '.asn'])}
+              _Error ->
+                case :file.read_file_info(:lists.concat([file, '.py'])) do
+                  {:ok, _FileInfo} ->
+                    {:single_file, :lists.concat([file, '.py'])}
+                  error ->
+                    error
+                end
+            end
+        end
+      '.asn1config' ->
+        case read_config_file_info(file, :asn1_module) do
+          {:ok, asn1Module} ->
+            input_file_type(asn1Module)
+          error ->
+            error
+        end
+      asn1SFix ->
+        base = :filename.basename(file, asn1SFix)
+        ret = case :filename.extension(base) do
+          [] ->
+            {:single_file, file}
+          setSFix when setSFix == '.set' ->
+            {:multiple_files_file, list_to_atom(:filename.basename(base, setSFix)), file}
+          _Error ->
+            throw({:input_file_error, {:"Bad input file", file}})
+        end
+        case :file.read_file_info(file) do
+          {:ok, _} ->
+            ret
+          err ->
+            err
+        end
+    end
+  end
 
   defp input_file_type(name, i) do
     case input_file_type(name) do
@@ -1708,7 +1856,41 @@ defmodule :asn1ct do
 
   defp prepare_bytes(bytes), do: list_to_binary(bytes)
 
-  defp pretty2(module, absFile), do: ...
+  defp pretty2(module, absFile) do
+    {:ok, f} = :file.open(absFile, [:write])
+    m = :asn1_db.dbget(module, :"MODULE")
+    :io.format(f, '%%%%%%%%%%%%%%%%%%%   ~p  %%%%%%%%%%%%%%%%%%%~n', [module])
+    :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(module(m, :defid))])
+    :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(module(m, :tagdefault))])
+    :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(module(m, :exports))])
+    :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(module(m, :imports))])
+    :io.format(f, '~s.\n\n', [:asn1ct_pretty_format.term(module(m, :extensiondefault))])
+    {types, values, parameterizedTypes, classes, objects, objectSets} = module(m, :typeorval)
+    :io.format(f, '%%%%%%%%%%%%%%%%%%% TYPES in ~p  %%%%%%%%%%%%%%%%%%%~n', [module])
+    :lists.foreach(fn t ->
+        :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(:asn1_db.dbget(module, t))])
+    end, types)
+    :io.format(f, '%%%%%%%%%%%%%%%%%%% VALUES in ~p  %%%%%%%%%%%%%%%%%%%~n', [module])
+    :lists.foreach(fn t ->
+        :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(:asn1_db.dbget(module, t))])
+    end, values)
+    :io.format(f, '%%%%%%%%%%%%%%%%%%% Parameterized Types in ~p  %%%%%%%%%%%%%%%%%%%~n', [module])
+    :lists.foreach(fn t ->
+        :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(:asn1_db.dbget(module, t))])
+    end, parameterizedTypes)
+    :io.format(f, '%%%%%%%%%%%%%%%%%%% Classes in ~p  %%%%%%%%%%%%%%%%%%%~n', [module])
+    :lists.foreach(fn t ->
+        :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(:asn1_db.dbget(module, t))])
+    end, classes)
+    :io.format(f, '%%%%%%%%%%%%%%%%%%% Objects in ~p  %%%%%%%%%%%%%%%%%%%~n', [module])
+    :lists.foreach(fn t ->
+        :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(:asn1_db.dbget(module, t))])
+    end, objects)
+    :io.format(f, '%%%%%%%%%%%%%%%%%%% Object Sets in ~p  %%%%%%%%%%%%%%%%%%%~n', [module])
+    :lists.foreach(fn t ->
+        :io.format(f, '~s.\n', [:asn1ct_pretty_format.term(:asn1_db.dbget(module, t))])
+    end, objectSets)
+  end
 
   defp print_structured_errors([_ | _] = errors) do
     _ = for {:structured_error, {f, l}, m, e} <- errors do

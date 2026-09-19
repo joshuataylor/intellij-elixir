@@ -18,11 +18,9 @@ class Clause(val attributes: Attributes, val function: Function, val term: OtpEr
         val prefix = "${function.macroNameArity.macro} ${headMacroString.string}"
 
         return if (options.decompileBodies) {
-            val indentedBody = org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.Clause.bodyString(term, headDeclaredScope)
+            try {
+                val indentedBody = org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.Clause.bodyString(term, headDeclaredScope)
 
-            if (options.truncateDecompiledBody(indentedBody)) {
-                "$prefix, do: ..."
-            } else {
                 if (indentedBody.contains("\n")) {
                     "$prefix do\n" +
                             "  $indentedBody\n" +
@@ -30,6 +28,8 @@ class Clause(val attributes: Attributes, val function: Function, val term: OtpEr
                 } else {
                     "$prefix, do: ${indentedBody.trimIndent()}"
                 }
+            } catch (_: StackOverflowError) {
+                "$prefix, do: ..."
             }
         } else {
             "$prefix, do: ..."

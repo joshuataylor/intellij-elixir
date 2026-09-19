@@ -19,7 +19,85 @@ defmodule :fprof do
 
   def analyse({opt, _Val} = option) when is_atom(opt), do: analyse([option])
 
-  def analyse(options) when is_list(options), do: ...
+  def analyse(options) when is_list(options) do
+    case getopts(options, [:dest, :append, :cols, :callers, :no_callers, :sort, :totals, :details, :no_details]) do
+      {[dest, append, cols, callers, noCallers, sort, totals, details, noDetails], []} ->
+        {target, flags} = case {dest, append} do
+          {[], []} ->
+            {group_leader(), []}
+          {[:dest], []} ->
+            {group_leader(), []}
+          {[{:dest, []}], []} ->
+            {'fprof.analysis', []}
+          {[{:dest, []}], [:append]} ->
+            {'fprof.analysis', [:append]}
+          {[{:dest, f}], [:append]} when is_pid(f) ->
+            :erlang.error(:badarg, [options])
+          {[{:dest, f}], [:append]} ->
+            {f, [:append]}
+          {[{:dest, f}], []} ->
+            {f, []}
+          _ ->
+            :erlang.error(:badarg, [options])
+        end
+        call(analyse(group_leader: group_leader(), dest: target, flags: flags, cols: case cols do
+          [] ->
+            80
+          [{:cols, c}] when is_integer(c) and c > 0 ->
+            c
+          _ ->
+            :erlang.error(:badarg, [options])
+        end, callers: case {callers, noCallers} do
+          {[], []} ->
+            true
+          {[:callers], []} ->
+            true
+          {[{:callers, true}], []} ->
+            true
+          {[{:callers, false}], []} ->
+            false
+          {[], [:no_callers]} ->
+            false
+          _ ->
+            :erlang.error(:badarg, [options])
+        end, sort: case sort do
+          [] ->
+            :acc
+          [{:sort, :acc}] ->
+            :acc
+          [{:sort, :own}] ->
+            :own
+          _ ->
+            :erlang.error(:badarg, [options])
+        end, totals: case totals do
+          [] ->
+            false
+          [:totals] ->
+            true
+          [{:totals, true}] ->
+            true
+          [{:totals, false}] ->
+            false
+          _ ->
+            :erlang.error(:badarg, [options])
+        end, details: case {details, noDetails} do
+          {[], []} ->
+            true
+          {[:details], []} ->
+            true
+          {[{:details, true}], []} ->
+            true
+          {[{:details, false}], []} ->
+            false
+          {[], [:no_details]} ->
+            false
+          _ ->
+            :erlang.error(:badarg, [options])
+        end))
+      _ ->
+        :erlang.error(:badarg, [options])
+    end
+  end
 
   def analyse(options), do: :erlang.error(:badarg, [options])
 
@@ -159,7 +237,53 @@ defmodule :fprof do
 
   def profile({opt, _Val} = option) when is_atom(opt), do: profile([option])
 
-  def profile(options) when is_list(options), do: ...
+  def profile(options) when is_list(options) do
+    case getopts(options, [:start, :stop, :file, :dump, :append]) do
+      {[start, [], file, dump, append], []} ->
+        {target, flags} = case {dump, append} do
+          {[], []} ->
+            {[], []}
+          {[:dump], []} ->
+            {group_leader(), []}
+          {[{:dump, []}], []} ->
+            {'fprof.dump', []}
+          {[{:dump, []}], [:append]} ->
+            {'fprof.dump', [:append]}
+          {[{:dump, d}], [:append]} when is_pid(d) ->
+            :erlang.error(:badarg, [options])
+          {[{:dump, d}], [:append]} ->
+            {d, [:append]}
+          {[{:dump, d}], []} ->
+            {d, []}
+          _ ->
+            :erlang.error(:badarg, [options])
+        end
+        case {start, file} do
+          {[:start], []} ->
+            call(profile_start(group_leader: group_leader(), dump: target, flags: flags))
+          {[], _} ->
+            src = case file do
+              [] ->
+                'fprof.trace'
+              [:file] ->
+                'fprof.trace'
+              [{:file, []}] ->
+                'fprof.trace'
+              [{:file, f}] ->
+                f
+              _ ->
+                :erlang.error(:badarg, [options])
+            end
+            call(profile(src: src, group_leader: group_leader(), dump: target, flags: flags))
+          _ ->
+            :erlang.error(:badarg, [options])
+        end
+      {[[], [:stop], [], [], []], []} ->
+        call(profile_stop())
+      _ ->
+        :erlang.error(:badarg, [options])
+    end
+  end
 
   def profile(options), do: :erlang.error(:badarg, [options])
 
@@ -255,7 +379,63 @@ defmodule :fprof do
 
   def trace(option) when is_atom(option), do: trace([option])
 
-  def trace(options) when is_list(options), do: ...
+  def trace(options) when is_list(options) do
+    case getopts(options, [:start, :stop, :procs, :verbose, :file, :tracer, :cpu_time]) do
+      {[[], [:stop], [], [], [], [], []], []} ->
+        call(trace_stop())
+      {[[:start], [], procs, verbose, file, tracer, cpuTime], []} ->
+        {type, dest} = case {file, tracer} do
+          {[], [{:tracer, pid} = t]} when is_pid(pid) or is_port(pid) ->
+            t
+          {[:file], []} ->
+            {:file, 'fprof.trace'}
+          {[{:file, []}], []} ->
+            {:file, 'fprof.trace'}
+          {[{:file, _} = f], []} ->
+            f
+          {[], []} ->
+            {:file, 'fprof.trace'}
+          _ ->
+            :erlang.error(:badarg, [options])
+        end
+        v = case verbose do
+          [] ->
+            :normal
+          [:verbose] ->
+            :verbose
+          [{:verbose, true}] ->
+            :verbose
+          [{:verbose, false}] ->
+            :normal
+          _ ->
+            :erlang.error(:badarg, [options])
+        end
+        cT = case cpuTime do
+          [] ->
+            :wallclock
+          [:cpu_time] ->
+            :cpu_time
+          [{:cpu_time, true}] ->
+            :cpu_time
+          [{:cpu_time, false}] ->
+            :wallclock
+          _ ->
+            :erlang.error(:badarg, [options])
+        end
+        call(trace_start(procs: case procs do
+          [] ->
+            [self()]
+          [{:procs, p}] when is_list(p) ->
+            p
+          [{:procs, p}] ->
+            [p]
+          _ ->
+            :erlang.error(:badarg, [options])
+        end, mode: {v, cT}, type: type, dest: dest))
+      _ ->
+        :erlang.error(:badarg, [options])
+    end
+  end
 
   def trace(options), do: :erlang.error(:badarg, [options])
 
@@ -476,7 +656,54 @@ defmodule :fprof do
     end
   end
 
-  defp apply_start_stop(function, args, procs, options), do: ...
+  defp apply_start_stop(function, args, procs, options) do
+    ref = make_ref()
+    parent = self()
+    child = spawn(fn () ->
+        mRef = :erlang.monitor(:process, parent)
+        receive do
+        {parent, ref, :start_trace} ->
+            case trace([:start, {:procs, [parent | procs]} | options]) do
+              :ok ->
+                try do
+                  send(parent, {self(), ref, :trace_started})
+                catch
+                  error -> error
+                end
+                receive do
+                {parent, ref, :stop_trace} ->
+                    trace([:stop])
+                    try do
+                      send(parent, {self(), ref, :trace_stopped})
+                    catch
+                      error -> error
+                    end
+                    :done
+                  {:"DOWN", mRef, _, _, _} ->
+                    trace([:stop])
+                end
+              {:error, reason} ->
+                exit(reason)
+            end
+          {:"DOWN", ^mRef, _, _, _} ->
+            :done
+        end
+    end)
+    mRef = :erlang.monitor(:process, child)
+    try do
+      send(child, {self(), ref, :start_trace})
+    catch
+      error -> error
+    end
+    receive do
+    {^child, ^ref, :trace_started} ->
+        try do
+          :erlang.apply(function, args)
+        end
+      {:"DOWN", ^mRef, _, _, reason} ->
+        exit(reason)
+    end
+  end
 
   defp clock_add(table, id, clock, t) do
     dbg(1, 'clock_add(Table, ~w, ~w, ~w)~n', [id, clock, t])
@@ -534,7 +761,137 @@ defmodule :fprof do
     result
   end
 
-  defp do_analyse_1(table, analyse(group_leader: groupLeader, dest: io, cols: cols0, callers: printCallers, sort: sort, totals: printTotals, details: printDetails) = _Analyse), do: ...
+  defp do_analyse_1(table, analyse(group_leader: groupLeader, dest: io, cols: cols0, callers: printCallers, sort: sort, totals: printTotals, details: printDetails) = _Analyse) do
+    waste = 11
+    minCols = waste + 12
+    cols = cond do
+      cols0 < minCols ->
+        minCols
+      true ->
+        cols0
+    end
+    width = div(cols - waste, 12)
+    fnameWidth = cols - waste - 5 * width
+    dest = {io, [fnameWidth, width, 2 * width, 2 * width]}
+    sortElement = case sort do
+      :own ->
+        clocks(:own)
+      :acc ->
+        clocks(:acc)
+    end
+    _Erase = erase()
+    dbg(2, 'erase() -> ~p~n', [_Erase])
+    :io.format(groupLeader, 'Processing data...~n', [])
+    pidTable = :ets.new(:fprof, [:set, :private, {:keypos, clocks(:id)}])
+    procTable = :ets.new(:fprof, [:set, :private, {:keypos, proc(:id)}])
+    ets_select_foreach(table, [{:_, [], [:"$_"]}], 100, fn clocks(id: {pid, caller, func}) = clocks ->
+        case printDetails do
+          true ->
+            funcstat_pd(pid, caller, func, clocks)
+            clocks_add(pidTable, clocks(clocks, id: pid))
+          false ->
+            :ok
+        end
+        clocks_add(pidTable, clocks(clocks, id: :totals))
+        case printTotals do
+          true ->
+            funcstat_pd(:totals, caller, func, clocks)
+          false ->
+            :ok
+        end
+      proc() = proc ->
+        :ets.insert(procTable, proc)
+      misc() = misc ->
+        :ets.insert(procTable, misc)
+    end)
+    dbg(3, 'get() -> ~p~n', [get()])
+    {firstTS, lastTS, _TraceCnt} = case {:ets.lookup(procTable, :first_ts), :ets.lookup(procTable, :last_ts_n)} do
+      {[misc(data: fTS)], [misc(data: {lTS, tC})]} when fTS !== :undefined and lTS !== :undefined ->
+        {fTS, lTS, tC}
+      _ ->
+        throw({:error, :empty_trace})
+    end
+    totals0 = case :ets.lookup(pidTable, :totals) do
+      [t0] ->
+        :ets.delete(pidTable, :totals)
+        t0
+      _ ->
+        throw({:error, :empty_trace})
+    end
+    totals = clocks(totals0, acc: ts_sub(lastTS, firstTS))
+    dbg(3, 'Totals0 =  ~p~n', [totals0])
+    dbg(3, 'PidTable =  ~p~n', [:ets.tab2list(pidTable)])
+    dbg(3, 'ProcTable =  ~p~n', [:ets.tab2list(procTable)])
+    dbg(4, 'Totals = ~p~n', [totals])
+    :lists.foreach(fn {{pid, _Func}, funcstat} ->
+        put(pid, [funcstat | (case get(pid) do
+          :undefined ->
+            []
+          other ->
+            other
+        end)])
+    end, erase())
+    dbg(4, 'get() -> ~p~n', [get()])
+    pidSorted = postsort_r(:lists.sort(:ets.select(pidTable, [{:_, [], [[{:element, clocks(:own), :"$_"} | :"$_"]]}])))
+    dbg(4, 'PidSorted = ~p~n', [pidSorted])
+    :io.format(groupLeader, 'Creating output...~n', [])
+    println(dest, '%% ', [], 'Analysis results:', "")
+    println(dest, '{  ', :analysis_options, ',', "")
+    println(dest, ' [{', {:callers, printCallers}, '},', "")
+    println(dest, '  {', {:sort, sort}, '},', "")
+    println(dest, '  {', {:totals, printTotals}, '},', "")
+    println(dest, '  {', {:details, printDetails}, '}]}.', "")
+    println(dest)
+    :lists.foreach(fn {clocks() = clocks, procOrPid, funcstatList} ->
+        println(dest, '%  ', :head, "", "")
+        case procOrPid do
+          proc() ->
+            println(dest, '[{ ', clocks, '},', '%%')
+            print_proc(dest, procOrPid)
+          :totals ->
+            println(dest, '[{ ', clocks, '}].', '%%%')
+          _ when is_pid(procOrPid) ->
+            println(dest, '[{ ', clocks, '}].', '%%')
+        end
+        println(dest)
+        :lists.foreach(fn funcstat(callers_sum: callersSum, callers: callers, called: called) ->
+            case {printCallers, callers} do
+              {true, _} ->
+                print_callers(dest, callers)
+                println(dest, ' { ', callersSum, '},', '%')
+                print_called(dest, called)
+                println(dest)
+              {false, _} ->
+                println(dest, '{  ', callersSum, '}.', "")
+            end
+            :ok
+        end, funcstat_sort_r(funcstatList, sortElement))
+        println(dest)
+    end, :lists.map(fn clocks(id: pid) = clocks ->
+        proc = case :ets.lookup(procTable, pid) do
+          [] ->
+            pid
+          [procX] ->
+            procX
+        end
+        funcstatList = case get(pid) do
+          :undefined ->
+            []
+          fL ->
+            fL
+        end
+        {clocks, proc, funcstatList}
+    end, (case printDetails do
+      true ->
+        [totals | pidSorted]
+      false ->
+        [totals]
+    end)))
+    :ets.delete(pidTable)
+    :ets.delete(procTable)
+    :io.format(groupLeader, 'Done!~n', [])
+    :ok
+  end
 
   defp dump(:undefined, _), do: false
 
@@ -650,7 +1007,41 @@ defmodule :fprof do
 
   defp getopts_2([other | tail], option, result, remaining), do: getopts_2(tail, option, result, [other | remaining])
 
-  defp handle_other({:"EXIT", pid, reason} = other, state) when is_pid(pid) or is_port(pid), do: ...
+  defp handle_other({:"EXIT", pid, reason} = other, state) when is_pid(pid) or is_port(pid) do
+    case {get(:trace_state), get(:trace_pid)} do
+      {:running, pid} ->
+        trace_off()
+        :io.format('~n~p:handle_other, unexpected ~p (trace_pid)~n', [:fprof, other])
+        put(:trace_state, :idle)
+        erase(:trace_type)
+        erase(:trace_pid)
+        try_pending_stop(state)
+      {:stopping, pid} ->
+        put(:trace_state, :idle)
+        erase(:trace_pid)
+        reply(erase(:trace_tag), result(reason))
+        try_pending_stop(state)
+      _ ->
+        case {get(:profile_state), get(:profile_pid)} do
+          {:running, pid} ->
+            result = result(reason)
+            put(:profile_state, {:idle, result})
+            erase(:profile_type)
+            erase(:profile_pid)
+            case erase(:profile_close_dump) do
+              true ->
+                :file.close(erase(:profile_dump))
+              false ->
+                erase(:profile_dump)
+            end
+            reply(erase(:profile_tag), result)
+            try_pending_stop(state)
+          _ ->
+            :io.format('~n~p:handle_other, unexpected ~p~n', [:fprof, other])
+            state
+        end
+    end
+  end
 
   defp handle_other(other, state) do
     :io.format('~p:handle_other, unknown - ~p', [:fprof, other])
@@ -1022,7 +1413,56 @@ defmodule :fprof do
 
   defp just_call(:undefined, _), do: {:"EXIT", :fprof_server, :noproc}
 
-  defp just_call(pid, request), do: ...
+  defp just_call(pid, request) do
+    mref = :erlang.monitor(:process, pid)
+    receive do
+    {:"DOWN", ^mref, _, _, reason} ->
+        {:"EXIT", pid, reason}
+    after
+      0 ->
+        tag = {mref, self()}
+        {t, demonitor} = case request do
+          stop() ->
+            {:infinity, false}
+          _ ->
+            {0, true}
+        end
+        try do
+          send(pid, {:fprof_server, tag, request})
+        catch
+          error -> error
+        end
+        receive do
+        {:fprof_server, ^mref, reply} ->
+            case demonitor do
+              true ->
+                :erlang.demonitor(mref)
+              false ->
+                :ok
+            end
+            receive do
+            {:"DOWN", ^mref, _, _, _} ->
+                :ok
+            after
+              t ->
+                :ok
+            end
+            reply
+          {:"DOWN", ^mref, _, _, reason} ->
+            receive do
+            {:fprof_server, ^mref, _} ->
+                :ok
+            after
+              t ->
+                :ok
+            end
+            {:"EXIT", pid, reason}
+        after
+          :infinity ->
+            :timeout
+        end
+    end
+  end
 
   defp mfarity({m, f, args}) when is_list(args), do: {m, f, length(args)}
 
@@ -1119,7 +1559,72 @@ defmodule :fprof do
 
   defp spawn_3step(funPrelude, funAck, funBody), do: spawn_3step(:spawn, funPrelude, funAck, funBody)
 
-  defp spawn_3step(spawn, funPrelude, funAck, funBody) when spawn === :spawn or spawn === :spawn_link, do: ...
+  defp spawn_3step(spawn, funPrelude, funAck, funBody) when spawn === :spawn or spawn === :spawn_link do
+    parent = self()
+    ref = make_ref()
+    child = apply(:erlang, spawn, [fn () ->
+        ack = funPrelude.()
+        try do
+          send(parent, {self(), ref, ack})
+        catch
+          error -> error
+        end
+        mRef = :erlang.monitor(:process, parent)
+        receive do
+        {parent, ref, go} ->
+            :erlang.demonitor(mRef, [:flush])
+            funBody.(go)
+          {:"DOWN", ^mRef, _, _, _} ->
+            :ok
+        end
+    end])
+    mRef = :erlang.monitor(:process, child)
+    receive do
+    {^child, ^ref, ack} ->
+        :erlang.demonitor(mRef, [:flush])
+        try do
+          funAck.(ack)
+        catch
+          {class, reason, _} ->
+            stacktrace = :erlang.get_stacktrace()
+            try do
+              exit(child, :kill)
+            catch
+              error -> error
+            end
+            :erlang.raise(class, reason, stacktrace)
+        else
+          {result, go} ->
+            try do
+              send(child, {parent, ref, go})
+            catch
+              error -> error
+            end
+            result
+        end
+      {:"DOWN", ^mRef, _, _, reason} ->
+        receive do
+        {^child, ^ref, _Ack} ->
+            :ok
+        after
+          0 ->
+            :ok
+        end
+        case spawn do
+          :spawn_link ->
+            receive do
+            {:"EXIT", reason} ->
+                :ok
+            after
+              0 ->
+                :ok
+            end
+          :spawn ->
+            :ok
+        end
+        exit(reason)
+    end
+  end
 
   defp spawn_link_3step(funPrelude, funAck, funBody), do: spawn_3step(:spawn_link, funPrelude, funAck, funBody)
 
@@ -1146,7 +1651,72 @@ defmodule :fprof do
     end)
   end
 
-  defp trace_call(table, pid, func, tS, cP), do: ...
+  defp trace_call(table, pid, func, tS, cP) do
+    stack = get_stack(pid)
+    dbg(0, 'trace_call(~p, ~p, ~p, ~p)~n~p~n', [pid, func, tS, cP, stack])
+    {proc, initCnt} = case :ets.lookup(table, pid) do
+      [proc(init_cnt: n) = p] ->
+        {p, n}
+      [] ->
+        {:undefined, 0}
+    end
+    case stack do
+      [] ->
+        init_log(table, proc, func)
+        oldStack = cond do
+          cP === :undefined ->
+            stack
+          true ->
+            [[{cP, tS}]]
+        end
+        put(pid, trace_call_push(table, pid, func, tS, oldStack))
+      [[{func, firstInTS}]] when initCnt === 2 ->
+        init_log(table, proc, func)
+        oldStack = cond do
+          cP === :undefined ->
+            []
+          true ->
+            [[{cP, firstInTS}]]
+        end
+        put(pid, trace_call_push(table, pid, func, firstInTS, oldStack))
+      [[{:suspend, _} | _] | _] ->
+        throw({:inconsistent_trace_data, :fprof, 1802, [pid, func, tS, cP, stack]})
+      [[{:garbage_collect, _} | _] | _] ->
+        throw({:inconsistent_trace_data, :fprof, 1805, [pid, func, tS, cP, stack]})
+      [[{cP, _} | _], [{cP, _} | _] | _] ->
+        init_log(table, proc, func)
+        put(pid, trace_call_shove(table, pid, func, tS, stack))
+      [[{cP, _} | _] | _] ->
+        init_log(table, proc, func)
+        put(pid, trace_call_push(table, pid, func, tS, stack))
+      [_, [{cP, _} | _] | _] ->
+        init_log(table, proc, func)
+        put(pid, trace_call_shove(table, pid, func, tS, stack))
+      [[{func0, _} | _], [{func0, _} | _], [{cP, _} | _] | _] ->
+        init_log(table, proc, func)
+        put(pid, trace_call_shove(table, pid, func, tS, trace_return_to_int(table, pid, func0, tS, stack)))
+      [[{_, tS0} | _] = level0] ->
+        init_log(table, proc, func)
+        oldStack = cond do
+          cP === :undefined ->
+            stack
+          true ->
+            [level0, [{cP, tS0}]]
+        end
+        put(pid, trace_call_shove(table, pid, func, tS, oldStack))
+      [_ | _] ->
+        oldStack = cond do
+          cP === :undefined ->
+            trace_return_to_int(table, pid, cP, tS, stack)
+          true ->
+            init_log(table, proc, cP)
+            trace_call_shove(table, pid, cP, tS, stack)
+        end
+        init_log(table, pid, func)
+        put(pid, trace_call_push(table, pid, func, tS, oldStack))
+    end
+    :ok
+  end
 
   defp trace_call_collapse_1(stack, [], _), do: stack
 

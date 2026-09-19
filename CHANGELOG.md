@@ -15,6 +15,10 @@
 
 ### Enhancements
 
+- [#4126](https://github.com/intellij-elixir/intellij-elixir/pull/4126) [@sh41](https://github.com/sh41)
+  - **Decompiled `.beam` files now show full function bodies, including private functions in large modules and
+    functions with long bodies or many clauses.** Refs [#4122](https://github.com/intellij-elixir/intellij-elixir/issues/4122).
+
 - [#4115](https://github.com/intellij-elixir/intellij-elixir/pull/4115) [@sh41](https://github.com/sh41)
   - **Decompiled `.beam` files show real parameter names instead of `x0` for most Elixir functions with default
     arguments.** Refs [#4046](https://github.com/intellij-elixir/intellij-elixir/issues/4046).

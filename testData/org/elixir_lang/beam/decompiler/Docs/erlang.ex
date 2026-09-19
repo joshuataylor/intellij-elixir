@@ -306,7 +306,67 @@ defmodule :erlang do
     end
   end
 
-  def convert_time_unit(time, fromUnit, toUnit), do: ...
+  def convert_time_unit(time, fromUnit, toUnit) do
+    try do
+      fU = case fromUnit do
+      :native ->
+        :erts_internal.time_unit()
+      :perf_counter ->
+        :erts_internal.perf_counter_unit()
+      :nanosecond ->
+        1000 * 1000 * 1000
+      :microsecond ->
+        1000 * 1000
+      :millisecond ->
+        1000
+      :second ->
+        1
+      :nano_seconds ->
+        1000 * 1000 * 1000
+      :micro_seconds ->
+        1000 * 1000
+      :milli_seconds ->
+        1000
+      :seconds ->
+        1
+      _ when fromUnit > 0 ->
+        fromUnit
+    end
+    tU = case toUnit do
+      :native ->
+        :erts_internal.time_unit()
+      :perf_counter ->
+        :erts_internal.perf_counter_unit()
+      :nanosecond ->
+        1000 * 1000 * 1000
+      :microsecond ->
+        1000 * 1000
+      :millisecond ->
+        1000
+      :second ->
+        1
+      :nano_seconds ->
+        1000 * 1000 * 1000
+      :micro_seconds ->
+        1000 * 1000
+      :milli_seconds ->
+        1000
+      :seconds ->
+        1
+      _ when toUnit > 0 ->
+        toUnit
+    end
+    div((case time < 0 do
+      true ->
+        tU * time - fU - 1
+      false ->
+        tU * time
+    end), fU)
+    catch
+      {_, _, _} ->
+        :erlang.error(:badarg, [time, fromUnit, toUnit])
+    end
+  end
 
   def crc32(_Data), do: :erlang.nif_error(:undefined)
 
@@ -1379,7 +1439,41 @@ defmodule :erlang do
   @spec spawn_opt(node, module, function, args, options) :: (pid() | {pid(), reference()}) when node: node(), module: module(), function: atom(), args: [term()], options: [(:monitor | :link | otherOption)], otherOption: term()
   def spawn_opt(n, m, f, a, o) when n === :erlang.node() and :erlang.is_atom(m) and :erlang.is_atom(f) and :erlang.is_list(a) and :erlang.is_list(o), do: :erlang.spawn_opt(m, f, a, o)
 
-  def spawn_opt(n, m, f, a, o) when :erlang.is_atom(n) and :erlang.is_atom(m) and :erlang.is_atom(f), do: ...
+  def spawn_opt(n, m, f, a, o) when :erlang.is_atom(n) and :erlang.is_atom(m) and :erlang.is_atom(f) do
+    {ref, monOpt} = case :erts_internal.dist_spawn_request(n, {m, f, a}, o, :spawn_opt) do
+      {r, mO} when :erlang.is_reference(r) ->
+        {r, mO}
+      :badarg ->
+        :erlang.error(:badarg, [n, m, f, a, o])
+    end
+    receive do
+    {:spawn_reply, ^ref, :ok, pid} when :erlang.is_pid(pid) ->
+        case monOpt do
+          true ->
+            {pid, ref}
+          false ->
+            pid
+        end
+      {:spawn_reply, ^ref, :error, :badopt} ->
+        :erlang.error(:badarg, [n, m, f, a, o])
+      {:spawn_reply, ^ref, :error, :noconnection} ->
+        try do
+          :erlang.spawn_opt(:erts_internal, :crasher, [n, m, f, a, o, :noconnection], o)
+        catch
+          {_, err1, _} ->
+            :erlang.error(err1, [n, m, f, a, o])
+        end
+      {:spawn_reply, ^ref, :error, :notsup} ->
+        case old_remote_spawn_opt(n, m, f, a, o) do
+          pid when :erlang.is_pid(pid) ->
+            pid
+          err2 ->
+            :erlang.error(err2, [n, m, f, a, o])
+        end
+      {:spawn_reply, ^ref, :error, err3} ->
+        :erlang.error(err3, [n, m, f, a, o])
+    end
+  end
 
   def spawn_opt(n, m, f, a, o), do: :erlang.error(:badarg, [n, m, f, a, o])
 

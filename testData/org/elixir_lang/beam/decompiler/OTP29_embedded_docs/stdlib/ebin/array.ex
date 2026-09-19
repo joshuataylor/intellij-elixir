@@ -952,7 +952,50 @@ defmodule :array do
   See also `get/2`, `reset/2`.
   """
   @spec set(i :: array_indx(), value :: type, array :: array(type)) :: array(type)
-  def set(i0, value, array(size: n, zero: z, fix: fix, cache: c, cache_index: cI, default: d, elements: e, bits: s) = a) when is_integer(i0) and i0 >= 0 and is_integer(n) and is_integer(cI) and is_integer(s) and is_integer(z), do: ...
+  def set(i0, value, array(size: n, zero: z, fix: fix, cache: c, cache_index: cI, default: d, elements: e, bits: s) = a) when is_integer(i0) and i0 >= 0 and is_integer(n) and is_integer(cI) and is_integer(s) and is_integer(z) do
+    i = i0 + z
+    cond do
+      i0 < n ->
+        cond do
+          i >= cI and i < cI + 1 <<< 4 ->
+            array(a, cache: setelement(1 + i - cI, c, value))
+          true ->
+            r = i &&& 1 <<< 4 - 1
+            cI1 = i - r
+            e1 = set_leaf(cI, s, e, c)
+            c1 = get_leaf(cI1, s, e1, d)
+            c2 = setelement(1 + r, c1, value)
+            array(a, elements: e1, cache: c2, cache_index: cI1)
+        end
+      fix ->
+        :erlang.error(:badarg)
+      true ->
+        n1 = i0 + 1
+        cond do
+          i < 1 <<< s + 4 ->
+            r = i &&& 1 <<< 4 - 1
+            cI1 = i - r
+            cond do
+              cI1 !== cI ->
+                e1 = set_leaf(cI, s, e, c)
+                c1 = get_leaf(cI1, s, e1, d)
+                c2 = setelement(1 + r, c1, value)
+                array(a, size: n1, elements: e1, cache: c2, cache_index: cI1)
+              true ->
+                c1 = setelement(1 + r, c, value)
+                array(a, size: n1, cache: c1, cache_index: cI1)
+            end
+          true ->
+            r = i &&& 1 <<< 4 - 1
+            cI1 = i - r
+            {e1, s1} = grow(i, e, s)
+            e2 = set_leaf(cI, s1, e1, c)
+            c1 = get_leaf(cI1, s1, e2, d)
+            c2 = setelement(1 + r, c1, value)
+            array(a, size: n1, elements: e2, cache: c2, cache_index: cI1, bits: s1)
+        end
+    end
+  end
 
   def set(_I, _V, _A), do: :erlang.error(:badarg)
 

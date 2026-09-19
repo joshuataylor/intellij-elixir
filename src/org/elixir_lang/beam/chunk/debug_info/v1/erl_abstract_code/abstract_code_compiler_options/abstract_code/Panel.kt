@@ -203,6 +203,6 @@ class Panel(private val formsTree: Tree, project: Project): JPanel(GridLayout(1,
     }
 
     companion object {
-        private val OPTIONS = Options(decompileBodies = true, clauseLimit = 100)
+        private val OPTIONS = Options(decompileBodies = true)
     }
 }

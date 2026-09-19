@@ -6,23 +6,25 @@ import com.intellij.psi.PsiCompiledFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.beam.setDefinitionLimitForTests
 import java.io.File
 
 /**
  * `getNavigationElement()` must not throw for a decompiled element whose mirror was never set.
  *
- * `ModuleImpl.setMirror` logs-and-skips any definition the decompiled source lacks, so a mirror-less
- * `CallDefinitionImpl` is ordinary: 139 of `gl.beam`'s 1068 are compiler-generated comprehension helpers.
+ * `ModuleImpl.setMirror` logs-and-skips any definition the decompiled source lacks. [setDefinitionLimitForTests]
+ * leaves `gl.beam`'s private definitions, including its compiler-generated comprehension helpers, undecompiled.
  */
 class MirrorlessNavigationElementTest : PlatformTestCase() {
+    override fun setUp() {
+        super.setUp()
+        setDefinitionLimitForTests(500, testRootDisposable)
+    }
+
     fun testMirrorlessCallDefinitionNavigatesToItself() {
         val (withoutMirror, _) = callDefinitionsOf(FIXTURE)
 
-        assertFalse(
-            "$FIXTURE no longer has a call definition without a mirror, so it cannot cover this. Delete the " +
-                "test if the decompiler now renders them, or swap in OTP-PUB-KEY.beam, which had 1112",
-            withoutMirror.isEmpty()
-        )
+        assertFalse("$FIXTURE has no call definition without a mirror, so it cannot cover this", withoutMirror.isEmpty())
 
         for (callDefinition in withoutMirror) {
             assertSame(
@@ -75,7 +77,6 @@ class MirrorlessNavigationElementTest : PlatformTestCase() {
     companion object {
         private const val DECOMPILER_TEST_DATA = "testData/org/elixir_lang/beam/decompiler"
 
-        /** 139 of its 1068 call definitions are `-name/arity-lbc$^0/2-0-` helpers the decompiler does not emit. */
         private const val FIXTURE = "gl.beam"
     }
 }

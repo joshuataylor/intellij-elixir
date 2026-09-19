@@ -2155,8 +2155,65 @@ defmodule Ecto.Query do
     {t, on, as, prefix, hints}
   end
 
-  defp do_exclude(p0, p1) do
-    # body not decompiled
+  defp do_exclude(%Ecto.Query{} = query, :join) do
+    %{query | joins: [], aliases: Map.take(query.aliases(), [query.from().as()])}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, join_keyword) when join_keyword === :join or join_keyword === :inner_join or join_keyword === :cross_join or join_keyword === :left_join or join_keyword === :right_join or join_keyword === :full_join or join_keyword === :inner_lateral_join or join_keyword === :left_lateral_join do
+    (
+      qual = join_qual(join_keyword)
+      {excluded, remaining} = Enum.split_with(query.joins(), fn x1 -> x1.qual() == qual end)
+      aliases = Map.drop(query.aliases(), Enum.map(excluded, fn x1 -> x1.as() end))
+      %{query | joins: remaining, aliases: aliases}
+    )
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :where) do
+    %{query | wheres: []}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :order_by) do
+    %{query | order_bys: []}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :group_by) do
+    %{query | group_bys: []}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :combinations) do
+    %{query | combinations: []}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :with_ctes) do
+    %{query | with_ctes: nil}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :having) do
+    %{query | havings: []}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :distinct) do
+    %{query | distinct: nil}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :select) do
+    %{query | select: nil}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :limit) do
+    %{query | limit: nil}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :offset) do
+    %{query | offset: nil}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :lock) do
+    %{query | lock: nil}
+  end
+
+  defp do_exclude(%Ecto.Query{} = query, :preload) do
+    %{query | preloads: [], assocs: []}
   end
 
   defp field(ix, field) when is_integer(ix) and is_atom(field) do

@@ -11,11 +11,16 @@ import java.io.File
 /**
  * `ModuleImpl.setMirror` matches compiled stubs to decompiled call definitions by name and arity, so a stub
  * with no counterpart is skipped; pairing them by position instead threw `InvalidMirrorException` and left
- * the whole module without a mirror. `Decompiler.definitionLimit` puts both cases in existing fixtures:
+ * the whole module without a mirror. [setDefinitionLimitForTests] puts both cases in existing fixtures:
  * above it private functions are never decompiled and their stubs cannot match, below it every stub must.
  */
 class StubMirrorTest : PlatformTestCase() {
     override fun getTestDataPath(): String = "testData/org/elixir_lang/beam/decompiler"
+
+    override fun setUp() {
+        super.setUp()
+        setDefinitionLimitForTests(DEFINITION_LIMIT, testRootDisposable)
+    }
 
     fun testOtpPubKeyMirrorsDespiteUnmatchedStubs() {
         assertMirrorsDespiteUnmatchedStubs("OTP-PUB-KEY")
@@ -36,7 +41,7 @@ class StubMirrorTest : PlatformTestCase() {
         val unmatched = callDefinitions.filter { it.mirror == null }
 
         assertEmpty(
-            "queue.beam is under Decompiler.definitionLimit, so all ${callDefinitions.size} stubs should " +
+            "queue.beam is under the definition limit, so all ${callDefinitions.size} stubs should " +
                 "have a mirror. Unmatched: " + unmatched.take(10).joinToString { it.exportedName() },
             unmatched
         )
@@ -47,11 +52,11 @@ class StubMirrorTest : PlatformTestCase() {
         val unmatched = callDefinitions.filter { it.mirror == null }
         val distinctMirrors = callDefinitions.mapNotNull { it.mirror }.distinct()
 
-        // Raising Decompiler.definitionLimit past this fixture decompiles its private functions too, closing
+        // Raising DEFINITION_LIMIT past this fixture decompiles its private functions too, closing
         // the gap and leaving the case below asserting nothing. Repoint it at a larger fixture.
         assertTrue(
             "$name.beam decompiled to ${distinctMirrors.size} call definitions for ${callDefinitions.size} " +
-                "stubs, so it no longer exercises a stub/mirror mismatch. Was Decompiler.definitionLimit " +
+                "stubs, so it no longer exercises a stub/mirror mismatch. Was DEFINITION_LIMIT " +
                 "raised past ${callDefinitions.size}?",
             distinctMirrors.size != callDefinitions.size && unmatched.isNotEmpty()
         )
@@ -91,5 +96,9 @@ class StubMirrorTest : PlatformTestCase() {
         assertNotNull("$name's module element has no mirror", module!!.mirror)
 
         return module
+    }
+
+    companion object {
+        private const val DEFINITION_LIMIT = 500
     }
 }

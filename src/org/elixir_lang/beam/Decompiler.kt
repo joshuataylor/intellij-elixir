@@ -1,8 +1,10 @@
 package org.elixir_lang.beam
 
 import com.ericsson.otp.erlang.OtpErlangBinary
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileTypes.BinaryFileDecompiler
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.VirtualFile
 import org.elixir_lang.beam.MacroNameArity.MACRO_ORDER
 import org.elixir_lang.beam.chunk.CallDefinitions
@@ -28,6 +30,7 @@ import org.elixir_lang.psi.call.name.Function.DEFMACRO
 import org.elixir_lang.psi.call.name.Function.DEFMACROP
 import org.elixir_lang.psi.call.name.Function.DEFP
 import org.elixir_lang.psi.call.name.Module
+import org.jetbrains.annotations.TestOnly
 import java.util.*
 
 internal class Decompiler : BinaryFileDecompiler {
@@ -370,7 +373,19 @@ private fun appendCallDefinitions(
     }
 }
 
-private const val definitionLimit = 500
+@Volatile
+private var definitionLimit = Int.MAX_VALUE
+
+/**
+ * Past [limit] definitions a module decompiles as public heads only, while its stubs still hold every
+ * definition, so the mirror misses some stubs.
+ */
+@TestOnly
+fun setDefinitionLimitForTests(limit: Int, parentDisposable: Disposable) {
+    val previous = definitionLimit
+    definitionLimit = limit
+    Disposer.register(parentDisposable) { definitionLimit = previous }
+}
 
 internal fun decompilerOptions(macroNameAritySortedSet: Map<String, SortedSet<MacroNameArity>>): Options {
     val defmacroCount = macroNameAritySortedSet[DEFMACRO]?.size ?: 0
@@ -502,7 +517,7 @@ private fun appendMacroNameArity(
     documentation: Documentation?,
     options: Options
 ) {
-    when (val source = clauseSource(macroNameArity, debugInfo, { documentation }, options)) {
+    when (val source = clauseSource(macroNameArity, debugInfo) { documentation }) {
         is ClauseSource.ErlangAbstractCode -> {
             var macroString = source.function.toMacroString(options)
 

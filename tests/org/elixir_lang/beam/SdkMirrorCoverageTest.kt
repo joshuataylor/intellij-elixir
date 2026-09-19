@@ -21,10 +21,7 @@ import org.junit.Assert
  * passes that sweep silently. It surfaces only at runtime, as a "No decompiled source function with
  * name" warning and a navigation target that goes nowhere.
  *
- * A mirror-less *unexported* definition is ordinary and is not asserted here - compiler-generated
- * comprehension helpers are never emitted into decompiled source and `setMirror` deliberately skips
- * them (see `MirrorlessNavigationElementTest`, where 139 of `gl.beam`'s 1068 definitions are exactly
- * that).
+ * A mirror-less *unexported* definition is ordinary and is not asserted here.
  */
 class SdkMirrorCoverageTest : PlatformTestCase() {
     fun testElixirSdkExportedDefinitionsAllGetMirrors() {

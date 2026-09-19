@@ -160,7 +160,7 @@ private fun setupConfigurationFromContextImpl(
             }
         }
         is ElixirFile -> {
-            if (psiElement.virtualFile.path.endsWith(SUFFIX)) {
+            if (psiElement.virtualFile?.path?.endsWith(SUFFIX) == true) {
                 val basePath = psiElement.project.basePath
                 val workingDirectory = workingDirectory(psiElement, basePath)
                 val lineNumber = lineNumber(psiElement)
@@ -177,7 +177,7 @@ private fun setupConfigurationFromContextImpl(
         else -> {
             val containingFile = psiElement.containingFile
 
-            if (containingFile is ElixirFile && containingFile.virtualFile.path.endsWith(SUFFIX)) {
+            if (containingFile is ElixirFile && containingFile.virtualFile?.path?.endsWith(SUFFIX) == true) {
                 val basePath = psiElement.project.basePath
                 val workingDirectory = workingDirectory(psiElement, basePath)
                 val lineNumber = lineNumber(psiElement)

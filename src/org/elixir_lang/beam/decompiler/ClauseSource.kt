@@ -54,16 +54,14 @@ sealed interface ClauseSource {
 fun clauseSource(
     macroNameArity: org.elixir_lang.beam.MacroNameArity,
     debugInfo: DebugInfo?,
-    documentation: () -> Documentation?,
-    options: Options
+    documentation: () -> Documentation?
 ): ClauseSource? =
-    debugInfoClauseSource(macroNameArity, debugInfo, options)
+    debugInfoClauseSource(macroNameArity, debugInfo)
         ?: documentationClauseSource(macroNameArity, documentation())
 
 private fun debugInfoClauseSource(
     macroNameArity: org.elixir_lang.beam.MacroNameArity,
-    debugInfo: DebugInfo?,
-    options: Options
+    debugInfo: DebugInfo?
 ): ClauseSource? =
     when (debugInfo) {
         is AbstractCodeCompileOptions ->
@@ -75,7 +73,7 @@ private fun debugInfoClauseSource(
             }
         is V1 ->
             debugInfo.definitions?.get(macroNameArity)?.let { definition ->
-                definition.renderedClauses(options)?.let { ClauseSource.ElixirDebugInfo(definition, it) }
+                definition.renderedClauses()?.let { ClauseSource.ElixirDebugInfo(definition, it) }
             }
         else -> null
     }

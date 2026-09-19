@@ -201,11 +201,209 @@ defmodule :ssh_options do
   def check_preferred_algorithms(_), do: error_in_check(:modify_algorithms, 'Bad option value. List expected.')
 
   @spec default((role() | :common)) :: option_declarations()
-  def default(:server), do: ...
+  def default(:server) do
+    %{default(:common) | :subsystems => %{:default => [:ssh_sftpd.subsystem_spec([])], :chk => fn l ->
+        is_list(l) and :lists.all(fn {name, {cB, args}} ->
+            check_string(name) and is_atom(cB) and is_list(args)
+          _ ->
+            false
+        end, l)
+    end, :class => :user_option}, :shell => %{:default => {:shell, :start, []}, :chk => fn {m, f, a} ->
+        is_atom(m) and is_atom(f) and is_list(a)
+      :disabled ->
+        true
+      v ->
+        check_function1(v) or check_function2(v)
+    end, :class => :user_option}, :exec => %{:default => :undefined, :chk => fn {:direct, v} ->
+        check_function1(v) or check_function2(v) or check_function3(v)
+      :disabled ->
+        true
+      {m, f, a} ->
+        is_atom(m) and is_atom(f) and is_list(a)
+      v ->
+        check_function1(v) or check_function2(v) or check_function3(v)
+    end, :class => :user_option}, :ssh_cli => %{:default => :undefined, :chk => fn {cb, as} ->
+        is_atom(cb) and is_list(as)
+      v ->
+        v == :no_cli
+    end, :class => :user_option}, :tcpip_tunnel_out => %{:default => false, :chk => fn v ->
+        :erlang.is_boolean(v)
+    end, :class => :user_option}, :tcpip_tunnel_in => %{:default => false, :chk => fn v ->
+        :erlang.is_boolean(v)
+    end, :class => :user_option}, :system_dir => %{:default => '/etc/ssh', :chk => fn v ->
+        check_string(v) and check_dir(v)
+    end, :class => :user_option}, :auth_method_kb_interactive_data => %{:default => :undefined, :chk => fn {s1, s2, s3, b} ->
+        check_string(s1) and check_string(s2) and check_string(s3) and is_boolean(b)
+      f ->
+        check_function3(f) or check_function4(f)
+    end, :class => :user_option}, :user_passwords => %{:default => [], :chk => fn v ->
+        is_list(v) and :lists.all(fn {s1, s2} ->
+            check_string(s1) and check_string(s2)
+        end, v)
+    end, :class => :user_option}, :pk_check_user => %{:default => false, :chk => fn v ->
+        :erlang.is_boolean(v)
+    end, :class => :user_option}, :password => %{:default => :undefined, :chk => fn v ->
+        check_string(v)
+    end, :class => :user_option}, :dh_gex_groups => %{:default => :undefined, :chk => fn v ->
+        check_dh_gex_groups(v)
+    end, :class => :user_option}, :dh_gex_limits => %{:default => {0, :infinity}, :chk => fn {i1, i2} ->
+        check_pos_integer(i1) and check_pos_integer(i2) and i1 < i2
+      _ ->
+        false
+    end, :class => :user_option}, :pwdfun => %{:default => :undefined, :chk => fn v ->
+        check_function4(v) or check_function2(v)
+    end, :class => :user_option}, :negotiation_timeout => %{:default => 2 * 60 * 1000, :chk => fn v ->
+        check_timeout(v)
+    end, :class => :user_option}, :hello_timeout => %{:default => 30 * 1000, :chk => &check_timeout/1, :class => :user_option}, :max_sessions => %{:default => :infinity, :chk => fn v ->
+        check_pos_integer(v)
+    end, :class => :user_option}, :max_channels => %{:default => :infinity, :chk => fn v ->
+        check_pos_integer(v)
+    end, :class => :user_option}, :parallel_login => %{:default => false, :chk => fn v ->
+        :erlang.is_boolean(v)
+    end, :class => :user_option}, :minimal_remote_max_packet_size => %{:default => 0, :chk => fn v ->
+        check_pos_integer(v)
+    end, :class => :user_option}, :failfun => %{:default => fn _, _, _ ->
+        :void
+    end, :chk => fn v ->
+        check_function3(v) or check_function2(v)
+    end, :class => :user_option}, :connectfun => %{:default => fn _, _, _ ->
+        :void
+    end, :chk => fn v ->
+        check_function3(v)
+    end, :class => :user_option}, :infofun => %{:default => fn _, _, _ ->
+        :void
+    end, :chk => fn v ->
+        check_function3(v) or check_function2(v)
+    end, :class => :undoc_user_option}}
+  end
 
-  def default(:client), do: ...
+  def default(:client) do
+    %{default(:common) | :dsa_pass_phrase => %{:default => :undefined, :chk => fn v ->
+        check_string(v)
+    end, :class => :user_option}, :rsa_pass_phrase => %{:default => :undefined, :chk => fn v ->
+        check_string(v)
+    end, :class => :user_option}, :ecdsa_pass_phrase => %{:default => :undefined, :chk => fn v ->
+        check_string(v)
+    end, :class => :user_option}, :silently_accept_hosts => %{:default => false, :chk => fn v ->
+        check_silently_accept_hosts(v)
+    end, :class => :user_option}, :user_interaction => %{:default => true, :chk => fn v ->
+        :erlang.is_boolean(v)
+    end, :class => :user_option}, :save_accepted_host => %{:default => true, :chk => fn v ->
+        :erlang.is_boolean(v)
+    end, :class => :user_option}, :dh_gex_limits => %{:default => {1024, 6144, 8192}, :chk => fn {min, i, max} ->
+        :lists.all(&check_pos_integer/1, [min, i, max])
+      _ ->
+        false
+    end, :class => :user_option}, :connect_timeout => %{:default => :infinity, :chk => fn v ->
+        check_timeout(v)
+    end, :class => :user_option}, :user => %{:default => (env = case :os.type() do
+      {:win32, _} ->
+        'USERNAME'
+      {:unix, _} ->
+        'LOGNAME'
+    end; case :os.getenv(env) do
+      false ->
+        case :os.getenv('USER') do
+          false ->
+            :undefined
+          user ->
+            user
+        end
+      user ->
+        user
+    end), :chk => fn v ->
+        check_string(v)
+    end, :class => :user_option}, :password => %{:default => :undefined, :chk => fn v ->
+        check_string(v)
+    end, :class => :user_option}, :quiet_mode => %{:default => false, :chk => fn v ->
+        :erlang.is_boolean(v)
+    end, :class => :user_option}, :keyboard_interact_fun => %{:default => :undefined, :chk => fn v ->
+        check_function3(v)
+    end, :class => :undoc_user_option}}
+  end
 
-  def default(:common), do: ...
+  def default(:common) do
+    %{:user_dir => %{:default => false, :chk => fn v ->
+        check_string(v) and check_dir(v)
+    end, :class => :user_option}, :pref_public_key_algs => %{:default => :undefined, :chk => fn v ->
+        check_pref_public_key_algs(v)
+    end, :class => :user_option}, :preferred_algorithms => %{:default => :ssh.default_algorithms(), :chk => fn v ->
+        check_preferred_algorithms(v)
+    end, :class => :user_option}, :modify_algorithms => %{:default => :undefined, :chk => fn v ->
+        check_modify_algorithms(v)
+    end, :class => :user_option}, :id_string => %{:default => (try do
+      {:ok, [_ | _] = vSN} = :application.get_key(:ssh, :vsn)
+    'Erlang/' ++ vSN
+    catch
+      {_, _, _} ->
+        ""
+    end), :chk => fn :random ->
+        {true, {:random, 2, 5}}
+      {:random, i1, i2} ->
+        check_pos_integer(i1) and check_pos_integer(i2) and i1 <= i2
+      v ->
+        check_string(v)
+    end, :class => :user_option}, :key_cb => %{:default => {:ssh_file, []}, :chk => fn {mod, opts} ->
+        is_atom(mod) and is_list(opts)
+      mod when is_atom(mod) ->
+        {true, {mod, []}}
+      _ ->
+        false
+    end, :class => :user_option}, :profile => %{:default => :default, :chk => fn v ->
+        :erlang.is_atom(v)
+    end, :class => :user_option}, :idle_time => %{:default => :infinity, :chk => fn v ->
+        check_timeout(v)
+    end, :class => :user_option}, :disconnectfun => %{:default => fn _ ->
+        :void
+    end, :chk => fn v ->
+        check_function1(v)
+    end, :class => :user_option}, :unexpectedfun => %{:default => fn _, _ ->
+        :report
+    end, :chk => fn v ->
+        check_function2(v)
+    end, :class => :user_option}, :ssh_msg_debug_fun => %{:default => fn _, _, _, _ ->
+        :void
+    end, :chk => fn v ->
+        check_function4(v)
+    end, :class => :user_option}, :rekey_limit => %{:default => {3600000, 1024000000}, :chk => fn {:infinity, :infinity} ->
+        true
+      {mins, :infinity} when is_integer(mins) and mins > 0 ->
+        {true, {mins * 60 * 1000, :infinity}}
+      {:infinity, bytes} when is_integer(bytes) and bytes >= 0 ->
+        true
+      {mins, bytes} when is_integer(mins) and mins > 0 and is_integer(bytes) and bytes >= 0 ->
+        {true, {mins * 60 * 1000, bytes}}
+      :infinity ->
+        {true, {3600000, :infinity}}
+      bytes when is_integer(bytes) and bytes >= 0 ->
+        {true, {3600000, bytes}}
+      _ ->
+        false
+    end, :class => :user_option}, :auth_methods => %{:default => 'publickey,keyboard-interactive,password', :chk => fn as ->
+        try do
+          sup = :string.tokens('publickey,keyboard-interactive,password', ',')
+        new = :string.tokens(as, ',')
+        [] == (for x <- new, not :lists.member(x, sup) do
+          x
+        end)
+        catch
+          {_, _, _} ->
+            false
+        end
+    end, :class => :user_option}, :send_ext_info => %{:default => true, :chk => &:erlang.is_boolean/1, :class => :user_option}, :recv_ext_info => %{:default => true, :chk => &:erlang.is_boolean/1, :class => :user_option}, :transport => %{:default => {:tcp, :gen_tcp, :tcp_closed}, :chk => fn {a, b, c} ->
+        is_atom(a) and is_atom(b) and is_atom(c)
+    end, :class => :undoc_user_option}, :vsn => %{:default => {2, 0}, :chk => fn {maj, min} ->
+        check_non_neg_integer(maj) and check_non_neg_integer(min)
+      _ ->
+        false
+    end, :class => :undoc_user_option}, :tstflg => %{:default => [], :chk => fn v ->
+        :erlang.is_list(v)
+    end, :class => :undoc_user_option}, :user_dir_fun => %{:default => :undefined, :chk => fn v ->
+        check_function1(v)
+    end, :class => :undoc_user_option}, :max_random_length_padding => %{:default => 15, :chk => fn v ->
+        check_non_neg_integer(v)
+    end, :class => :undoc_user_option}}
+  end
 
   @spec delete_key(option_class(), option_key(), private_options(), atom(), non_neg_integer()) :: private_options()
   def delete_key(:user_options, key, opts, _CallerMod, _CallerLine) when is_map(opts) do
@@ -939,7 +1137,43 @@ defmodule :ssh_options do
     end
   end
 
-  defp handle_options(role, optsList0, opts0) when is_map(opts0) and is_list(optsList0), do: ...
+  defp handle_options(role, optsList0, opts0) when is_map(opts0) and is_list(optsList0) do
+    optsList1 = :proplists.unfold(:lists.foldr(fn t, acc when is_tuple(t) and size(t) !== 2 ->
+        [{:special_trpt_args, t} | acc]
+      x, acc ->
+        [x | acc]
+    end, [], optsList0))
+    try do
+      optionDefinitions = default(role)
+    roleCnfs = :application.get_env(:ssh, cnf_key(role), [])
+    {initialMap, optsList2} = :maps.fold(fn k, %{:default => vd}, {m, pL} ->
+        case config_val(k, roleCnfs, optsList1) do
+          {:ok, v1} ->
+            {%{m | k => v1, :key_cb_options => [{k, v1} | :maps.get(:key_cb_options, m)]}, [{k, v1} | pL]}
+          {:append, v1} ->
+            newVal = :maps.get(k, m, []) ++ v1
+            {%{m | k => newVal, :key_cb_options => [{k, newVal} | :lists.keydelete(k, 1, :maps.get(:key_cb_options, m))]}, [{k, newVal} | :lists.keydelete(k, 1, pL)]}
+          :undefined ->
+            {%{m | k => vd}, pL}
+        end
+    end, {%{opts0 | :key_cb_options => :maps.get(:key_cb_options, opts0)}, for {k, v} <- optsList1, not :maps.is_key(k, opts0) do
+      {k, v}
+    end}, optionDefinitions)
+    final_preferred_algorithms(:lists.foldl(fn kV, vals ->
+        save(kV, optionDefinitions, vals)
+    end, initialMap, optsList2))
+    catch
+      {:error, {eO, kV, reason}, _} when eO == :eoptions or eO == :eerl_env ->
+        cond do
+          reason == :undefined ->
+            {:error, {eO, kV}}
+          is_list(reason) ->
+            {:error, {eO, {kV, :lists.flatten(reason)}}}
+          true ->
+            {:error, {eO, {kV, reason}}}
+        end
+    end
+  end
 
   defp nml(k, l) do
     for v <- l, not is_atom(v) do
