@@ -313,7 +313,7 @@ defmodule Kernel do
   def left_1 >= right_1, do: left_1 >= right_1
 
   @spec __info__((:attributes | :compile | :exports | :functions | :macros | :md5 | :module | :native_addresses)) :: (atom() | [({atom(), any()} | {atom(), byte(), integer()})])
-  def __info__(:functions), do: ...
+  def __info__(:functions), do: [{:!=, 2}, {:!==, 2}, {:*, 2}, {:+, 1}, {:+, 2}, {:++, 2}, {:-, 1}, {:-, 2}, {:--, 2}, {:/, 2}, {:<, 2}, {:<=, 2}, {:==, 2}, {:===, 2}, {:=~, 2}, {:>, 2}, {:>=, 2}, {:abs, 1}, {:apply, 2}, {:apply, 3}, {:binary_part, 3}, {:bit_size, 1}, {:byte_size, 1}, {:div, 2}, {:elem, 2}, {:exit, 1}, {:function_exported?, 3}, {:get_and_update_in, 3}, {:get_in, 2}, {:hd, 1}, {:inspect, 1}, {:inspect, 2}, {:is_atom, 1}, {:is_binary, 1}, {:is_bitstring, 1}, {:is_boolean, 1}, {:is_float, 1}, {:is_function, 1}, {:is_function, 2}, {:is_integer, 1}, {:is_list, 1}, {:is_map, 1}, {:is_number, 1}, {:is_pid, 1}, {:is_port, 1}, {:is_reference, 1}, {:is_tuple, 1}, {:length, 1}, {:macro_exported?, 3}, {:make_ref, 0}, {:map_size, 1}, {:max, 2}, {:min, 2}, {:node, 0}, {:node, 1}, {:not, 1}, {:pop_in, 2}, {:put_elem, 3}, {:put_in, 3}, {:rem, 2}, {:round, 1}, {:self, 0}, {:send, 2}, {:spawn, 1}, {:spawn, 3}, {:spawn_link, 1}, {:spawn_link, 3}, {:spawn_monitor, 1}, {:spawn_monitor, 3}, {:struct, 1}, {:struct, 2}, {:struct!, 1}, {:struct!, 2}, {:throw, 1}, {:tl, 1}, {:trunc, 1}, {:tuple_size, 1}, {:update_in, 3}]
 
   def __info__(:macros), do: [{:!, 1}, {:&&, 2}, {:"..", 2}, {:<>, 2}, {:@, 1}, {:alias!, 1}, {:and, 2}, {:binding, 0}, {:binding, 1}, {:def, 1}, {:def, 2}, {:defdelegate, 2}, {:defexception, 1}, {:defimpl, 2}, {:defimpl, 3}, {:defmacro, 1}, {:defmacro, 2}, {:defmacrop, 1}, {:defmacrop, 2}, {:defmodule, 2}, {:defoverridable, 1}, {:defp, 1}, {:defp, 2}, {:defprotocol, 2}, {:defstruct, 1}, {:destructure, 2}, {:get_and_update_in, 2}, {:if, 2}, {:in, 2}, {:is_nil, 1}, {:match?, 2}, {:or, 2}, {:pop_in, 1}, {:put_in, 2}, {:raise, 1}, {:raise, 2}, {:reraise, 2}, {:reraise, 3}, {:sigil_C, 2}, {:sigil_D, 2}, {:sigil_N, 2}, {:sigil_R, 2}, {:sigil_S, 2}, {:sigil_T, 2}, {:sigil_W, 2}, {:sigil_c, 2}, {:sigil_r, 2}, {:sigil_s, 2}, {:sigil_w, 2}, {:to_char_list, 1}, {:to_charlist, 1}, {:to_string, 1}, {:unless, 2}, {:update_in, 2}, {:use, 1}, {:use, 2}, {:var!, 1}, {:var!, 2}, {:|>, 2}, {:||, 2}]
 
@@ -795,9 +795,120 @@ defmodule Kernel do
     {{:".", [], [:elixir_def, :store_definition]}, [], [line_1, kind_1, check_clauses_1, call_2, expr_2, pos_1]}
   end
 
-  defp do_at([arg_1], meta_1, name_1, function__1, env_1), do: ...
+  defp do_at([arg_1], meta_1, name_1, function__1, env_1) do
+    line_1 = case :lists.keymember(:context, 1, meta_1) do
+      true ->
+        nil
+      false ->
+        case env_1 do
+          %{:line => __1} ->
+            __1
+          __1 when :erlang.is_map(__1) ->
+            :erlang.error({:badkey, :line, __1})
+          __1 ->
+            __1.line()
+        end
+    end
+    case function__1 do
+      __2 when __2 != nil and __2 != false ->
+        __10 = :erlang.error(ArgumentError.exception(<<"cannot set attribute @", (case name_1 do
+          __3 when :erlang.is_binary(__3) ->
+            __3
+          __4 ->
+            String.Chars.to_string(__4)
+        end) :: binary, " inside function/macro">>))
+        {stack_1, arg_2} = {nil, arg_1}
+        __10
+      _ ->
+        case name_1 == :behavior do
+          true ->
+            __9 = :elixir_errors.warn((case env_1 do
+              %{:line => __5} ->
+                __5
+              __5 when :erlang.is_map(__5) ->
+                :erlang.error({:badkey, :line, __5})
+              __5 ->
+                __5.line()
+            end), (case env_1 do
+              %{:file => __6} ->
+                __6
+              __6 when :erlang.is_map(__6) ->
+                :erlang.error({:badkey, :file, __6})
+              __6 ->
+                __6.file()
+            end), "@behavior attribute is not supported, please use @behaviour instead")
+            {stack_1, arg_2} = {nil, arg_1}
+            __9
+          false ->
+            case :lists.member(name_1, [:moduledoc, :typedoc, :doc]) do
+              __7 when __7 != nil and __7 != false ->
+                {stack_1, _} = :elixir_quote.escape(env_stacktrace(env_1), false)
+                arg_2 = {case env_1 do
+                  %{:line => __8} ->
+                    __8
+                  __8 when :erlang.is_map(__8) ->
+                    :erlang.error({:badkey, :line, __8})
+                  __8 ->
+                    __8.line()
+                end, arg_1}
+                {{:".", [], [{:__aliases__, [{:alias, false}], [:"Module"]}, :put_attribute]}, [], [{:__MODULE__, [], Kernel}, name_1, arg_2, stack_1, line_1]}
+              _ ->
+                {stack_1, arg_2} = {nil, arg_1}
+                {{:".", [], [{:__aliases__, [{:alias, false}], [:"Module"]}, :put_attribute]}, [], [{:__MODULE__, [], Kernel}, name_1, arg_1, nil, line_1]}
+            end
+        end
+    end
+  end
 
-  defp do_at(args_1, _meta_1, name_1, function__1, env_1) when :erlang.is_atom(args_1) or args_1 == [], do: ...
+  defp do_at(args_1, _meta_1, name_1, function__1, env_1) when :erlang.is_atom(args_1) or args_1 == [] do
+    stack_1 = env_stacktrace(env_1)
+    doc_attr__1 = :lists.member(name_1, [:moduledoc, :typedoc, :doc])
+    case function__1 do
+      true ->
+        value_1 = case Module.get_attribute((case env_1 do
+          %{:module => __1} ->
+            __1
+          __1 when :erlang.is_map(__1) ->
+            :erlang.error({:badkey, :module, __1})
+          __1 ->
+            __1.module()
+        end), name_1, stack_1) do
+          {_, doc_1} when doc_attr__1 ->
+            doc_1
+          __2 ->
+            __2
+        end
+        __7 = try do
+          :elixir_quote.escape(value_1, false)
+        catch
+          {:error, __3_1, _} when __3_1 == :badarg or :erlang.tuple_size(__3_1) == 2 and :erlang.element(1, __3_1) == :badarg ->
+            ex_1 = Exception.normalize(:error, __3_1)
+            :erlang.error(ArgumentError.exception(<<(<<"cannot inject attribute @", (case name_1 do
+              __5 when :erlang.is_binary(__5) ->
+                __5
+              __6 ->
+                String.Chars.to_string(__6)
+            end) :: binary, " into function/macro because ">>) :: binary, Exception.message(ex_1) :: binary>>))
+          {:error, %{:__struct__ => __4_1, :__exception__ => true} = __3_1, _} when __4_1 == ArgumentError ->
+            ex_1 = Exception.normalize(:error, __3_1)
+            :erlang.error(ArgumentError.exception(<<(<<"cannot inject attribute @", (case name_1 do
+              __5 when :erlang.is_binary(__5) ->
+                __5
+              __6 ->
+                String.Chars.to_string(__6)
+            end) :: binary, " into function/macro because ">>) :: binary, Exception.message(ex_1) :: binary>>))
+        else
+          {val_1, _} ->
+            val_1
+        end
+        escaped_1 = nil
+        __7
+      false ->
+        {escaped_1, _} = :elixir_quote.escape(stack_1, false)
+        value_1 = nil
+        {:with, [], [{:<-, [], [{:when, [], [{{:_, [], Kernel}, {:doc, [], Kernel}}, doc_attr__1]}, {{:".", [], [{:__aliases__, [{:alias, false}], [:"Module"]}, :get_attribute]}, [], [{:__MODULE__, [], Kernel}, name_1, escaped_1]}]}, [{:do, {:doc, [], Kernel}}]]}
+    end
+  end
 
   defp do_at(args_1, _meta_1, name_1, _function__1, _env_1) do
     :erlang.error(ArgumentError.exception(<<"expected 0 or 1 argument for @", (case name_1 do

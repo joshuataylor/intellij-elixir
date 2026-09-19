@@ -57,12 +57,12 @@ class Definition(
     /**
      * The clauses [toMacroString] renders, or `null` when it renders nothing.
      */
-    fun renderedClauses(options: Options): List<Clause>? =
+    fun renderedClauses(): List<Clause>? =
             namedClauses
-                    ?.takeIf { macro != null && it.isNotEmpty() && it.size < options.clauseLimit }
+                    ?.takeIf { macro != null && it.isNotEmpty() }
 
     fun toMacroString(options: Options): String? =
-            renderedClauses(options)
+            renderedClauses()
                     ?.mapNotNull { it.toMacroString(options) }
                     ?.joinToString("\n\n")
 

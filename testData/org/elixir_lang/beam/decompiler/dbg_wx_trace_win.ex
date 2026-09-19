@@ -264,7 +264,59 @@ defmodule :dbg_wx_trace_win do
     end)
   end
 
-  def create_win(parent, title, windows, menus), do: ...
+  def create_win(parent, title, windows, menus) do
+    erlangVariableDo = fn () ->
+        win = :wxFrame.new(parent, -1, :dbg_wx_win.to_string(title), [{:size, {700, 650}}])
+        panel = :wxPanel.new(win, [{:size, {700, 650}}])
+        menuBar = :wxMenuBar.new()
+        :dbg_wx_win.create_menus(menuBar, menus, win, 1)
+        :wxFrame.setMenuBar(win, menuBar)
+        sizer = :wxBoxSizer.new(8)
+        code = code_area(panel)
+        _ = :wxSizer.add(sizer, sub(code, :win), [{:proportion, 1}, {:border, 2}, {:flag, 8192 ||| 128}])
+        :wxSizer.setVirtualSizeHints(sizer, sub(code, :win))
+        expandWithBorder = [{:border, 3}, {:flag, 8192 ||| 64 ||| 128 ||| 32 ||| 16}]
+        search = search_area(panel)
+        _ = :wxSizer.add(sizer, sub(search, :win), expandWithBorder)
+        bs = button_area(panel)
+        _ = :wxSizer.add(sizer, sub(bs, :win), expandWithBorder)
+        infoArea = :wxBoxSizer.new(4)
+        :wxSizer.setMinSize(infoArea, {100, 200})
+        eval = eval_area(panel)
+        _ = :wxSizer.add(infoArea, sub(eval, :win), [{:proportion, 1}, {:flag, 8192}])
+        bind = bind_area(panel)
+        _ = :wxSizer.add(infoArea, sub(bind, :win), [{:proportion, 1}, {:border, 2}, {:flag, 8192 ||| 16}])
+        _ = :wxSizer.add(sizer, infoArea, expandWithBorder)
+        trace = trace_area(panel)
+        _ = :wxSizer.add(sizer, sub(trace, :win), expandWithBorder)
+        sB = :wxFrame.createStatusBar(win, [])
+        :wxFrame.connect(win, :sash_dragged, [{:id, 425}, {:lastId, 427}])
+        :wxFrame.connect(win, :close_window, [{:skip, true}])
+        :wxFrame.connect(win, :size, [{:skip, true}])
+        :wxWindow.connect(win, :key_up, [{:skip, true}])
+        :wxWindow.setFocus(sub(code, :out))
+        wi0 = winInfo(window: win, m_szr: {panel, sizer}, e_szr: {true, infoArea}, code: code, sb: sB, sg: search, bs: bs, eval: eval, trace: trace, bind: bind, editor: {:"$top", sub(code, :out)}, editors: [{:"$top", sub(code, :out)}])
+        wi = show_windows(enable_windows(wi0, windows))
+        :wxWindow.setSizer(panel, sizer)
+        _ = :wxSizer.fit(sizer, win)
+        :wxSizer.setSizeHints(sizer, win)
+        iconFile = :dbg_wx_win.find_icon('erlang_bug.png')
+        icon = :wxIcon.new(iconFile, [{:type, 2 + 13}])
+        :wxFrame.setIcon(win, icon)
+        :wxIcon.destroy(icon)
+        :wxFrame.show(win)
+        put(:window, win)
+        put(:strings, [:str_on])
+        wi
+    end
+    try do
+      :wx.batch(erlangVariableDo)
+    catch
+      {e, r, _} ->
+        :io.format('Crashed ~p ~p', [e, r])
+        :erlang.error(e)
+    end
+  end
 
   def delete_break(winInfo, {mod, line} = point) do
     case winInfo(winInfo, :editor) do
@@ -343,7 +395,42 @@ defmodule :dbg_wx_trace_win do
 
   def handle_event(wx(event: wxSash(dragStatus: 1)), _Wi), do: :ignore
 
-  def handle_event(wx(id: 425, event: wxSash(dragRect: {_X, _Y, _W, h})), wi), do: ...
+  def handle_event(wx(id: 425, event: wxSash(dragRect: {_X, _Y, _W, h})), wi) do
+    winInfo(code: code, m_szr: {_, sizer}, e_szr: {enable, infoSzr}, trace: trace) = wi
+    case ^enable or sub(trace, :enable) do
+      false ->
+        :ignore
+      true ->
+        {_, cMH} = :wxWindow.getMinSize(sub(code, :win))
+        case cMH > h do
+          true ->
+            :wxSashWindow.setMinSize(sub(code, :win), {500, h})
+          _ ->
+            :ignore
+        end
+        {_, cH} = :wxWindow.getSize(sub(code, :win))
+        change = cH - h
+        changeH = fn item ->
+            {itemW, itemH} = :wxSizerItem.getMinSize(item)
+            :wxSizerItem.setInitSize(item, itemW, :erlang.max(itemH + change, -1))
+        end
+        cond do
+          enable ->
+            {iW, iH} = :wxSizer.getMinSize(infoSzr)
+            for child <- :wxSizer.getChildren(infoSzr) do
+              changeH.(child)
+            end
+            :wxSizer.setMinSize(infoSzr, {iW, iH + change})
+            :ok
+          sub(trace, :enable) ->
+            {tW, tH} = :wxWindow.getMinSize(sub(trace, :win))
+            :wxWindow.setMinSize(sub(trace, :win), {tW, tH + change})
+            :ok
+        end
+        :wxSizer.layout(sizer)
+        :ignore
+    end
+  end
 
   def handle_event(wx(id: 426, event: wxSash(dragRect: {_X, _Y, w, _H})), wi) do
     winInfo(m_szr: {_, sizer}, e_szr: {enable, infoSzr}, eval: sub(enable: ^enable, win: evalSzr)) = wi
@@ -371,7 +458,57 @@ defmodule :dbg_wx_trace_win do
     end
   end
 
-  def handle_event(wx(id: 427, event: wxSash(dragRect: {_X, _Y, _W, h})), wi), do: ...
+  def handle_event(wx(id: 427, event: wxSash(dragRect: {_X, _Y, _W, h})), wi) do
+    winInfo(code: code, m_szr: {_, sizer}, e_szr: {enable, infoSzr}, trace: trace) = wi
+    {tW, tH} = :wxWindow.getSize(sub(trace, :win))
+    change = ^tH - ^h
+    case ^enable do
+      false ->
+        {_, cH} = :wxWindow.getSize(sub(code, :win))
+        {_, cMH} = :wxWindow.getMinSize(sub(code, :win))
+        case cMH > cH + change do
+          true ->
+            :wxSashWindow.setMinSize(sub(code, :win), {500, cH + change})
+          _ ->
+            :ignore
+        end
+        :wxWindow.setMinSize(sub(trace, :win), {tW, h})
+        :wxSizer.layout(sizer)
+        :ignore
+      true ->
+        changeH = fn item ->
+            {itemW, itemH} = :wxSizerItem.getMinSize(item)
+            :wxSizerItem.setInitSize(item, itemW, :erlang.max(itemH + change, -1))
+        end
+        {iW, iH} = :wxSizer.getMinSize(infoSzr)
+        for child <- :wxSizer.getChildren(infoSzr) do
+          changeH.(child)
+        end
+        wanted = iH + change
+        :wxSizer.setMinSize(infoSzr, {iW, wanted})
+        {_, rH} = :wxSizer.getMinSize(infoSzr)
+        case rH > wanted do
+          true ->
+            {_, cH} = :wxWindow.getSize(sub(code, :win))
+            {_, cMH} = :wxWindow.getMinSize(sub(code, :win))
+            cC = cH - rH - wanted
+            case cMH > cC do
+              true when cC > 50 ->
+                :wxWindow.setMinSize(sub(trace, :win), {tW, h})
+                :wxSashWindow.setMinSize(sub(code, :win), {500, cC})
+              _ when cC < 50 ->
+                :ignore
+              _ ->
+                :wxWindow.setMinSize(sub(trace, :win), {tW, h})
+            end
+            :ok
+          false ->
+            :wxWindow.setMinSize(sub(trace, :win), {tW, h})
+        end
+        :wxSizer.layout(sizer)
+        :ignore
+    end
+  end
 
   def handle_event(_Ev = wx(event: wxKey(keyCode: key, controlDown: true)), _WinInfo) do
     cond do
@@ -826,9 +963,70 @@ defmodule :dbg_wx_trace_win do
     end
   end
 
-  defp search_area(parent), do: ...
+  defp search_area(parent) do
+    hSz = :wxBoxSizer.new(4)
+    _ = :wxSizer.add(hSz, :wxStaticText.new(parent, -1, 'Find:'), [{:flag, 2048}])
+    tC1 = :wxTextCtrl.new(parent, 413, [{:style, 1024}])
+    _ = :wxSizer.add(hSz, tC1, [{:proportion, 3}, {:flag, 8192}])
+    nbtn = :wxRadioButton.new(parent, -1, 'Next')
+    :wxRadioButton.setValue(nbtn, true)
+    _ = :wxSizer.add(hSz, nbtn, [{:flag, 2048}])
+    pbtn = :wxRadioButton.new(parent, -1, 'Previous')
+    _ = :wxSizer.add(hSz, pbtn, [{:flag, 2048}])
+    cbtn = :wxCheckBox.new(parent, -1, 'Match Case')
+    _ = :wxSizer.add(hSz, cbtn, [{:flag, 2048}])
+    _ = :wxSizer.add(hSz, 15, 15, [{:proportion, 1}, {:flag, 8192}])
+    _ = :wxSizer.add(hSz, :wxStaticText.new(parent, -1, 'Goto Line:'), [{:flag, 2048}])
+    tC2 = :wxTextCtrl.new(parent, 414, [{:style, 1024}])
+    _ = :wxSizer.add(hSz, tC2, [{:proportion, 0}, {:flag, 8192}])
+    :wxTextCtrl.connect(tC1, :command_text_updated)
+    :wxTextCtrl.connect(tC1, :command_text_enter)
+    :wxTextCtrl.connect(tC1, :kill_focus)
+    :wxTextCtrl.connect(tC2, :command_text_enter)
+    :wxWindow.connect(parent, :command_button_clicked)
+    sub(name: :"Search Area", win: hSz, in: sa(search: tC1, goto: tC2, radio: {nbtn, pbtn, cbtn}))
+  end
 
-  defp show_windows(wi = winInfo(m_szr: {_, sizer}, e_szr: {_, infoArea}, bs: bs, sg: sG, eval: eval, trace: trace, bind: bind)), do: ...
+  defp show_windows(wi = winInfo(m_szr: {_, sizer}, e_szr: {_, infoArea}, bs: bs, sg: sG, eval: eval, trace: trace, bind: bind)) do
+    case sub(sG, :enable) do
+      false ->
+        :wxSizer.hide(sizer, sub(sG, :win))
+      _ ->
+        :wxSizer.show(sizer, sub(sG, :win))
+    end
+    case sub(bs, :enable) do
+      false ->
+        :wxSizer.hide(sizer, sub(bs, :win))
+      _ ->
+        :wxSizer.show(sizer, sub(bs, :win))
+    end
+    cond do
+      not sub(eval, :enable) and not sub(bind, :enable) ->
+        :wxSizer.hide(sizer, infoArea)
+      not sub(eval, :enable) ->
+        :wxSizer.show(sizer, infoArea)
+        :wxSizer.hide(infoArea, sub(eval, :win))
+        :wxSizer.show(infoArea, sub(bind, :win))
+      not sub(bind, :enable) ->
+        [evalSI | _] = :wxSizer.getChildren(infoArea)
+        :wxSizerItem.setProportion(evalSI, 1)
+        :wxSizer.show(sizer, infoArea)
+        :wxSizer.hide(infoArea, sub(bind, :win))
+        :wxSizer.show(infoArea, sub(eval, :win))
+        true
+      true ->
+        :wxSizer.show(sizer, infoArea)
+        :wxSizer.show(infoArea, sub(eval, :win))
+        :wxSizer.show(infoArea, sub(bind, :win))
+    end
+    case sub(trace, :enable) do
+      false ->
+        :wxSizer.hide(sizer, sub(trace, :win))
+      _ ->
+        :wxSizer.show(sizer, sub(trace, :win))
+    end
+    wi
+  end
 
   defp trace_area(parent) do
     style = {:style, 64 ||| 128 ||| 4194304}

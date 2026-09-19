@@ -307,5 +307,41 @@ defmodule :ex_cursor do
 
   defp cursors(), do: [{'Arrow', 1}, {'Right arrow', 2}, {'Blank', 26}, {'Bullseye', 3}, {'Char', 4}, {'Cross', 5}, {'Hand', 6}, {'I-beam', 7}, {'Left button', 8}, {'Magnifier', 9}, {'Middle button', 10}, {'No entry', 11}, {'Paint brush', 12}, {'Pencil', 13}, {'Point left', 14}, {'Point right', 15}, {'Question arrow', 16}, {'Right button', 17}, {'Size NE-SW', 18}, {'Size N-S', 19}, {'Size NW-SE', 20}, {'Size W-E', 21}, {'Sizing', 22}, {'Spraycan', 23}, {'Wait', 24}, {'Watch', 25}, {'Arrow wait', :wxe_util.get_const(:wxCURSOR_ARROWWAIT)}]
 
-  defp do_init(config), do: ...
+  defp do_init(config) do
+    parent = :proplists.get_value(:parent, config)
+    panel = :wxScrolledWindow.new(parent, [])
+    mainSizer = :wxBoxSizer.new(8)
+    miscSizer = :wxStaticBoxSizer.new(8, panel, [{:label, 'Misc'}])
+    staticBoxSizer = :wxStaticBoxSizer.new(4, panel, [{:label, 'Test the cursor here'}])
+    cursorSizer = :wxBoxSizer.new(4)
+    cursorLabels = for {cursor, _} <- cursors() do
+      cursor
+    end
+    stockCursors = :wxRadioBox.new(panel, -1, 'Stock cursors', {-1, -1}, {-1, -1}, cursorLabels, [{:majorDim, 2}, {:style, 4}])
+    fun = fn item, int ->
+        cursorId = :proplists.get_value(item, cursors())
+        cursor = :wxCursor.new(cursorId)
+        case :wxCursor.ok(cursor) do
+          true ->
+            :ok
+          false ->
+            :wxRadioBox.enable(stockCursors, int, [{:enable, false}])
+        end
+        int + 1
+    end
+    :wx.foldl(fun, 0, cursorLabels)
+    win = :wxWindow.new(panel, -1, [{:size, {300, 300}}])
+    toggleButton = :wxToggleButton.new(panel, -1, 'Begin busy cursor', [])
+    :wxSizer.add(cursorSizer, stockCursors)
+    :wxSizer.add(staticBoxSizer, win)
+    :wxSizer.add(cursorSizer, staticBoxSizer)
+    :wxSizer.add(miscSizer, toggleButton)
+    :wxSizer.add(mainSizer, cursorSizer)
+    :wxSizer.add(mainSizer, miscSizer)
+    :wxToggleButton.connect(toggleButton, :command_togglebutton_clicked, [])
+    :wxRadioBox.connect(stockCursors, :command_radiobox_selected, [])
+    :wxScrolledWindow.setScrollRate(panel, 5, 5)
+    :wxPanel.setSizer(panel, mainSizer)
+    {panel, state(parent: panel, config: config, win: win)}
+  end
 end

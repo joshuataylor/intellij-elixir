@@ -294,7 +294,44 @@ defmodule :dialyzer_callgraph do
   end
 
   @spec scan_core_tree(:cerl.c_module(), callgraph()) :: {[mfa_or_funlbl()], [callgraph_edge()]}
-  def scan_core_tree(tree, callgraph(calls: eTSCalls, esc: eTSEsc, letrec_map: eTSLetrecMap, name_map: eTSNameMap, rec_var_map: eTSRecVarMap, rev_name_map: eTSRevNameMap, self_rec: eTSSelfRec)), do: ...
+  def scan_core_tree(tree, callgraph(calls: eTSCalls, esc: eTSEsc, letrec_map: eTSLetrecMap, name_map: eTSNameMap, rec_var_map: eTSRecVarMap, rev_name_map: eTSRevNameMap, self_rec: eTSSelfRec)) do
+    build_maps(tree, eTSRecVarMap, eTSNameMap, eTSRevNameMap, eTSLetrecMap)
+    {deps0, escapingFuns, calls, letrecs} = :dialyzer_dep.analyze(tree)
+    true = :ets.insert(eTSCalls, :dict.to_list(calls))
+    true = :ets.insert(eTSLetrecMap, :dict.to_list(letrecs))
+    true = :ets.insert(eTSEsc, (for e <- escapingFuns do
+      {e}
+    end))
+    labelEdges = get_edges_from_deps(deps0)
+    selfRecs0 = :lists.foldl(fn {key, key}, acc ->
+        case ets_lookup_dict(key, eTSNameMap) do
+          :error ->
+            [key | acc]
+          {:ok, name} ->
+            [key, name | acc]
+        end
+      _, acc ->
+        acc
+    end, [], labelEdges)
+    true = :ets.insert(eTSSelfRec, (for s <- selfRecs0 do
+      {s}
+    end))
+    namedEdges1 = name_edges(labelEdges, eTSNameMap)
+    namedEdges2 = scan_core_funs(tree)
+    names1 = :lists.append((for {x, y} <- namedEdges1 do
+      [x, y]
+    end))
+    names2 = :ordsets.from_list(names1)
+    names3 = :ordsets.del_element(:top, names2)
+    newNamedEdges2 = for {from, to} = e <- namedEdges2, from !== :top, to !== :top do
+      e
+    end
+    newNamedEdges1 = for {from, to} = e <- namedEdges1, from !== :top, to !== :top do
+      e
+    end
+    namedEdges3 = newNamedEdges1 ++ newNamedEdges2
+    {names3, namedEdges3}
+  end
 
   @spec strip_module_deps(mod_deps(), :sets.set(module())) :: mod_deps()
   def strip_module_deps(modDeps, stripSet) do
@@ -598,7 +635,44 @@ defmodule :dialyzer_callgraph do
   defp digraph_vertices(dG), do: :digraph.vertices(dG)
 
   @spec do_condensation(:digraph.graph(), pid()) :: (() -> no_return())
-  defp do_condensation(g, parent), do: ...
+  defp do_condensation(g, parent) do
+    fn () ->
+        [outETS, inETS, mapsETS] = for name <- [:callgraph_deps_out, :callgraph_deps_in, :callgraph_scc_map] do
+          :ets.new(name, [{:read_concurrency, true}])
+        end
+        sCCs = :digraph_utils.strong_components(g)
+        ints = :lists.seq(1, length(sCCs))
+        intToSCC = :lists.zip(ints, sCCs)
+        intScc = :sofs.relation(intToSCC, [{:int, :scc}])
+        :ets.insert(mapsETS, intToSCC)
+        c2V = :sofs.relation((for sC <- sCCs, v <- sC do
+          {sC, v}
+        end), [{:scc, :v}])
+        i2V = :sofs.relative_product(intScc, c2V)
+        es = :sofs.relation(:digraph.edges(g), [{:v, :v}])
+        r1 = :sofs.relative_product(i2V, es)
+        r2 = :sofs.relative_product(i2V, :sofs.converse(r1))
+        r2Strict = :sofs.strict_relation(r2)
+        out = :sofs.relation_to_family(:sofs.converse(r2Strict))
+        :ets.insert(outETS, :sofs.to_external(out))
+        dG = :sofs.family_to_digraph(out)
+        :lists.foreach(fn i ->
+            :digraph.add_vertex(dG, i)
+        end, ints)
+        sCCInts0 = :digraph_utils.topsort(dG)
+        :digraph.delete(dG)
+        sCCInts = :lists.reverse(sCCInts0)
+        erlangVariableIn = :sofs.relation_to_family(r2Strict)
+        :ets.insert(inETS, :sofs.to_external(erlangVariableIn))
+        :ets.insert(mapsETS, :lists.zip((for sCC <- sCCs do
+          {:scc, sCC}
+        end), ints))
+        :lists.foreach(fn e ->
+            true = :ets.give_away(e, parent, :any)
+        end, [outETS, inETS, mapsETS])
+        exit({sCCInts, outETS, inETS, mapsETS})
+    end
+  end
 
   defp edge_fold({{m1, _, _}, {m2, _, _}}, set) do
     case m1 !== m2 do
@@ -741,5 +815,50 @@ defmodule :dialyzer_callgraph do
     :lists.flatten(deepEdges)
   end
 
-  defp scan_one_core_fun(topTree, funName), do: ...
+  defp scan_one_core_fun(topTree, funName) do
+    foldFun = fn tree, acc ->
+        case :cerl.type(tree) do
+          :call ->
+            calleeM = :cerl.call_module(tree)
+            calleeF = :cerl.call_name(tree)
+            calleeArgs = :cerl.call_args(tree)
+            a = length(calleeArgs)
+            case :cerl.is_c_atom(calleeM) and :cerl.is_c_atom(calleeF) do
+              true ->
+                m = :cerl.atom_val(calleeM)
+                f = :cerl.atom_val(calleeF)
+                case :erl_bif_types.is_known(m, f, a) do
+                  true ->
+                    case {m, f, a} do
+                      {:erlang, :make_fun, 3} ->
+                        [cA1, cA2, cA3] = calleeArgs
+                        case :cerl.is_c_atom(cA1) and :cerl.is_c_atom(cA2) and :cerl.is_c_int(cA3) do
+                          true ->
+                            mM = :cerl.atom_val(cA1)
+                            fF = :cerl.atom_val(cA2)
+                            aA = :cerl.int_val(cA3)
+                            case :erl_bif_types.is_known(mM, fF, aA) do
+                              true ->
+                                acc
+                              false ->
+                                [{funName, {mM, fF, aA}} | acc]
+                            end
+                          false ->
+                            acc
+                        end
+                      _ ->
+                        acc
+                    end
+                  false ->
+                    [{funName, {m, f, a}} | acc]
+                end
+              false ->
+                acc
+            end
+          _ ->
+            acc
+        end
+    end
+    :cerl_trees.fold(foldFun, [], topTree)
+  end
 end

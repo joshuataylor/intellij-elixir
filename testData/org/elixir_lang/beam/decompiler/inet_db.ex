@@ -173,7 +173,192 @@ defmodule :inet_db do
   def gethostname(), do: db_get(:hostname)
 
   @spec handle_call(term(), {pid(), term()}, state()) :: ({:reply, term(), state()} | {:stop, :normal, :ok, state()})
-  def handle_call(request, from, state(db: db) = state), do: ...
+  def handle_call(request, from, state(db: db) = state) do
+    case request do
+      {:load_hosts_file, iPNmAs} when is_list(iPNmAs) ->
+        load_hosts_list(iPNmAs, state(state, :hosts_file_byname), state(state, :hosts_file_byaddr))
+        {:reply, :ok, state}
+      {:add_host, {a, b, c, d} = iP, [n | as] = names} when a ||| b ||| c ||| d &&& ~~~255 === 0 and is_list(n) and is_list(as) ->
+        do_add_host(state(state, :hosts_byname), state(state, :hosts_byaddr), names, :inet, iP)
+        {:reply, :ok, state}
+      {:add_host, {a, b, c, d, e, f, g, h} = iP, [n | as] = names} when a ||| b ||| c ||| d ||| e ||| f ||| g ||| h &&& ~~~65535 === 0 and is_list(n) and is_list(as) ->
+        do_add_host(state(state, :hosts_byname), state(state, :hosts_byaddr), names, :inet6, iP)
+        {:reply, :ok, state}
+      {:del_host, {a, b, c, d} = iP} when a ||| b ||| c ||| d &&& ~~~255 === 0 ->
+        do_del_host(state(state, :hosts_byname), state(state, :hosts_byaddr), iP)
+        {:reply, :ok, state}
+      {:del_host, {a, b, c, d, e, f, g, h} = iP} when a ||| b ||| c ||| d ||| e ||| f ||| g ||| h &&& ~~~65535 === 0 ->
+        do_del_host(state(state, :hosts_byname), state(state, :hosts_byaddr), iP)
+        {:reply, :ok, state}
+      {:add_rrs, rRs} ->
+        :ok
+        {:reply, do_add_rrs(rRs, db, state), state}
+      {:del_rr, rR} when is_record(rR, :dns_rr) ->
+        cache = state(state, :cache)
+        :ets.match_delete(cache, rR)
+        {:reply, :ok, state}
+      {:listop, opt, op, e} ->
+        el = [e]
+        case res_check_option(opt, el) do
+          true ->
+            optname = res_optname(opt)
+            es = :ets.lookup_element(db, optname, 2)
+            newEs = case op do
+              :ins ->
+                [e | lists_delete(e, es)]
+              :add ->
+                lists_delete(e, es) ++ el
+              :del ->
+                lists_delete(e, es)
+            end
+            :ets.insert(db, {optname, newEs})
+            {:reply, :ok, state}
+          false ->
+            {:reply, :error, state}
+        end
+      {:listreplace, opt, els} ->
+        case res_check_option(opt, els) do
+          true ->
+            :ets.insert(db, {res_optname(opt), els})
+            {:reply, :ok, state}
+          false ->
+            {:reply, :error, state}
+        end
+      {:set_hostname, name} ->
+        case :inet_parse.visible_string(name) do
+          true ->
+            :ets.insert(db, {:hostname, name})
+            {:reply, :ok, state}
+          false ->
+            {:reply, :error, state}
+        end
+      {:res_set, :hosts_file_name = option, fname} ->
+        handle_set_file(option, fname, :res_hosts_file_tm, :res_hosts_file_info, :undefined, from, state)
+      {:res_set, :resolv_conf_name = option, fname} ->
+        handle_set_file(option, fname, :res_resolv_conf_tm, :res_resolv_conf_info, :undefined, from, state)
+      {:res_set, :hosts_file = option, fname_or_Tm} ->
+        handle_set_file(option, fname_or_Tm, :res_hosts_file_tm, :res_hosts_file_info, fn file, bin ->
+            case :inet_parse.hosts(file, {:chars, bin}) do
+              {:ok, opts} ->
+                [{:load_hosts_file, opts}]
+              _ ->
+                :error
+            end
+        end, from, state)
+      {:res_set, :resolv_conf = option, fname_or_Tm} ->
+        handle_set_file(option, fname_or_Tm, :res_resolv_conf_tm, :res_resolv_conf_info, fn file, bin ->
+            case :inet_parse.resolv(file, {:chars, bin}) do
+              {:ok, opts} ->
+                search = :lists.foldl(fn {:search, l}, _ ->
+                    l
+                  {:domain, ""}, s ->
+                    s
+                  {:domain, d}, _ ->
+                    [d]
+                  _, s ->
+                    s
+                end, [], opts)
+                nSs = for {:nameserver, nS} <- opts do
+                  {nS, 53}
+                end
+                [{:replace_search, search}, {:replace_ns, nSs}, :clear_cache]
+              _ ->
+                :error
+            end
+        end, from, state)
+      {:res_set, opt, value} ->
+        case res_optname(opt) do
+          :undefined ->
+            {:reply, :error, state}
+          optname ->
+            case res_check_option(opt, value) do
+              true ->
+                :ets.insert(db, {optname, value})
+                {:reply, :ok, state}
+              false ->
+                {:reply, :error, state}
+            end
+        end
+      {:set_resolv_conf_tm, tM} ->
+        :ets.insert(db, {:res_resolv_conf_tm, tM})
+        {:reply, :ok, state}
+      {:set_hosts_file_tm, tM} ->
+        :ets.insert(db, {:res_hosts_file_tm, tM})
+        {:reply, :ok, state}
+      {:set_socks_server, {a, b, c, d}} when a ||| b ||| c ||| d &&& ~~~255 === 0 ->
+        :ets.insert(db, {:socks5_server, {a, b, c, d}})
+        {:reply, :ok, state}
+      {:set_socks_port, port} when is_integer(port) ->
+        :ets.insert(db, {:socks5_port, port})
+        {:reply, :ok, state}
+      {:add_socks_methods, ls} ->
+        as = :ets.lookup_element(db, :socks5_methods, 2)
+        as1 = lists_subtract(as, ls)
+        :ets.insert(db, {:socks5_methods, as1 ++ ls})
+        {:reply, :ok, state}
+      {:del_socks_methods, ls} ->
+        as = :ets.lookup_element(db, :socks5_methods, 2)
+        as1 = lists_subtract(as, ls)
+        case :lists.member(:none, as1) do
+          false ->
+            :ets.insert(db, {:socks5_methods, as1 ++ [:none]})
+          true ->
+            :ets.insert(db, {:socks5_methods, as1})
+        end
+        {:reply, :ok, state}
+      :del_socks_methods ->
+        :ets.insert(db, {:socks5_methods, [:none]})
+        {:reply, :ok, state}
+      {:add_socks_noproxy, {{a, b, c, d}, {mA, mB, mC, mD}}} when a ||| b ||| c ||| d &&& ~~~255 === 0 and mA ||| mB ||| mC ||| mD &&& ~~~255 === 0 ->
+        as = :ets.lookup_element(db, :socks5_noproxy, 2)
+        :ets.insert(db, {:socks5_noproxy, as ++ [{{a, b, c, d}, {mA, mB, mC, mD}}]})
+        {:reply, :ok, state}
+      {:del_socks_noproxy, {a, b, c, d} = iP} when a ||| b ||| c ||| d &&& ~~~255 === 0 ->
+        as = :ets.lookup_element(db, :socks5_noproxy, 2)
+        :ets.insert(db, {:socks5_noproxy, lists_keydelete(iP, 1, as)})
+        {:reply, :ok, state}
+      {:set_tcp_module, mod} when is_atom(mod) ->
+        :ets.insert(db, {:tcp_module, mod})
+        {:reply, :ok, state}
+      {:set_udp_module, mod} when is_atom(mod) ->
+        :ets.insert(db, {:udp_module, mod})
+        {:reply, :ok, state}
+      {:set_sctp_module, fam} when is_atom(fam) ->
+        :ets.insert(db, {:sctp_module, fam})
+        {:reply, :ok, state}
+      {:set_cache_size, size} when is_integer(size) and size >= 0 ->
+        :ets.insert(db, {:cache_size, size})
+        {:reply, :ok, state}
+      {:set_cache_refresh, time} when is_integer(time) and time > 0 ->
+        time1 = div(time + 999, 1000) * 1000
+        :ets.insert(db, {:cache_refresh_interval, time1})
+        _ = stop_timer(state(state, :cache_timer))
+        {:reply, :ok, state(state, cache_timer: init_timer())}
+      :clear_hosts ->
+        :ets.delete_all_objects(state(state, :hosts_byname))
+        :ets.delete_all_objects(state(state, :hosts_byaddr))
+        {:reply, :ok, state}
+      :clear_cache ->
+        :ets.delete_all_objects(state(state, :cache))
+        {:reply, :ok, state}
+      :reset ->
+        reset_db(db)
+        _ = stop_timer(state(state, :cache_timer))
+        {:reply, :ok, state(state, cache_timer: init_timer())}
+      {:add_rc_list, list} ->
+        handle_rc_list(list, from, state)
+      {:put_socket_type, mRef, type} ->
+        reply = handle_put_socket_type(state(state, :sockets), mRef, type)
+        {:reply, reply, state}
+      {:take_socket_type, mRef} ->
+        reply = handle_take_socket_type(state(state, :sockets), mRef)
+        {:reply, reply, state}
+      :stop ->
+        {:stop, :normal, :ok, state}
+      _ ->
+        {:reply, :error, state}
+    end
+  end
 
   @spec handle_cast(term(), state()) :: {:noreply, state()}
   def handle_cast(_Msg, state), do: {:noreply, state}
@@ -775,7 +960,65 @@ defmodule :inet_db do
     end
   end
 
-  defp get_rc([k | ks], ls), do: ...
+  defp get_rc([k | ks], ls) do
+    case k do
+      :hosts ->
+        get_rc_hosts(ks, ls, :inet_hosts_byaddr)
+      :domain ->
+        get_rc(:domain, :res_domain, "", ks, ls)
+      :nameservers ->
+        get_rc_ns(db_get(:res_ns), :nameservers, ks, ls)
+      :alt_nameservers ->
+        get_rc_ns(db_get(:res_alt_ns), :alt_nameservers, ks, ls)
+      :search ->
+        get_rc(:search, :res_search, [], ks, ls)
+      :timeout ->
+        get_rc(:timeout, :res_timeout, 2000, ks, ls)
+      :retry ->
+        get_rc(:retry, :res_retry, 3, ks, ls)
+      :servfail_retry_timeout ->
+        get_rc(:servfail_retry_timeout, :res_servfail_retry_timeout, 1500, ks, ls)
+      :inet6 ->
+        get_rc(:inet6, :res_inet6, false, ks, ls)
+      :usevc ->
+        get_rc(:usevc, :res_usevc, false, ks, ls)
+      :edns ->
+        get_rc(:edns, :res_edns, false, ks, ls)
+      :udp_payload_size ->
+        get_rc(:udp_payload_size, :res_udp_payload_size, 1280, ks, ls)
+      :resolv_conf ->
+        get_rc(:resolv_conf, :res_resolv_conf, :undefined, ks, ls)
+      :hosts_file ->
+        get_rc(:hosts_file, :res_hosts_file, :undefined, ks, ls)
+      :tcp ->
+        get_rc(:tcp, :tcp_module, :inet_tcp, ks, ls)
+      :udp ->
+        get_rc(:udp, :udp_module, :inet_udp, ks, ls)
+      :sctp ->
+        get_rc(:sctp, :sctp_module, :inet_sctp, ks, ls)
+      :lookup ->
+        get_rc(:lookup, :res_lookup, [:native, :file], ks, ls)
+      :cache_size ->
+        get_rc(:cache_size, :cache_size, 100, ks, ls)
+      :cache_refresh ->
+        get_rc(:cache_refresh, :cache_refresh_interval, 60 * 60 * 1000, ks, ls)
+      :socks5_server ->
+        get_rc(:socks5_server, :socks5_server, "", ks, ls)
+      :socks5_port ->
+        get_rc(:socks5_port, :socks5_port, 1080, ks, ls)
+      :socks5_methods ->
+        get_rc(:socks5_methods, :socks5_methods, [:none], ks, ls)
+      :socks5_noproxy ->
+        case db_get(:socks5_noproxy) do
+          [] ->
+            get_rc(ks, ls)
+          noProxy ->
+            get_rc_noproxy(noProxy, ks, ls)
+        end
+      _ ->
+        get_rc(ks, ls)
+    end
+  end
 
   defp get_rc([], ls), do: :lists.reverse(ls)
 

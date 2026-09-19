@@ -333,7 +333,36 @@ defmodule :idna do
 
   defp uts46_remap(str, std3Rules, transitional), do: characters_to_nfc_list(uts46_remap_1(str, std3Rules, transitional))
 
-  defp uts46_remap_1([cp | rs], std3Rules, transitional), do: ...
+  defp uts46_remap_1([cp | rs], std3Rules, transitional) do
+    row = try do
+      :idna_mapping.uts46_map(cp)
+    catch
+      {:error, :badarg, _} ->
+        case :logger.allow(:error, :idna) do
+          true ->
+            :erlang.apply(:logger, :macro_log, [%{:mfa => {:idna, :uts46_remap_1, 3}, :line => 395, :file => '/Users/kronic.deth/github/Frameio/massdriver/deps/idna/src/idna.erl'}, :error, 'codepoint ~p not found in mapping list~n', [cp]])
+          false ->
+            :ok
+        end
+        :erlang.exit({:invalid_codepoint, cp})
+    end
+    {status, replacement} = case row do
+      {_, _} ->
+        row
+      s ->
+        {s, :undefined}
+    end
+    cond do
+      status === :"V" or status === :"D" and transitional === false or status === :"3" and std3Rules === true and replacement === :undefined ->
+        [cp] ++ uts46_remap_1(rs, std3Rules, transitional)
+      replacement !== :undefined and status === :"M" or status === :"3" and std3Rules === false or status === :"D" and transitional === true ->
+        replacement ++ uts46_remap_1(rs, std3Rules, transitional)
+      status === :"I" ->
+        uts46_remap_1(rs, std3Rules, transitional)
+      true ->
+        :erlang.exit({:invalid_codepoint, cp})
+    end
+  end
 
   defp uts46_remap_1([], _, _), do: []
 

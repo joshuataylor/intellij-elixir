@@ -58,13 +58,7 @@ class Clause(
 
             if (options.decompileBodies) {
                 try {
-                    val blockMacroToString = Macro.toString(block)
-
-                    if (options.truncateDecompiledBody(blockMacroToString)) {
-                        "$prefix, do: ..."
-                    } else {
-                        "$prefix do\n${blockMacroToString.prependIndent("  ")}\nend"
-                    }
+                    "$prefix do\n${Macro.toString(block).prependIndent("  ")}\nend"
                 } catch (_: StackOverflowError) {
                     "$prefix, do: ..."
                 }

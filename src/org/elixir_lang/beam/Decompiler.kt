@@ -374,7 +374,7 @@ private fun appendCallDefinitions(
 }
 
 @Volatile
-private var definitionLimit = 500
+private var definitionLimit = Int.MAX_VALUE
 
 /**
  * Past [limit] definitions a module decompiles as public heads only, while its stubs still hold every
@@ -517,7 +517,7 @@ private fun appendMacroNameArity(
     documentation: Documentation?,
     options: Options
 ) {
-    when (val source = clauseSource(macroNameArity, debugInfo, { documentation }, options)) {
+    when (val source = clauseSource(macroNameArity, debugInfo) { documentation }) {
         is ClauseSource.ErlangAbstractCode -> {
             var macroString = source.function.toMacroString(options)
 

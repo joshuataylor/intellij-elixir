@@ -5,12 +5,11 @@ import org.elixir_lang.beam.BeamReader
 import org.elixir_lang.beam.MacroNameArity
 import org.elixir_lang.beam.chunk.debug_info.v1.elixir_erl.V1
 import org.elixir_lang.beam.chunk.debug_info.v1.elixir_erl.v1.definitions.Definition
-import org.elixir_lang.beam.decompiler.Options
 import java.io.File
 
 class DefaultArgumentClauseTest : PlatformTestCase() {
     fun testTheDecompiledClauseIsNamedAfterTheClauseItCalls() {
-        assertEquals(listOf("term"), inspect1().renderedClauses(Options())!!.single().parameters)
+        assertEquals(listOf("term"), inspect1().renderedClauses()!!.single().parameters)
     }
 
     fun testTheDebugInfoClauseKeepsTheNamesTheBeamStores() {

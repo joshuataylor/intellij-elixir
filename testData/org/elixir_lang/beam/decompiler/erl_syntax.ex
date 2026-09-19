@@ -187,7 +187,43 @@ defmodule :erl_syntax do
   def attribute(name, args), do: tree(:attribute, attribute(name: name, args: args))
 
   @spec attribute_arguments(syntaxTree()) :: (:none | [syntaxTree()])
-  def attribute_arguments(node), do: ...
+  def attribute_arguments(node) do
+    case unwrap(node) do
+      {:attribute, pos, name, data} ->
+        case name do
+          :module ->
+            {m1, vs} = case data do
+              {m0, vs0} ->
+                {m0, unfold_variable_names(vs0, pos)}
+              m0 ->
+                {m0, :none}
+            end
+            m2 = atom(m1)
+            m = set_pos(m2, pos)
+            cond do
+              vs == :none ->
+                [m]
+              true ->
+                [m, set_pos(list(vs), pos)]
+            end
+          :export ->
+            [set_pos(list(unfold_function_names(data, pos)), pos)]
+          :import ->
+            {module, imports} = data
+            [set_pos(atom(module), pos), set_pos(list(unfold_function_names(imports, pos)), pos)]
+          :file ->
+            {file, line} = data
+            [set_pos(string(file), pos), set_pos(integer(line), pos)]
+          :record ->
+            {type, entries} = data
+            [set_pos(atom(type), pos), set_pos(tuple(unfold_record_fields(entries)), pos)]
+          _ ->
+            [set_pos(abstract(data), pos)]
+        end
+      node1 ->
+        attribute(data(node1), :args)
+    end
+  end
 
   @spec attribute_name(syntaxTree()) :: syntaxTree()
   def attribute_name(node) do
@@ -517,7 +553,66 @@ defmodule :erl_syntax do
   end
 
   @spec concrete(syntaxTree()) :: term()
-  def concrete(node), do: ...
+  def concrete(node) do
+    case type(node) do
+      :atom ->
+        atom_value(node)
+      :integer ->
+        integer_value(node)
+      :float ->
+        float_value(node)
+      :char ->
+        char_value(node)
+      :string ->
+        string_value(node)
+      nil ->
+        []
+      :list ->
+        [concrete(list_head(node)) | concrete(list_tail(node))]
+      :tuple ->
+        list_to_tuple(concrete_list(tuple_elements(node)))
+      :map_expr ->
+        as = for f <- map_expr_fields(node) do
+          tuple([map_field_assoc_name(f), map_field_assoc_value(f)])
+        end
+        m0 = :maps.from_list(concrete_list(as))
+        case map_expr_argument(node) do
+          :none ->
+            m0
+          node0 ->
+            :maps.merge(concrete(node0), m0)
+        end
+      :binary ->
+        fs = for f <- binary_fields(node) do
+          revert_binary_field(binary_field(binary_field_body(f), (case binary_field_size(f) do
+          :none ->
+            :none
+          s ->
+            revert(s)
+        end), binary_field_types(f)))
+        end
+        {:value, b, _} = :eval_bits.expr_grp(fs, [], fn f, _ ->
+            {:value, concrete(f), []}
+        end, [], true)
+        b
+      :arity_qualifier ->
+        a = :erl_syntax.arity_qualifier_argument(node)
+        case :erl_syntax.type(a) do
+          :integer ->
+            f = :erl_syntax.arity_qualifier_body(node)
+            case :erl_syntax.type(f) do
+              :atom ->
+                {f, a}
+              _ ->
+                :erlang.error({:badarg, node})
+            end
+          _ ->
+            :erlang.error({:badarg, node})
+        end
+      _ ->
+        :erlang.error({:badarg, node})
+    end
+  end
 
   @spec cond_expr([syntaxTree()]) :: syntaxTree()
   def cond_expr(clauses), do: tree(:cond_expr, clauses)
@@ -2012,7 +2107,182 @@ defmodule :erl_syntax do
   end
 
   @spec subtrees(syntaxTree()) :: [[syntaxTree()]]
-  def subtrees(t), do: ...
+  def subtrees(t) do
+    case is_leaf(t) do
+      true ->
+        []
+      false ->
+        case type(t) do
+          :annotated_type ->
+            [[annotated_type_name(t)], [annotated_type_body(t)]]
+          :application ->
+            [[application_operator(t)], application_arguments(t)]
+          :arity_qualifier ->
+            [[arity_qualifier_body(t)], [arity_qualifier_argument(t)]]
+          :attribute ->
+            case attribute_arguments(t) do
+              :none ->
+                [[attribute_name(t)]]
+              as ->
+                [[attribute_name(t)], as]
+            end
+          :binary ->
+            [binary_fields(t)]
+          :binary_comp ->
+            [[binary_comp_template(t)], binary_comp_body(t)]
+          :binary_field ->
+            case binary_field_types(t) do
+              [] ->
+                [[binary_field_body(t)]]
+              ts ->
+                [[binary_field_body(t)], ts]
+            end
+          :binary_generator ->
+            [[binary_generator_pattern(t)], [binary_generator_body(t)]]
+          :bitstring_type ->
+            [[bitstring_type_m(t)], [bitstring_type_n(t)]]
+          :block_expr ->
+            [block_expr_body(t)]
+          :case_expr ->
+            [[case_expr_argument(t)], case_expr_clauses(t)]
+          :catch_expr ->
+            [[catch_expr_body(t)]]
+          :class_qualifier ->
+            [[class_qualifier_argument(t)], [class_qualifier_body(t)]]
+          :clause ->
+            case clause_guard(t) do
+              :none ->
+                [clause_patterns(t), clause_body(t)]
+              g ->
+                [clause_patterns(t), [g], clause_body(t)]
+            end
+          :cond_expr ->
+            [cond_expr_clauses(t)]
+          :conjunction ->
+            [conjunction_body(t)]
+          :constrained_function_type ->
+            c = constrained_function_type_argument(t)
+            [[constrained_function_type_body(t)], conjunction_body(c)]
+          :constraint ->
+            [[constraint_argument(t)], constraint_body(t)]
+          :disjunction ->
+            [disjunction_body(t)]
+          :form_list ->
+            [form_list_elements(t)]
+          :fun_expr ->
+            [fun_expr_clauses(t)]
+          :fun_type ->
+            []
+          :function ->
+            [[function_name(t)], function_clauses(t)]
+          :function_type ->
+            case function_type_arguments(t) do
+              :any_arity ->
+                [[function_type_return(t)]]
+              as ->
+                [as, [function_type_return(t)]]
+            end
+          :generator ->
+            [[generator_pattern(t)], [generator_body(t)]]
+          :if_expr ->
+            [if_expr_clauses(t)]
+          :implicit_fun ->
+            [[implicit_fun_name(t)]]
+          :infix_expr ->
+            [[infix_expr_left(t)], [infix_expr_operator(t)], [infix_expr_right(t)]]
+          :integer_range_type ->
+            [[integer_range_type_low(t)], [integer_range_type_high(t)]]
+          :list ->
+            case list_suffix(t) do
+              :none ->
+                [list_prefix(t)]
+              s ->
+                [list_prefix(t), [s]]
+            end
+          :list_comp ->
+            [[list_comp_template(t)], list_comp_body(t)]
+          :macro ->
+            case macro_arguments(t) do
+              :none ->
+                [[macro_name(t)]]
+              as ->
+                [[macro_name(t)], as]
+            end
+          :map_expr ->
+            case map_expr_argument(t) do
+              :none ->
+                [map_expr_fields(t)]
+              v ->
+                [[v], map_expr_fields(t)]
+            end
+          :map_field_assoc ->
+            [[map_field_assoc_name(t)], [map_field_assoc_value(t)]]
+          :map_field_exact ->
+            [[map_field_exact_name(t)], [map_field_exact_value(t)]]
+          :map_type ->
+            [map_type_fields(t)]
+          :map_type_assoc ->
+            [[map_type_assoc_name(t)], [map_type_assoc_value(t)]]
+          :map_type_exact ->
+            [[map_type_exact_name(t)], [map_type_exact_value(t)]]
+          :match_expr ->
+            [[match_expr_pattern(t)], [match_expr_body(t)]]
+          :module_qualifier ->
+            [[module_qualifier_argument(t)], [module_qualifier_body(t)]]
+          :named_fun_expr ->
+            [[named_fun_expr_name(t)], named_fun_expr_clauses(t)]
+          :parentheses ->
+            [[parentheses_body(t)]]
+          :prefix_expr ->
+            [[prefix_expr_operator(t)], [prefix_expr_argument(t)]]
+          :receive_expr ->
+            case receive_expr_timeout(t) do
+              :none ->
+                [receive_expr_clauses(t)]
+              e ->
+                [receive_expr_clauses(t), [e], receive_expr_action(t)]
+            end
+          :record_access ->
+            [[record_access_argument(t)], [record_access_type(t)], [record_access_field(t)]]
+          :record_expr ->
+            case record_expr_argument(t) do
+              :none ->
+                [[record_expr_type(t)], record_expr_fields(t)]
+              v ->
+                [[v], [record_expr_type(t)], record_expr_fields(t)]
+            end
+          :record_field ->
+            case record_field_value(t) do
+              :none ->
+                [[record_field_name(t)]]
+              v ->
+                [[record_field_name(t)], [v]]
+            end
+          :record_index_expr ->
+            [[record_index_expr_type(t)], [record_index_expr_field(t)]]
+          :record_type ->
+            [[record_type_name(t)], record_type_fields(t)]
+          :record_type_field ->
+            [[record_type_field_name(t)], [record_type_field_type(t)]]
+          :size_qualifier ->
+            [[size_qualifier_body(t)], [size_qualifier_argument(t)]]
+          :try_expr ->
+            [try_expr_body(t), try_expr_clauses(t), try_expr_handlers(t), try_expr_after(t)]
+          :tuple ->
+            [tuple_elements(t)]
+          :tuple_type ->
+            [tuple_type_elements(t)]
+          :type_application ->
+            [[type_application_name(t)], type_application_arguments(t)]
+          :type_union ->
+            [type_union_types(t)]
+          :typed_record_field ->
+            [[typed_record_field_body(t)], [typed_record_field_type(t)]]
+          :user_type_application ->
+            [[user_type_application_name(t)], user_type_application_arguments(t)]
+        end
+    end
+  end
 
   @spec text(charlist()) :: syntaxTree()
   def text(string), do: tree(:text, string)
@@ -2116,7 +2386,143 @@ defmodule :erl_syntax do
 
   def type(wrapper(type: t)), do: t
 
-  def type(node), do: ...
+  def type(node) do
+    case node do
+      {:atom, _, _} ->
+        :atom
+      {:char, _, _} ->
+        :char
+      {:float, _, _} ->
+        :float
+      {:integer, _, _} ->
+        :integer
+      {nil, _} ->
+        nil
+      {:string, _, _} ->
+        :string
+      {:var, _, name} ->
+        cond do
+          name === :_ ->
+            :underscore
+          true ->
+            :variable
+        end
+      {:error, _} ->
+        :error_marker
+      {:warning, _} ->
+        :warning_marker
+      {:eof, _} ->
+        :eof_marker
+      {:case, _, _, _} ->
+        :case_expr
+      {:catch, _, _} ->
+        :catch_expr
+      {:cond, _, _} ->
+        :cond_expr
+      {:fun, _, {:clauses, _}} ->
+        :fun_expr
+      {:named_fun, _, _, _} ->
+        :named_fun_expr
+      {:fun, _, {:function, _, _}} ->
+        :implicit_fun
+      {:fun, _, {:function, _, _, _}} ->
+        :implicit_fun
+      {:if, _, _} ->
+        :if_expr
+      {:receive, _, _, _, _} ->
+        :receive_expr
+      {:receive, _, _} ->
+        :receive_expr
+      {:attribute, _, _, _} ->
+        :attribute
+      {:bin, _, _} ->
+        :binary
+      {:bin_element, _, _, _, _} ->
+        :binary_field
+      {:block, _, _} ->
+        :block_expr
+      {:call, _, _, _} ->
+        :application
+      {:clause, _, _, _, _} ->
+        :clause
+      {:cons, _, _, _} ->
+        :list
+      {:function, _, _, _, _} ->
+        :function
+      {:b_generate, _, _, _} ->
+        :binary_generator
+      {:generate, _, _, _} ->
+        :generator
+      {:lc, _, _, _} ->
+        :list_comp
+      {:bc, _, _, _} ->
+        :binary_comp
+      {:match, _, _, _} ->
+        :match_expr
+      {:map, _, _, _} ->
+        :map_expr
+      {:map, _, _} ->
+        :map_expr
+      {:map_field_assoc, _, _, _} ->
+        :map_field_assoc
+      {:map_field_exact, _, _, _} ->
+        :map_field_exact
+      {:op, _, _, _, _} ->
+        :infix_expr
+      {:op, _, _, _} ->
+        :prefix_expr
+      {:record, _, _, _, _} ->
+        :record_expr
+      {:record, _, _, _} ->
+        :record_expr
+      {:record_field, _, _, _, _} ->
+        :record_access
+      {:record_index, _, _, _} ->
+        :record_index_expr
+      {:remote, _, _, _} ->
+        :module_qualifier
+      {:try, _, _, _, _, _} ->
+        :try_expr
+      {:tuple, _, _} ->
+        :tuple
+      {:ann_type, _, _} ->
+        :annotated_type
+      {:remote_type, _, _} ->
+        :type_application
+      {:type, _, :binary, [_, _]} ->
+        :bitstring_type
+      {:type, _, :bounded_fun, [_, _]} ->
+        :constrained_function_type
+      {:type, _, :constraint, [_, _]} ->
+        :constraint
+      {:type, _, :fun, []} ->
+        :fun_type
+      {:type, _, :fun, [_, _]} ->
+        :function_type
+      {:type, _, :map, _} ->
+        :map_type
+      {:type, _, :map_field_assoc, _} ->
+        :map_type_assoc
+      {:type, _, :map_field_exact, _} ->
+        :map_type_exact
+      {:type, _, :record, _} ->
+        :record_type
+      {:type, _, :field_type, _} ->
+        :record_type_field
+      {:type, _, :range, _} ->
+        :integer_range_type
+      {:type, _, :tuple, _} ->
+        :tuple_type
+      {:type, _, :union, _} ->
+        :type_union
+      {:type, _, _, _} ->
+        :type_application
+      {:user_type, _, _, _} ->
+        :user_type_application
+      _ ->
+        :erlang.error({:badarg, node})
+    end
+  end
 
   @spec type_application(syntaxTree(), [syntaxTree()]) :: syntaxTree()
   def type_application(typeName, arguments), do: tree(:type_application, type_application(type_name: typeName, arguments: arguments))
@@ -2565,7 +2971,51 @@ defmodule :erl_syntax do
 
   defp meta_0(t), do: meta_1(remove_comments(t))
 
-  defp meta_1(t), do: ...
+  defp meta_1(t) do
+    case type(t) do
+      :atom ->
+        meta_call(:atom, [t])
+      :char ->
+        meta_call(:char, [t])
+      :comment ->
+        meta_call(:comment, [list((for s <- comment_text(t) do
+          string(s)
+        end))])
+      :eof_marker ->
+        meta_call(:eof_marker, [])
+      :error_marker ->
+        meta_call(:error_marker, [abstract(error_marker_info(t))])
+      :float ->
+        meta_call(:float, [t])
+      :integer ->
+        meta_call(:integer, [t])
+      nil ->
+        meta_call(nil, [])
+      :operator ->
+        meta_call(:operator, [atom(operator_name(t))])
+      :string ->
+        meta_call(:string, [t])
+      :text ->
+        meta_call(:text, [string(text_string(t))])
+      :underscore ->
+        meta_call(:underscore, [])
+      :variable ->
+        meta_call(:variable, [string(atom_to_list(variable_name(t)))])
+      :warning_marker ->
+        meta_call(:warning_marker, [abstract(warning_marker_info(t))])
+      :list ->
+        case list_suffix(t) do
+          :none ->
+            meta_call(:list, [list(meta_list(list_prefix(t)))])
+          s ->
+            meta_call(:list, [list(meta_list(list_prefix(t))), meta(s)])
+        end
+      :tuple ->
+        meta_call(:tuple, [list(meta_list(tuple_elements(t)))])
+      type ->
+        meta_call(:make_tree, [abstract(type), meta_subtrees(subtrees(t))])
+    end
+  end
 
   defp meta_call(f, as), do: application(atom(:erl_syntax), atom(f), as)
 
@@ -3196,7 +3646,132 @@ defmodule :erl_syntax do
     {:type, pos, :field_type, [name, type]}
   end
 
-  defp revert_root(node), do: ...
+  defp revert_root(node) do
+    case type(node) do
+      :annotated_type ->
+        revert_annotated_type(node)
+      :application ->
+        revert_application(node)
+      :atom ->
+        revert_atom(node)
+      :attribute ->
+        revert_attribute(node)
+      :binary ->
+        revert_binary(node)
+      :binary_comp ->
+        revert_binary_comp(node)
+      :binary_field ->
+        revert_binary_field(node)
+      :binary_generator ->
+        revert_binary_generator(node)
+      :bitstring_type ->
+        revert_bitstring_type(node)
+      :block_expr ->
+        revert_block_expr(node)
+      :case_expr ->
+        revert_case_expr(node)
+      :catch_expr ->
+        revert_catch_expr(node)
+      :char ->
+        revert_char(node)
+      :clause ->
+        revert_clause(node)
+      :cond_expr ->
+        revert_cond_expr(node)
+      :constrained_function_type ->
+        revert_constrained_function_type(node)
+      :constraint ->
+        revert_constraint(node)
+      :eof_marker ->
+        revert_eof_marker(node)
+      :error_marker ->
+        revert_error_marker(node)
+      :float ->
+        revert_float(node)
+      :fun_expr ->
+        revert_fun_expr(node)
+      :fun_type ->
+        revert_fun_type(node)
+      :function ->
+        revert_function(node)
+      :function_type ->
+        revert_function_type(node)
+      :generator ->
+        revert_generator(node)
+      :if_expr ->
+        revert_if_expr(node)
+      :implicit_fun ->
+        revert_implicit_fun(node)
+      :infix_expr ->
+        revert_infix_expr(node)
+      :integer ->
+        revert_integer(node)
+      :integer_range_type ->
+        revert_integer_range_type(node)
+      :list ->
+        revert_list(node)
+      :list_comp ->
+        revert_list_comp(node)
+      :map_expr ->
+        revert_map_expr(node)
+      :map_field_assoc ->
+        revert_map_field_assoc(node)
+      :map_field_exact ->
+        revert_map_field_exact(node)
+      :map_type ->
+        revert_map_type(node)
+      :map_type_assoc ->
+        revert_map_type_assoc(node)
+      :map_type_exact ->
+        revert_map_type_exact(node)
+      :match_expr ->
+        revert_match_expr(node)
+      :module_qualifier ->
+        revert_module_qualifier(node)
+      :named_fun_expr ->
+        revert_named_fun_expr(node)
+      nil ->
+        revert_nil(node)
+      :parentheses ->
+        revert_parentheses(node)
+      :prefix_expr ->
+        revert_prefix_expr(node)
+      :receive_expr ->
+        revert_receive_expr(node)
+      :record_access ->
+        revert_record_access(node)
+      :record_expr ->
+        revert_record_expr(node)
+      :record_index_expr ->
+        revert_record_index_expr(node)
+      :record_type ->
+        revert_record_type(node)
+      :record_type_field ->
+        revert_record_type_field(node)
+      :type_application ->
+        revert_type_application(node)
+      :type_union ->
+        revert_type_union(node)
+      :string ->
+        revert_string(node)
+      :try_expr ->
+        revert_try_expr(node)
+      :tuple ->
+        revert_tuple(node)
+      :tuple_type ->
+        revert_tuple_type(node)
+      :underscore ->
+        revert_underscore(node)
+      :user_type_application ->
+        revert_user_type_application(node)
+      :variable ->
+        revert_variable(node)
+      :warning_marker ->
+        revert_warning_marker(node)
+      _ ->
+        node
+    end
+  end
 
   defp revert_string(node) do
     pos = get_pos(node)
