@@ -1,6 +1,8 @@
 package org.elixir_lang.sdk.erlang_dependent
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.projectRoots.ProjectJdkTable
@@ -8,7 +10,15 @@ import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.SdkModel
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
+import com.intellij.util.concurrency.annotations.RequiresWriteLock
+import org.elixir_lang.sdk.SdkEnvironment
+import org.elixir_lang.sdk.SdkVersionsStore
+import org.elixir_lang.sdk.erlang.Release
+import org.elixir_lang.sdk.elixir.ElixirSdkMutation
+import org.elixir_lang.sdk.elixir.knownOrNull
 import org.elixir_lang.sdk.wsl.wslCompat
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 
 
 /**
@@ -32,18 +42,82 @@ interface ErlangSdkResolver {
             ApplicationManager.getApplication().getService(ErlangSdkResolver::class.java)
 
         /**
-         * Returns the first registered Erlang SDK that has a non-null home path, or null if none
-         * are registered. Used as a fallback when no Erlang SDK has been explicitly paired with an
-         * Elixir SDK.
+         * The registered Erlang SDK in [elixirSdk]'s environment that best runs it, for when none has been paired. With
+         * [sdkModel], a settings dialog's, its SDKs are the candidates instead, as the dialog's Apply will leave them.
+         *
+         * Ordered by the OTP the Elixir build was compiled against: that major first, then higher majors, nearest
+         * first, then lower majors, nearest first - a newer OTP runs an older build, an older one may not. Within a
+         * major the newest release wins. An installation whose version has not been read yet sorts last, and when the
+         * Elixir build's own OTP major has not been read the first candidate with a home is taken.
          */
         @RequiresReadLock
-        fun findAnyRegistered(): Sdk? {
+        fun bestRegisteredFor(
+            elixirSdk: Sdk,
+            sdkModel: SdkModel? = null,
+            visibleFor: (Sdk) -> (Sdk) -> Boolean = SdkEnvironment::visibleFor,
+        ): Sdk? {
             ThreadingAssertions.assertReadAccess()
+            val store = SdkVersionsStore.getInstance()
+            val candidates = candidatesFor(elixirSdk, sdkModel, visibleFor)
+            val elixirOtpMajor = store.elixirVersions(elixirSdk.homePath)?.elixirOtpMajor?.knownOrNull?.toIntOrNull()
+                ?: return candidates.firstOrNull()
 
-            return ProjectJdkTable.getInstance()
-                .getSdksOfType(org.elixir_lang.sdk.erlang.Type.instance)
-                .firstOrNull { it.homePath != null }
+            return candidates.minWithOrNull(preferredFor(elixirOtpMajor, store))
         }
+
+        /** The registered Erlang SDKs [bestRegisteredFor] chooses between, so a caller can read their homes first. */
+        @RequiresReadLock
+        fun candidatesFor(
+            elixirSdk: Sdk,
+            sdkModel: SdkModel? = null,
+            visibleFor: (Sdk) -> (Sdk) -> Boolean = SdkEnvironment::visibleFor,
+        ): List<Sdk> {
+            ThreadingAssertions.assertReadAccess()
+            val inSameEnvironment = visibleFor(elixirSdk)
+            val erlangSdkType = org.elixir_lang.sdk.erlang.Type.instance
+            val erlangSdks = sdkModel?.sdks?.filter { it.sdkType == erlangSdkType }
+                ?: ProjectJdkTable.getInstance().getSdksOfType(erlangSdkType)
+
+            return erlangSdks.filter { it.homePath != null && inSameEnvironment(it) }
+        }
+
+        private fun preferredFor(elixirOtpMajor: Int, store: SdkVersionsStore): Comparator<Sdk> =
+            Comparator { one, other ->
+                val oneRelease = releaseOf(one, store)
+                val otherRelease = releaseOf(other, store)
+                val byMajor = compareValuesBy(
+                    oneRelease,
+                    otherRelease,
+                    { tier(it, elixirOtpMajor) },
+                    { distanceFrom(it, elixirOtpMajor) },
+                )
+                when {
+                    byMajor != 0 -> byMajor
+                    oneRelease == null || otherRelease == null -> 0
+                    else -> otherRelease.compareTo(oneRelease)
+                }
+            }
+
+        /** Every higher major outranks every lower one, whatever the gap: [distanceFrom] only orders within a tier. */
+        private fun tier(release: Release?, elixirOtpMajor: Int): Int {
+            val major = release?.otpMajor?.toIntOrNull() ?: return UNREAD
+
+            return if (major >= elixirOtpMajor) AT_OR_ABOVE else BELOW
+        }
+
+        /** How far a candidate's major is from the one asked for, either way; only ever compared within a [tier]. */
+        private fun distanceFrom(release: Release?, elixirOtpMajor: Int): Int {
+            val major = release?.otpMajor?.toIntOrNull() ?: return 0
+
+            return abs(major - elixirOtpMajor)
+        }
+
+        private const val AT_OR_ABOVE = 0
+        private const val BELOW = 1
+        private const val UNREAD = 2
+
+        private fun releaseOf(sdk: Sdk, store: SdkVersionsStore): Release? =
+            store.otpRelease(sdk.homePath)
     }
 }
 
@@ -53,12 +127,13 @@ interface ErlangSdkResolver {
  * Resolution priority:
  * 1. `erlangSdkHomePath` (stable; survives SDK renames) - WSL-aware path match in ProjectJdkTable
  * 2. `erlangSdkName` (legacy fallback for configs written before home-path was added) - name match;
- *    self-heals by writing the resolved path back to `erlangSdkHomePath` so future lookups use path
+ *    [ErlangPairingHeal] commits the resolved path to `erlangSdkHomePath` so future lookups use path
  * 3. Both absent → NOT_CONFIGURED
  */
 internal class DefaultErlangSdkResolver : ErlangSdkResolver {
     @RequiresReadLock
     override fun resolveErlangSdkResult(elixirSdk: Sdk, sdkModel: SdkModel?): ErlangSdkResult {
+        ThreadingAssertions.assertReadAccess()
         val elixirName = elixirSdk.name
         val additionalData = elixirSdk.elixirAdditionalData
             ?: return ErlangSdkResult.Missing(elixirSdk, MissingErlangSdkReason.NOT_CONFIGURED)
@@ -87,10 +162,8 @@ internal class DefaultErlangSdkResolver : ErlangSdkResolver {
             if (found != null) {
                 logger.debug { "[$elixirName] Found Erlang SDK by home path: ${found.name}" }
                 additionalData.setCachedErlangSdk(found)
-                // Self-heal: keep name in sync with current SDK name after a rename.
-                // Not wrapped in a write action - see name-fallback path below for rationale.
                 if (additionalData.getErlangSdkName() != found.name) {
-                    additionalData.setErlangSdk(found)
+                    ErlangPairingHeal.schedule(elixirSdk, found)
                 }
                 if (found.homePath.isNullOrBlank()) {
                     return ErlangSdkResult.Missing(elixirSdk, MissingErlangSdkReason.MISSING_HOME_PATH, found.name)
@@ -107,17 +180,9 @@ internal class DefaultErlangSdkResolver : ErlangSdkResolver {
         logger.debug { "[$elixirName] Falling back to name lookup: $configuredName" }
         val found = findErlangSdkByName(configuredName, sdkModel)
         if (found != null) {
-            logger.debug { "[$elixirName] Found Erlang SDK by name: $configuredName - self-healing home path and name" }
+            logger.debug { "[$elixirName] Found Erlang SDK by name: $configuredName - scheduling a commit of its home path" }
             additionalData.setCachedErlangSdk(found)
-            // Self-heal: atomically write both home path and name so that future lookups use
-            // path-first resolution and the name stays in sync with the current SDK name.
-            // Not wrapped in a write action intentionally - this resolver can be called while
-            // already holding a read lock (e.g. from EditorNotificationProvider.collectNotificationData
-            // which is @RequiresReadLock), and acquiring a write action from under a read lock
-            // deadlocks. String field assignment is an atomic JVM reference write; a stale value
-            // is only visible until the next project save, at which point commitChanges() in
-            // SdkRegistrar / attachErlangDependency writes the authoritative value.
-            additionalData.setErlangSdk(found)
+            ErlangPairingHeal.schedule(elixirSdk, found)
             if (found.homePath.isNullOrBlank()) {
                 return ErlangSdkResult.Missing(elixirSdk, MissingErlangSdkReason.MISSING_HOME_PATH, found.name)
             }
@@ -165,6 +230,57 @@ internal class DefaultErlangSdkResolver : ErlangSdkResolver {
 
     companion object {
         private val logger = Logger.getInstance(DefaultErlangSdkResolver::class.java)
+    }
+}
+
+/**
+ * Commits a pairing the resolver repaired. The resolver runs under a read lock and must not write the live additional
+ * data in place: only a modificator commit is saved, and the next commit replaces the live instance.
+ */
+internal object ErlangPairingHeal {
+    private val pending: MutableSet<Sdk> = ConcurrentHashMap.newKeySet()
+
+    fun schedule(elixirSdk: Sdk, erlangSdk: Sdk) {
+        // A pairing to an Erlang SDK with no home stores the same blank home, so the next resolution would repair it
+        // again, and every repair is a commit.
+        if (erlangSdk.homePath.isNullOrBlank()) return
+        if (!pending.add(elixirSdk)) return
+
+        val application = ApplicationManager.getApplication()
+        application.invokeLater(
+            {
+                try {
+                    WriteAction.run<RuntimeException> { heal(elixirSdk, erlangSdk) }
+                } finally {
+                    pending.remove(elixirSdk)
+                }
+            },
+            ModalityState.nonModal(),
+            // An expired runnable never runs its `finally`, so the expiry condition clears the entry.
+            { application.isDisposed.also { expired -> if (expired) pending.remove(elixirSdk) } },
+        )
+    }
+
+    /**
+     * A settings dialog's editable copies are not in the table, and a commit to them would not persist. A pairing
+     * changed since the repair was scheduled, for example by the user, is left as it is.
+     */
+    @RequiresWriteLock
+    private fun heal(elixirSdk: Sdk, erlangSdk: Sdk) {
+        ThreadingAssertions.assertWriteAccess()
+        val sdks = ProjectJdkTable.getInstance().allJdks
+        if (sdks.none { it === elixirSdk } || sdks.none { it === erlangSdk }) return
+
+        val data = elixirSdk.elixirAdditionalData ?: return
+        val storedHomePath = data.getErlangSdkHomePath()
+        val nameMatches = data.getErlangSdkName() == erlangSdk.name
+        val homeMatches = !storedHomePath.isNullOrBlank() &&
+            wslCompat.pathsEqualWslAware(storedHomePath, erlangSdk.homePath)
+        // Either identifier naming this SDK is the same pairing; both naming it leaves nothing to repair, and neither
+        // means the pairing changed after the repair was scheduled.
+        if (nameMatches == homeMatches) return
+
+        ElixirSdkMutation.applyDependencySelection(elixirSdk, erlangSdk)
     }
 }
 

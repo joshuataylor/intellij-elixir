@@ -12,6 +12,7 @@ import org.elixir_lang.sdk.wsl.MockWslCompatService
 import org.elixir_lang.sdk.wsl.WslCompatService
 import org.jdom.Element
 import org.junit.Assume
+import java.util.concurrent.Callable
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
 
@@ -91,6 +92,19 @@ class ErlangSdkResolverTest : PlatformTestCase() {
         val missing = result as ErlangSdkResult.Missing
         assertEquals(MissingErlangSdkReason.MISSING_HOME_PATH, missing.reason)
         assertEquals(configuredName, missing.erlangSdkName)
+    }
+
+    fun testResolvingWithoutReadAccessIsRejected() {
+        val elixirSdk = createElixirSdk { sdk -> SdkAdditionalData(sdk) }
+
+        val failure = ApplicationManager.getApplication().executeOnPooledThread(Callable {
+            runCatching { resolver.resolveErlangSdkResult(elixirSdk, sdkModel()) }.exceptionOrNull()
+        }).get()
+
+        assertTrue(
+            "the resolver reads the SDK table, so it must refuse to run without read access; failed with $failure",
+            failure?.message?.contains("Read access is allowed from inside read-action") == true,
+        )
     }
 
     fun testResolveByHomePath_success() {

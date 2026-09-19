@@ -1,5 +1,6 @@
 package org.elixir_lang.sdk
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
@@ -12,11 +13,12 @@ private val LOG = logger<SdkTableListenerStartupActivity>()
 class SdkTableListenerStartupActivity : ProjectActivity, DumbAware {
     override suspend fun execute(project: Project) {
         SdkTableListenerInitializationService.getInstance().ensureInitialized()
+        SdkVersionsFiller.fillUsedBy(project)
     }
 }
 
 @Service
-class SdkTableListenerInitializationService {
+class SdkTableListenerInitializationService : Disposable {
     @Volatile
     private var initialized = false
 
@@ -27,12 +29,15 @@ class SdkTableListenerInitializationService {
                     LOG.debug("Setting up SDK table listeners")
                     org.elixir_lang.sdk.elixir.Type.setupSdkTableListener()
                     org.elixir_lang.sdk.erlang.ErlangSdkTableListener.setup()
+                    SdkVersionWatchService.install(this)
                     initialized = true
                     LOG.debug("SDK table listeners initialized successfully")
                 }
             }
         }
     }
+
+    override fun dispose() {}
 
     companion object {
         fun getInstance(): SdkTableListenerInitializationService = service()

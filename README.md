@@ -533,7 +533,7 @@ The status bar can display an **Elixir SDK status widget** in the bottom-right c
 **Enabling the widget:**
 
 1. Open **Settings** (Ctrl+Alt+S / ⌘,)
-2. Navigate to **Languages & Frameworks → Elixir**
+2. Navigate to **Languages & Frameworks → Elixir → Experimental Settings**
 3. Check **"Enable Status Bar Widget showing if the Elixir SDK is correctly configured"**
 4. Click **OK** -- the widget appears in the status bar when you have Elixir files open.
 

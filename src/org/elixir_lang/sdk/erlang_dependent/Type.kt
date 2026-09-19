@@ -2,17 +2,18 @@ package org.elixir_lang.sdk.erlang_dependent
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectBundle
 import com.intellij.openapi.projectRoots.*
 import com.intellij.openapi.projectRoots.AdditionalDataConfigurable
 import com.intellij.openapi.projectRoots.SdkAdditionalData
 import com.intellij.openapi.projectRoots.impl.DependentSdkType
-import com.intellij.openapi.projectRoots.impl.SdkConfigurationUtil
 import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.util.Ref
 import org.elixir_lang.sdk.ProcessOutput.isSmallIde
 import org.elixir_lang.sdk.SdkHomeChooser
+import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.elixir.ElixirSdkMutation
 import org.elixir_lang.sdk.elixir.Type.Companion.erlangSdkType
 import org.elixir_lang.sdk.wsl.wslCompat
@@ -73,6 +74,7 @@ abstract class Type protected constructor(name: String) : DependentSdkType(name)
         sdkModel: SdkModel, parentComponent: JComponent, selectedSdk: Sdk?,
         sdkCreatedCallback: Consumer<in Sdk?>
     ) {
+        val project = SdkHomeChooser.projectOf(parentComponent)
         // First, ensure we have at least one Erlang SDK
         var createdOrSelectedErlangSdk: Sdk? = null
         if (!checkDependency(sdkModel)) {
@@ -87,7 +89,8 @@ abstract class Type protected constructor(name: String) : DependentSdkType(name)
             if (result != Messages.OK) {
                 return
             }
-            createdOrSelectedErlangSdk = fixDependency(sdkModel, sdkCreatedCallback)
+            createdOrSelectedErlangSdk =
+                createSdkOfType(sdkModel, dependencyType, null, sdkCreatedCallback, project = project)
             if (createdOrSelectedErlangSdk == null) {
                 return
             }
@@ -122,7 +125,7 @@ abstract class Type protected constructor(name: String) : DependentSdkType(name)
         }
 
         // Now create the dependent SDK using the selected Erlang SDK's environment
-        createSdkOfType(sdkModel, this, selectedErlangSdk, sdkCreatedCallback, selectedErlangSdk)
+        createSdkOfType(sdkModel, this, selectedErlangSdk, sdkCreatedCallback, selectedErlangSdk, project)
     }
 
     protected fun createSdkOfType(
@@ -130,13 +133,12 @@ abstract class Type protected constructor(name: String) : DependentSdkType(name)
         sdkType: SdkType,
         dependencySdk: Sdk?,
         sdkCreatedCallback: Consumer<in Sdk?>,
-        erlangSdkToUse: Sdk? = null
+        erlangSdkToUse: Sdk? = null,
+        project: Project? = null,
     ): Sdk? {
         val result = Ref<Sdk?>(null)
-        SdkHomeChooser.selectSdkHome(sdkType, getBasePath(dependencySdk)) { home ->
-            val newSdk =
-                SdkConfigurationUtil.createSdk(sdkModel.sdks.toList(), home, sdkType, null, null)
-
+        val preferredOtpMajor = erlangSdkToUse?.homePath?.let(::otpMajorOf)
+        SdkHomeChooser.createSdk(sdkModel, sdkType, getBasePath(dependencySdk, project), preferredOtpMajor) { newSdk ->
             // If creating an Elixir SDK and we have a specific Erlang SDK to use,
             // store it for use during configureSdkPaths and persist additional data immediately
             // to avoid workspace model mismatch.
@@ -152,22 +154,23 @@ abstract class Type protected constructor(name: String) : DependentSdkType(name)
         return result.get()
     }
 
+    /** The store's reading if it has one, else the major in the install's name, such as mise's `28.1`: no I/O on the EDT. */
+    private fun otpMajorOf(erlangHome: String): Int? =
+        SdkVersionsStore.getInstance().otpRelease(erlangHome)?.otpMajor?.toIntOrNull()
+            ?: erlangHome.trimEnd('/', '\\').substringAfterLast('/').substringAfterLast('\\').substringBefore('.').toIntOrNull()
+
     /**
      * Determines a preferred base path hint for SDK home selection.
      *
      * For dependent SDKs (like Elixir depending on Erlang), this prefers:
      * 1. WSL paths when the dependency SDK is in WSL.
      * 2. Windows paths when the dependency SDK is local Windows.
-     * 3. `user.home` when no dependency SDK is available.
-     *
-     * This value is passed to `SdkConfigurationUtil.selectSdkHome` as the initial directory hint.
-     * The chooser may still apply platform-specific behavior (for example, native dialogs on
-     * Windows can override the suggested start directory).
+     * 3. [SdkHomeChooser.defaultBasePath] for [project] when no dependency SDK is available.
      *
      * @param dependencySdk the SDK that this SDK depends on (e.g. Erlang SDK for Elixir SDK)
      * @return the base path to use for SDK home selection
      */
-    private fun getBasePath(dependencySdk: Sdk?): Path {
+    private fun getBasePath(dependencySdk: Sdk?, project: Project?): Path {
         // If we have a dependency SDK, use its home path to determine the environment
         dependencySdk?.homePath?.let { dependencyHomePath ->
             if (wslCompat.isWslUncPath(dependencyHomePath)) {
@@ -187,9 +190,7 @@ abstract class Type protected constructor(name: String) : DependentSdkType(name)
                 return Path.of(dependencyHomePath).parent ?: Path.of(dependencyHomePath)
             }
         }
-        // Fallback: the wizard's published target directory (so creating the first Erlang SDK
-        // for a WSL project opens the chooser in that distro), else user home.
-        return SdkHomeChooser.defaultBasePath().also {
+        return SdkHomeChooser.defaultBasePath(project).also {
             LOG.debug("Using default base path: $it")
         }
     }

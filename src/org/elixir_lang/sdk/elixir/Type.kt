@@ -10,8 +10,6 @@ import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.util.InvalidDataException
 import com.intellij.openapi.util.WriteExternalException
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
-import org.apache.commons.io.FilenameUtils
 import org.elixir_lang.Icons
 import org.elixir_lang.cli.getExecutableFilepathWslSafe
 import org.elixir_lang.jps.shared.ElixirSdkTypeId
@@ -20,9 +18,7 @@ import org.elixir_lang.jps.shared.sdk.SdkPaths
 import org.elixir_lang.sdk.*
 import org.elixir_lang.sdk.erlang_dependent.AdditionalDataConfigurable
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
-import org.elixir_lang.sdk.wsl.wslCompat
 import org.elixir_lang.util.WriteActions
-import org.elixir_lang.util.runWithEdtGuard
 import org.jdom.Element
 import org.jetbrains.annotations.Unmodifiable
 import java.io.File
@@ -39,7 +35,7 @@ class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.ELIXIR_SD
         SdkHomePaths.adjustSelectedSdkHome(homePath, "elixir")
 
     override fun getDefaultDocumentationUrl(sdk: Sdk): String? =
-        getDefaultDocumentationUrl(sdk.getUserData(ElixirVersionDetector.ELIXIR_VERSION_KEY))
+        getDefaultDocumentationUrl(SdkVersionsStore.getInstance().elixirVersions(sdk.homePath)?.elixirVersion)
 
     override fun getHomeChooserDescriptor(): FileChooserDescriptor =
         org.elixir_lang.sdk.Type.createHomeChooserDescriptor(presentableName, ::validateSdkHomePath)
@@ -49,6 +45,7 @@ class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.ELIXIR_SD
     override fun getPresentableName(): String = "Elixir SDK"
 
     override fun getVersionString(sdkHome: String): String {
+        SdkVersionsFiller.fillIfUnreadBlocking(sdkHome)
         return versionStringForHome(sdkHome, null)
             ?: buildString {
                 SdkPaths.detectSource(sdkHome)?.let { append(it).append(" ") }
@@ -61,7 +58,7 @@ class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.ELIXIR_SD
      *
      * @return Map
      */
-    private fun homePathByVersion(path: Path?): Map<SdkHomeKey, String> {
+    internal fun homePathByVersion(path: Path?): Map<SdkHomeKey, String> {
         return SdkHomeScan.homePathByVersion(
             path, SdkHomeScan.Config(
                 toolName = "elixir",
@@ -121,7 +118,7 @@ ELIXIR_SDK_HOME
         return true
     }
 
-    @Deprecated("Deprecated in Java")
+    @Deprecated("Deprecated in Java", ReplaceWith("suggestHomePaths(null).firstOrNull()"))
     // IntelliJ SDKType still requires this deprecated override.
     @Suppress("DEPRECATION")
     override fun suggestHomePath(): String? = suggestHomePaths().firstOrNull()
@@ -130,7 +127,7 @@ ELIXIR_SDK_HOME
         return homePathByVersion(path).values.firstOrNull()
     }
 
-    @Deprecated("Deprecated in Java")
+    @Deprecated("Deprecated in Java", ReplaceWith("suggestHomePaths(null)"))
     override fun suggestHomePaths(): Collection<String> = homePathByVersion(null).values
     override fun suggestHomePaths(project: Project?): @Unmodifiable Collection<String> =
         // SdkDetectionContext falls back to the wizard's import/new-project directory when the
@@ -142,9 +139,8 @@ ELIXIR_SDK_HOME
         currentSdkName: String?,
         sdkHome: String,
     ): String {
-        val otpMajor = runWithEdtGuard("Detecting Elixir SDK...") {
-            ElixirBuildInfo.elixirOtpRelease(wslCompat.canonicalizePath(sdkHome))
-        }
+        SdkVersionsFiller.fillIfUnreadBlocking(sdkHome)
+        val otpMajor = SdkVersionsStore.getInstance().elixirVersions(sdkHome)?.elixirOtpMajor?.knownOrNull
         return suggestSdkNameForHome(sdkHome, null, otpMajor, null)
     }
 
@@ -197,13 +193,17 @@ ELIXIR_SDK_HOME
         private const val WINDOWS_32BIT_DEFAULT_HOME_PATH = "C:\\Program Files\\Elixir"
         private const val WINDOWS_64BIT_DEFAULT_HOME_PATH = "C:\\Program Files (x86)\\Elixir"
 
+        /** Reads only the store: a home it has not recorded has no version to show yet. */
         @JvmStatic
-        internal fun versionStringForHome(sdkHome: String, resolvedVersion: String?): String? {
-            val version = ElixirVersionDetector.elixirVersion(sdkHome, resolvedVersion) ?: return null
+        internal fun versionStringForHome(
+            sdkHome: String,
+            resolvedVersion: String?,
+            knownVersions: ElixirVersions? = null,
+        ): String? {
+            val versions = knownVersions ?: SdkVersionsStore.getInstance().elixirVersions(sdkHome)
+            val version = resolvedVersion?.takeIf { it.isNotBlank() } ?: versions?.elixirVersion ?: return null
             val source = SdkPaths.detectSource(sdkHome)
-            val otpMajor = runWithEdtGuard("Detecting Elixir SDK...") {
-                ElixirBuildInfo.elixirOtpRelease(wslCompat.canonicalizePath(sdkHome))
-            }
+            val otpMajor = versions?.elixirOtpMajor?.knownOrNull
             return buildString {
                 if (source != null) {
                     append(source).append(" ")
@@ -215,10 +215,13 @@ ELIXIR_SDK_HOME
             }
         }
 
+        private fun elixirVersionOf(sdkHome: String, resolvedVersion: String?): String? =
+            resolvedVersion?.takeIf { it.isNotBlank() } ?: SdkVersionsStore.getInstance().elixirVersions(sdkHome)?.elixirVersion
+
         @JvmStatic
         internal fun suggestSdkNameForHome(sdkHome: String, resolvedVersion: String?): String {
             val source = SdkPaths.detectSource(sdkHome)
-            val version = ElixirVersionDetector.elixirVersion(sdkHome, resolvedVersion)
+            val version = elixirVersionOf(sdkHome, resolvedVersion)
             val base = buildString {
                 if (source != null) {
                     append(source).append(" ")
@@ -252,7 +255,7 @@ ELIXIR_SDK_HOME
         ): String {
             if (otpMajor == null) return suggestSdkNameForHome(sdkHome, resolvedVersion)
             val source = SdkPaths.detectSource(sdkHome)
-            val elixirVersion = ElixirVersionDetector.elixirVersion(sdkHome, resolvedVersion)
+            val elixirVersion = elixirVersionOf(sdkHome, resolvedVersion)
             val base = buildString {
                 if (source != null) {
                     append(source).append(" ")
@@ -269,10 +272,6 @@ ELIXIR_SDK_HOME
             }
             return org.elixir_lang.sdk.Type.appendWslSuffix(base, sdkHome)
         }
-
-        @JvmStatic
-        @RequiresBackgroundThread
-        fun canonicalVersion(sdk: Sdk): String? = ElixirVersionDetector.canonicalVersion(sdk)
 
         @JvmStatic
         internal fun setupSdkTableListener() {

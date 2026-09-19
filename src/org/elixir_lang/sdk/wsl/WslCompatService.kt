@@ -140,10 +140,14 @@ interface WslCompatService {
 
     /**
      * Applies the [wslPrefixConversion] decision for the current OS to this path, leaving it
-     * unchanged when no conversion applies.
+     * unchanged when no conversion applies. The SDK table stores homes with forward slashes, so
+     * the prefix is matched in either spelling and rewritten in the path's own.
      */
     fun String.canonicalizeWslPrefix(): String =
-            wslPrefixConversion()?.let { (from, to) -> replacePrefix(from, to) } ?: this
+            wslPrefixConversion()?.let { (from, to) ->
+                replacePrefix(from, to)
+                    .replacePrefix(FileUtil.toSystemIndependentName(from), FileUtil.toSystemIndependentName(to))
+            } ?: this
 
     fun String.replacePrefix(prefix: String, replacement: String) = if (startsWith(prefix, true))
         replacement + substring(prefix.length)

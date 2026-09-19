@@ -15,6 +15,7 @@ import org.elixir_lang.jps.shared.sdk.SdkPaths
 import org.elixir_lang.sdk.SdkHomeKey
 import org.elixir_lang.sdk.SdkHomePaths
 import org.elixir_lang.sdk.SdkRegistrar
+import org.elixir_lang.sdk.SdkVersionsFiller
 import org.elixir_lang.sdk.erlang_dependent.ErlangSdkResolver
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import org.elixir_lang.sdk.erlang_dependent.Type.Companion.ERLANG_SDK_KEY
@@ -41,7 +42,7 @@ object ElixirInternalErlangSdkSetup {
      * 1. Explicit SDK stored in UserData (set by the wizard when creating Erlang + Elixir together)
      * 2. Already-linked SDK from existing SdkAdditionalData, looked up in [sdkModel] before
      *    ProjectJdkTable so a dependency chosen in the same dialog resolves before it is committed
-     * 3. Any registered Erlang SDK in ProjectJdkTable
+     * 3. The Erlang SDK in [sdkModel], or failing a model ProjectJdkTable, that best runs the Elixir build
      * 4. Prompt the user to pick a mise-installed Erlang SDK (mise Elixir SDKs only)
      */
     internal fun configureInternalErlangSdk(
@@ -57,7 +58,7 @@ object ElixirInternalErlangSdkSetup {
 
         val erlangSdk = explicitErlangSdk
             ?: existingErlangSdk
-            ?: ReadActions.compute { ErlangSdkResolver.findAnyRegistered() }?.also { LOG.trace { "[${elixirSdk.name}] Resolution: found via findAnyRegistered: '${it.name}'" } }
+            ?: bestRegisteredFor(elixirSdk, sdkModel)?.also { LOG.trace { "[${elixirSdk.name}] Resolution: found via bestRegisteredFor: '${it.name}'" } }
             ?: promptForMiseErlangSdk(elixirSdk)?.also { LOG.trace { "[${elixirSdk.name}] Resolution: found via promptForMiseErlangSdk: '${it.name}'" } }
 
         if (erlangSdk != null) {
@@ -79,6 +80,15 @@ object ElixirInternalErlangSdkSetup {
             LOG.warn("No Erlang SDK found, Elixir SDK will be incomplete")
         }
         return erlangSdk
+    }
+
+    /** The pairing is never revisited, so every version it compares is read before it is made. */
+    private fun bestRegisteredFor(elixirSdk: Sdk, sdkModel: SdkModel?): Sdk? {
+        val candidateHomes =
+            ReadActions.compute { ErlangSdkResolver.candidatesFor(elixirSdk, sdkModel).mapNotNull(Sdk::getHomePath) }
+        SdkVersionsFiller.fillIfUnreadBlocking(listOfNotNull(elixirSdk.homePath) + candidateHomes)
+
+        return ReadActions.compute { ErlangSdkResolver.bestRegisteredFor(elixirSdk, sdkModel) }
     }
 
     /**
@@ -110,13 +120,11 @@ object ElixirInternalErlangSdkSetup {
         }
         if (validHomes.isEmpty()) return null
 
-        val displayNames = validHomes.map { (_, path) ->
-            ErlangSdkType.suggestSdkNameForHome(path, null)
-        }.toTypedArray()
-
+        SdkVersionsFiller.fillIfUnreadBlocking(validHomes.map { it.value })
         val nameToHome = validHomes.associate { (_, path) ->
             ErlangSdkType.suggestSdkNameForHome(path, null) to path
         }
+        val displayNames = nameToHome.keys.toTypedArray()
 
         val validator = object : com.intellij.openapi.ui.InputValidator {
             override fun checkInput(inputString: String) = inputString in nameToHome
@@ -165,14 +173,14 @@ object ElixirInternalErlangSdkSetup {
      * Reuses an already-registered SDK at the same home path rather than creating a duplicate.
      */
     internal fun registerErlangSdk(homePath: String): Sdk? {
-        val template = SdkRegistrar.prepareErlangSdk(homePath) ?: return null
+        val prepared = SdkRegistrar.prepareErlangSdk(homePath) ?: return null
         var sdk: Sdk? = null
         WriteActions.runWriteAction {
-            sdk = SdkRegistrar.registerOrUpdatePreparedErlangSdk(template, ProjectJdkTable.getInstance())
+            sdk = SdkRegistrar.registerOrUpdatePreparedErlangSdk(prepared, ProjectJdkTable.getInstance())
         }
         val resolvedSdk = sdk ?: return null
         ErlangSdkType.instance.setupSdkPaths(resolvedSdk)
-        LOG.info("${if (resolvedSdk === template) "Registered" else "Reused"} Erlang SDK '${resolvedSdk.name}' from ${resolvedSdk.homePath}")
+        LOG.info("${if (resolvedSdk === prepared.template) "Registered" else "Reused"} Erlang SDK '${resolvedSdk.name}' from ${resolvedSdk.homePath}")
         return resolvedSdk
     }
 }

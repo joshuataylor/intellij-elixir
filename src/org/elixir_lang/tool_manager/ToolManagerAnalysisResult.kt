@@ -28,15 +28,12 @@ fun interface ToolManagerScanListener {
  *                                   HTML rendering.
  * @param toolManagerErrors          Actionable tool-manager errors (e.g. untrusted mise config)
  *                                   that prevented version resolution.
- * @param elixirVersionByInstallPath Canonical Elixir version (from `elixir.app`) per install
- *                                   path; used to display the version in notification messages.
  */
 data class ToolManagerAnalysisResult(
     val tmIssues: List<ModuleSdkIssue>,
     val tmAssignments: Map<String, ToolManagerVersions>,
     val sdkVersionTables: Map<String, SdkVersionTable>,
     val toolManagerErrors: List<ToolManagerResult.Error>,
-    val elixirVersionByInstallPath: Map<String, String?>,
 )
 
 /**

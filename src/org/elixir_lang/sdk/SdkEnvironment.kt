@@ -78,6 +78,16 @@ object SdkEnvironment {
     }
 
     /**
+     * Whether a candidate runs in the same environment as [target]; true when either cannot be determined. A predicate
+     * so [target]'s Eel machine is resolved once per scan of the SDK table, not once per candidate.
+     */
+    fun visibleFor(target: Sdk): (Sdk) -> Boolean {
+        val targetMachine = sdkDescriptor(target)?.getResolvedEelMachine() ?: return { true }
+
+        return { candidate -> sdkDescriptor(candidate)?.getResolvedEelMachine()?.equals(targetMachine) ?: true }
+    }
+
+    /**
      * Re-adds registered SDKs that reset() filtered out because the default project resolves to
      * the local environment. Replicates the internal ProjectSdksModel.syncSdks(EelMachine) using
      * public API: addSdk() clones the SDK into the model and fires sdkAdded, as syncSdks() does,

@@ -107,6 +107,16 @@
 - [#4121](https://github.com/intellij-elixir/intellij-elixir/pull/4121) [@sh41](https://github.com/sh41)
   - **Deeply nested code, complete or half-typed, no longer takes minutes to parse.** Fixes [#4114](https://github.com/intellij-elixir/intellij-elixir/issues/4114).
 
+- [#4112](https://github.com/intellij-elixir/intellij-elixir/pull/4112) [@sh41](https://github.com/sh41)
+  - **Switching a mise config between builds of one Elixir version for different OTP releases, such as
+    `1.20.5-otp-27` to `1.20.5-otp-28`, now offers to configure the matching SDK.** Fixes
+    [#4109](https://github.com/intellij-elixir/intellij-elixir/issues/4109).
+  - An Elixir SDK with no Erlang SDK chosen for it is now paired with one built for the OTP release it was compiled
+    against, rather than the first one registered, so a machine with several Erlang SDKs may pair differently than
+    before. An Elixir build that records no OTP release still takes the first one in the same environment.
+  - A mise config pinning a version that is not installed now reports it and names the `mise install` to run, and the
+    SDK is offered as soon as that install finishes.
+
 - [#4110](https://github.com/intellij-elixir/intellij-elixir/pull/4110) [@sh41](https://github.com/sh41)
   - **A `.beam` rebuilt on disk is now decompiled afresh instead of showing the code decompiled from its old contents.** Fixes [#4045](https://github.com/intellij-elixir/intellij-elixir/issues/4045).
 

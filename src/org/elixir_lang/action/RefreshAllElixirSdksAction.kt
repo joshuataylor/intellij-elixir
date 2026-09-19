@@ -8,6 +8,7 @@ import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.platform.ide.progress.ModalTaskOwner
 import com.intellij.platform.ide.progress.runWithModalProgressBlocking
 import org.elixir_lang.notification.setup_sdk.Notifier
+import org.elixir_lang.sdk.SdkVersionsFiller
 import org.elixir_lang.sdk.elixir.ElixirSdkValidation
 import org.elixir_lang.status_bar_widget.ElixirSdkRefreshListener
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
@@ -48,6 +49,10 @@ class RefreshAllElixirSdksAction : AnAction() {
             ModalTaskOwner.project(project), "Refreshing All SDK Paths"
         ) {
             val elixirSdkType = ElixirSdkType.instance
+            // Read again rather than only if unread: refreshing is the user saying an installation changed.
+            for (homePath in (allErlangSdks + allElixirSdks).mapNotNull { it.homePath }.distinct()) {
+                SdkVersionsFiller.fill(homePath)
+            }
 
             // Refresh all Erlang SDKs first so that the Elixir refresh picks up the freshest paths.
             for (erlangSdk in allErlangSdks) {
@@ -74,8 +79,6 @@ class RefreshAllElixirSdksAction : AnAction() {
             // Check OTP mismatches for each Elixir SDK after refresh (informational).
             // ElixirSdkValidation.detectOtpMismatch handles the suppress flag internally.
             for (elixirSdk in allElixirSdks) {
-                // detectOtpMismatch takes its own short read action internally and does its file
-                // I/O unlocked - do not wrap this call in an outer read action.
                 val mismatch = ElixirSdkValidation.detectOtpMismatch(elixirSdk) ?: continue
                 otpMismatches.add(
                     "'${elixirSdk.name}' compiled for OTP ${mismatch.first} but paired with OTP ${mismatch.second}"

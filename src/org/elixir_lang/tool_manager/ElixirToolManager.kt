@@ -5,12 +5,13 @@ import java.nio.file.Path
 /**
  * A tool manager that can resolve installed Elixir/Erlang versions for a project directory.
  *
- * Implementations (mise, asdf, …) must:
+ * Implementations (mise, asdf, ...) must:
  * - Return `null` from [resolveVersions] when the manager is not applicable for the given
  *   directory (not installed, no config file, transient subprocess failure, etc.).
  * - Return [ToolManagerResult.Error] when the manager is applicable but encountered an
  *   actionable error.  The implementation is responsible for providing a human-readable
- *   [ToolManagerResult.Error.description] that explains the problem and how to fix it.
+ *   [ToolManagerResult.Error.description] that explains the problem and how to fix it, as HTML with anything it
+ *   inserts, such as a config path, escaped.
  * - Return [ToolManagerResult.Success] when versions were successfully resolved.
  * - Be stateless with respect to the project; all context is provided through [resolveVersions].
  *

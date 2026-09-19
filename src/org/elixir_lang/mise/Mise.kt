@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.reflect.TypeToken
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.process.CapturingProcessHandler
+import com.intellij.execution.process.ProcessOutput
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.util.concurrency.ThreadingAssertions
@@ -216,17 +217,19 @@ object Mise {
             val commandLine = GeneralCommandLine("mise", "doctor", "--json")
                 .withWorkDirectory(workDir.toFile())
             val handler = CapturingProcessHandler(commandLine)
-            val output = handler.runProcess(TIMEOUT_MS)
-            if (output.exitCode != 0) {
-                LOG.debug("mise doctor --json exited with ${output.exitCode} in $workDir")
-                return null
-            }
-            parseDoctorStateDir(output.stdout, workDir.toString())
+            stateDirFrom(handler.runProcess(TIMEOUT_MS), workDir.toString())
                 .also { LOG.trace("stateDir: resolved to $it") }
         } catch (e: Exception) {
             LOG.debug("mise doctor --json failed in $workDir: ${e.message}")
             null
         }
+    }
+
+    @VisibleForTesting
+    internal fun stateDirFrom(output: ProcessOutput, workDirString: String): Path? {
+        // `mise doctor` exits non-zero whenever it finds a problem, such as a pinned tool not installed.
+        if (output.exitCode != 0) LOG.debug("mise doctor --json exited with ${output.exitCode} in $workDirString")
+        return parseDoctorStateDir(output.stdout, workDirString)
     }
 
     /**
@@ -286,13 +289,9 @@ object Mise {
             val allTools = gson.fromJson(json, type) as? Map<String, List<RawMiseEntry>>
                 ?: return null
 
-            val elixir = allTools["elixir"]
-                ?.firstOrNull { it.installed == true && it.active == true }
-                ?.toMiseToolEntry(workDir)
+            val elixir = allTools["elixir"]?.activeEntry()?.toMiseToolEntry(workDir)
 
-            val erlang = allTools["erlang"]
-                ?.firstOrNull { it.installed == true && it.active == true }
-                ?.toMiseToolEntry(workDir)
+            val erlang = allTools["erlang"]?.activeEntry()?.toMiseToolEntry(workDir)
 
             MiseVersions(elixir, erlang)
         } catch (e: Exception) {
@@ -300,6 +299,10 @@ object Mise {
             null
         }
     }
+
+    /** The installed, active build; failing that, one not installed, which mise also reports as inactive. */
+    private fun List<RawMiseEntry>.activeEntry(): RawMiseEntry? =
+        firstOrNull { it.installed == true && it.active == true } ?: firstOrNull { it.installed == false }
 
     private fun RawMiseEntry.toMiseToolEntry(workDir: Path): MiseToolEntry? {
         val v = version ?: return null

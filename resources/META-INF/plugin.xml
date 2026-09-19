@@ -32,6 +32,8 @@
                 implementation="org.elixir_lang.status_bar_widget.ElixirSdkStatusWidgetFactory"/>
         <backgroundPostStartupActivity implementation="org.elixir_lang.status_bar_widget.ElixirSdkStatusWidgetStartupActivity"/>
 
+        <!--suppress PluginXmlValidity -->
+        <filePropertyPusher implementation="org.elixir_lang.sdk.ElixirLanguageLevelPusher"/>
         <postStartupActivity implementation="org.elixir_lang.sdk.SdkTableListenerStartupActivity"/>
         <postStartupActivity implementation="org.elixir_lang.mix.DepsCheckerStartupActivity"/>
         <postStartupActivity implementation="org.elixir_lang.mix.sync.MixLibraryReconcileStartupActivity"/>
@@ -171,6 +173,10 @@
                                  parentId="language.elixir"
                                  displayName="Internal Erlang SDKs"
                                  provider="org.elixir_lang.facet.sdks.erlang.Provider"/>
+        <applicationConfigurable id="language.elixir.experimental"
+                                 parentId="language.elixir"
+                                 displayName="Experimental Settings"
+                                 instance="org.elixir_lang.settings.ElixirExperimentalSettingsConfigurable"/>
         <projectConfigurable id="language.elixir"
                              parentId="language"
                              displayName="Elixir"
@@ -513,6 +519,9 @@
 
     <projectListeners>
         <listener class="org.elixir_lang.mix.sync.MixDepsBulkFileListener" topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+        <listener class="org.elixir_lang.sdk.ElixirLanguageLevelStoreListener" topic="org.elixir_lang.sdk.SdkVersionsListener"/>
+        <listener class="org.elixir_lang.sdk.SdkVersionModuleRootListener"
+                  topic="com.intellij.openapi.roots.ModuleRootListener"/>
     </projectListeners>
 
     <actions>

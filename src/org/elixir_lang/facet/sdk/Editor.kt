@@ -260,7 +260,7 @@ class Editor(private val sdkModel: SdkModel, private val history: History, priva
                     null
                 }
             }
-            ?: SdkHomeChooser.defaultBasePath()
+            ?: SdkHomeChooser.defaultBasePath(SdkHomeChooser.projectOf(homeComponent))
         SdkHomeChooser.selectSdkHome(sdkType, basePath) { path -> doSetHomePath(path, sdkType) }
     }
 
