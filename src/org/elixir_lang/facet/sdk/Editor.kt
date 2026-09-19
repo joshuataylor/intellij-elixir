@@ -64,7 +64,8 @@ class Editor(private val sdkModel: SdkModel, private val history: History, priva
     init {
         createMainPanel()
         additionalDataConfigurable.forEach { additionalDataConfigurable -> additionalDataConfigurable.setSdk(sdk) }
-        reset()
+        // Not reset here: this is built from a list-selection listener holding no lock, and ConfigurableCardPanel
+        // resets it inside a read action when it is first shown.
     }
 
     override fun getDisplayName(): String = "SDK Editor"
@@ -196,11 +197,11 @@ class Editor(private val sdkModel: SdkModel, private val history: History, priva
     }
 
     override fun reset() {
+        // Only read, and left uncommitted: ConfigurableCardPanel calls this inside a read action.
         val sdkModificator = sdk.sdkModificator
         for (type in sdkPathEditorByOrderRootType.keys) {
             sdkPathEditorByOrderRootType[type]?.reset(sdkModificator)
         }
-        ApplicationManager.getApplication().runWriteAction { sdkModificator.commitChanges() }
         setHomePathValue(FileUtil.toSystemDependentName(sdk.homePath ?: ""))
         _versionString = null
         homeFieldLabel.text = homeFieldLabelValue

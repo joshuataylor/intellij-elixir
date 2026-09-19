@@ -92,8 +92,10 @@ object ElixirSdkValidation {
      */
     fun hasErlangClasspathInRoots(classRoots: Array<VirtualFile>, erlangSdk: Sdk): Boolean {
         val erlangHomePath = erlangSdk.homePath ?: return false
+        // No refresh: a root under the home puts the home in the VFS already, and a refresh fires its events in a write
+        // action, which throws inside the read action the settings page resets in.
         val erlangHomePathVf = LocalFileSystem.getInstance()
-            .refreshAndFindFileByPath(FileUtil.toSystemIndependentName(erlangHomePath))
+            .findFileByPath(FileUtil.toSystemIndependentName(erlangHomePath))
             ?: return false
         return classRoots.any { root -> VfsUtilCore.isAncestor(erlangHomePathVf, root, true) }
     }
