@@ -102,6 +102,8 @@
 
 ### Bug Fixes
 
+- [#4140](https://github.com/intellij-elixir/intellij-elixir/pull/4140) [@sh41](https://github.com/sh41)
+  - **Errors follow the module's exact Elixir release, release candidates included, and the Erlang/OTP it runs on, so `maybe` is quoted from OTP 27.** Refs [#4080](https://github.com/intellij-elixir/intellij-elixir/issues/4080).
 - [#4135](https://github.com/intellij-elixir/intellij-elixir/pull/4135) [@sh41](https://github.com/sh41)
   - **Quick Documentation for a `@macrocallback` now shows its `@doc`.** Fixes [#3997](https://github.com/intellij-elixir/intellij-elixir/issues/3997).
 - [#4132](https://github.com/intellij-elixir/intellij-elixir/pull/4132) [@sh41](https://github.com/sh41)
