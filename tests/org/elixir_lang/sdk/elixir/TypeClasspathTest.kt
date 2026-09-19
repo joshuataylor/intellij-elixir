@@ -5,8 +5,11 @@ import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.openapi.roots.OrderRootType
+import com.intellij.openapi.util.io.FileUtil
+import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.testFramework.common.runAll
 import org.elixir_lang.PlatformTestCase
+import java.io.File
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
 
 /**
@@ -112,4 +115,32 @@ class TypeClasspathTest : PlatformTestCase() {
         assertFalse("Temp directory path doesn't start with fake erlang home", result)
     }
 
+    fun testHasErlangClasspathInElixirSdk_returnsTrueWhenRootIsUnderErlangHome() {
+        val erlangHome = FileUtil.createTempDirectory("erlang-home", null, true)
+        val ebinDir = File(erlangHome, "lib/stdlib-6.0/ebin").apply { assertTrue(mkdirs()) }
+        val ebinVf = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(ebinDir)!!
+
+        erlangSdk = ProjectJdkImpl("Test Erlang SDK", ErlangSdkType()).apply {
+            WriteAction.run<Throwable> {
+                sdkModificator.apply {
+                    homePath = erlangHome.path
+                    commitChanges()
+                }
+            }
+        }
+        elixirSdk = ProjectJdkImpl("Test Elixir SDK", Type.instance).apply {
+            WriteAction.run<Throwable> {
+                sdkModificator.apply {
+                    homePath = "/fake/elixir/1.15"
+                    addRoot(ebinVf, OrderRootType.CLASSES)
+                    commitChanges()
+                }
+            }
+        }
+
+        assertTrue(
+            "an ebin under the Erlang home is its classpath",
+            ElixirSdkValidation.hasErlangClasspathInElixirSdk(elixirSdk!!, erlangSdk!!),
+        )
+    }
 }
