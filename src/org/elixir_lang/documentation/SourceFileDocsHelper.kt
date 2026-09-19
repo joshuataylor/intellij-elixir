@@ -46,7 +46,7 @@ object SourceFileDocsHelper {
     private fun fetchDocs(moduleAttribute: AtUnqualifiedNoParenthesesCall<*>): FetchedDocs? =
         when (moduleAttribute.atIdentifier.identifierName()) {
             "type", "typep", "opaque" -> fetchTypeDocs(moduleAttribute)
-            "callback", "@macrocallback" -> fetchCallbackDocs(moduleAttribute)
+            "callback", "macrocallback" -> fetchCallbackDocs(moduleAttribute)
             else -> null
         }
 

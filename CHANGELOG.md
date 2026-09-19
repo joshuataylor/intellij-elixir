@@ -102,6 +102,8 @@
 
 ### Bug Fixes
 
+- [#4135](https://github.com/intellij-elixir/intellij-elixir/pull/4135) [@sh41](https://github.com/sh41)
+  - **Quick Documentation for a `@macrocallback` now shows its `@doc`.** Fixes [#3997](https://github.com/intellij-elixir/intellij-elixir/issues/3997).
 - [#4132](https://github.com/intellij-elixir/intellij-elixir/pull/4132) [@sh41](https://github.com/sh41)
   - **Opening the Elixir SDK or Credo settings no longer reports a slow operation on the EDT.** Fixes [#4130](https://github.com/intellij-elixir/intellij-elixir/issues/4130).
 - [#4133](https://github.com/intellij-elixir/intellij-elixir/pull/4133) [@sh41](https://github.com/sh41)
