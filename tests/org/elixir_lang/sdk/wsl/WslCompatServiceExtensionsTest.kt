@@ -143,6 +143,19 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
         assertTrue(legacyOnlyPolicy.pathsEqualWslAware(modern, legacy))
     }
 
+    /** The SDK table stores homes with forward slashes; a scan or a chooser hands back backslashes. */
+    fun testPathsEqualWslAware_rewritesAForwardSlashPrefixToo() {
+        val legacyOnlyPolicy = MockWslCompatService(prefixConversionOverride = MODERN_WSL_PREFIX to LEGACY_WSL_PREFIX)
+        val stored = "//wsl.localhost/Ubuntu-24.04/home/testuser/.local/share/mise/installs/erlang/29.0"
+        val scanned = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\.local\\share\\mise\\installs\\erlang\\29.0"
+
+        assertTrue("Windows 10's rule, modern to legacy", legacyOnlyPolicy.pathsEqualWslAware(stored, scanned))
+        assertTrue(
+            "Windows 11's rule, legacy to modern",
+            wslCompatMock.pathsEqualWslAware("//wsl$/Ubuntu-24.04/home/testuser/x", "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\x"),
+        )
+    }
+
     fun testPathsEqualWslAware_returnsFalseForDifferentWslDistros() {
         val ubuntuA = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project"
         val ubuntuB = "\\\\wsl.localhost\\ItronUbuntu\\home\\testuser\\project"
@@ -240,6 +253,15 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
         with(MockWslCompatService(prefixConversionOverride = MODERN_WSL_PREFIX to LEGACY_WSL_PREFIX)) {
             assertEquals(legacy, modern.canonicalizeWslPrefix())
             assertEquals(legacy, legacy.canonicalizeWslPrefix())
+        }
+    }
+
+    fun testCanonicalizeWslPrefix_rewritesAForwardSlashPrefixInItsOwnSpelling() {
+        with(MockWslCompatService(prefixConversionOverride = MODERN_WSL_PREFIX to LEGACY_WSL_PREFIX)) {
+            assertEquals("//wsl$/Ubuntu-24.04/home/testuser/project", "//wsl.localhost/Ubuntu-24.04/home/testuser/project".canonicalizeWslPrefix())
+        }
+        with(MockWslCompatService()) {
+            assertEquals("//wsl.localhost/Ubuntu-24.04/home/testuser/project", "//wsl$/Ubuntu-24.04/home/testuser/project".canonicalizeWslPrefix())
         }
     }
 
