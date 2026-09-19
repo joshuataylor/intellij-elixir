@@ -16,6 +16,9 @@ fun otpErlangList(elements: List<OtpErlangObject>): OtpErlangList = OtpErlangLis
 object Macro {
     val logger = Logger.getInstance(Macro.javaClass)
 
+    // The `end` keyword, not an identifier, atom or field that merely ends in `end`, such as `line_end`.
+    private val END_KEYWORD_AT_END = Regex("""(?<![\p{L}\p{M}\p{N}_?!@:.])end$""")
+
     fun block(expressions: List<OtpErlangObject>): OtpErlangTuple =
         expr("__block__", otpErlangList(expressions))
 
@@ -261,7 +264,7 @@ object Macro {
                             val condition = leftList.elementAt(0)
                             val isCaseTagged = ifCaseTo(condition) { _, _ -> true } ?: false
 
-                            if (isCaseTagged || leftCommaJoined.trimEnd().endsWith("end")) {
+                            if (isCaseTagged || END_KEYWORD_AT_END.containsMatchIn(leftCommaJoined.trimEnd())) {
                                 "($leftCommaJoined)"
                             } else {
                                 leftCommaJoined
@@ -884,13 +887,30 @@ object Macro {
                 list.arity() == 0 ->
                     "[]"
                 IOLib.printableList(list) ->
-                    "'${IOLib.printableListToString(list)}'"
+                    "'${charlistContentsToString(list)}'"
                 Inspect.List.isKeyword(list) ->
                     "[${keywordListToString(list)}]"
                 else ->
                     "[${list.joinToString(", ") { toString(it) }}]"
             }
         }
+
+    private fun charlistContentsToString(list: OtpErlangList): String =
+        IOLib.printableListToString(list)
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace("#{", "\\#{")
+            .replace("\b", "\\b")
+            .replace("\t", "\\t")
+            .replace("\n", "\\n")
+            .replace("\u000B", "\\v")
+            .replace("\u000C", "\\f")
+            .replace("\r", "\\r")
+            .replace("\u001B", "\\e")
+            .replace(ELIXIR_REJECTED_IN_STRINGS) { "\\u%04X".format(it.value.single().code) }
+
+    // Line and paragraph separators and bidirectional formatting characters, which Elixir refuses raw in a string.
+    private val ELIXIR_REJECTED_IN_STRINGS = Regex("[\u2028\u2029\u202A-\u202E\u2066-\u2069]")
 
     // https://github.com/elixir-lang/elixir/blob/v1.6.0-rc.1/lib/elixir/lib/macro.ex#L695-L698
     private fun if2TupleToString(macro: OtpErlangObject): String? =
