@@ -11,9 +11,14 @@ repository, so documenting `main` features in the README leads to just more supp
 `CHANGELOG.md` is in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format and is the single
 source of the plugin's change notes: the Gradle Changelog Plugin renders it into `changeNotes`, which is
 the "What's New" on the [Marketplace page](https://plugins.jetbrains.com/plugin/7522-elixir) and in the
-IDE's Plugins settings dialog. Contributors add entries under `## [Unreleased]` as they go (see the
-Changelog section of [`CONTRIBUTING.md`](CONTRIBUTING.md)), so there is nothing to write at release -
-only to promote.
+IDE's Plugins settings dialog. Contributors add a fragment under `changelog.d/` as they go and a job on
+`main` folds each merged one into `## [Unreleased]` (see the Changelog section of
+[`CONTRIBUTING.md`](CONTRIBUTING.md)), so there is nothing to write at release - only to promote.
+Check `changelog.d/` is empty before promoting: a fragment still sitting there is an entry that has
+not reached the notes.
+
+Notes longer than the descriptor's 65535-character cap are truncated on a whole entry and link on to
+`CHANGELOG.md`, so a large release no longer fails verification.
 
 The panel shows the version being built plus the five before it, and publishes only the
 `### Breaking changes`, `### Enhancements` and `### Bug Fixes` groups; `### Threading / Platform
@@ -64,7 +69,7 @@ whole test matrix, and it checks:
 
 | Check | Applies to |
 |---|---|
-| `v<major>.<minor>.<patch>` for a release, `…-pre-<n>` for a pre-release | both, per the `prerelease` input |
+| `v<major>.<minor>.<patch>` for a release, `...-pre-<n>` for a pre-release | both, per the `prerelease` input |
 | Dispatched from `main` | releases only |
 | Tag does not already exist | both |
 | Version higher than every existing tag | both |
