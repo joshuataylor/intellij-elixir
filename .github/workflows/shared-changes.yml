@@ -1,0 +1,62 @@
+name: Changes
+
+# Whether the code tree has to be re-analysed for this head. Reusable so the test matrix and Qodana
+# answer the same question the same way rather than each carrying its own copy of the wiring.
+on:
+  workflow_call:
+    outputs:
+      code:
+        description: '"true" when the code tree differs from the last head that passed'
+        value: ${{ jobs.detect.outputs.code }}
+      reason:
+        description: 'Why, for the log and the step summary'
+        value: ${{ jobs.detect.outputs.reason }}
+      previous_run_id:
+        description: 'The last successful run of the calling workflow, for reusing its artifacts'
+        value: ${{ jobs.detect.outputs.previous_run_id }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  detect:
+    name: Changes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.detect.outputs.code }}
+      reason: ${{ steps.detect.outputs.reason }}
+      previous_run_id: ${{ steps.previous.outputs.run_id }}
+    steps:
+      # Full history: the detector reads the tree of an earlier head, which a shallow clone lacks.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The head of the last run of the CALLING workflow that concluded successfully for this ref.
+      # Empty when there is none, which the detector reads as "run it".
+      - name: Find the last successful run
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+        run: node .github/scripts/last-successful-run.js
+
+      - name: Detect whether the code tree changed
+        id: detect
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          PREVIOUS_SHA: ${{ steps.previous.outputs.sha }}
+          # Fallback basis on a branch's first run, so a changelog-only pull request skips then too.
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: |
+          git fetch --no-tags --quiet origin "$BASE_REF" 2>/dev/null || true
+          if [ -n "$PREVIOUS_SHA" ]; then
+            git fetch --no-tags --quiet origin "$PREVIOUS_SHA" 2>/dev/null || true
+          fi
+          node .github/scripts/code-changed.js
