@@ -15,6 +15,9 @@
 
 ### Enhancements
 
+- [#4134](https://github.com/intellij-elixir/intellij-elixir/pull/4134) [@georgeguimaraes](https://github.com/georgeguimaraes)
+  - **The plugin icon is now the new official Elixir logo.**
+
 - [#4126](https://github.com/intellij-elixir/intellij-elixir/pull/4126) [@sh41](https://github.com/sh41)
   - **Decompiled `.beam` files now show full function bodies, including private functions in large modules and
     functions with long bodies or many clauses.** Refs [#4122](https://github.com/intellij-elixir/intellij-elixir/issues/4122).
