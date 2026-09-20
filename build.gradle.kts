@@ -306,6 +306,38 @@ changelog {
 // editing the changelog left the cache valid and the build kept publishing the previous notes - the
 // same staleness bug in a new place. Going through the extension's own providers makes the file a
 // tracked input. This is also the shape the IntelliJ Platform Plugin Template uses.
+// <change-notes> is capped at 65535 characters in the plugin descriptor, and the plugin verifier
+// rejects the whole plugin when it is exceeded - which surfaces as four red verification legs saying
+// "Invalid plugin descriptor", not as a changelog problem. Truncating keeps the notes valid however
+// large a release grows, so the cap stops being a build failure waiting to happen.
+//
+// The cut lands on a whole </li> and then closes any list left open, because a prefix ending inside
+// a <ul> is malformed and the verifier is entitled to reject that too.
+val changeNotesLimit = 65535
+
+// main rather than the tag being built: a canary has no tag yet, so a tag-pinned link would 404 for
+// exactly the readers most likely to follow it.
+val changelogUrl = "https://github.com/intellij-elixir/intellij-elixir/blob/main/CHANGELOG.md"
+
+fun truncateChangeNotes(html: String, limit: Int = changeNotesLimit): String {
+    if (html.length <= limit) return html
+
+    val total = Regex("<li>").findAll(html).count()
+    // Rendered once with a placeholder count so the budget accounts for the tail it will carry.
+    fun tail(dropped: Int) =
+        """<p>&#8230;and $dropped more. <a href="$changelogUrl">Full changelog</a></p>"""
+
+    val budget = limit - tail(total).length
+    var cut = html.lastIndexOf("</li>", budget)
+    if (cut < 0) return tail(total)
+    cut += "</li>".length
+
+    val kept = html.substring(0, cut)
+    val closing = Regex("<ul>").findAll(kept).count() - Regex("</ul>").findAll(kept).count()
+    val dropped = total - Regex("<li>").findAll(kept).count()
+    return kept + "</ul>".repeat(maxOf(closing, 0)) + tail(dropped)
+}
+
 val renderedChangeNotes: Provider<String> = providers.provider {
     // getAll() returns file order, newest first, with Unreleased leading when present.
     val all = changelog.getAll()
@@ -348,6 +380,7 @@ val renderedChangeNotes: Provider<String> = providers.provider {
         .filter { it.contains("<li>") }
         .take(changelogSettings.publishedVersions)
         .joinToString("\n")
+        .let(::truncateChangeNotes)
 }
 
 //// --- Dependency Updates Configuration ---
@@ -365,7 +398,7 @@ tasks.withType<DependencyUpdatesTask> {
     }
 
 
-    // Only report stable → stable upgrades; reject pre-releases (RC, Beta, Alpha, SNAPSHOT, M1, etc.)
+    // Only report stable -> stable upgrades; reject pre-releases (RC, Beta, Alpha, SNAPSHOT, M1, etc.)
     rejectVersionIf {
         val stableKeyword = listOf("RELEASE", "FINAL", "GA").any { kw ->
             candidate.version.uppercase().contains(kw)

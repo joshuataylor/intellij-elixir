@@ -27,6 +27,8 @@ concurrency:
 
 permissions:
   contents: read
+  # `gh run download`, for reusing a previous run's SARIF
+  actions: read
   # the action's PR summary comment
   pull-requests: write
   # inline annotations on the diff
@@ -39,8 +41,17 @@ defaults:
     shell: bash
 
 jobs:
+  # Static analysis over a code tree that already passed cannot find anything new, and Qodana is the
+  # slowest thing left once the test matrix skips.
+  changes:
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/shared-changes.yml
+
   qodana:
     name: Qodana
+    needs: changes
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
@@ -54,7 +65,21 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      # An unchanged code tree yields the same findings, so the previous run's SARIF is reused rather
+      # than recomputed. Any failure here answers restored=false and the scan runs for real: reuse is
+      # the optimisation, scanning is the correct answer.
+      - name: Reuse the previous SARIF
+        id: restore
+        if: ${{ needs.changes.outputs.code != 'true' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS_RUN_ID: ${{ needs.changes.outputs.previous_run_id }}
+          SARIF_PATH: ${{ runner.temp }}/qodana/results/qodana.sarif.json
+        run: node .github/scripts/restore-qodana-sarif.js
+
       - name: Setup Build Environment
+        if: ${{ needs.changes.outputs.code == 'true' || steps.restore.outputs.restored != 'true' }}
         id: setup-env
         uses: ./.github/actions/setup-env
         with:
@@ -68,6 +93,7 @@ jobs:
           cache-read-only: ${{ github.event_name != 'push' }}
 
       - name: Qodana Scan
+        if: ${{ needs.changes.outputs.code == 'true' || steps.restore.outputs.restored != 'true' }}
         id: qodana
         # Advisory: findings must never fail the check. See the header.
         continue-on-error: true

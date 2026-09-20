@@ -59,8 +59,12 @@
 
 ## Changelog
 
-**Every pull request needs an entry in [`CHANGELOG.md`](CHANGELOG.md) under `## [Unreleased]`.** CI
-checks this and fails the `Changelog / changelog-entry` job if the file is untouched.
+**Every pull request needs a changelog fragment: one file under [`changelog.d/`](changelog.d/).** CI
+checks this and fails the `Changelog / changelog-entry` job without one. The format is in
+[`changelog.d/README.md`](changelog.d/README.md); a file per pull request is what stops two of them
+editing the same lines of `CHANGELOG.md` and conflicting. A job on `main` folds each merged
+fragment into `## [Unreleased]` and deletes it, so `CHANGELOG.md` stays the complete record - you do
+not edit it by hand.
 
 `CHANGELOG.md` is not just a record. The Gradle Changelog Plugin renders the entry for the version
 being built into the plugin's `changeNotes`, which is the **"What's New"** users read on the
@@ -189,7 +193,7 @@ listed above yourself.
   [above](#elixir-and-erlang). Install both with `mise install`, or install them yourself and put
   `erl`/`erl.exe` and `elixir` on `PATH`, or point `ERLANG_SDK_HOME`/`ELIXIR_SDK_HOME` at them.
 - **JetBrains Runtime**: **21** for IDEA 2026.1, **25** for 2026.2 and later.
-  `build.gradle.kts` picks the bytecode level from the platform build number (262+ → 25), and
+  `build.gradle.kts` picks the bytecode level from the platform build number (262+ -> 25), and
   `javac --release` validates the platform JARs against it, so the wrong JDK fails the compile rather
   than producing a bad build. `mise install` provisions the pinned JBR.
 - **Make**: *not* required in the normal path. Only the last-resort from-source Elixir fallback uses it.
@@ -581,11 +585,11 @@ The committed **Run Tests** configuration under `.run/` already runs `check`.
 The Elixir parser and PSI element classes in `gen/` are generated from `src/org/elixir_lang/Elixir.bnf` using the [GrammarKit](https://github.com/JetBrains/Grammar-Kit) plugin. If you modify the `.bnf` file (e.g. adding a `mixin`, changing a rule, or adding a new production), you must regenerate the parser code.
 
 #### Prerequisites
-- Install the **GrammarKit** plugin in IntelliJ IDEA (Settings → Plugins → search "Grammar-Kit").
+- Install the **GrammarKit** plugin in IntelliJ IDEA (Settings -> Plugins -> search "Grammar-Kit").
 
 #### Regenerating Parser Code
 1. Open `src/org/elixir_lang/Elixir.bnf` in the editor.
-2. Right-click inside the file → **Generate Parser Code**.
+2. Right-click inside the file -> **Generate Parser Code**.
 3. The generator writes updated files into the `gen/` directory.
 
 #### Fixing CRLF Line Endings (Windows)
@@ -622,7 +626,7 @@ The full set of source roots:
 
 #### Key BNF Concepts
 
-**Rule names vs interface names:** GrammarKit generates PSI classes named after the BNF **rule** (e.g. rule `heredoc` → `ElixirHeredoc`). The `implements` attribute on a rule specifies the hand-written **interface** the generated class implements. These are independent - do not confuse them.
+**Rule names vs interface names:** GrammarKit generates PSI classes named after the BNF **rule** (e.g. rule `heredoc` -> `ElixirHeredoc`). The `implements` attribute on a rule specifies the hand-written **interface** the generated class implements. These are independent - do not confuse them.
 
 **Visitor method generation:** For each rule, GrammarKit generates a `visitRuleName(ElixirRuleName)` method in `ElixirVisitor`. For each interface in `implements`, it generates a `visitInterfaceName(InterfaceName)` bridge method. If a rule name and an interface name (after stripping packages) are identical, the visitor generates a self-recursive method - causing a `StackOverflowError` at runtime.
 
@@ -635,7 +639,7 @@ The full set of source roots:
 //   visitHeredoc(ElixirHeredoc) { visitHeredocLiteral(this); }  ← safe dispatch
 ```
 
-**Resolution:** When adding a new `implements` interface to a rule, ensure the interface's simple name does not match any BNF rule name. If it would collide, rename the interface (e.g. `Heredoc` → `HeredocLiteral`) or the rule.
+**Resolution:** When adding a new `implements` interface to a rule, ensure the interface's simple name does not match any BNF rule name. If it would collide, rename the interface (e.g. `Heredoc` -> `HeredocLiteral`) or the rule.
 
 **`extends` attribute:** Causes the child rule's generated interface to extend the parent rule's interface, AND collapses AST nodes. Use it for expression hierarchies where shallow AST is desired. Do **not** use it solely for visitor type compatibility - it changes the PSI tree shape and will break parsing tests that compare golden `.txt` files.
 
@@ -677,12 +681,12 @@ pin = DO
 The Elixir lexer `gen/org/elixir_lang/ElixirFlexLexer.java` is generated from `src/org/elixir_lang/Elixir.flex` using [JFlex](https://jflex.de/). If you modify `Elixir.flex` (e.g. adding a new state, changing a rule, or fixing escape handling), you must regenerate the lexer.
 
 #### Prerequisites
-- Install the **GrammarKit** plugin in IntelliJ IDEA (it bundles JFlex). Settings → Plugins → search "Grammar-Kit".
+- Install the **GrammarKit** plugin in IntelliJ IDEA (it bundles JFlex). Settings -> Plugins -> search "Grammar-Kit".
 
 #### Regenerating the Lexer
 
 1. Open `src/org/elixir_lang/Elixir.flex` in the editor.
-2. Right-click inside the file → **Run JFlex Generator**.
+2. Right-click inside the file -> **Run JFlex Generator**.
 3. The generator overwrites `gen/org/elixir_lang/ElixirFlexLexer.java` in place.
    The first time you run it (or on a fresh checkout) it may prompt you to select an output
    folder - point it at the repository root so it discovers `gen/` automatically.

@@ -14,6 +14,7 @@ function gh(endpoint) {
 }
 
 let sha = '';
+let runId = '';
 try {
   const repo = process.env.REPO;
   const branch = process.env.BRANCH;
@@ -26,7 +27,10 @@ try {
   ).workflow_runs || [];
   // Newest first; skip this run and anything that has not concluded.
   const previous = runs.find(r => String(r.id) !== String(runId) && r.conclusion === 'success');
-  if (previous) sha = previous.head_sha;
+  if (previous) {
+    sha = previous.head_sha;
+    runId = String(previous.id);
+  }
   console.log(previous
     ? `last successful run: ${previous.id} at ${previous.head_sha.slice(0, 9)}`
     : `no previous successful run for ${branch}`);
@@ -35,3 +39,5 @@ try {
 }
 
 setOutput('sha', sha);
+// The run itself, for callers that want its artifacts rather than just its tree.
+setOutput('run_id', runId);

@@ -37,12 +37,16 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
         run: |
-          if gh api "repos/${REPO}/pulls/${PR}/files" --paginate --jq '.[].filename' \
-              | grep -qx 'CHANGELOG.md'; then
-            echo "CHANGELOG.md is updated by this pull request."
+          # Collected into a variable rather than tested with `grep -q`: -q exits on the first match
+          # and closes the pipe, which makes the pipeline's status report the wrong grep.
+          fragments=$(gh api "repos/${REPO}/pulls/${PR}/files" --paginate --jq '.[].filename' \
+            | grep -E '^changelog\.d/[0-9]{14}-[a-z0-9]+(-[a-z0-9]+)*\.md$' || true)
+          if [ -n "$fragments" ]; then
+            echo "This pull request adds a changelog fragment:"
+            echo "$fragments" | sed 's/^/  /'
             exit 0
           fi
-          echo "::error title=Missing changelog entry::This pull request does not touch CHANGELOG.md. Add an entry under '## [Unreleased]' - see the Changelog section of CONTRIBUTING.md for which group to use. Entries under Breaking changes, Enhancements and Bug Fixes are published to the Marketplace as the plugin's What's New; Threading / Platform Hygiene and Build / CI are recorded but not published. If there is genuinely nothing to record, apply the 'no-changelog' label."
+          echo "::error title=Missing changelog entry::This pull request adds no changelog fragment. Add changelog.d/<timestamp>-<slug>.md (date -u +%Y%m%d%H%M%S) - see changelog.d/README.md for the format and which group to use. Entries under Breaking changes, Enhancements and Bug Fixes are published to the Marketplace as the plugin's What's New; Threading / Platform Hygiene and Build / CI are recorded but not published. If there is genuinely nothing to record, apply the 'no-changelog' label."
           exit 1
 
       # Touching the file is not the same as recording something. These checks cover what the build

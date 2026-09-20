@@ -97,52 +97,16 @@ jobs:
   # code tree byte-identical to a head that already passed, and re-running 13 test legs and 4
   # verification legs over it costs half an hour to reach a verdict that cannot differ.
   #
-  # The script answers "run them" for anything it cannot establish, so the only risk it takes is a
+  # The detector answers "run them" for anything it cannot establish, so the only risk it takes is a
   # wasted matrix, never a green check over untested code. `all-tests-passed` needs this job, so a
   # detector that breaks fails the gate rather than quietly skipping everything.
   changes:
-    name: Changes
-    runs-on: ubuntu-22.04
-    timeout-minutes: 5
+    # A called workflow's token can never exceed the calling job's permissions, and the
+    # workflow-level block does not apply to it - see the `verify` job below.
     permissions:
       contents: read
       actions: read
-    outputs:
-      code: ${{ steps.detect.outputs.code }}
-      reason: ${{ steps.detect.outputs.reason }}
-    steps:
-      # Full history: the detector reads the tree of an earlier head, which a shallow clone lacks.
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.ref || github.ref }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      # The head of the last run of this workflow that concluded successfully for this ref. Empty
-      # when there is none, which the detector reads as "run the tests".
-      - name: Find the last successful run
-        id: previous
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
-          RUN_ID: ${{ github.run_id }}
-        run: node .github/scripts/last-successful-run.js
-
-      - name: Detect whether the code tree changed
-        id: detect
-        env:
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          PREVIOUS_SHA: ${{ steps.previous.outputs.sha }}
-          # Fallback basis on a branch's first run, so a changelog-only pull request skips then too.
-          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
-        run: |
-          git fetch --no-tags --quiet origin "$BASE_REF" 2>/dev/null || true
-          if [ -n "$PREVIOUS_SHA" ]; then
-            git fetch --no-tags --quiet origin "$PREVIOUS_SHA" 2>/dev/null || true
-          fi
-          node .github/scripts/code-changed.js
+    uses: ./.github/workflows/shared-changes.yml
 
   test:
     # Explicit name: with a generated matrix the auto-generated one is assembled from the whole
