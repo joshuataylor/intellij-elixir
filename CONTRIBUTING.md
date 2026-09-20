@@ -59,12 +59,8 @@
 
 ## Changelog
 
-**Every pull request needs a changelog fragment: one file under [`changelog.d/`](changelog.d/).** CI
-checks this and fails the `Changelog / changelog-entry` job without one. The format is in
-[`changelog.d/README.md`](changelog.d/README.md); a file per pull request is what stops two of them
-editing the same lines of `CHANGELOG.md` and conflicting. A job on `main` folds each merged
-fragment into `## [Unreleased]` and deletes it, so `CHANGELOG.md` stays the complete record - you do
-not edit it by hand.
+**Every pull request needs an entry in [`CHANGELOG.md`](CHANGELOG.md) under `## [Unreleased]`.** CI
+checks this and fails the `Changelog / changelog-entry` job if the file is untouched.
 
 `CHANGELOG.md` is not just a record. The Gradle Changelog Plugin renders the entry for the version
 being built into the plugin's `changeNotes`, which is the **"What's New"** users read on the
