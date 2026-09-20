@@ -50,6 +50,23 @@ class SourceFileDocsHelperTest : PlatformTestCase() {
         assertEquals("Handles one message.", callbackDocumentation.doc)
     }
 
+    fun testMacroCallbackDocFromSingleLineString() {
+        val docs = fetchDocsForModuleAttribute(
+            """
+            defmodule SingleLineMacroCallbackDoc do
+              @doc "Expands one message."
+              @macrocallback expand(term()) :: Macro.t()
+            end
+            """.trimIndent(),
+            attributeName = "macrocallback"
+        )
+
+        val callbackDocumentation = assertInstanceOf(docs, FetchedDocs.CallbackDocumentation::class.java)
+
+        assertEquals("SingleLineMacroCallbackDoc", callbackDocumentation.module)
+        assertEquals("Expands one message.", callbackDocumentation.doc)
+    }
+
     fun testTypeDocFromHeredoc() {
         val docs = fetchDocsForModuleAttribute(
             """
