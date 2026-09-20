@@ -105,6 +105,8 @@
 
 ### Bug Fixes
 
+- [#4146](https://github.com/intellij-elixir/intellij-elixir/pull/4146) [@sh41](https://github.com/sh41)
+  - **Building a project no longer fails with `UnsupportedClassVersionError` from the plugin's JPS classes when the project SDK is older than the IDE's JDK.** Fixes [#3996](https://github.com/intellij-elixir/intellij-elixir/issues/3996).
 - [#4141](https://github.com/intellij-elixir/intellij-elixir/pull/4141) [@sh41](https://github.com/sh41)
   - **A `@doc` whose value is an expression starting with a string, such as `@doc "text" <> "more"`, no longer reports an error on every highlighting pass.** Fixes [#4131](https://github.com/intellij-elixir/intellij-elixir/issues/4131).
 - [#4140](https://github.com/intellij-elixir/intellij-elixir/pull/4140) [@sh41](https://github.com/sh41)
