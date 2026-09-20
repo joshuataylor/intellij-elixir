@@ -457,6 +457,8 @@
 
 ### Build / CI
 
+- [#4148](https://github.com/intellij-elixir/intellij-elixir/pull/4148) [@sh41](https://github.com/sh41)
+  - **A pull request whose code is unchanged since its last passing run no longer re-runs the test matrix or plugin verification.**
 - [#4120](https://github.com/intellij-elixir/intellij-elixir/pull/4120) [@sh41](https://github.com/sh41)
   - **CI caches now skip the work they exist to skip, and the Windows test leg no longer times out saving them.**
 - [#4116](https://github.com/intellij-elixir/intellij-elixir/pull/4116) [@sh41](https://github.com/sh41)
