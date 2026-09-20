@@ -272,6 +272,7 @@ Table of Contents[![Backers on Open Collective](https://opencollective.com/intel
                * [In browser](#in-browser-1)
                * [In IDE](#in-ide-1)
       * [Screenshots](#screenshots)
+      * [Trademarks](#trademarks)
       * [Error reporting](#error-reporting)
       * [Contributors](#contributors)
       * [Donations](#donations)
@@ -6077,6 +6078,10 @@ With the `canary` repository setup:
 
 ![Color Settings](/screenshots/Color%20Settings.png?raw=true "Color Settings")
 ![New Elixir File](/screenshots/New%20Elixir%20File.png?raw=true "New Elixir File")
+
+## Trademarks
+
+Elixir and the Elixir logo are trademarks of the Elixir Team, used here under the [Elixir trademarks policy](https://elixir-lang.org/trademarks/). The plugin icon is the official Elixir logo, unmodified. This plugin is not affiliated with or endorsed by the Elixir project.
 
 ## Error reporting
 
