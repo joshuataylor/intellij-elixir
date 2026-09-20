@@ -18,15 +18,17 @@ let runId = '';
 try {
   const repo = process.env.REPO;
   const branch = process.env.BRANCH;
-  const runId = process.env.RUN_ID;
+  // Named apart from the `runId` being reported: shadowing it here made the assignment below a
+  // write to a const, which threw and left run_id empty while sha still looked right.
+  const currentRunId = process.env.RUN_ID;
   // The workflow this run belongs to, so the lookup follows a rename of the file or of `name:`.
-  const workflowId = gh(`repos/${repo}/actions/runs/${runId}`).workflow_id;
+  const workflowId = gh(`repos/${repo}/actions/runs/${currentRunId}`).workflow_id;
   const runs = gh(
     `repos/${repo}/actions/workflows/${workflowId}/runs` +
     `?branch=${encodeURIComponent(branch)}&status=success&per_page=20`
   ).workflow_runs || [];
   // Newest first; skip this run and anything that has not concluded.
-  const previous = runs.find(r => String(r.id) !== String(runId) && r.conclusion === 'success');
+  const previous = runs.find(r => String(r.id) !== String(currentRunId) && r.conclusion === 'success');
   if (previous) {
     sha = previous.head_sha;
     runId = String(previous.id);
