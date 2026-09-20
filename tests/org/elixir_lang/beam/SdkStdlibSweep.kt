@@ -1,0 +1,194 @@
+package org.elixir_lang.beam
+
+import com.intellij.openapi.Disposable
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
+import com.intellij.psi.PsiCompiledFile
+import com.intellij.psi.PsiErrorElement
+import com.intellij.psi.PsiManager
+import com.intellij.psi.ResolveState
+import com.intellij.psi.util.PsiTreeUtil
+import org.elixir_lang.beam.psi.impl.CallDefinitionImpl
+import org.elixir_lang.beam.psi.impl.ModuleImpl
+import org.elixir_lang.psi.CallDefinitionClause
+import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.impl.call.finalArguments
+import org.elixir_lang.psi.operation.Prefix
+import org.elixir_lang.structure_view.element.CallDefinitionHead
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * One decompile pass per resolved SDK, answering the three questions [SdkDecompileParseableTest],
+ * [SdkMirrorCoverageTest] and [SdkStubSignatureTest] each used to ask in their own sweep. Whichever of
+ * those six test methods runs first for a given (root, tag) pays the decompile cost and caches the
+ * plain-data [Result]; the rest read it back, the way `CodeIntelligenceMatrixTest.Group` shares one
+ * fixture across many independently-passing/failing cells. Safe to share across the different
+ * `Project` instances those test classes each stand up, because the cached [Result] holds only
+ * strings and counts, never PSI.
+ */
+object SdkStdlibSweep {
+    data class Result(
+        val beamCount: Int,
+        val parseFailures: List<String>,
+        val mirrorExported: Int,
+        val mirrorMisses: List<String>,
+        val stubCompared: Int,
+        val stubExportedWithParameters: Int,
+        val stubExportedGenerated: Int,
+        val stubBeamsWithExportedGenerated: Int,
+        val stubMismatches: List<String>
+    )
+
+    private val cache = ConcurrentHashMap<Pair<String, String>, Result>()
+
+    fun forSdk(project: Project, testRootDisposable: Disposable, root: String, tag: String): Result =
+        cache.getOrPut(root to tag) { sweep(project, testRootDisposable, root, tag) }
+
+    private fun sweep(project: Project, testRootDisposable: Disposable, root: String, tag: String): Result {
+        VfsRootAccess.allowRootAccess(testRootDisposable, root)
+
+        val beams = SdkBeams.forSdk(root, tag)
+        val state = ResolveState.initial()
+
+        val parseFailures = mutableListOf<String>()
+        val mirrorMisses = mutableListOf<String>()
+        val stubMismatches = mutableListOf<String>()
+
+        var mirrorExported = 0
+        var stubCompared = 0
+        var stubExportedWithParameters = 0
+        var stubExportedGenerated = 0
+        val beamsWithExportedGenerated = mutableSetOf<String>()
+
+        for ((beamLabel, file) in beams) {
+            val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(file)
+            if (virtualFile == null) {
+                parseFailures += "$beamLabel: no VirtualFile"
+                continue
+            }
+
+            val psiFile = try {
+                PsiManager.getInstance(project).findFile(virtualFile)
+            } catch (t: Throwable) {
+                recordBeamFailure(beamLabel, t, parseFailures, mirrorMisses, stubMismatches)
+                continue
+            }
+
+            if (psiFile !is PsiCompiledFile) {
+                parseFailures += "$beamLabel: not a PsiCompiledFile (${psiFile?.javaClass?.simpleName})"
+                continue
+            }
+
+            val decompiled = try {
+                psiFile.decompiledPsiFile
+            } catch (t: Throwable) {
+                recordBeamFailure(beamLabel, t, parseFailures, mirrorMisses, stubMismatches)
+                continue
+            }
+
+            try {
+                PsiTreeUtil.findChildOfType(decompiled, PsiErrorElement::class.java)?.let { error ->
+                    parseFailures += "$beamLabel: ${error.errorDescription}"
+                }
+            } catch (t: Throwable) {
+                parseFailures += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
+            }
+
+            val modules = try {
+                PsiTreeUtil.findChildrenOfType(psiFile, ModuleImpl::class.java)
+                    .ifEmpty { psiFile.children.filterIsInstance<ModuleImpl<*>>() }
+            } catch (t: Throwable) {
+                recordBeamFailure(beamLabel, t, mirrorMisses, stubMismatches)
+                continue
+            }
+
+            for (module in modules) {
+                for (callDefinition in (module as ModuleImpl<*>).callDefinitions()) {
+                    try {
+                        if (callDefinition.isExported) {
+                            mirrorExported++
+                            if (callDefinition.mirror == null) {
+                                mirrorMisses += "$beamLabel: ${nameArity(callDefinition, state)}"
+                            }
+                        }
+                    } catch (t: Throwable) {
+                        mirrorMisses += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
+                    }
+
+                    try {
+                        val stub = callDefinition.stub
+                        val name = stub.name
+                        val arity = stub.callDefinitionClauseHeadArity()
+
+                        if (stub.isExported && arity > 0) {
+                            stubExportedWithParameters++
+
+                            if (stub.isAutoGeneratedName) {
+                                stubExportedGenerated++
+                                beamsWithExportedGenerated += beamLabel
+                            }
+                        }
+
+                        val mirror = callDefinition.mirror as? Call
+                        if (mirror != null) {
+                            stubCompared++
+
+                            val expected = firstClauseParameters(mirror, name, arity)
+                            val actual = stub.parameters()
+
+                            if (expected != actual) {
+                                stubMismatches += "$beamLabel: ${stub.resolvedFunctionName()} $name/$arity " +
+                                    "mirror=$expected stub=$actual"
+                            }
+                        }
+                    } catch (t: Throwable) {
+                        stubMismatches += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
+                    }
+                }
+            }
+        }
+
+        return Result(
+            beamCount = beams.size,
+            parseFailures = parseFailures,
+            mirrorExported = mirrorExported,
+            mirrorMisses = mirrorMisses,
+            stubCompared = stubCompared,
+            stubExportedWithParameters = stubExportedWithParameters,
+            stubExportedGenerated = stubExportedGenerated,
+            stubBeamsWithExportedGenerated = beamsWithExportedGenerated.size,
+            stubMismatches = stubMismatches
+        )
+    }
+
+    private fun recordBeamFailure(beamLabel: String, t: Throwable, vararg lists: MutableList<String>) {
+        val message = "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
+        lists.forEach { it += message }
+    }
+
+    private fun nameArity(callDefinition: CallDefinitionImpl<*>, state: ResolveState): String =
+        try {
+            "${callDefinition.exportedName()}/${callDefinition.exportedArity(state)}"
+        } catch (t: Throwable) {
+            callDefinition.exportedName()
+        }
+
+    private fun firstClauseParameters(mirror: Call, name: String, arity: Int): List<String>? =
+        mirror.parent.children
+            .filterIsInstance<Call>()
+            .firstOrNull { call ->
+                CallDefinitionClause.`is`(call) &&
+                    CallDefinitionClause.nameArityInterval(call, ResolveState.initial())?.let {
+                        it.name == name && arity in it.arityInterval.closed()
+                    } == true
+            }
+            ?.let { CallDefinitionClause.head(it) }
+            ?.let { CallDefinitionHead.strip(it) as? Call }
+            ?.let { head ->
+                // `def not(value)` parses as `not` applied to the parenthesized operand `(value)`.
+                head.finalArguments()?.map { argument ->
+                    if (head is Prefix) CallDefinitionHead.stripAllOuterParentheses(argument).text else argument.text
+                }
+            }
+}

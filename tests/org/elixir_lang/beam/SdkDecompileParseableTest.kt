@@ -1,11 +1,6 @@
 package org.elixir_lang.beam
 
-import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
-import com.intellij.psi.PsiCompiledFile
 import com.intellij.psi.PsiErrorElement
-import com.intellij.psi.PsiManager
-import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.PlatformTestCase
 import org.junit.Assert
 
@@ -17,7 +12,8 @@ import org.junit.Assert
  *
  * Needs the platform PSI/parser (decompiler + Elixir ParserDefinition), so it extends
  * PlatformTestCase and sweeps within a single fixture (rather than the lightweight per-beam
- * [SdkBeamParseTest], which only exercises the platform-free chunk parser).
+ * [SdkBeamParseTest], which only exercises the platform-free chunk parser). The sweep itself is
+ * shared with [SdkMirrorCoverageTest] and [SdkStubSignatureTest] through [SdkStdlibSweep].
  */
 class SdkDecompileParseableTest : PlatformTestCase() {
 
@@ -31,40 +27,16 @@ class SdkDecompileParseableTest : PlatformTestCase() {
 
     private fun sweep(root: String?, label: String) {
         Assert.assertNotNull("$label SDK env var not set", root)
-        VfsRootAccess.allowRootAccess(testRootDisposable, root!!)
+        val result = SdkStdlibSweep.forSdk(project, testRootDisposable, root!!, label.lowercase())
+        Assert.assertTrue("No .beam files found under $root/lib", result.beamCount > 0)
 
-        val beams = SdkBeams.forSdk(root, label.lowercase())
-        Assert.assertTrue("No .beam files found under $root/lib", beams.isNotEmpty())
-
-        val failures = mutableListOf<String>()
-        for ((beamLabel, file) in beams) {
-            try {
-                val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(file)
-                if (virtualFile == null) {
-                    failures += "$beamLabel: no VirtualFile"
-                    continue
-                }
-                val compiled = PsiManager.getInstance(project).findFile(virtualFile)
-                if (compiled !is PsiCompiledFile) {
-                    failures += "$beamLabel: not a PsiCompiledFile (${compiled?.javaClass?.simpleName})"
-                    continue
-                }
-                val decompiled = compiled.decompiledPsiFile
-                val error = PsiTreeUtil.findChildOfType(decompiled, PsiErrorElement::class.java)
-                if (error != null) {
-                    failures += "$beamLabel: ${error.errorDescription}"
-                }
-            } catch (t: Throwable) {
-                failures += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
-            }
-        }
-
-        val passed = beams.size - failures.size
-        println("[decompile-parseable] $label: $passed/${beams.size} beams decompiled to parseable Elixir")
+        val failures = result.parseFailures
+        val passed = result.beamCount - failures.size
+        println("[decompile-parseable] $label: $passed/${result.beamCount} beams decompiled to parseable Elixir")
         Assert.assertTrue(
-            "${failures.size}/${beams.size} $label beams did NOT decompile to parseable Elixir:\n" +
+            "${failures.size}/${result.beamCount} $label beams did NOT decompile to parseable Elixir:\n" +
                 failures.take(100).joinToString("\n") +
-                (if (failures.size > 100) "\n… and ${failures.size - 100} more" else ""),
+                (if (failures.size > 100) "\n... and ${failures.size - 100} more" else ""),
             failures.isEmpty()
         )
     }
