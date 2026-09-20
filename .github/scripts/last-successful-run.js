@@ -1,0 +1,37 @@
+'use strict';
+// Head sha of the most recent successful run of this workflow for this ref, or empty when there is
+// none. Consumed by code-changed.js, which treats empty as "run the tests".
+//
+// Gate contract matches code-changed.js: every failure here answers empty rather than throwing, so a
+// lookup problem costs a matrix run and never skips one.
+
+const { execFileSync } = require('child_process');
+const { setOutput, warn } = require('./actions.js');
+
+function gh(endpoint) {
+  const out = execFileSync('gh', ['api', endpoint], { encoding: 'utf8', maxBuffer: 1 << 28 });
+  return JSON.parse(out);
+}
+
+let sha = '';
+try {
+  const repo = process.env.REPO;
+  const branch = process.env.BRANCH;
+  const runId = process.env.RUN_ID;
+  // The workflow this run belongs to, so the lookup follows a rename of the file or of `name:`.
+  const workflowId = gh(`repos/${repo}/actions/runs/${runId}`).workflow_id;
+  const runs = gh(
+    `repos/${repo}/actions/workflows/${workflowId}/runs` +
+    `?branch=${encodeURIComponent(branch)}&status=success&per_page=20`
+  ).workflow_runs || [];
+  // Newest first; skip this run and anything that has not concluded.
+  const previous = runs.find(r => String(r.id) !== String(runId) && r.conclusion === 'success');
+  if (previous) sha = previous.head_sha;
+  console.log(previous
+    ? `last successful run: ${previous.id} at ${previous.head_sha.slice(0, 9)}`
+    : `no previous successful run for ${branch}`);
+} catch (e) {
+  warn(`could not look up the last successful run, tests will run: ${e.message.split('\n')[0]}`);
+}
+
+setOutput('sha', sha);
