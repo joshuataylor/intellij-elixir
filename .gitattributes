@@ -2,6 +2,17 @@
 * text=auto eol=lf
 
 ###############################################################################
+# CHANGELOG
+###############################################################################
+# Every pull request adds a line to the same few places in CHANGELOG.md, so with the default driver
+# each merge conflicts every branch still in flight. `union` keeps both sides instead of stopping.
+#
+# The trade: entries land in merge order rather than newest-first, and two branches editing the SAME
+# entry get both versions rather than a conflict - so when a sentence needs changing, check the
+# result rather than assuming the merge was clean.
+CHANGELOG.md    merge=union
+
+###############################################################################
 # WINDOWS COMPATIBILITY OVERRIDE
 ###############################################################################
 # Force CRLF for files that Windows Command Prompt specifically requires.

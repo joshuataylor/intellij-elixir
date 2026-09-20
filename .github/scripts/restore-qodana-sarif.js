@@ -18,17 +18,41 @@ const RUN_ID = process.env.PREVIOUS_RUN_ID;
 const ARTIFACT = process.env.ARTIFACT_NAME || 'qodana-report';
 const TARGET = process.env.SARIF_PATH;
 
-function findSarif(dir) {
+// The artifact holds a single qodana-report.zip rather than loose files, so it has to come out
+// before anything can be found in it.
+function unpackNestedZips(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      const hit = findSarif(full);
-      if (hit) return hit;
-    } else if (entry.name === 'qodana.sarif.json') {
-      return full;
+    if (entry.isFile() && entry.name.endsWith('.zip')) {
+      try {
+        execFileSync('unzip', ['-q', '-o', path.join(dir, entry.name), '-d', dir], { stdio: 'inherit' });
+      } catch (e) {
+        // These archives store entries with a leading slash, so unzip strips it and exits 1 - its
+        // "completed with warnings" status, not a failure. 2 and above are real.
+        if (!e.status || e.status > 1) throw e;
+      }
     }
   }
-  return null;
+}
+
+function collect(dir, out = []) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) collect(full, out);
+    else if (entry.name === 'qodana.sarif.json') out.push(full);
+  }
+  return out;
+}
+
+// The report carries the same name at several paths - report/results, the root, end/ and start/ -
+// and start/ is the state BEFORE the analysis. Picking by walk order could upload that, so choose
+// explicitly: the path the scan itself uploads from first, then the root, and never start/.
+function findSarif(dir) {
+  const candidates = collect(dir).map(f => ({ f, rel: path.relative(dir, f).split(path.sep).join('/') }));
+  const usable = candidates.filter(c => !c.rel.startsWith('start/') && !c.rel.includes('/start/'));
+  const preferred = usable.find(c => c.rel.endsWith('report/results/qodana.sarif.json'))
+    || usable.find(c => c.rel === 'qodana.sarif.json')
+    || usable[0];
+  return preferred ? preferred.f : null;
 }
 
 let restored = false;
@@ -39,6 +63,8 @@ try {
   const staging = fs.mkdtempSync(path.join(process.env.RUNNER_TEMP || '/tmp', 'qodana-restore-'));
   execFileSync('gh', ['run', 'download', RUN_ID, '-n', ARTIFACT, '-D', staging],
     { stdio: ['ignore', 'inherit', 'inherit'] });
+
+  unpackNestedZips(staging);
 
   const sarif = findSarif(staging);
   if (!sarif) throw new Error(`no qodana.sarif.json in artifact ${ARTIFACT} of run ${RUN_ID}`);
