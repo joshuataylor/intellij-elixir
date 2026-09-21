@@ -39,6 +39,11 @@ internal class CallDefinition : LineMarkerProvider {
                 val expectedLeaf = grandparent.atIdentifier.node
                     .findChildByType(ElixirTypes.IDENTIFIER_TOKEN) as? LeafPsiElement
                 if (element == expectedLeaf) {
+                    // Two candidate leaf shapes share this one Frankenstein-injection guard - narrow to
+                    // the specific leaf each shape anchors on before paying for it, like the other two
+                    // line-marker providers do for their one shape.
+                    if (isDocumentationSample(element)) return null
+
                     return getLineMarkerInfo(grandparent)
                 }
             }
@@ -46,13 +51,15 @@ internal class CallDefinition : LineMarkerProvider {
 
         // Leaf is the marker anchor of a Call (function name identifier).
         // markerAnchor(call) places the leaf at most 2 levels below the Call
-        // (Call → functionNameElement → IDENTIFIER_TOKEN), so we bound the search.
+        // (Call -> functionNameElement -> IDENTIFIER_TOKEN), so we bound the search.
         val call = generateSequence(parent) { it.parent }
             .take(2)
             .filterIsInstance<Call>()
             .firstOrNull()
 
         if (call != null && CallDefinitionClause.`is`(call) && element == markerAnchor(call)) {
+            if (isDocumentationSample(element)) return null
+
             return getLineMarkerInfo(call)
         }
 
