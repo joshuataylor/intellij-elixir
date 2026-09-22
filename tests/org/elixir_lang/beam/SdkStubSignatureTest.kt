@@ -4,11 +4,9 @@ import org.elixir_lang.PlatformTestCase
 import org.junit.Assert
 
 /**
- * The stub's parameters must be the ones the decompiled mirror shows, for every definition that has a mirror in
- * both resolved SDKs.
- *
- * The comparison is against the *first* mirror clause of each name and arity: `ModuleImpl.setMirror` pairs a
- * stub with the last one, and the source path's parameter hints fall back to the first.
+ * The stub's parameters must be the ones the decompiled mirror shows, and the mirror itself must be the first
+ * matching clause, for every definition that has a mirror in both resolved SDKs - `ModuleImpl.setMirror` and
+ * the source path's parameter hints agree on the first clause of each name and arity.
  *
  * Also prints how many exported definitions with parameters have names not flagged as generated; the counts are
  * in this class's `system-out` in the JUnit XML. The sweep itself is shared with [SdkDecompileParseableTest] and
