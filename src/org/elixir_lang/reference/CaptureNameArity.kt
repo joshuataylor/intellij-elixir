@@ -49,7 +49,7 @@ class CaptureNameArity(element: NonNumeric, val nameElement: Call, val arity: Ar
     override fun getVariants(): Array<Any> =
         when (nameElement) {
             is Unqualified ->
-                Variants.lookupElementList(nameElement).ofRequestedArity().toTypedArray()
+                Variants.lookupElementList(nameElement, appendParentheses = false).ofRequestedArity().toTypedArray()
 
             is Qualified ->
                 (nameElement as Qualified).qualifier()

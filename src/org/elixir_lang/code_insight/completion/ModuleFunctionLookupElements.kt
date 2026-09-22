@@ -109,7 +109,7 @@ private fun delegationLookupElements(
             LookupElementBuilder
                 .createWithSmartPointer(name, delegation.inOriginalFile())
                 .withRenderer(DelegationRenderer(name))
-                .let { if (appendParentheses) it.withInsertHandler(CallDefinitionClauseInsertHandler.INSTANCE) else it }
+                .let { if (appendParentheses) it.withInsertHandler(CallDefinitionClauseInsertHandler) else it }
         }
 
 private fun callDefinitionClauseLookupElements(moduleImpl: BeamModule, appendParentheses: Boolean): Iterable<LookupElement> =
