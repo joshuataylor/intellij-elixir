@@ -308,18 +308,10 @@ changelog {
     groups = changelogSettings.groups
 }
 
-// A lazy provider, NOT an eager read. This matters: rendering eagerly at configuration time produced
-// a plain String that the configuration cache stored without recording CHANGELOG.md as an input, so
-// editing the changelog left the cache valid and the build kept publishing the previous notes - the
-// same staleness bug in a new place. Going through the extension's own providers makes the file a
-// tracked input. This is also the shape the IntelliJ Platform Plugin Template uses.
 // <change-notes> is capped at 65535 characters in the plugin descriptor, and the plugin verifier
 // rejects the whole plugin when it is exceeded - which surfaces as four red verification legs saying
 // "Invalid plugin descriptor", not as a changelog problem. Truncating keeps the notes valid however
 // large a release grows, so the cap stops being a build failure waiting to happen.
-//
-// The cut lands on a whole </li> and then closes any list left open, because a prefix ending inside
-// a <ul> is malformed and the verifier is entitled to reject that too.
 val changeNotesLimit = 65535
 
 // main rather than the tag being built: a canary has no tag yet, so a tag-pinned link would 404 for
@@ -330,21 +322,31 @@ fun truncateChangeNotes(html: String, limit: Int = changeNotesLimit): String {
     if (html.length <= limit) return html
 
     val total = Regex("<li>").findAll(html).count()
-    // Rendered once with a placeholder count so the budget accounts for the tail it will carry.
     fun tail(dropped: Int) =
         """<p>&#8230;and $dropped more. <a href="$changelogUrl">Full changelog</a></p>"""
 
-    val budget = limit - tail(total).length
-    var cut = html.lastIndexOf("</li>", budget)
-    if (cut < 0) return tail(total)
-    cut += "</li>".length
+    fun closers(kept: String): String {
+        val open = mutableListOf<String>()
+        Regex("<(/?)(ul|ol|li)>").findAll(kept).forEach { match ->
+            val (slash, tag) = match.destructured
+            if (slash.isEmpty()) open.add(tag) else open.removeLastOrNull()
+        }
+        return open.reversed().joinToString("") { "</$it>" }
+    }
 
-    val kept = html.substring(0, cut)
-    val closing = Regex("<ul>").findAll(kept).count() - Regex("</ul>").findAll(kept).count()
-    val dropped = total - Regex("<li>").findAll(kept).count()
-    return kept + "</ul>".repeat(maxOf(closing, 0)) + tail(dropped)
+    var cut = html.lastIndexOf("</li>", limit)
+    while (cut >= 0) {
+        val kept = html.substring(0, cut + "</li>".length)
+        val dropped = total - Regex("<li>").findAll(kept).count()
+        val truncated = kept + closers(kept) + tail(dropped)
+        if (truncated.length <= limit) return truncated
+        cut = html.lastIndexOf("</li>", cut - 1)
+    }
+    return tail(total)
 }
 
+// Must stay lazy: an eager read is cached without CHANGELOG.md as an input, so edits to it publish
+// stale notes.
 val renderedChangeNotes: Provider<String> = providers.provider {
     // getAll() returns file order, newest first, with Unreleased leading when present.
     val all = changelog.getAll()
