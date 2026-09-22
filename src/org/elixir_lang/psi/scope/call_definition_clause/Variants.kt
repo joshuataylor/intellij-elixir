@@ -8,6 +8,7 @@ import com.intellij.psi.ResolveState
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.annotator.Parameter
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
+import org.elixir_lang.code_insight.completion.insert_handler.CallDefinitionClause as CallDefinitionClauseInsertHandler
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.Named
@@ -18,7 +19,12 @@ import org.elixir_lang.psi.scope.CallDefinitionClause
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 import org.elixir_lang.structure_view.element.Callback
 
-class Variants : CallDefinitionClause() {
+/**
+ * [appendParentheses] is threaded through so a capture's `&name/arity` (which reuses this same walk,
+ * see [org.elixir_lang.reference.CaptureNameArity]) stays a bare name - a capture names a function, it
+ * does not call one.
+ */
+class Variants(private val appendParentheses: Boolean) : CallDefinitionClause() {
     private var lookupElementByPsiElementName: MutableMap<Pair<PsiElement, String>, LookupElement> = mutableMapOf()
 
     private val lookupElementCollection: Collection<LookupElement>
@@ -58,6 +64,7 @@ class Variants : CallDefinitionClause() {
         lookupElementByPsiElementName.computeIfAbsent(element to name) { (el, n) ->
             LookupElementBuilder.createWithSmartPointer(n, el)
                 .withRenderer(org.elixir_lang.code_insight.lookup.element_renderer.CallDefinitionClause(n))
+                .withInsertHandlerIfAppendingParentheses()
         }
     }
 
@@ -69,7 +76,7 @@ class Variants : CallDefinitionClause() {
                         element
                 ).withRenderer(
                         org.elixir_lang.code_insight.lookup.element_renderer.CallDefinitionClause(name)
-                )
+                ).withInsertHandlerIfAppendingParentheses()
             }
         }
     }
@@ -90,7 +97,7 @@ class Variants : CallDefinitionClause() {
                             element
                     ).withRenderer(
                             org.elixir_lang.code_insight.lookup.element_renderer.Callback(name)
-                    )
+                    ).withInsertHandlerIfAppendingParentheses()
                 }
             }
 
@@ -107,7 +114,7 @@ class Variants : CallDefinitionClause() {
                             element
                     ).withRenderer(
                             org.elixir_lang.code_insight.lookup.element_renderer.Delegation(headName)
-                    )
+                    ).withInsertHandlerIfAppendingParentheses()
                 }
             }
         }
@@ -124,7 +131,7 @@ class Variants : CallDefinitionClause() {
                             element
                     ).withRenderer(
                             org.elixir_lang.code_insight.lookup.element_renderer.EExFunctionFrom(name)
-                    )
+                    ).withInsertHandlerIfAppendingParentheses()
                 }
             }
        }
@@ -142,7 +149,7 @@ class Variants : CallDefinitionClause() {
                         element
                 ).withRenderer(
                         org.elixir_lang.code_insight.lookup.element_renderer.exception.CallDefinitionClause(nameArity)
-                )
+                ).withInsertHandlerIfAppendingParentheses()
             }
         }
 
@@ -164,6 +171,7 @@ class Variants : CallDefinitionClause() {
                 LookupElementBuilder
                         .createWithSmartPointer(name, element)
                         .withRenderer(renderer)
+                        .withInsertHandlerIfAppendingParentheses()
             }
         }
 
@@ -177,12 +185,16 @@ class Variants : CallDefinitionClause() {
      */
     override fun keepProcessing(): Boolean = true
 
+    private fun LookupElementBuilder.withInsertHandlerIfAppendingParentheses(): LookupElementBuilder =
+        if (appendParentheses) withInsertHandler(CallDefinitionClauseInsertHandler) else this
+
 
     companion object {
         private val ENTRANCE_CALL_DEFINITION_CLAUSE = Key<Call>("ENTRANCE_CALL_DEFINITION_CLAUSE")
 
         @JvmStatic
-        fun lookupElementList(entrance: Call): List<LookupElement> {
+        @JvmOverloads
+        fun lookupElementList(entrance: Call, appendParentheses: Boolean = true): List<LookupElement> {
             val parameter = Parameter.putParameterized(Parameter(entrance))
             val entranceCallDefinitionClause: Call? = if (parameter.isCallDefinitionClauseName) {
                 parameter.parameterized as Call?
@@ -190,14 +202,20 @@ class Variants : CallDefinitionClause() {
                 null
             }
 
-            return lookupElementList(entrance, entranceCallDefinitionClause)
+            return lookupElementList(entrance, entranceCallDefinitionClause, appendParentheses)
         }
 
         @JvmStatic
-        fun lookupElementList(entrance: ElixirIdentifier): List<LookupElement> = lookupElementList(entrance, null)
+        @JvmOverloads
+        fun lookupElementList(entrance: ElixirIdentifier, appendParentheses: Boolean = true): List<LookupElement> =
+            lookupElementList(entrance, null, appendParentheses)
 
-        private fun lookupElementList(entrance: PsiElement, entranceCallDefinitionClause: Call?): List<LookupElement> {
-            val variants = Variants()
+        private fun lookupElementList(
+            entrance: PsiElement,
+            entranceCallDefinitionClause: Call?,
+            appendParentheses: Boolean
+        ): List<LookupElement> {
+            val variants = Variants(appendParentheses)
 
             val resolveState = ResolveState
                     .initial()

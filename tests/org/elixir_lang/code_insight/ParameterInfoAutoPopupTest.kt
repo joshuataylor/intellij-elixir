@@ -82,8 +82,12 @@ class ParameterInfoAutoPopupTest : PlatformTestCase() {
     }
 
     /**
-     * Accepting a completion leaves the caret inside the parentheses the insert handler added, and the hint
-     * appears there without the user typing `(` themselves.
+     * Accepting a completion leaves the caret inside the parameter placeholders the insert handler
+     * added, and the hint appears there without the user typing `(` themselves.
+     *
+     * The `Tab` that accepts the completion also advances the freshly-started placeholder template by
+     * one stop - the same `Tab` a user pressed to finish "reduce" carries them onto the template's
+     * first parameter, landing on the second declared parameter (`fun`, index 1), not the first.
      */
     fun testAcceptingACompletionPopsUpTheHint() {
         myFixture.configureByFiles("auto_popup_completion.ex", "auto_popup_completion_declaration.ex")
@@ -91,15 +95,19 @@ class ParameterInfoAutoPopupTest : PlatformTestCase() {
         val popup = myFixture.parameterInfoPopupAfterAcceptingCompletion("reduce")
 
         assertEquals(
-            "The insert handler puts the caret where the first argument goes",
-            "ParameterInfo.CompletionRemote.reduce()",
+            "The insert handler puts the parameters in as placeholders",
+            "ParameterInfo.CompletionRemote.reduce(enumerable, fun)",
             myFixture.file.text.lines().first { it.contains("reduce(") }.trim()
         )
         assertNotNull("Accepting a completion should pop up the parameter hint", popup)
         /* `reduce_while` is not offered: the references resolve as incomplete code, which returns every
            function the name is a prefix of, and only the function being called is kept. */
         assertEquals(listOf("enumerable, fun"), popup!!.signatures)
-        assertEquals("The caret is on the first parameter", 0, popup.currentParameterIndex)
+        assertEquals(
+            "The Tab that accepted the completion also advanced the template to the second parameter",
+            1,
+            popup.currentParameterIndex
+        )
     }
 
     /**

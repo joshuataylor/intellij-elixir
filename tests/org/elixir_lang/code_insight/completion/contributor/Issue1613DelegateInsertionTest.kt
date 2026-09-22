@@ -11,14 +11,14 @@ import org.elixir_lang.code_insight.completeCandidateAtCaret
  * rather than the handler simply attached.
  */
 class Issue1613DelegateInsertionTest : PlatformTestCase() {
-    fun testAcceptingADelegatedFunctionInsertsParentheses() {
+    fun testAcceptingADelegatedFunctionInsertsParameterPlaceholders() {
         myFixture.configureByFiles("defdelegate_usage.ex", "defdelegate_declaration.ex")
 
         val text = myFixture.completeCandidateAtCaret("values")
 
         assertTrue(
-            "Accepting the delegate `values` should insert `values()`, as accepting a `def` does; got:\n$text",
-            text.contains("DefdelegateDeclaration.values()")
+            "Accepting the delegate `values` should insert `values(map)`, as accepting a `def` does; got:\n$text",
+            text.contains("DefdelegateDeclaration.values(map)")
         )
     }
 
@@ -26,14 +26,14 @@ class Issue1613DelegateInsertionTest : PlatformTestCase() {
      * The sibling `def`-backed name, from the same popup, so a failure above cannot be blamed on the
      * fixture or on the insertion helper.
      */
-    fun testAcceptingAClauseBackedFunctionInsertsParentheses() {
+    fun testAcceptingAClauseBackedFunctionInsertsParameterPlaceholders() {
         myFixture.configureByFiles("defdelegate_usage.ex", "defdelegate_declaration.ex")
 
         val text = myFixture.completeCandidateAtCaret("merge")
 
         assertTrue(
-            "Accepting `merge` should insert `merge()`; got:\n$text",
-            text.contains("DefdelegateDeclaration.merge()")
+            "Accepting `merge` should insert `merge(map1, map2, fun)`; got:\n$text",
+            text.contains("DefdelegateDeclaration.merge(map1, map2, fun)")
         )
     }
 
