@@ -5,8 +5,9 @@ import org.junit.Assert
 
 /**
  * The stub's parameters must be the ones the decompiled mirror shows, and the mirror itself must be the first
- * matching clause, for every definition that has a mirror in both resolved SDKs - `ModuleImpl.setMirror` and
- * the source path's parameter hints agree on the first clause of each name and arity.
+ * matching clause, for every compared definition - `ModuleImpl.setMirror` and the source path's parameter
+ * hints agree on the first clause of each name and arity. A module whose own clause map failed to build is
+ * skipped entirely, so `stubCompared` counts comparisons actually made, not every definition with a mirror.
  *
  * Also prints how many exported definitions with parameters have names not flagged as generated; the counts are
  * in this class's `system-out` in the JUnit XML. The sweep itself is shared with [SdkDecompileParseableTest] and
