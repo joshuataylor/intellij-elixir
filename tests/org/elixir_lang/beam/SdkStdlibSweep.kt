@@ -14,6 +14,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.beam.psi.impl.CallDefinitionImpl
 import org.elixir_lang.beam.psi.impl.ModuleImpl
 import org.elixir_lang.psi.CallDefinitionClause
+import org.elixir_lang.psi.Modular
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.operation.Prefix
@@ -62,7 +63,7 @@ object SdkStdlibSweep {
         var stubExportedWithParameters = 0
         var stubExportedGenerated = 0
         val beamsWithExportedGenerated = mutableSetOf<String>()
-        val firstClauseCache = mutableMapOf<PsiElement, Map<String, Map<Int, Call>>>()
+        val firstClauseCache = mutableMapOf<PsiElement, Map<String, Map<Int, Call>>?>()
 
         for ((beamLabel, file) in beams) {
             val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(file)
@@ -115,6 +116,15 @@ object SdkStdlibSweep {
             }
 
             for (module in modules) {
+                val moduleMirror = try {
+                    (module as ModuleImpl<*>).mirror as? Call
+                } catch (t: ProcessCanceledException) {
+                    throw t
+                } catch (t: Throwable) {
+                    stubMismatches += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
+                    null
+                }
+
                 for (callDefinition in (module as ModuleImpl<*>).callDefinitions()) {
                     try {
                         if (callDefinition.isExported) {
@@ -144,16 +154,32 @@ object SdkStdlibSweep {
                         }
 
                         val mirror = callDefinition.mirror as? Call
-                        if (mirror != null) {
-                            stubCompared++
+                        if (mirror != null && moduleMirror != null) {
+                            // null means the module's map build itself failed and was already logged once -
+                            // a stub in that module gets no comparison at all, rather than every one of them
+                            // separately reporting the fallout as its own, misleading "mirror=null" mismatch.
+                            val byArityByName =
+                                firstClauseByArityByNameOrNull(moduleMirror, firstClauseCache, beamLabel, stubMismatches)
 
-                            val expected =
-                                firstClauseParameters(mirror, name, arity, firstClauseCache, beamLabel, stubMismatches)
-                            val actual = stub.parameters()
+                            if (byArityByName != null) {
+                                stubCompared++
+                                val firstClause = byArityByName[name]?.get(arity)
 
-                            if (expected != actual) {
-                                stubMismatches += "$beamLabel: ${stub.resolvedFunctionName()} $name/$arity " +
-                                    "mirror=$expected stub=$actual"
+                                // firstClause must come from an independent traversal: mirror was set using
+                                // ModuleImpl.callDefinitionClauseByArityByName, so comparing it against that same
+                                // function's own output could never disagree.
+                                if (firstClause != null && !mirror.isEquivalentTo(firstClause)) {
+                                    stubMismatches += "$beamLabel: ${stub.resolvedFunctionName()} $name/$arity " +
+                                        "mirror is not the first matching clause"
+                                }
+
+                                val expected = firstClause?.let { clauseParameters(it) }
+                                val actual = stub.parameters()
+
+                                if (expected != actual) {
+                                    stubMismatches += "$beamLabel: ${stub.resolvedFunctionName()} $name/$arity " +
+                                        "mirror=$expected stub=$actual"
+                                }
                             }
                         }
                     } catch (t: ProcessCanceledException) {
@@ -192,17 +218,34 @@ object SdkStdlibSweep {
             callDefinition.exportedName()
         }
 
-    private fun firstClauseParameters(
-        mirror: Call,
-        name: String,
-        arity: Int,
-        cache: MutableMap<PsiElement, Map<String, Map<Int, Call>>>,
+    /**
+     * The module's name/arity -> first-clause map, or `null` if building it threw. Cached either way, so a bad
+     * clause costs exactly one log entry per module, not one per query against it.
+     */
+    private fun firstClauseByArityByNameOrNull(
+        moduleMirror: Call,
+        cache: MutableMap<PsiElement, Map<String, Map<Int, Call>>?>,
         beamLabel: String,
         stubMismatches: MutableList<String>
-    ): List<String>? =
-        cache.getOrPut(mirror.parent) { firstClauseByArityByName(mirror.parent, beamLabel, stubMismatches) }[name]
-            ?.get(arity)
-            ?.let { CallDefinitionClause.head(it) }
+    ): Map<String, Map<Int, Call>>? {
+        // A cached failure is a real, meaningful null, so presence must be checked with containsKey - a null
+        // value looks the same as an absent key to any check that reads the value itself.
+        if (!cache.containsKey(moduleMirror)) {
+            cache[moduleMirror] = try {
+                firstClauseByArityByName(moduleMirror)
+            } catch (t: ProcessCanceledException) {
+                throw t
+            } catch (t: Throwable) {
+                stubMismatches += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
+                null
+            }
+        }
+
+        return cache[moduleMirror]
+    }
+
+    private fun clauseParameters(clause: Call): List<String>? =
+        CallDefinitionClause.head(clause)
             ?.let { CallDefinitionHead.strip(it) as? Call }
             ?.let { head ->
                 // `def not(value)` parses as `not` applied to the parenthesized operand `(value)`.
@@ -211,26 +254,17 @@ object SdkStdlibSweep {
                 }
             }
 
-    /** Keeps the first clause per `(name, arity)` in document order, in the module's own siblings. */
-    private fun firstClauseByArityByName(
-        moduleBody: PsiElement,
-        beamLabel: String,
-        stubMismatches: MutableList<String>
-    ): Map<String, Map<Int, Call>> {
+    /**
+     * Keeps the first clause per `(name, arity)` in document order, among the module's own clauses.
+     *
+     * [moduleMirror] must be the module's own top-level mirror `Call`, the same starting point
+     * [org.elixir_lang.beam.psi.impl.ModuleImpl]'s own traversal uses - not any specific clause's own parent.
+     */
+    private fun firstClauseByArityByName(moduleMirror: Call): Map<String, Map<Int, Call>> {
         val byArityByName = mutableMapOf<String, MutableMap<Int, Call>>()
 
-        for (call in moduleBody.children.filterIsInstance<Call>()) {
-            try {
-                if (CallDefinitionClause.`is`(call)) {
-                    CallDefinitionClause.putNameArityInterval(call, ResolveState.initial(), byArityByName) {
-                        byArity, arity, matched -> byArity.putIfAbsent(arity, matched)
-                    }
-                }
-            } catch (t: ProcessCanceledException) {
-                throw t
-            } catch (t: Throwable) {
-                stubMismatches += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
-            }
+        for (call in Modular.callDefinitionClauseCallSequence(moduleMirror)) {
+            CallDefinitionClause.putNameArityInterval(call, ResolveState.initial(), byArityByName, CallDefinitionClause.firstWins)
         }
 
         return byArityByName

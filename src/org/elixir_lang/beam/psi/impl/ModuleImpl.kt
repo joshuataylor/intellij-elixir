@@ -195,7 +195,7 @@ class ModuleImpl<T : ModuleStub<*>?>(private val stub: T) : ModuleElementImpl(),
                             }
 
                             nameArityInterval.arityInterval.closed().forEach { arity ->
-                                typeByArity[arity] = typeDefinition
+                                CallDefinitionClause.firstWins(typeByArity, arity, typeDefinition)
                             }
                         }
                 }
@@ -218,9 +218,9 @@ class ModuleImpl<T : ModuleStub<*>?>(private val stub: T) : ModuleElementImpl(),
                     mirrorPsi,
                     initialResolveState
                 ) { call: Call, accResolvedState: ResolveState ->
-                    CallDefinitionClause.putNameArityInterval(call, accResolvedState, callDefinitionByArityByName) {
-                        byArity, arity, matched -> byArity[arity] = matched
-                    }
+                    CallDefinitionClause.putNameArityInterval(
+                        call, accResolvedState, callDefinitionByArityByName, CallDefinitionClause.firstWins
+                    )
 
                     true
                 }

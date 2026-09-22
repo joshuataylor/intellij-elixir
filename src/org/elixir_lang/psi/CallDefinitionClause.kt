@@ -135,6 +135,10 @@ object CallDefinitionClause {
     fun nameArityInterval(call: Call, state: ResolveState): NameArityInterval? =
             head(call)?.let { CallDefinitionHead.nameArityInterval(it, state) }
 
+    /** A [putNameArityInterval] `write` policy that keeps the first clause seen for a repeated `(name, arity)`. */
+    val firstWins: (byArity: MutableMap<Int, Call>, arity: Int, call: Call) -> Unit =
+            { byArity, arity, call -> byArity.putIfAbsent(arity, call) }
+
     /**
      * Adds [call] to [byArityByName] under its name, once per arity in its arity interval, via [write] - so a
      * caller building a name/arity lookup across many clauses picks once whether a repeated (name, arity) keeps
