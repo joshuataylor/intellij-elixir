@@ -42,7 +42,8 @@ class VariableOracleCorpusTest : PlatformTestCase() {
 
     private class Case(val id: String, val fileName: String, val text: String, val occurrences: List<Occurrence>) {
         val watched get() = occurrences.filter { it.name == WATCHED }
-        fun group(occurrence: Occurrence) = occurrences.filter { it.group == occurrence.group }
+        private val occurrencesByGroup = occurrences.groupBy { it.group }
+        fun group(occurrence: Occurrence) = occurrencesByGroup.getValue(occurrence.group)
         fun root(occurrence: Occurrence) = group(occurrence).first { it.binds && it.version == it.group }
     }
 
