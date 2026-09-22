@@ -107,6 +107,8 @@
 
 - [#4146](https://github.com/intellij-elixir/intellij-elixir/pull/4146) [@sh41](https://github.com/sh41)
   - **Building a project no longer fails with `UnsupportedClassVersionError` from the plugin's JPS classes when the project SDK is older than the IDE's JDK.** Fixes [#3996](https://github.com/intellij-elixir/intellij-elixir/issues/3996).
+- [#4160](https://github.com/intellij-elixir/intellij-elixir/pull/4160) [@sh41](https://github.com/sh41)
+  - **Editing a module with a large `@doc` or `@moduledoc` block no longer freezes the IDE.** Fixes [#2813](https://github.com/intellij-elixir/intellij-elixir/issues/2813).
 - [#4141](https://github.com/intellij-elixir/intellij-elixir/pull/4141) [@sh41](https://github.com/sh41)
   - **A `@doc` whose value is an expression starting with a string, such as `@doc "text" <> "more"`, no longer reports an error on every highlighting pass.** Fixes [#4131](https://github.com/intellij-elixir/intellij-elixir/issues/4131).
 - [#4140](https://github.com/intellij-elixir/intellij-elixir/pull/4140) [@sh41](https://github.com/sh41)
