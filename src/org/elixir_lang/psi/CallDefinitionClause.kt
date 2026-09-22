@@ -135,6 +135,27 @@ object CallDefinitionClause {
     fun nameArityInterval(call: Call, state: ResolveState): NameArityInterval? =
             head(call)?.let { CallDefinitionHead.nameArityInterval(it, state) }
 
+    /**
+     * Adds [call] to [byArityByName] under its name, once per arity in its arity interval, via [write] - so a
+     * caller building a name/arity lookup across many clauses picks once whether a repeated (name, arity) keeps
+     * the first clause seen or the last, instead of every call site reimplementing this walk.
+     */
+    @RequiresReadLock
+    fun putNameArityInterval(
+            call: Call,
+            state: ResolveState,
+            byArityByName: MutableMap<String, MutableMap<Int, Call>>,
+            write: (byArity: MutableMap<Int, Call>, arity: Int, call: Call) -> Unit
+    ) {
+        nameArityInterval(call, state)?.let { nameArityInterval ->
+            val byArity = byArityByName.getOrPut(nameArityInterval.name) { mutableMapOf() }
+            nameArityInterval.arityInterval.closed().forEach { arity ->
+                ProgressManager.checkCanceled()
+                write(byArity, arity, call)
+            }
+        }
+    }
+
     @RequiresReadLock
     fun nameIdentifier(call: Call): PsiElement? = head(call)?.let { CallDefinitionHead.nameIdentifier(it) }
 
