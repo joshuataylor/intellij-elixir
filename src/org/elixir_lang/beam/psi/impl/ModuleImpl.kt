@@ -218,14 +218,8 @@ class ModuleImpl<T : ModuleStub<*>?>(private val stub: T) : ModuleElementImpl(),
                     mirrorPsi,
                     initialResolveState
                 ) { call: Call, accResolvedState: ResolveState ->
-                    CallDefinitionClause.nameArityInterval(call, accResolvedState)?.let { nameArityInterval ->
-                        val callDefinitionByArity = callDefinitionByArityByName.getOrPut(nameArityInterval.name) {
-                            mutableMapOf()
-                        }
-
-                        nameArityInterval.arityInterval.closed().forEach { arity ->
-                            callDefinitionByArity[arity] = call
-                        }
+                    CallDefinitionClause.putNameArityInterval(call, accResolvedState, callDefinitionByArityByName) {
+                        byArity, arity, matched -> byArity[arity] = matched
                     }
 
                     true

@@ -469,6 +469,8 @@
   - **The parsing tests no longer fail when the reference quoter is merely slow to answer.**
 - [#4155](https://github.com/intellij-elixir/intellij-elixir/pull/4155) [@sh41](https://github.com/sh41)
   - **The SDK stdlib test suite decompiles each resolved Elixir/Erlang SDK once per CI leg instead of three times.**
+- [#PR-TBD](https://github.com/intellij-elixir/intellij-elixir/pull/PR-TBD) [@sh41](https://github.com/sh41)
+  - **The SDK stub-signature sweep no longer rescans every sibling definition per compared function.** Refs [#4162](https://github.com/intellij-elixir/intellij-elixir/issues/4162).
 - [#4120](https://github.com/intellij-elixir/intellij-elixir/pull/4120) [@sh41](https://github.com/sh41)
   - **CI caches now skip the work they exist to skip, and the Windows test leg no longer times out saving them.**
 - [#4116](https://github.com/intellij-elixir/intellij-elixir/pull/4116) [@sh41](https://github.com/sh41)

@@ -1,10 +1,12 @@
 package org.elixir_lang.beam
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.psi.PsiCompiledFile
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiManager
 import com.intellij.psi.ResolveState
@@ -60,6 +62,7 @@ object SdkStdlibSweep {
         var stubExportedWithParameters = 0
         var stubExportedGenerated = 0
         val beamsWithExportedGenerated = mutableSetOf<String>()
+        val firstClauseCache = mutableMapOf<PsiElement, Map<String, Map<Int, Call>>>()
 
         for ((beamLabel, file) in beams) {
             val virtualFile = LocalFileSystem.getInstance().findFileByIoFile(file)
@@ -70,6 +73,8 @@ object SdkStdlibSweep {
 
             val psiFile = try {
                 PsiManager.getInstance(project).findFile(virtualFile)
+            } catch (t: ProcessCanceledException) {
+                throw t
             } catch (t: Throwable) {
                 recordBeamFailure(beamLabel, t, parseFailures, mirrorMisses, stubMismatches)
                 continue
@@ -82,6 +87,8 @@ object SdkStdlibSweep {
 
             val decompiled = try {
                 psiFile.decompiledPsiFile
+            } catch (t: ProcessCanceledException) {
+                throw t
             } catch (t: Throwable) {
                 recordBeamFailure(beamLabel, t, parseFailures, mirrorMisses, stubMismatches)
                 continue
@@ -91,6 +98,8 @@ object SdkStdlibSweep {
                 PsiTreeUtil.findChildOfType(decompiled, PsiErrorElement::class.java)?.let { error ->
                     parseFailures += "$beamLabel: ${error.errorDescription}"
                 }
+            } catch (t: ProcessCanceledException) {
+                throw t
             } catch (t: Throwable) {
                 parseFailures += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
             }
@@ -98,6 +107,8 @@ object SdkStdlibSweep {
             val modules = try {
                 PsiTreeUtil.findChildrenOfType(psiFile, ModuleImpl::class.java)
                     .ifEmpty { psiFile.children.filterIsInstance<ModuleImpl<*>>() }
+            } catch (t: ProcessCanceledException) {
+                throw t
             } catch (t: Throwable) {
                 recordBeamFailure(beamLabel, t, mirrorMisses, stubMismatches)
                 continue
@@ -112,6 +123,8 @@ object SdkStdlibSweep {
                                 mirrorMisses += "$beamLabel: ${nameArity(callDefinition, state)}"
                             }
                         }
+                    } catch (t: ProcessCanceledException) {
+                        throw t
                     } catch (t: Throwable) {
                         mirrorMisses += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
                     }
@@ -134,7 +147,8 @@ object SdkStdlibSweep {
                         if (mirror != null) {
                             stubCompared++
 
-                            val expected = firstClauseParameters(mirror, name, arity)
+                            val expected =
+                                firstClauseParameters(mirror, name, arity, firstClauseCache, beamLabel, stubMismatches)
                             val actual = stub.parameters()
 
                             if (expected != actual) {
@@ -142,6 +156,8 @@ object SdkStdlibSweep {
                                     "mirror=$expected stub=$actual"
                             }
                         }
+                    } catch (t: ProcessCanceledException) {
+                        throw t
                     } catch (t: Throwable) {
                         stubMismatches += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
                     }
@@ -170,19 +186,22 @@ object SdkStdlibSweep {
     private fun nameArity(callDefinition: CallDefinitionImpl<*>, state: ResolveState): String =
         try {
             "${callDefinition.exportedName()}/${callDefinition.exportedArity(state)}"
+        } catch (t: ProcessCanceledException) {
+            throw t
         } catch (t: Throwable) {
             callDefinition.exportedName()
         }
 
-    private fun firstClauseParameters(mirror: Call, name: String, arity: Int): List<String>? =
-        mirror.parent.children
-            .filterIsInstance<Call>()
-            .firstOrNull { call ->
-                CallDefinitionClause.`is`(call) &&
-                    CallDefinitionClause.nameArityInterval(call, ResolveState.initial())?.let {
-                        it.name == name && arity in it.arityInterval.closed()
-                    } == true
-            }
+    private fun firstClauseParameters(
+        mirror: Call,
+        name: String,
+        arity: Int,
+        cache: MutableMap<PsiElement, Map<String, Map<Int, Call>>>,
+        beamLabel: String,
+        stubMismatches: MutableList<String>
+    ): List<String>? =
+        cache.getOrPut(mirror.parent) { firstClauseByArityByName(mirror.parent, beamLabel, stubMismatches) }[name]
+            ?.get(arity)
             ?.let { CallDefinitionClause.head(it) }
             ?.let { CallDefinitionHead.strip(it) as? Call }
             ?.let { head ->
@@ -191,4 +210,29 @@ object SdkStdlibSweep {
                     if (head is Prefix) CallDefinitionHead.stripAllOuterParentheses(argument).text else argument.text
                 }
             }
+
+    /** Keeps the first clause per `(name, arity)` in document order, in the module's own siblings. */
+    private fun firstClauseByArityByName(
+        moduleBody: PsiElement,
+        beamLabel: String,
+        stubMismatches: MutableList<String>
+    ): Map<String, Map<Int, Call>> {
+        val byArityByName = mutableMapOf<String, MutableMap<Int, Call>>()
+
+        for (call in moduleBody.children.filterIsInstance<Call>()) {
+            try {
+                if (CallDefinitionClause.`is`(call)) {
+                    CallDefinitionClause.putNameArityInterval(call, ResolveState.initial(), byArityByName) {
+                        byArity, arity, matched -> byArity.putIfAbsent(arity, matched)
+                    }
+                }
+            } catch (t: ProcessCanceledException) {
+                throw t
+            } catch (t: Throwable) {
+                stubMismatches += "$beamLabel: ${t.javaClass.simpleName}: ${t.message}"
+            }
+        }
+
+        return byArityByName
+    }
 }
