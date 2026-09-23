@@ -244,7 +244,7 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
                     removeSourceUrls = removeSource,
                 )
             }
-            // No diff → no write op (library is already up to date).
+            // No diff -> no write op (library is already up to date).
         } else {
             // Library does not yet exist (or is scheduled for removal) - create with all roots.
             libraryWriteOps += LibraryWriteOp(
@@ -311,7 +311,7 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
                     removeSourceUrls = emptyList(),
                 )
             }
-            // No diff → no write op
+            // No diff -> no write op
         } else {
             libraryWriteOps += LibraryWriteOp(
                 libraryName = consolidatedLibName,
@@ -352,7 +352,7 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
     // anticipate the post-operation library-table state so that newly-created libraries are
     // wired as valid order entries rather than invalid ones.
     //
-    // Known limitation - narrow read→write race window:
+    // Known limitation - narrow read->write race window:
     // Entries that already exist at snapshot time are OMITTED from the write op (see the
     // "continue" guards below). If a concurrent write action removes one of those entries
     // in the gap between this readAction completing and applyWritePlan's edtWriteAction
@@ -378,14 +378,15 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
     // an older version is recognised as superseded rather than current.
     val projectContentRootTokens = ProjectRootManager.getInstance(project).contentRoots
         .mapTo(HashSet()) { contentRootToken(project, it.url) }
-    val moduleNames = (syncPlan.modulePlans.map { it.moduleName } +
-        syncPlan.libraryPlans.flatMap { it.excludeFolders }.map { it.moduleName } +
-        syncPlan.consolidatedPlans.mapNotNull { it.ownerModuleName })
-        .toCollection(LinkedHashSet())
+    val moduleNames = buildSet {
+        syncPlan.modulePlans.mapTo(this) { it.moduleName }
+        syncPlan.libraryPlans.flatMap { it.excludeFolders }.mapTo(this) { it.moduleName }
+        syncPlan.consolidatedPlans.mapNotNullTo(this) { it.ownerModuleName }
+    }
     val modulePlansByName = syncPlan.modulePlans.associateBy { it.moduleName }
     val excludeFoldersByModule = syncPlan.libraryPlans.flatMap { it.excludeFolders }
         .groupBy { it.moduleName }
-    // Map: owner module name → consolidated library names that should be wired as dependencies.
+    // Map: owner module name -> consolidated library names that should be wired as dependencies.
     val consolidatedLibsByModule: Map<String, List<String>> = syncPlan.consolidatedPlans
         .filter { it.ownerModuleName != null && it.classRootUrls.isNotEmpty() }
         .groupBy({ it.ownerModuleName!! }, { it.libraryName })

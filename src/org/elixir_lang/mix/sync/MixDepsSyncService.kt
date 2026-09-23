@@ -20,6 +20,8 @@ import org.elixir_lang.mix.sync.MixDepsSyncService.Companion.LOG
 import org.elixir_lang.util.awaitJpsProjectLoaded
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
+import kotlin.time.measureTimedValue
 
 /**
  * Project-level service that owns the lifecycle of the Mix dep-sync pipeline.
@@ -145,39 +147,37 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
             val requests = resolvePathShapedRequests(project, rawRequests)
             if (requests.isEmpty()) return
 
-            val drainStartNs = System.nanoTime()
+            val drainStart = TimeSource.Monotonic.markNow()
             LOG.debug("MixDepsSyncService: draining ${requests.size} request(s)")
 
             val coalescedRequests = coalesceRequests(requests)
 
-            val buildSyncPlanStartNs = System.nanoTime()
-            val syncPlan = withBackgroundProgress(project, "Syncing Elixir dependencies") {
-                withContext(Dispatchers.Default) {
-                    buildSyncPlan(project, coalescedRequests)
+            val (syncPlan, buildSyncPlanTime) = measureTimedValue {
+                withBackgroundProgress(project, "Syncing Elixir dependencies") {
+                    withContext(Dispatchers.Default) {
+                        buildSyncPlan(project, coalescedRequests)
+                    }
                 }
             }
-            val buildSyncPlanMs = (System.nanoTime() - buildSyncPlanStartNs) / 1_000_000
 
-            var buildWritePlanMs = 0L
-            var applyWritePlanMs = 0L
-            var applyStats = ApplyStats(0, 0)
-
-            if (!syncPlan.isEmpty) {
-                val buildWritePlanStartNs = System.nanoTime()
-                val writePlan = withBackgroundProgress(project, "Computing Elixir dependency changes") {
-                    withContext(Dispatchers.Default) {
-                        buildWritePlan(project, syncPlan)
+            val (writePlan, buildWritePlanTime) = measureTimedValue {
+                if (syncPlan.isEmpty) {
+                    null
+                } else {
+                    withBackgroundProgress(project, "Computing Elixir dependency changes") {
+                        withContext(Dispatchers.Default) {
+                            buildWritePlan(project, syncPlan)
+                        }
                     }
                 }
-                buildWritePlanMs = (System.nanoTime() - buildWritePlanStartNs) / 1_000_000
+            }
 
-                if (!writePlan.isEmpty) {
-                    val applyWritePlanStartNs = System.nanoTime()
-                    applyStats = withBackgroundProgress(project, "Applying Elixir dependency sync") {
-                        applyWritePlan(project, writePlan)
+            val (applyStats, applyWritePlanTime) = measureTimedValue {
+                writePlan?.takeUnless { it.isEmpty }?.let { plan ->
+                    withBackgroundProgress(project, "Applying Elixir dependency sync") {
+                        applyWritePlan(project, plan)
                     }
-                    applyWritePlanMs = (System.nanoTime() - applyWritePlanStartNs) / 1_000_000
-                }
+                } ?: ApplyStats(0, 0)
             }
 
             // The platform only flushes project settings at its own save points - frame
@@ -191,12 +191,12 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
                 SaveAndSyncHandler.getInstance().scheduleProjectSave(project, forceSavingAllSettings = true)
             }
 
-            val totalMs = (System.nanoTime() - drainStartNs) / 1_000_000
             LOG.debug(
-                "MixDepsSyncService: drain complete - ${requests.size} request(s) in ${totalMs}ms " +
-                    "(buildSyncPlan=${buildSyncPlanMs}ms, " +
-                    "buildWritePlan=${buildWritePlanMs}ms, " +
-                    "applyWritePlan=${applyWritePlanMs}ms [write-lock hold], " +
+                "MixDepsSyncService: drain complete - ${requests.size} request(s) in " +
+                    "${drainStart.elapsedNow().inWholeMilliseconds}ms " +
+                    "(buildSyncPlan=${buildSyncPlanTime.inWholeMilliseconds}ms, " +
+                    "buildWritePlan=${buildWritePlanTime.inWholeMilliseconds}ms, " +
+                    "applyWritePlan=${applyWritePlanTime.inWholeMilliseconds}ms [write-lock hold], " +
                     "deleteAlls=${coalescedRequests.deleteAlls.size}, " +
                     "deleteOnes=${coalescedRequests.deleteOnes.size}, " +
                     "hasAll=${coalescedRequests.hasAll}, " +

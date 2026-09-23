@@ -242,7 +242,11 @@ internal suspend fun buildSyncPlan(project: Project, requests: CoalescedRequests
                 val fromDepRoots = requests.depRoots.mapNotNull { depRoot ->
                     depRoot.depRoot.takeIf { it.isValid }
                 }
-                fromSyncRoots + fromDepsRoots + fromDepRoots
+                buildList {
+                    addAll(fromSyncRoots)
+                    addAll(fromDepsRoots)
+                    addAll(fromDepRoots)
+                }
             }
             buildLibraryRootsPlans(project, depRoots)
         }
@@ -329,11 +333,11 @@ private suspend fun allDepRoots(project: Project): List<VirtualFile> =
  * Builds [ConsolidatedLibraryPlan]s for the affected content roots.
  *
  * Scoping rules:
- * - [CoalescedRequests.hasAll] → scan all content roots
- * - [CoalescedRequests.syncRoots] / [CoalescedRequests.depsRoots] / [CoalescedRequests.depRoots] → affected roots only
- * - [CoalescedRequests.consolidatedRoots] → specified content roots only
- * - [CoalescedRequests.syncModuleNames] → content roots of named modules
- * - Delete-only requests → empty list (deletion is handled by [buildWritePlan])
+ * - [CoalescedRequests.hasAll] -> scan all content roots
+ * - [CoalescedRequests.syncRoots] / [CoalescedRequests.depsRoots] / [CoalescedRequests.depRoots] -> affected roots only
+ * - [CoalescedRequests.consolidatedRoots] -> specified content roots only
+ * - [CoalescedRequests.syncModuleNames] -> content roots of named modules
+ * - Delete-only requests -> empty list (deletion is handled by [buildWritePlan])
  */
 private suspend fun buildConsolidatedLibraryPlans(
     project: Project,
@@ -366,8 +370,13 @@ private suspend fun buildConsolidatedLibraryPlans(
                         ?.let { ModuleRootManager.getInstance(it).contentRoots.toList() }
                         .orEmpty()
                 }
-                (fromSyncRoots + fromDepsRoots + fromDepRoots + fromConsolidated + fromModules)
-                    .distinctBy { it.url }
+                buildList {
+                    addAll(fromSyncRoots)
+                    addAll(fromDepsRoots)
+                    addAll(fromDepRoots)
+                    addAll(fromConsolidated)
+                    addAll(fromModules)
+                }.distinctBy { it.url }
             }
         }
 
@@ -721,7 +730,7 @@ internal fun buildLibraryRootsPlansInCurrentContext(project: Project, deps: Coll
                                             excludeFolders += ExcludeFolderPlan(module.name, depEnvLib.url)
                                         }
                                         // Resolve symlinks via VFS before registering: Erlang deps
-                                        // have _build/{env}/lib/{dep}/ebin → deps/{dep}/ebin, so
+                                        // have _build/{env}/lib/{dep}/ebin -> deps/{dep}/ebin, so
                                         // without canonicalization the same physical directory is
                                         // added once per build environment.
                                         val canonicalEbin = ebin.canonicalFile ?: ebin
