@@ -1,8 +1,6 @@
 package org.elixir_lang.sdk.wsl;
 
 import com.intellij.execution.configurations.GeneralCommandLine;
-import com.intellij.execution.wsl.DummyWslIjentAvailabilityService;
-import com.intellij.execution.wsl.WslIjentAvailabilityService;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.testFramework.ServiceContainerUtil;
 import org.elixir_lang.PlatformTestCase;
@@ -21,7 +19,7 @@ import static org.elixir_lang.sdk.wsl.WslCompatServiceKt.getWslCompat;
  */
 public class WslArgumentConversionTest extends PlatformTestCase {
 
-    private static final String WSL_WORK_DIR = "\\\\wsl$\\Ubuntu\\home\\user\\project";
+    private static final String WSL_WORK_DIR = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user\\project";
 
     @Override
     protected void setUp() throws Exception {
@@ -35,26 +33,13 @@ public class WslArgumentConversionTest extends PlatformTestCase {
             mockService,
             getTestRootDisposable()
         );
-
-        // The Windows IDE distribution bundles intellij.platform.ijent.impl, which (on the test
-        // classpath since IntelliJ Platform Gradle Plugin 2.18) overrides this service so that
-        // \\wsl.localhost\ paths boot a real IJent session inside a real WSL distribution. This
-        // suite uses fictional distribution names and must never contact real WSL, so restore the
-        // platform's own no-IJent implementation.
-        //noinspection UnstableApiUsage
-        ServiceContainerUtil.registerOrReplaceServiceInstance(
-            ApplicationManager.getApplication(),
-            WslIjentAvailabilityService.class,
-            new DummyWslIjentAvailabilityService(),
-            getTestRootDisposable()
-        );
     }
 
     /**
      * Test that simple argument with embedded WSL path is converted.
      */
     public void testConvertSimpleArgument() {
-        String input = "--path=\\\\wsl$\\Ubuntu\\home\\user";
+        String input = "--path=\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user";
         String expected = "--path=/home/user";
 
         assertSingleArgumentConverted(input, expected);
@@ -64,7 +49,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test conversion with forward slashes in UNC path.
      */
     public void testConvertForwardSlashUncPath() {
-        String input = "--path=//wsl$/Ubuntu/home/user";
+        String input = "--path=//wsl$/IntellijElixirWSLDistribution/home/user";
         String expected = "--path=/home/user";
 
         assertSingleArgumentConverted(input, expected);
@@ -74,10 +59,10 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test conversion with wsl.localhost format.
      */
     public void testConvertWslLocalhostFormat() {
-        String input = "--path=\\\\wsl.localhost\\Ubuntu\\home\\user";
+        String input = "--path=\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\user";
         String expected = "--path=/home/user";
 
-        String wslLocalWorkDir = "\\\\wsl.localhost\\Ubuntu\\home\\user\\project";
+        String wslLocalWorkDir = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\user\\project";
         assertSingleArgumentConverted(wslLocalWorkDir, input, expected);
     }
 
@@ -85,7 +70,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test conversion of multiple paths in single argument.
      */
     public void testConvertMultiplePathsInArgument() {
-        String input = "--map=\\\\wsl$\\Ubuntu\\home\\user\\dir1:\\\\wsl$\\Ubuntu\\home\\user\\dir2";
+        String input = "--map=\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user\\dir1:\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user\\dir2";
         String expected = "--map=/home/user/dir1:/home/user/dir2";
 
         assertSingleArgumentConverted(input, expected);
@@ -95,7 +80,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test conversion of standalone path argument.
      */
     public void testConvertStandalonePathArgument() {
-        String input = "\\\\wsl$\\Ubuntu\\home\\user\\file.txt";
+        String input = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user\\file.txt";
         String expected = "/home/user/file.txt";
 
         assertSingleArgumentConverted(input, expected);
@@ -105,7 +90,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test that paths with spaces are handled correctly.
      */
     public void testConvertPathWithSpaces() {
-        String input = "--path=\\\\wsl$\\Ubuntu\\home\\user\\my documents";
+        String input = "--path=\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user\\my documents";
         String expected = "--path=/home/user/my documents";
 
         assertSingleArgumentConverted(input, expected);
@@ -118,10 +103,10 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        commandLine.setExePath("\\\\wsl$\\Ubuntu\\usr\\bin\\elixir");
+        commandLine.setExePath("\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\bin\\elixir");
         commandLine.setWorkDirectory(WSL_WORK_DIR);
-        commandLine.addParameter("--path=\\\\wsl$\\Ubuntu\\home\\user");
-        commandLine.addParameter("--config=\\\\wsl$\\Ubuntu\\etc\\config");
+        commandLine.addParameter("--path=\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user");
+        commandLine.addParameter("--config=\\\\wsl$\\IntellijElixirWSLDistribution\\etc\\config");
         commandLine.addParameter("run");
 
         ProcessBuilder processBuilder = toProcessBuilder(commandLine);
@@ -141,7 +126,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        commandLine.setExePath("\\\\wsl$\\Ubuntu\\usr\\bin\\elixir");
+        commandLine.setExePath("\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\bin\\elixir");
         commandLine.setWorkDirectory(WSL_WORK_DIR);
         String[] inputs = {"--verbose", "--path=/local/path", "run"};
         for (String input : inputs) {
@@ -159,7 +144,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test that conversion is skipped when working directory is not in WSL.
      */
     public void testSkipConversionForNonWslWorkingDirectory() {
-        String expected = "--path=\\\\wsl$\\Ubuntu\\home\\user";
+        String expected = "--path=\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user";
         // Should remain unchanged
 
         WslCompatService service = getWslCompat();
@@ -180,7 +165,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test that mixed path separators are handled.
      */
     public void testConvertMixedPathSeparators() {
-        String input = "--path=\\\\wsl$\\Ubuntu/home/user";
+        String input = "--path=\\\\wsl$\\IntellijElixirWSLDistribution/home/user";
         String expected = "--path=/home/user";
 
         assertSingleArgumentConverted(input, expected);
@@ -190,7 +175,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test conversion stops at invalid Windows path characters.
      */
     public void testConvertStopsAtInvalidCharacters() {
-        String input = "--path=\\\\wsl$\\Ubuntu\\home\\user|other";
+        String input = "--path=\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user|other";
         String expected = "--path=/home/user|other";
 
         assertSingleArgumentConverted(input, expected);
@@ -200,7 +185,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test that paths embedded in JSON are converted.
      */
     public void testConvertPathsInJson() {
-        String input = "{\"path\":\"\\\\wsl$\\Ubuntu\\home\\user\"}";
+        String input = "{\"path\":\"\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user\"}";
         String expected = "{\"path\":\"/home/user\"}";
 
         assertSingleArgumentConverted(input, expected);
@@ -213,7 +198,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        commandLine.setExePath("\\\\wsl$\\Ubuntu\\usr\\bin\\elixir");
+        commandLine.setExePath("\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\bin\\elixir");
         commandLine.setWorkDirectory(WSL_WORK_DIR);
         // No parameters
 
@@ -228,10 +213,10 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test case-insensitive matching of wsl$ and wsl.localhost.
      */
     public void testConvertCaseInsensitive() {
-        String input = "--path=\\\\WSL$\\Ubuntu\\home\\user";
+        String input = "--path=\\\\WSL$\\IntellijElixirWSLDistribution\\home\\user";
         String expected = "--path=/home/user";
 
-        String wslWorkDirUppercase = "\\\\WSL$\\Ubuntu\\home\\user\\project";
+        String wslWorkDirUppercase = "\\\\WSL$\\IntellijElixirWSLDistribution\\home\\user\\project";
         assertSingleArgumentConverted(wslWorkDirUppercase, input, expected);
     }
 
@@ -239,10 +224,10 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test that distribution mismatch prevents conversion.
      */
     public void testDoNotConvertDifferentDistribution() {
-        String expected = "--path=\\\\wsl$\\Debian\\home\\user";
+        String expected = "--path=\\\\wsl$\\IntellijElixirOtherWSLDistribution\\home\\user";
         // Should remain unchanged
 
-        // Executable is in Ubuntu, but argument references Debian
+        // Executable is in IntellijElixirWSLDistribution, but argument references IntellijElixirOtherWSLDistribution
         assertSingleArgumentConverted(expected, expected);
     }
 
@@ -290,7 +275,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
      * Test conversion of mixed WSL UNC and Windows drive paths.
      */
     public void testConvertMixedWslUncAndDrivePaths() {
-        String input = "--wsl=\\\\wsl$\\Ubuntu\\home\\user --win=C:/Users/user";
+        String input = "--wsl=\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user --win=C:/Users/user";
         String expected = "--wsl=/home/user --win=/mnt/c/Users/user";
 
         assertSingleArgumentConverted(input, expected);
@@ -323,7 +308,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        commandLine.setExePath("\\\\wsl$\\Ubuntu\\usr\\bin\\elixir");
+        commandLine.setExePath("\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\bin\\elixir");
         commandLine.setWorkDirectory(WSL_WORK_DIR);
         commandLine.getEnvironment().put("ANOTHER_ENV_VAR", "/home/user/.local/share/mise/installs/elixir/1.17.3/bin:/home/user/.local/share/mise/installs/elixir/1.17.3/.mix/escripts");
         commandLine.getEnvironment().put("MIX_HOME", "C:/Users/user/.mix");
@@ -354,7 +339,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        commandLine.setExePath("\\\\wsl$\\Ubuntu\\usr\\bin\\elixir");
+        commandLine.setExePath("\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\bin\\elixir");
         commandLine.setWorkDirectory(WSL_WORK_DIR);
         commandLine.addParameter("c:/lowercase");
         commandLine.addParameter("C:/uppercase");
@@ -375,7 +360,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        String exePath = "\\\\wsl$\\Ubuntu\\usr\\bin\\elixir";
+        String exePath = "\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\bin\\elixir";
         commandLine.setExePath(exePath);
         commandLine.setWorkDirectory(WSL_WORK_DIR);
         commandLine.addParameter("--version");
@@ -395,7 +380,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
         String exePath = "/usr/local/bin/elixir";
-        String originalParam = "\\\\wsl$\\Ubuntu\\home\\user\\file.txt";
+        String originalParam = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user\\file.txt";
 
         commandLine.setExePath(exePath);
         commandLine.setWorkDirectory(WSL_WORK_DIR);
@@ -416,9 +401,9 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        String exePath = "\\\\wsl$\\Ubuntu\\usr\\bin\\elixir";
-        String workDir = "\\\\wsl$\\Debian\\home\\user\\project";
-        String originalParam = "--path=\\\\wsl$\\Ubuntu\\home\\user";
+        String exePath = "\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\bin\\elixir";
+        String workDir = "\\\\wsl$\\IntellijElixirOtherWSLDistribution\\home\\user\\project";
+        String originalParam = "--path=\\\\wsl$\\IntellijElixirWSLDistribution\\home\\user";
 
         commandLine.setExePath(exePath);
         commandLine.setWorkDirectory(workDir);
@@ -449,7 +434,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        String exePath = "//wsl$/Ubuntu/usr/bin/elixir";
+        String exePath = "//wsl$/IntellijElixirWSLDistribution/usr/bin/elixir";
         commandLine.setExePath(exePath);
         commandLine.setWorkDirectory(WSL_WORK_DIR);
 
@@ -466,8 +451,8 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        String exePath = "\\\\wsl.localhost\\Ubuntu\\usr\\bin\\elixir";
-        String workDir = "\\\\wsl.localhost\\Ubuntu\\home\\user\\project";
+        String exePath = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\usr\\bin\\elixir";
+        String workDir = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\user\\project";
 
         commandLine.setExePath(exePath);
         commandLine.setWorkDirectory(workDir);
@@ -486,7 +471,7 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
         GeneralCommandLine commandLine = new GeneralCommandLine();
 
-        String exePath = "\\\\wsl$\\Ubuntu\\mnt\\c\\tools\\elixir.bat";
+        String exePath = "\\\\wsl$\\IntellijElixirWSLDistribution\\mnt\\c\\tools\\elixir.bat";
         commandLine.setExePath(exePath);
         commandLine.setWorkDirectory(WSL_WORK_DIR);
 
@@ -515,12 +500,12 @@ public class WslArgumentConversionTest extends PlatformTestCase {
         // Set exePath to match the working directory distribution for consistency
         // Extract distribution from workDir and create a matching exePath
         String exePath;
-        if (workDir.contains("Ubuntu")) {
+        if (workDir.contains("IntellijElixirWSLDistribution")) {
             exePath = workDir.substring(0, workDir.lastIndexOf('\\')) + "\\usr\\bin\\elixir";
-        } else if (workDir.contains("Debian")) {
+        } else if (workDir.contains("IntellijElixirOtherWSLDistribution")) {
             exePath = workDir.substring(0, workDir.lastIndexOf('\\')) + "\\usr\\bin\\elixir";
         } else {
-            exePath = "\\\\wsl$\\Ubuntu\\usr\\bin\\elixir";
+            exePath = "\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\bin\\elixir";
         }
         GeneralCommandLine commandLine = new GeneralCommandLine();
         commandLine.setExePath(exePath);

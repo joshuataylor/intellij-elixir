@@ -21,14 +21,14 @@ class WslFlatWatchRefreshTest : HeavyPlatformTestCase() {
     private val lfs get() = LocalFileSystem.getInstance()
 
     fun testOnlyAWslPathIsRefreshedAndOnlyBeforeThePlatformFix() {
-        assertTrue(WslFlatWatchRefresh.isAffected("//wsl.localhost/Ubuntu/home/u/.local/share/mise/installs/elixir", 261, true))
-        assertTrue(WslFlatWatchRefresh.isAffected("\\\\wsl$\\Ubuntu\\home\\u\\.tool-versions", 261, true))
-        assertTrue(WslFlatWatchRefresh.isAffected("//WSL.LOCALHOST/Ubuntu/home/u", 261, true))
+        assertTrue(WslFlatWatchRefresh.isAffected("//wsl.localhost/IntellijElixirWSLDistribution/home/u/.local/share/mise/installs/elixir", 261, true))
+        assertTrue(WslFlatWatchRefresh.isAffected("\\\\wsl$\\IntellijElixirWSLDistribution\\home\\u\\.tool-versions", 261, true))
+        assertTrue(WslFlatWatchRefresh.isAffected("//WSL.LOCALHOST/IntellijElixirWSLDistribution/home/u", 261, true))
 
         assertFalse("a local path", WslFlatWatchRefresh.isAffected("C:/Users/u/.local/share/mise", 261, true))
         assertFalse("another UNC share", WslFlatWatchRefresh.isAffected("//server/share/mise", 261, true))
-        assertFalse("the fixed platform", WslFlatWatchRefresh.isAffected("//wsl.localhost/Ubuntu/home/u", 262, true))
-        assertFalse("the EEL watcher turned off", WslFlatWatchRefresh.isAffected("//wsl.localhost/Ubuntu/home/u", 261, false))
+        assertFalse("the fixed platform", WslFlatWatchRefresh.isAffected("//wsl.localhost/IntellijElixirWSLDistribution/home/u", 262, true))
+        assertFalse("the EEL watcher turned off", WslFlatWatchRefresh.isAffected("//wsl.localhost/IntellijElixirWSLDistribution/home/u", 261, false))
     }
 
     fun testARefreshReportsAChildCreatedAndOneDeleted() {
@@ -63,11 +63,11 @@ class WslFlatWatchRefreshTest : HeavyPlatformTestCase() {
             val refresh = WslFlatWatchRefresh(scope)
             val first = Disposer.newDisposable(testRootDisposable, "first")
             val second = Disposer.newDisposable(testRootDisposable, "second")
-            refresh.track(listOf("//wsl.localhost/Ubuntu/a", "//wsl.localhost/Ubuntu/b"), first)
-            refresh.track(listOf("//wsl.localhost/Ubuntu/a"), second)
+            refresh.track(listOf("//wsl.localhost/IntellijElixirWSLDistribution/a", "//wsl.localhost/IntellijElixirWSLDistribution/b"), first)
+            refresh.track(listOf("//wsl.localhost/IntellijElixirWSLDistribution/a"), second)
 
             Disposer.dispose(first)
-            assertEquals(setOf("//wsl.localhost/Ubuntu/a"), refresh.followed())
+            assertEquals(setOf("//wsl.localhost/IntellijElixirWSLDistribution/a"), refresh.followed())
 
             Disposer.dispose(second)
             assertEquals(emptySet<String>(), refresh.followed())
@@ -83,7 +83,7 @@ class WslFlatWatchRefreshTest : HeavyPlatformTestCase() {
             val owner = Disposer.newDisposable(testRootDisposable, "owner")
             Disposer.dispose(owner)
 
-            refresh.track(listOf("//wsl.localhost/Ubuntu/a"), owner)
+            refresh.track(listOf("//wsl.localhost/IntellijElixirWSLDistribution/a"), owner)
 
             assertEquals(emptySet<String>(), refresh.followed())
         } finally {

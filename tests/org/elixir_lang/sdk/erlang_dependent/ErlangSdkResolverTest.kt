@@ -145,8 +145,8 @@ class ErlangSdkResolverTest : PlatformTestCase() {
         // Registered Erlang SDK home uses the legacy \\wsl$\ spelling; the persisted Elixir SDK
         // configuration uses the modern \\wsl.localhost\ spelling for the same install. Path-first
         // resolution must match across both spellings of the same distro.
-        val legacyHomePath = "\\\\wsl$\\Ubuntu-24.04\\home\\testuser\\.asdf\\installs\\erlang\\26.0"
-        val modernHomePath = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\.asdf\\installs\\erlang\\26.0"
+        val legacyHomePath = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\testuser\\.asdf\\installs\\erlang\\26.0"
+        val modernHomePath = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\.asdf\\installs\\erlang\\26.0"
         val erlangSdk = createSdk(name = "Erlang 26", sdkType = ErlangSdkType.instance, homePath = legacyHomePath)
 
         val elixirSdk = createElixirSdk { sdk ->

@@ -148,8 +148,8 @@ class ElixirSdkForModuleStepTest : PlatformTestCase() {
 
         assertEquals(
             "Legacy- and modern-prefix paths into the same distro must resolve to equal descriptors",
-            moduleStep.eelDescriptor("${LEGACY_WSL_PREFIX}Ubuntu\\home\\user\\project"),
-            moduleStep.eelDescriptor("${MODERN_WSL_PREFIX}Ubuntu\\home\\user\\project")
+            moduleStep.eelDescriptor("${LEGACY_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\project"),
+            moduleStep.eelDescriptor("${MODERN_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\project")
         )
     }
 
@@ -161,8 +161,8 @@ class ElixirSdkForModuleStepTest : PlatformTestCase() {
 
         assertEquals(
             "Descriptor equality must be prefix-insensitive under the modern -> legacy policy too",
-            moduleStep.eelDescriptor("${LEGACY_WSL_PREFIX}Ubuntu\\home\\user\\project"),
-            moduleStep.eelDescriptor("${MODERN_WSL_PREFIX}Ubuntu\\home\\user\\project")
+            moduleStep.eelDescriptor("${LEGACY_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\project"),
+            moduleStep.eelDescriptor("${MODERN_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\project")
         )
     }
 
@@ -222,13 +222,13 @@ class ElixirSdkForModuleStepTest : PlatformTestCase() {
     }
 
     fun testWslSdkIsVisibleForImportTargetInSameDistroWithMixedPrefixes() {
-        val sdk = registerElixirSdk("WSL Elixir", homePath = "${LEGACY_WSL_PREFIX}Ubuntu\\home\\user\\elixir")
+        val sdk = registerElixirSdk("WSL Elixir", homePath = "${LEGACY_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\elixir")
 
         // Environment-independent: without WSL both sides are the local descriptor; with WSL both
         // normalize to the same distro descriptor. Either way the SDK must be visible.
         assertTrue(
             "A WSL SDK should be visible when importing from the same distro via the other prefix",
-            step("${MODERN_WSL_PREFIX}Ubuntu\\home\\user\\project").sdkVisibleForImportTarget(sdk)
+            step("${MODERN_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\project").sdkVisibleForImportTarget(sdk)
         )
     }
 
@@ -276,8 +276,8 @@ class ElixirSdkForModuleStepTest : PlatformTestCase() {
     }
 
     fun testUpdateStepMakesWslSdkAvailableWhenImportingFromSameDistroWithMixedPrefixes() {
-        val sdk = registerElixirSdk("WSL Elixir", homePath = "${LEGACY_WSL_PREFIX}Ubuntu\\home\\user\\elixir")
-        val moduleStep = step("${MODERN_WSL_PREFIX}Ubuntu\\home\\user\\project")
+        val sdk = registerElixirSdk("WSL Elixir", homePath = "${LEGACY_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\elixir")
+        val moduleStep = step("${MODERN_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\project")
 
         moduleStep.updateStep()
 
@@ -315,8 +315,8 @@ class ElixirSdkForModuleStepTest : PlatformTestCase() {
     }
 
     fun testUpdateStepDoesNotDuplicateWslSdkOnRepeatedCalls() {
-        registerElixirSdk("WSL Elixir", homePath = "${LEGACY_WSL_PREFIX}Ubuntu\\home\\user\\elixir")
-        val moduleStep = step("${MODERN_WSL_PREFIX}Ubuntu\\home\\user\\project")
+        registerElixirSdk("WSL Elixir", homePath = "${LEGACY_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\elixir")
+        val moduleStep = step("${MODERN_WSL_PREFIX}IntellijElixirWSLDistribution\\home\\user\\project")
 
         moduleStep.updateStep()
         val sdkCountAfterFirstUpdate = moduleStep.projectSdksModel.projectSdks.size

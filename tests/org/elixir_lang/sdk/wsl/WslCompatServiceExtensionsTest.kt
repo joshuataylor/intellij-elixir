@@ -9,19 +9,20 @@ import org.elixir_lang.PlatformTestCase
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
 import org.mockito.Mockito.*
+import java.nio.file.NoSuchFileException
 import java.util.concurrent.Callable
 
 class WslCompatServiceExtensionsTest : PlatformTestCase() {
     private val wslCompatMock = MockWslCompatService()
 
     fun testConvertLinuxPathToWindowsUncFromContext_convertsForWslContext() {
-        val contextPath = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project"
+        val contextPath = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project"
         val linuxPath = "/home/testuser/.local/share/mise/installs/elixir/1.15.7"
 
         val converted = wslCompatMock.convertLinuxPathToWindowsUncFromContext(contextPath, linuxPath)
 
         assertEquals(
-            "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7",
             converted,
         )
     }
@@ -37,7 +38,7 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
 
     fun testConvertLinuxPathToWindowsUncFromContext_returnsNullForNonLinuxPath() {
         val converted = wslCompatMock.convertLinuxPathToWindowsUncFromContext(
-            "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project",
             "C:\\Program Files\\Elixir",
         )
 
@@ -48,7 +49,7 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
         val serviceWithUnknownDistribution = MockWslCompatService(distributionOverride = { null })
 
         val converted = serviceWithUnknownDistribution.convertLinuxPathToWindowsUncFromContext(
-            "\\\\wsl.localhost\\Unknown\\home\\testuser\\project",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project",
             "/home/testuser/.local/share/mise/installs/elixir/1.15.7",
         )
 
@@ -57,7 +58,7 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
 
     fun testConvertLinuxPathToWindowsUncFromContext_returnsNullWhenConversionFails() {
         val distro = Mockito.mock(WSLDistribution::class.java)
-        `when`(distro.msId).thenReturn("Ubuntu-24.04")
+        `when`(distro.msId).thenReturn("IntellijElixirWSLDistribution")
 
         val serviceWithFailingConversion = MockWslCompatService(
             distributionOverride = { distro },
@@ -65,7 +66,7 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
         )
 
         val converted = serviceWithFailingConversion.convertLinuxPathToWindowsUncFromContext(
-            "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project",
             "/home/testuser/.local/share/mise/installs/elixir/1.15.7",
         )
 
@@ -73,9 +74,9 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
     }
 
     fun testMaybeConvertLinuxPathToWindowsUncFromContext_convertsForWslContext() {
-        val contextPath = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project"
+        val contextPath = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project"
         val linuxPath = "/home/testuser/.local/share/mise/installs/elixir/1.15.7"
-        val expected = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
+        val expected = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
         val converted = wslCompatMock.maybeConvertLinuxPathToWindowsUncFromContext(contextPath, linuxPath)
 
         assertEquals(expected, converted)
@@ -130,41 +131,41 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
     }
 
     fun testPathsEqualWslAware_rewritesLegacyWslPrefixBeforeComparing() {
-        val modern = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
-        val legacy = "\\\\wsl$\\Ubuntu-24.04\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
+        val modern = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
+        val legacy = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
         // Default mock policy is legacy -> modern.
         assertTrue(wslCompatMock.pathsEqualWslAware(modern, legacy))
     }
 
     fun testPathsEqualWslAware_rewritesModernWslPrefixBeforeComparing() {
         val legacyOnlyPolicy = MockWslCompatService(prefixConversionOverride = MODERN_WSL_PREFIX to LEGACY_WSL_PREFIX)
-        val modern = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
-        val legacy = "\\\\wsl$\\Ubuntu-24.04\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
+        val modern = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
+        val legacy = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\testuser\\.local\\share\\mise\\installs\\elixir\\1.15.7"
         assertTrue(legacyOnlyPolicy.pathsEqualWslAware(modern, legacy))
     }
 
     /** The SDK table stores homes with forward slashes; a scan or a chooser hands back backslashes. */
     fun testPathsEqualWslAware_rewritesAForwardSlashPrefixToo() {
         val legacyOnlyPolicy = MockWslCompatService(prefixConversionOverride = MODERN_WSL_PREFIX to LEGACY_WSL_PREFIX)
-        val stored = "//wsl.localhost/Ubuntu-24.04/home/testuser/.local/share/mise/installs/erlang/29.0"
-        val scanned = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\.local\\share\\mise\\installs\\erlang\\29.0"
+        val stored = "//wsl.localhost/IntellijElixirWSLDistribution/home/testuser/.local/share/mise/installs/erlang/29.0"
+        val scanned = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\.local\\share\\mise\\installs\\erlang\\29.0"
 
         assertTrue("Windows 10's rule, modern to legacy", legacyOnlyPolicy.pathsEqualWslAware(stored, scanned))
         assertTrue(
             "Windows 11's rule, legacy to modern",
-            wslCompatMock.pathsEqualWslAware("//wsl$/Ubuntu-24.04/home/testuser/x", "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\x"),
+            wslCompatMock.pathsEqualWslAware("//wsl$/IntellijElixirWSLDistribution/home/testuser/x", "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\x"),
         )
     }
 
     fun testPathsEqualWslAware_returnsFalseForDifferentWslDistros() {
-        val ubuntuA = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project"
-        val ubuntuB = "\\\\wsl.localhost\\ItronUbuntu\\home\\testuser\\project"
-        assertFalse(wslCompatMock.pathsEqualWslAware(ubuntuA, ubuntuB))
+        val inOne = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project"
+        val inOther = "\\\\wsl.localhost\\IntellijElixirOtherWSLDistribution\\home\\testuser\\project"
+        assertFalse(wslCompatMock.pathsEqualWslAware(inOne, inOther))
     }
 
     fun testPathsEqualWslAware_treatsMixedSeparatorsAsEqual() {
-        val forwardSlash = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\a/b"
-        val backslash = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\a\\b"
+        val forwardSlash = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\a/b"
+        val backslash = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\a\\b"
         assertTrue(wslCompatMock.pathsEqualWslAware(forwardSlash, backslash))
     }
 
@@ -179,8 +180,8 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
     fun testPathsEqualWslAware_matchesFileUtilPathsEqualCaseRule() {
         // Asserted against FileUtil.pathsEqual itself, not a hard-coded expectation, so this
         // passes under either case-sensitivity rule the CI matrix runs under.
-        val lower = "\\\\wsl.localhost\\ubuntu-24.04\\home\\testuser\\project"
-        val upper = "\\\\wsl.localhost\\Ubuntu-24.04\\HOME\\testuser\\project"
+        val lower = "\\\\wsl.localhost\\intellijelixirwsldistribution\\home\\testuser\\project"
+        val upper = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\HOME\\testuser\\project"
         assertEquals(FileUtil.pathsEqual(lower, upper), wslCompatMock.pathsEqualWslAware(lower, upper))
     }
 
@@ -213,10 +214,12 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
     }
 
     fun testCanonicalizePath_fallsBackToLexicalFormForNonexistentPath() {
-        val real = WslCompatServiceImpl()
-        val nonexistent = "\\\\wsl.localhost\\NoSuchDistro-doesNotExist\\home\\nobody"
+        val nonexistent = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\nobody"
+        // Resolving it for real would go through the WSL file redirector, so the failure is stubbed.
+        val real = spy(WslCompatServiceImpl())
+        doThrow(NoSuchFileException(nonexistent)).`when`(real).toRealPath(anyString())
 
-        // Must not throw, and must not boot anything - it returns the prefix-rewritten string.
+        // Must not throw - it returns the prefix-rewritten string.
         val expected = with(real) { nonexistent.canonicalizeWslPrefix() }
         val result = real.canonicalizePath(nonexistent)
 
@@ -237,8 +240,8 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
     }
 
     fun testCanonicalizeWslPrefix_rewritesLegacyToModern() {
-        val legacy = "\\\\wsl$\\Ubuntu-24.04\\home\\testuser\\project"
-        val modern = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project"
+        val legacy = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\testuser\\project"
+        val modern = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project"
         // Default mock policy is legacy -> modern; the real string rewrite still runs.
         with(MockWslCompatService()) {
             assertEquals(modern, legacy.canonicalizeWslPrefix())
@@ -248,8 +251,8 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
     }
 
     fun testCanonicalizeWslPrefix_rewritesModernToLegacy() {
-        val legacy = "\\\\wsl$\\Ubuntu-24.04\\home\\testuser\\project"
-        val modern = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project"
+        val legacy = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\testuser\\project"
+        val modern = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project"
         with(MockWslCompatService(prefixConversionOverride = MODERN_WSL_PREFIX to LEGACY_WSL_PREFIX)) {
             assertEquals(legacy, modern.canonicalizeWslPrefix())
             assertEquals(legacy, legacy.canonicalizeWslPrefix())
@@ -258,16 +261,16 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
 
     fun testCanonicalizeWslPrefix_rewritesAForwardSlashPrefixInItsOwnSpelling() {
         with(MockWslCompatService(prefixConversionOverride = MODERN_WSL_PREFIX to LEGACY_WSL_PREFIX)) {
-            assertEquals("//wsl$/Ubuntu-24.04/home/testuser/project", "//wsl.localhost/Ubuntu-24.04/home/testuser/project".canonicalizeWslPrefix())
+            assertEquals("//wsl$/IntellijElixirWSLDistribution/home/testuser/project", "//wsl.localhost/IntellijElixirWSLDistribution/home/testuser/project".canonicalizeWslPrefix())
         }
         with(MockWslCompatService()) {
-            assertEquals("//wsl.localhost/Ubuntu-24.04/home/testuser/project", "//wsl$/Ubuntu-24.04/home/testuser/project".canonicalizeWslPrefix())
+            assertEquals("//wsl.localhost/IntellijElixirWSLDistribution/home/testuser/project", "//wsl$/IntellijElixirWSLDistribution/home/testuser/project".canonicalizeWslPrefix())
         }
     }
 
     fun testCanonicalizeWslPrefix_leavesPathUnchangedWhenNoConversion() {
-        val legacy = "\\\\wsl$\\Ubuntu-24.04\\home\\testuser\\project"
-        val modern = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\testuser\\project"
+        val legacy = "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\testuser\\project"
+        val modern = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\testuser\\project"
         // null policy simulates the non-Windows "no conversion" branch.
         with(MockWslCompatService(prefixConversionOverride = null)) {
             assertEquals(legacy, legacy.canonicalizeWslPrefix())

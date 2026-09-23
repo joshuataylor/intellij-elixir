@@ -1051,6 +1051,13 @@ allprojects {
     }
 }
 
+// On Windows the bundled IJent plugin routes every `\\wsl$` and `\\wsl.localhost` path through an agent it deploys
+// into the named distribution. The tests' distributions exist on no machine, so each deploy fails, asynchronously,
+// into whichever test is running. A task for tests that need real WSL can leave it on.
+tasks.named<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>("prepareTestSandbox") {
+    disabledPlugins.add("intellij.platform.ijent.impl")
+}
+
 // The whole JUnit suite. The parser tests (org.elixir_lang.parser_definition) quote source through
 // the external Elixir quoter daemon and compare it against the plugin's own quoting, so this task
 // owns the daemon's lifecycle - hence startQuoter and usesService below.

@@ -52,7 +52,7 @@ class SdkPathsTest : PlatformTestCase() {
         assertEquals(
             "Homebrew",
             SdkPaths.detectSource(
-                """\\wsl.localhost\Ubuntu-24.04\home\linuxbrew\.linuxbrew\Cellar\erlang\29.0.5\lib\erlang"""
+                """\\wsl.localhost\IntellijElixirWSLDistribution\home\linuxbrew\.linuxbrew\Cellar\erlang\29.0.5\lib\erlang"""
             )
         )
     }

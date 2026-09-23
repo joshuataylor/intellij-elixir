@@ -51,12 +51,12 @@ class SdkVersionsStoreTest : PlatformTestCase() {
     }
 
     fun testTheTwoWslPrefixesAreOneInstall() {
-        store.setOtpVersion(LEGACY_WSL_PREFIX + """Ubuntu\opt\erlang""", "27.3.4")
+        store.setOtpVersion(LEGACY_WSL_PREFIX + """IntellijElixirWSLDistribution\opt\erlang""", "27.3.4")
 
         assertEquals(
             "a distro path spelled either way is the same installation",
             "27.3.4",
-            store.otpVersion(MODERN_WSL_PREFIX + """Ubuntu\opt\erlang"""),
+            store.otpVersion(MODERN_WSL_PREFIX + """IntellijElixirWSLDistribution\opt\erlang"""),
         )
     }
 
@@ -120,15 +120,15 @@ class SdkVersionsStoreTest : PlatformTestCase() {
     }
 
     fun testTwoWslHomesDifferingOnlyInCaseAreDifferentInstallations() {
-        store.setOtpVersion("//wsl.localhost/Ubuntu/home/User/erlang", "27.3.4")
-        store.setOtpVersion("//wsl.localhost/Ubuntu/home/user/erlang", "26.2.5")
+        store.setOtpVersion("//wsl.localhost/IntellijElixirWSLDistribution/home/User/erlang", "27.3.4")
+        store.setOtpVersion("//wsl.localhost/IntellijElixirWSLDistribution/home/user/erlang", "26.2.5")
         store.setOtpVersion("C:/Erlang/User", "27.3.4")
         store.setOtpVersion("C:/Erlang/user", "26.2.5")
 
         assertEquals(
             "a path inside a distro is served by a case-sensitive filesystem, whatever the host folds",
             "27.3.4",
-            store.otpVersion("//wsl.localhost/Ubuntu/home/User/erlang"),
+            store.otpVersion("//wsl.localhost/IntellijElixirWSLDistribution/home/User/erlang"),
         )
         if (!SystemInfoRt.isFileSystemCaseSensitive) {
             assertEquals(
