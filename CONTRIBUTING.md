@@ -323,6 +323,8 @@ For example, to launch the latest RubyMine EAP:
 ./gradlew test --tests "org.elixir_lang.parser_definition.*"           # just the parser suite
 ```
 
+`test` runs on the JUnit Platform, with the JUnit 3 and 4 tests going through the Vintage engine.
+
 `test` builds and starts the Elixir quoter daemon, because the parser tests
 (`org.elixir_lang.parser_definition.*`) quote source through it and compare the result against the
 plugin's own quoting. Gradle stops the daemon at the end of the build. On a warm cache this costs

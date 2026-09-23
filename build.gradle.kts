@@ -685,6 +685,15 @@ tasks.withType<KotlinJvmCompile>().configureEach {
     }
 }
 
+// JUnit 5 for the `test` source set only. `testUI` extends `testImplementation` and `testRuntimeOnly`, and takes its
+// JUnit version from ide-starter, so a pinned version there would override that.
+val junit5: Configuration = configurations.create("junit5") {
+    isCanBeConsumed = false
+    isCanBeResolved = false
+}
+configurations.testCompileClasspath { extendsFrom(junit5) }
+configurations.testRuntimeClasspath { extendsFrom(junit5) }
+
 // --- Mockito Agent Configuration (Root project only) ---
 val mockitoAgent: Configuration = configurations.create("mockitoAgent")
 
@@ -729,6 +738,11 @@ dependencies {
     // JetBrains compiled the Starter framework against.
     testUIImplementation(libs.junit.jupiter)
     testUIRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    junit5(platform(libs.junit5.bom))
+    junit5("org.junit.platform:junit-platform-launcher")
+    // Runs the JUnit 3 and 4 tests on the JUnit Platform.
+    junit5("org.junit.vintage:junit-vintage-engine")
 
 }
 
@@ -1120,9 +1134,11 @@ tasks.named<Test>("test") {
     // different run, or the task reports the previous subset's results as this one's.
     inputs.property("elixirOracleCases", System.getenv("ELIXIR_ORACLE_CASES") ?: "")
 
-    // The parsing tests are JUnit 3 (com.intellij.testFramework.ParsingTestCase -> TestCase),
-    // discovered by the JUnit 4 runner.
-    useJUnit()
+    // JUnit 3 and 4 tests run through the Vintage engine.
+    useJUnitPlatform()
+    // A Kotlin `companion object` holding `@JvmStatic fun suite()` keeps an instance `suite()`, which Vintage
+    // rejects as a test class of its own.
+    exclude($$"**/*$Companion.class")
 
     // Add Mockito as javaagent to avoid dynamic loading warnings (root project only)
     jvmArgs("-javaagent:${mockitoAgent.asPath}")
