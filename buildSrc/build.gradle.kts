@@ -10,3 +10,8 @@ plugins {
 repositories {
     mavenCentral()
 }
+
+dependencies {
+    // Available memory for sizing the test forks, which the JDK undercounts on macOS. Build-only: never in the plugin.
+    implementation(libs.oshi.core)
+}

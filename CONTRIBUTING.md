@@ -323,7 +323,12 @@ For example, to launch the latest RubyMine EAP:
 ./gradlew test --tests "org.elixir_lang.parser_definition.*"           # just the parser suite
 ```
 
-`test` runs on the JUnit Platform, with the JUnit 3 and 4 tests going through the Vintage engine.
+`test` runs on the JUnit Platform, with the JUnit 3 and 4 tests going through the Vintage engine, and
+spreads the suite over several test JVMs: one per core beyond the first two, up to one per 2.5 GiB of memory available
+when `test` starts. The build prints the count it chose. `-PtestForks=N` overrides it, and
+`-PtestTimeline=<file>` records which fork ran each class and when. Each fork keeps its own index in the
+sandbox's `system-test-fork-<n>` between builds, so a stale index is reset by deleting `system-test*`, not
+just `system-test`.
 
 `test` builds and starts the Elixir quoter daemon, because the parser tests
 (`org.elixir_lang.parser_definition.*`) quote source through it and compare the result against the

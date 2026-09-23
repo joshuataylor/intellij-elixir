@@ -50,6 +50,8 @@ import sdk.quoterReleaseExecutablePath
 import sdk.resolveMixEnv
 import sdk.versionWithoutBuildTag
 import sdk.elixirTestEnvironment
+import testing.recordTimeline
+import testing.runInForks
 import versioning.ChangelogSettings
 import versioning.GitSourceIdValueSource
 import versioning.PluginVersion
@@ -493,6 +495,7 @@ sourceSets {
     }
     test {
         java.srcDir("tests")
+        resources.srcDir("testResources")
     }
     create("testUI", Action<SourceSet> {
         kotlin.srcDir("testUI/kotlin")
@@ -1139,6 +1142,12 @@ tasks.named<Test>("test") {
     // A Kotlin `companion object` holding `@JvmStatic fun suite()` keeps an instance `suite()`, which Vintage
     // rejects as a test class of its own.
     exclude($$"**/*$Companion.class")
+
+    runInForks(
+        explicitForks = providers.gradleProperty("testForks").map(String::toInt),
+        stepSummary = providers.environmentVariable("GITHUB_STEP_SUMMARY"),
+    )
+    providers.gradleProperty("testTimeline").orNull?.let { recordTimeline(layout.projectDirectory.file(it).asFile) }
 
     // Add Mockito as javaagent to avoid dynamic loading warnings (root project only)
     jvmArgs("-javaagent:${mockitoAgent.asPath}")
