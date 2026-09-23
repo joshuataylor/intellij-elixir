@@ -139,6 +139,14 @@ internal object SdkVersionWatchService {
     @Volatile
     private var installed: Installation? = null
 
+    /** Stops watching what [SdkVersionsStore.clearForTests] emptied, which it does without telling anyone. */
+    @TestOnly
+    fun stopWatchingForTests() {
+        val installation = installed ?: return
+        installation.watching.getAndSet(null)?.let(Disposer::dispose)
+        installation.lastWatched.set(emptySet())
+    }
+
     /** Where the watch stands, for a test that timed out waiting on it. */
     @TestOnly
     fun describeForTests(): String {
