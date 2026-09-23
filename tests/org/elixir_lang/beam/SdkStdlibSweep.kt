@@ -214,7 +214,7 @@ object SdkStdlibSweep {
             "${callDefinition.exportedName()}/${callDefinition.exportedArity(state)}"
         } catch (t: ProcessCanceledException) {
             throw t
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             callDefinition.exportedName()
         }
 

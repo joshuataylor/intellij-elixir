@@ -116,7 +116,7 @@ class CallDefinitionStubSignatureTest : PlatformTestCase() {
     // Docs chunk signatures
 
     fun testDocsSignatureNamesMayBeGenerated() {
-        val stubs = callDefinitionStubs(stub(withoutChunk(beamBytes("Docs/Elixir.Kernel"), "Dbgi")))
+        val stubs = callDefinitionStubs(stub(withoutDbgi(beamBytes("Docs/Elixir.Kernel"))))
 
         assertSignature(stubs, "def", "apply", 3, listOf("module", "function_name", "args"), true)
     }
@@ -201,10 +201,10 @@ class CallDefinitionStubSignatureTest : PlatformTestCase() {
     private fun callDefinitionStubs(root: Stub): List<CallDefinitionStub<*>> =
         root.childrenStubs.flatMap { module -> module.childrenStubs.filterIsInstance<CallDefinitionStub<*>>() }
 
-    private fun withoutChunk(bytes: ByteArray, chunkId: String): ByteArray =
+    private fun withoutDbgi(bytes: ByteArray): ByteArray =
         BeamBytes.beam(
             *BeamBytes.chunks(bytes)
-                .filter { it.id != chunkId }
+                .filter { it.id != "Dbgi" }
                 .map { it.id to bytes.copyOfRange(it.data, it.data + it.size) }
                 .toTypedArray()
         )
