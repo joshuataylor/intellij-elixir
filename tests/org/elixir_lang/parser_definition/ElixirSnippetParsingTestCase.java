@@ -5,9 +5,9 @@ import com.ericsson.otp.erlang.OtpErlangTuple;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.util.ThrowableRunnable;
 import junit.framework.Test;
 import junit.framework.TestSuite;
+import org.elixir_lang.junit.SharedFixture;
 import org.elixir_lang.intellij_elixir.Quoter;
 import org.jetbrains.annotations.NotNull;
 
@@ -25,7 +25,8 @@ import java.util.List;
  * file's text on load, so the quoter judges the text the plugin would parse; nothing is trimmed, because some snippets
  * are only whitespace or line endings.
  */
-public class ElixirSnippetParsingTestCase extends ParsingTestCase {
+@SuppressWarnings("JUnitMalformedDeclaration") // Built only by suite().
+public class ElixirSnippetParsingTestCase extends SharedFixtureParsingTestCase<ElixirSnippetParsingTestCase> {
     static final Path SNIPPETS =
             Path.of("testData", "org", "elixir_lang", "parser_definition", "elixir_snippets", "snippets.jsonl");
     private static final Path KNOWN_FAILURES =
@@ -35,17 +36,32 @@ public class ElixirSnippetParsingTestCase extends ParsingTestCase {
     private final String source;
     private final KnownFailures knownFailures;
 
-    private ElixirSnippetParsingTestCase(@NotNull JsonObject snippet, @NotNull KnownFailures knownFailures) {
+    private ElixirSnippetParsingTestCase() {
+        hash = null;
+        source = null;
+        knownFailures = null;
+    }
+
+    private ElixirSnippetParsingTestCase(
+            @NotNull SharedFixture<ElixirSnippetParsingTestCase> fixture,
+            @NotNull JsonObject snippet,
+            @NotNull KnownFailures knownFailures
+    ) {
+        super(fixture, name(snippet));
         hash = snippet.get("hash").getAsString();
         source = source(snippet);
         this.knownFailures = knownFailures;
+    }
 
+    private static String name(@NotNull JsonObject snippet) {
         JsonObject origin = snippet.getAsJsonObject("origin");
-        setName(hash + " " + origin.get("file").getAsString() + ":" + origin.get("line").getAsInt());
+
+        return snippet.get("hash").getAsString() + " " + origin.get("file").getAsString() + ":" + origin.get("line").getAsInt();
     }
 
     public static Test suite() throws IOException {
-        TestSuite suite = new TestSuite(ElixirSnippetParsingTestCase.class.getName());
+        SharedFixture<ElixirSnippetParsingTestCase> fixture = new SharedFixture<>(ElixirSnippetParsingTestCase::new);
+        TestSuite suite = fixture.suite(ElixirSnippetParsingTestCase.class.getName());
         KnownFailures knownFailures = KnownFailures.forElixirUnderTest(KNOWN_FAILURES);
         List<String> hashes = new ArrayList<>();
 
@@ -62,7 +78,7 @@ public class ElixirSnippetParsingTestCase extends ParsingTestCase {
             }
 
             if ("ok".equals(status)) {
-                ElixirSnippetParsingTestCase test = new ElixirSnippetParsingTestCase(snippet, knownFailures);
+                ElixirSnippetParsingTestCase test = new ElixirSnippetParsingTestCase(fixture, snippet, knownFailures);
                 suite.addTest(test);
                 hashes.add(test.hash);
             } else if (status == null) {
@@ -81,15 +97,15 @@ public class ElixirSnippetParsingTestCase extends ParsingTestCase {
     }
 
     @Override
-    protected void runBare(@NotNull ThrowableRunnable<Throwable> testRunnable) throws Throwable {
-        if (knownFailures.contains(hash)) {
-            super.runBare(() -> knownFailures.expectFailure(hash, this::assertParsed));
+    public void check(@NotNull ElixirSnippetParsingTestCase testCase) {
+        if (testCase.knownFailures.contains(testCase.hash)) {
+            testCase.knownFailures.expectFailure(testCase.hash, () -> assertParsed(testCase.source));
         } else {
-            super.runBare(this::assertParsed);
+            assertParsed(testCase.source);
         }
     }
 
-    private void assertParsed() {
+    private void assertParsed(@NotNull String source) {
         myFile = createPsiFile("snippet", source);
         ensureParsed(myFile);
 
