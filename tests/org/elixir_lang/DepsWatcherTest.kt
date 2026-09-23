@@ -6,12 +6,14 @@ import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.testFramework.PsiTestUtil
+import com.intellij.testFramework.common.runAll
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import org.elixir_lang.mix.Dep
-import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_SUFFIX
+import org.elixir_lang.mix.sync.consolidatedLibraryName
 import org.elixir_lang.mix.sync.MixDepsSyncService
+import org.elixir_lang.mix.sync.MixSyncTestHelpers
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.drainDirectly
+import org.elixir_lang.mix.sync.MixTestFixtures
 import org.elixir_lang.mix.sync.SyncRequest
 import org.elixir_lang.mix.sync.contentRootToken
 import org.elixir_lang.mix.sync.scopedDepLibraryName
@@ -23,20 +25,15 @@ class DepsWatcherTest : PlatformTestCase() {
 
     override fun setUp() {
         super.setUp()
-        // Register the fixture temp dir as a content root so that resolvePathShapedRequests
-        // accepts DepRoot/DepsRoot requests (it checks depRoot.parent.parent.url in contentRootUrls).
-        val tempDirVf = myFixture.tempDirFixture.findOrCreateDir("")
-        PsiTestUtil.addContentRoot(myFixture.module, tempDirVf)
         project.service<MixDepsSyncService>().clearPendingForTesting()
     }
 
     override fun tearDown() {
-        try {
-            removeLibrariesIfPresent(depName, secondDepName)
-            removeConsolidatedLibraries()
-        } finally {
-            super.tearDown()
-        }
+        runAll(
+            { MixTestFixtures.removeAllContentRoots(myFixture) },
+            { MixSyncTestHelpers.removeAllLibraries(project) },
+            { super.tearDown() },
+        )
     }
 
     @RequiresEdt
@@ -368,9 +365,9 @@ class DepsWatcherTest : PlatformTestCase() {
         drainDirectly(service)
 
         val tempDirVf = myFixture.tempDirFixture.findOrCreateDir("")
-        val consolidatedLibraryName = "${tempDirVf.name} $CONSOLIDATED_LIBRARY_SUFFIX"
-        val consolidatedLibrary = libraryTable.getLibraryByName(consolidatedLibraryName)
-        assertNotNull("Expected consolidated library '$consolidatedLibraryName' to exist", consolidatedLibrary)
+        val consolidatedName = consolidatedLibraryName(project, tempDirVf.url)
+        val consolidatedLibrary = libraryTable.getLibraryByName(consolidatedName)
+        assertNotNull("Expected consolidated library '$consolidatedName' to exist", consolidatedLibrary)
 
         val consolidatedClassRoots = consolidatedLibrary!!.getUrls(OrderRootType.CLASSES).toList()
         assertTrue(
@@ -387,8 +384,9 @@ class DepsWatcherTest : PlatformTestCase() {
         )
     }
 
+    /** Deleting deps leaves `_build`, the consolidated protocols' evidence. */
     @RequiresEdt
-    fun testDeleteAllLibrariesRemovesConsolidatedLibrary() {
+    fun testDeleteAllLibrariesKeepsConsolidatedLibrary() {
         myFixture.tempDirFixture.findOrCreateDir("deps/$depName/lib")
         myFixture.tempDirFixture.findOrCreateDir("_build/dev/consolidated")
         myFixture.tempDirFixture.findOrCreateDir("_build/dev/lib/$depName/ebin")
@@ -402,10 +400,10 @@ class DepsWatcherTest : PlatformTestCase() {
         drainDirectly(service)
 
         val tempDirVf = myFixture.tempDirFixture.findOrCreateDir("")
-        val consolidatedLibraryName = "${tempDirVf.name} $CONSOLIDATED_LIBRARY_SUFFIX"
+        val consolidatedName = consolidatedLibraryName(project, tempDirVf.url)
         assertNotNull(
             "Expected consolidated library to exist before deleting all deps libraries",
-            libraryTable.getLibraryByName(consolidatedLibraryName)
+            libraryTable.getLibraryByName(consolidatedName)
         )
 
         // Delete all deps libraries via drain.
@@ -415,53 +413,9 @@ class DepsWatcherTest : PlatformTestCase() {
         service.enqueue(SyncRequest.DeleteAll(depsDir.url, contentRootUrl))
         drainDirectly(service)
 
-        assertNull(
-            "Consolidated library should be removed when all dep libraries are deleted",
-            libraryTable.getLibraryByName(consolidatedLibraryName)
-        )
-    }
-
-    @RequiresEdt
-    fun testDeleteAllLibrariesRemovesConsolidatedLibraryWithoutDepLibraries() {
-        myFixture.tempDirFixture.findOrCreateDir("deps")
-        myFixture.tempDirFixture.findOrCreateDir("_build/dev/consolidated")
-
-        val service = project.service<MixDepsSyncService>()
-        val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
-
-        // Create ONLY the consolidated library (no dep libraries) via a full sync.
-        // Since deps/ is empty, no per-dep libraries are created - only consolidated.
-        service.clearPendingForTesting()
-        service.enqueue(SyncRequest.All)
-        drainDirectly(service)
-
-        val tempDirVf = myFixture.tempDirFixture.findOrCreateDir("")
-        val consolidatedLibraryName = "${tempDirVf.name} $CONSOLIDATED_LIBRARY_SUFFIX"
         assertNotNull(
-            "Expected consolidated library to exist before deleting all deps libraries",
-            libraryTable.getLibraryByName(consolidatedLibraryName)
-        )
-
-        // Verify no dep libraries exist (only consolidated).
-        val depLibraries = libraryTable.libraries.filter { lib ->
-            val name = lib.name ?: return@filter false
-            name != consolidatedLibraryName && !name.endsWith(CONSOLIDATED_LIBRARY_SUFFIX)
-        }
-        assertTrue(
-            "Expected no dep libraries to exist (only the consolidated library)",
-            depLibraries.isEmpty()
-        )
-
-        // Delete all deps libraries via drain - should still remove consolidated library.
-        val depsDir = myFixture.tempDirFixture.findOrCreateDir("deps")
-        val contentRootUrl = depsDir.parent?.url
-        service.clearPendingForTesting()
-        service.enqueue(SyncRequest.DeleteAll(depsDir.url, contentRootUrl))
-        drainDirectly(service)
-
-        assertNull(
-            "Consolidated library should be removed even when there are no per-dep libraries",
-            libraryTable.getLibraryByName(consolidatedLibraryName)
+            "Consolidated library must survive the deletion of every dep library",
+            libraryTable.getLibraryByName(consolidatedName)
         )
     }
 
@@ -491,43 +445,5 @@ class DepsWatcherTest : PlatformTestCase() {
         assertNotNull("Expected library '$libraryName' to exist", library)
 
         return library!!.getUrls(OrderRootType.SOURCES).toList()
-    }
-
-    /**
-     * Removes all libraries whose name equals [libraryNames] as a plain dep name OR whose scoped
-     * name starts with `"<depName> ["` and ends with `"]"`.
-     * This handles both legacy unscoped names and the new scoped names.
-     */
-    @Suppress("SameParameterValue")
-    private fun removeLibrariesIfPresent(vararg libraryNames: String) {
-        val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
-        val nameSet = libraryNames.toSet()
-        val libraries = libraryTable.libraries.filter { lib ->
-            val name = lib.name ?: return@filter false
-            name in nameSet || nameSet.any { dep -> name.startsWith("$dep [") && name.endsWith("]") }
-        }
-
-        if (libraries.isEmpty()) {
-            return
-        }
-
-        WriteAction.run<Throwable> {
-            libraries.forEach { libraryTable.removeLibrary(it) }
-        }
-    }
-
-    private fun removeConsolidatedLibraries() {
-        val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
-        val consolidatedLibraries = libraryTable.libraries.filter {
-            it.name?.endsWith(CONSOLIDATED_LIBRARY_SUFFIX) == true
-        }
-
-        if (consolidatedLibraries.isEmpty()) {
-            return
-        }
-
-        WriteAction.run<Throwable> {
-            consolidatedLibraries.forEach { libraryTable.removeLibrary(it) }
-        }
     }
 }

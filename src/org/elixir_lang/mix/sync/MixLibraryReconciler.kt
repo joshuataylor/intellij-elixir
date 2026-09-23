@@ -3,9 +3,9 @@ package org.elixir_lang.mix.sync
 import com.intellij.openapi.application.readAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.OrderRootType
-import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.roots.impl.libraries.LibraryEx
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
+import com.intellij.openapi.util.io.FileUtil
 import org.elixir_lang.mix.library.Kind
 
 /**
@@ -28,9 +28,8 @@ internal object MixLibraryReconciler {
     /**
      * Whether [project]'s Mix libraries disagree with the project's current content roots.
      *
-     * Reports true when a Mix-Kind library has a root the VFS cannot resolve, or carries a scope
-     * token naming a content root the project no longer has - which also covers names written before
-     * scope tokens became project-relative, so those migrate on the next open rather than lazily.
+     * Reports true when a Mix-Kind library has a root that is gone ([danglingRootUrls]), or a name a sync's sweep
+     * removes ([isSweptMixLibraryName]): one full sync then clears it, so the check cannot request a sync on every open.
      *
      * Accuracy is bounded by the VFS: a deletion the refresh has not yet observed still reads as
      * valid, so this is a cheap trigger rather than a guarantee.
@@ -38,27 +37,20 @@ internal object MixLibraryReconciler {
     suspend fun needsResync(project: Project): Boolean = readAction {
         if (project.isDisposed) return@readAction false
 
-        // Only the form the plugin writes today counts as current - the same test the write plan
-        // applies. Accepting an older form here would make a project whose libraries are entirely
-        // in that form look healthy, which is precisely the project that needs the re-sync.
-        val currentTokens = ProjectRootManager.getInstance(project).contentRoots
-            .mapTo(HashSet()) { contentRootToken(project, it.url) }
+        val basePath = project.basePath?.let(FileUtil::toSystemIndependentName)
+        val currentTokens = contentRootTokens(project, basePath)
+        val liveTokens = liveContentRootTokens(project, basePath)
 
         val mixLibraries = LibraryTablesRegistrar.getInstance().getLibraryTable(project).libraries
             .filterIsInstance<LibraryEx>()
-            .filter { it.kind == Kind && !it.isDisposed }
+            // A nameless library is out of the sync's reach, so it cannot be cleared either way.
+            .filter { it.kind == Kind && !it.isDisposed && it.name != null }
 
         val trigger = mixLibraries.firstOrNull { libraryEx ->
-            val danglingRoot = libraryEx.getInvalidRootUrls(OrderRootType.CLASSES).isNotEmpty() ||
-                libraryEx.getInvalidRootUrls(OrderRootType.SOURCES).isNotEmpty()
+            val danglingRoot = danglingRootUrls(libraryEx, OrderRootType.CLASSES, liveTokens).isNotEmpty() ||
+                danglingRootUrls(libraryEx, OrderRootType.SOURCES, liveTokens).isNotEmpty()
 
-            // A null token is an unscoped or consolidated name, neither of which this check owns.
-            val foreignScope = libraryEx.name
-                ?.let { scopedLibraryNameToken(it) }
-                ?.let { token -> token !in currentTokens }
-                ?: false
-
-            danglingRoot || foreignScope
+            danglingRoot || isSweptMixLibraryName(libraryEx.name!!, currentTokens, basePath)
         }
 
         trigger != null

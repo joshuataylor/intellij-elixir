@@ -1,16 +1,17 @@
 package org.elixir_lang.mix.sync
 
 import com.intellij.openapi.application.readAction
+import com.intellij.openapi.diagnostic.debug
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.*
 import com.intellij.openapi.roots.impl.libraries.LibraryEx
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_SUFFIX
 import org.elixir_lang.mix.library.Kind
 
 /**
@@ -18,6 +19,9 @@ import org.elixir_lang.mix.library.Kind
  *
  * [createWithKind] is true when the library does not yet exist in the table and must be created
  * with [Kind]. When false, the library exists and only the diff needs to be applied.
+ *
+ * [recreateWith] is the roots to recreate the library with if it was removed before this op is applied, such as by the
+ * user; null when no plan wants the library, so it stays gone.
  */
 internal data class LibraryWriteOp(
     val libraryName: String,
@@ -26,7 +30,10 @@ internal data class LibraryWriteOp(
     val removeClassUrls: List<String>,
     val addSourceUrls: List<String>,
     val removeSourceUrls: List<String>,
+    val recreateWith: LibraryRoots?,
 )
+
+internal data class LibraryRoots(val classUrls: List<String>, val sourceUrls: List<String>)
 
 /**
  * Per-module dependency wiring to be applied during [applyWritePlan].
@@ -35,12 +42,9 @@ internal data class LibraryWriteOp(
  * contains names whose dep-module is absent or disposed at plan-build time.  [addLibraryDeps] and
  * [addInvalidLibraryDeps] follow the same convention for project libraries.
  *
- * [removeStaleLibraryDeps] is project-level entries carrying the `"<dep> [<token>]"` shape this
- * plugin writes - nothing else produces it - whose token is not a current content root.  Either the
- * root left the project (it moved on disk, or a WSL distro rename changed every file URL), or the
- * token names a current root in a scheme the plugin no longer writes, which is how an entry left by
- * an older version is recognised as superseded.  An entry without that shape is never removed: it
- * may be a user-created reference the sync has no claim over.
+ * [removeStaleLibraryDeps] is project-level entries naming a Mix library this plan removes, or scoped to a token that
+ * is no longer a content root and naming a library that will not exist once the plan is applied.  Of the removed
+ * libraries' entries, only a dep's scoped to a current root stays, as the placeholder a re-fetch fills.
  */
 internal data class ModuleWriteOp(
     val moduleName: String,
@@ -110,6 +114,15 @@ internal suspend fun buildWritePlan(project: Project, syncPlan: SyncPlan): Write
 // Internal helpers (all requirements: must be called inside readAction)
 // ---------------------------------------------------------------------------
 
+/** A library's state when the plan is built. [danglingClassUrls] and [danglingSourceUrls] per [danglingRootUrls]. */
+private data class LibSnap(
+    val isKind: Boolean,
+    val classUrls: Set<String>,
+    val sourceUrls: Set<String>,
+    val danglingClassUrls: List<String>,
+    val danglingSourceUrls: List<String>,
+)
+
 /**
  * Core snapshot + diff logic.  Must only be called from within [readAction] or write context.
  */
@@ -121,17 +134,23 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
     // -----------------------------------------------------------------------
     // Snapshot - library-table state
     // -----------------------------------------------------------------------
-    data class LibSnap(val isKind: Boolean, val classUrls: Set<String>, val sourceUrls: Set<String>)
+    val basePath = project.basePath?.let(FileUtil::toSystemIndependentName)
+    val liveTokens = liveContentRootTokens(project, basePath)
     val libSnap: Map<String, LibSnap> = buildMap {
         for (lib in libraryTable.libraries) {
             ProgressManager.checkCanceled()
             val name = lib.name ?: continue
+            val mixLibrary = (lib as? LibraryEx)?.takeIf { it.kind == Kind }
             put(
                 name,
                 LibSnap(
-                    isKind = (lib as? LibraryEx)?.kind == Kind,
+                    isKind = mixLibrary != null,
                     classUrls = lib.getUrls(OrderRootType.CLASSES).toSet(),
                     sourceUrls = lib.getUrls(OrderRootType.SOURCES).toSet(),
+                    danglingClassUrls = mixLibrary
+                        ?.let { danglingRootUrls(it, OrderRootType.CLASSES, liveTokens) }.orEmpty(),
+                    danglingSourceUrls = mixLibrary
+                        ?.let { danglingRootUrls(it, OrderRootType.SOURCES, liveTokens) }.orEmpty(),
                 )
             )
         }
@@ -140,7 +159,7 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
     // -----------------------------------------------------------------------
     // Step 1 - Compute librariesToRemove from DeleteAll / DeleteOne
     // -----------------------------------------------------------------------
-    val librariesToRemove = mutableListOf<String>()
+    val librariesToRemove = LinkedHashSet<String>()
 
     for (deleteAll in syncPlan.deleteAlls) {
         ProgressManager.checkCanceled()
@@ -149,35 +168,22 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
         // Both scope schemes: a project last synced by an older version names its libraries after
         // the absolute URL, and matching only today's token would leave every one of them behind.
         val scopedSuffixes = setOf(
-            " [${contentRootToken(project, contentRootUrl)}]",
+            " [${contentRootToken(basePath, contentRootUrl)}]",
             " [$contentRootUrl]",
         )
-        // Append "/" so VfsUtilCore.isEqualOrAncestor is path-boundary-safe (Strategy 2 mirror).
-        val depsPrefixUrl = if (deleteAll.depsUrl.endsWith("/")) deleteAll.depsUrl else "${deleteAll.depsUrl}/"
-
         for ((name, snap) in libSnap) {
             ProgressManager.checkCanceled()
-            // Strategy 1: scoped-name + Kind (catches empty placeholders and class-only libs).
-            val matchesScoped = snap.isKind && scopedSuffixes.any { name.endsWith(it) }
-            // Strategy 2: source-root ancestor check (backwards-compat for legacy unscoped libs).
-            val matchesSources = snap.sourceUrls.isNotEmpty() &&
-                snap.sourceUrls.all { VfsUtilCore.isEqualOrAncestor(depsPrefixUrl, it) }
-            if (matchesScoped || matchesSources) {
+            // Not a consolidated library: its evidence is `_build`, which deleting deps leaves. An unscoped legacy
+            // library needs no match here: the sweep below removes every one.
+            if (snap.isKind && !isConsolidatedLibraryName(name) && scopedSuffixes.any { name.endsWith(it) }) {
                 librariesToRemove += name
             }
-        }
-
-        // Also remove the consolidated library that belongs to the same project root.
-        val projectRootName = contentRootUrl.trimEnd('/').substringAfterLast('/')
-        val consolidatedLibraryName = "$projectRootName $CONSOLIDATED_LIBRARY_SUFFIX"
-        if (libSnap.containsKey(consolidatedLibraryName)) {
-            librariesToRemove += consolidatedLibraryName
         }
     }
 
     for (deleteOne in syncPlan.deleteOnes) {
         ProgressManager.checkCanceled()
-        if (libSnap.containsKey(deleteOne.libraryName)) {
+        if (libSnap[deleteOne.libraryName]?.isKind == true) {
             librariesToRemove += deleteOne.libraryName
         }
         // Legacy cleanup: if the scoped name differs from the dep name, also remove the legacy
@@ -194,13 +200,13 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
         }
     }
 
-    // Sweep orphaned unscoped Mix-Kind libraries (no " [" content-root marker in name).
-    // Runs on every drain at negligible cost; removes stale entries from projects that were
-    // configured with an older plugin version before root-scoped library naming was introduced.
-    // Scoped replacements are created by the libraryWriteOps in Step 2 if a matching plan exists.
+    // A scoped name whose token is not in this set names a root that left the project, or names a current root in a
+    // scheme an older version wrote.
+    val projectContentRootTokens = contentRootTokens(project, basePath)
+    // Steps 2, 2b and 3 keep any a plan still wants.
     for ((name, snap) in libSnap) {
         ProgressManager.checkCanceled()
-        if (snap.isKind && " [" !in name && name !in librariesToRemove) {
+        if (snap.isKind && isSweptMixLibraryName(name, projectContentRootTokens, basePath)) {
             librariesToRemove += name
         }
     }
@@ -208,21 +214,35 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
     // -----------------------------------------------------------------------
     // Step 2 - Compute libraryWriteOps and legacyLibrariesToRemove
     //
-    // Libraries scheduled for removal (from Step 1) are treated as absent for diff purposes:
-    // applyWritePlan removes them first, so if the same library is also in a libraryPlan we
-    // must emit a createWithKind op to recreate it after deletion. Without this, a
-    // DeleteOne+re-sync burst for the same dep would delete the library but never recreate it
-    // because the diff against the pre-delete snapshot shows no changes.
+    // A name this plan wants is diffed against the snapshot even when Step 1 scheduled it for
+    // removal, and taken off the removal list: the platform's library table model drops a library
+    // created under a name the same model removed, so remove-then-create would delete it.
     // -----------------------------------------------------------------------
-    val librariesToRemoveSet = librariesToRemove.toHashSet()
+    val keptLibraries = HashSet<String>()
     val libraryWriteOps = mutableListOf<LibraryWriteOp>()
     val legacyLibrariesToRemove = mutableListOf<String>()
 
+    // A library that is not a Mix library is the user's, even under a name a plan wants.
+    val userLibraryNames = libSnap.filterValues { !it.isKind }.keys
     for (plan in syncPlan.libraryPlans) {
         ProgressManager.checkCanceled()
-        // Treat libraries scheduled for removal as absent - they will be deleted before
-        // libraryWriteOps are applied, so we must recreate them from scratch.
-        val existing = libSnap[plan.libraryName]?.takeIf { plan.libraryName !in librariesToRemoveSet }
+        // Legacy cleanup, whether or not the planned name is free: when the scoped name differs from the unscoped dep
+        // name, and for the absolute-URL-scoped name used before tokens went relative.
+        if (plan.libraryName != plan.depName && libSnap[plan.depName]?.isKind == true) {
+            legacyLibrariesToRemove += plan.depName
+        }
+        plan.previousLibraryName?.let { previousName ->
+            if (libSnap[previousName]?.isKind == true) legacyLibrariesToRemove += previousName
+        }
+
+        val existing = libSnap[plan.libraryName]
+        if (plan.libraryName in userLibraryNames) {
+            MixDepsSyncService.LOG.debug {
+                "Left the user's library '${plan.libraryName}' alone although a plan wants its name"
+            }
+            continue
+        }
+        if (plan.libraryName in librariesToRemove) keptLibraries += plan.libraryName
         val desiredClass = plan.classRootUrls.toSet()
         val desiredSource = plan.sourceRootUrls.toSet()
 
@@ -242,11 +262,11 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
                     removeClassUrls = removeClass,
                     addSourceUrls = addSource,
                     removeSourceUrls = removeSource,
+                    recreateWith = LibraryRoots(plan.classRootUrls, plan.sourceRootUrls),
                 )
             }
             // No diff -> no write op (library is already up to date).
         } else {
-            // Library does not yet exist (or is scheduled for removal) - create with all roots.
             libraryWriteOps += LibraryWriteOp(
                 libraryName = plan.libraryName,
                 createWithKind = true,
@@ -254,61 +274,49 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
                 removeClassUrls = emptyList(),
                 addSourceUrls = plan.sourceRootUrls,
                 removeSourceUrls = emptyList(),
+                recreateWith = null,
             )
-        }
-
-        // Legacy cleanup: when the scoped name differs from the unscoped dep name, schedule
-        // removal of any existing unscoped library that carries Mix-Kind to avoid duplicates.
-        // Guard: only remove Kind-bearing libraries to preserve user-created libraries.
-        if (plan.libraryName != plan.depName) {
-            val legacy = libSnap[plan.depName]
-            if (legacy != null && legacy.isKind) {
-                legacyLibrariesToRemove += plan.depName
-            }
-        }
-
-        // Same cleanup one format later, for the absolute-URL-scoped name used before tokens went
-        // relative. Removing it invalidates its order entries, which stale-entry pruning then
-        // clears from the .iml.
-        plan.previousLibraryName?.let { previousName ->
-            if (libSnap[previousName]?.isKind == true) {
-                legacyLibrariesToRemove += previousName
-            }
         }
     }
 
     // -----------------------------------------------------------------------
     // Step 2b - Compute consolidated library write ops (diff-based)
     //
-    // Consolidated libraries are diffed exactly like per-dep libraries: compare desired
-    // class root URLs against the current snapshot and only emit a write op when something
-    // actually changed. An empty classRootUrls list means the library should not exist.
+    // Only class roots are diffed against the plan, and a write op is emitted only when something changed; of the
+    // source roots, only dangling ones are dropped. An empty classRootUrls list means the library should not exist.
     // -----------------------------------------------------------------------
-    for (plan in syncPlan.consolidatedPlans) {
+    for (consolidatedPlan in syncPlan.consolidatedPlans) {
         ProgressManager.checkCanceled()
-        val consolidatedLibName = plan.libraryName
-        val existing = libSnap[consolidatedLibName]?.takeIf { consolidatedLibName !in librariesToRemoveSet }
-        val desiredClass = plan.classRootUrls.toSet()
-
-        if (desiredClass.isEmpty()) {
-            // No consolidated dirs exist - schedule removal if library exists and not already scheduled.
-            if (existing != null && consolidatedLibName !in librariesToRemoveSet) {
-                librariesToRemove += consolidatedLibName
+        val classRootUrls = consolidatedPlan.classRootUrls
+        val consolidatedLibName = consolidatedPlan.libraryName
+        if (consolidatedLibName in userLibraryNames) {
+            MixDepsSyncService.LOG.debug {
+                "Left the user's library '$consolidatedLibName' alone although a plan wants its name"
             }
             continue
         }
+        val existing = libSnap[consolidatedLibName]
+        val desiredClass = classRootUrls.toSet()
+
+        if (desiredClass.isEmpty()) {
+            if (existing?.isKind == true) librariesToRemove += consolidatedLibName
+            continue
+        }
+        if (consolidatedLibName in librariesToRemove) keptLibraries += consolidatedLibName
 
         if (existing != null) {
             val addClass = (desiredClass - existing.classUrls).toList()
             val removeClass = (existing.classUrls - desiredClass).toList()
-            if (addClass.isNotEmpty() || removeClass.isNotEmpty()) {
+            val removeSource = existing.danglingSourceUrls
+            if (addClass.isNotEmpty() || removeClass.isNotEmpty() || removeSource.isNotEmpty()) {
                 libraryWriteOps += LibraryWriteOp(
                     libraryName = consolidatedLibName,
                     createWithKind = false,
                     addClassUrls = addClass,
                     removeClassUrls = removeClass,
                     addSourceUrls = emptyList(),
-                    removeSourceUrls = emptyList(),
+                    removeSourceUrls = removeSource,
+                    recreateWith = LibraryRoots(classRootUrls, (existing.sourceUrls - removeSource.toSet()).toList()),
                 )
             }
             // No diff -> no write op
@@ -316,10 +324,11 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
             libraryWriteOps += LibraryWriteOp(
                 libraryName = consolidatedLibName,
                 createWithKind = true,
-                addClassUrls = plan.classRootUrls,
+                addClassUrls = classRootUrls,
                 removeClassUrls = emptyList(),
                 addSourceUrls = emptyList(),
                 removeSourceUrls = emptyList(),
+                recreateWith = null,
             )
         }
     }
@@ -329,21 +338,63 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
     //
     // A library is a "placeholder" if it is required by a module plan's libraryDeps but:
     //   - is NOT already scheduled for creation via libraryWriteOps, AND
-    //   - does NOT currently exist (or will be removed by this plan).
+    //   - does NOT currently exist.
+    // One that exists but is scheduled for removal is kept and emptied instead, for the same
+    // reason as in Step 2.
     // -----------------------------------------------------------------------
-    // Extend librariesToRemoveSet (computed before Step 2) with legacy cleanup candidates.
-    val allLibrariesToRemoveSet = librariesToRemoveSet + legacyLibrariesToRemove
     val plannedLibraryNames = libraryWriteOps.mapTo(HashSet()) { it.libraryName }
+    val placeholderLibraries = LinkedHashSet<String>()
 
-    val placeholderLibraries: Set<String> = syncPlan.modulePlans
-        .flatMap { it.libraryDeps }
-        .filterNot { name ->
-            // Will be created via a libraryWriteOp (with actual diff/roots).
-            name in plannedLibraryNames ||
-                // Already exists AND will NOT be removed by this plan.
-                (libSnap.containsKey(name) && name !in allLibrariesToRemoveSet)
+    for (name in syncPlan.modulePlans.flatMap { it.libraryDeps }) {
+        ProgressManager.checkCanceled()
+        if (name in plannedLibraryNames || name in keptLibraries) continue
+        val existing = libSnap[name]
+        if (existing == null) {
+            placeholderLibraries += name
+        } else if (name in librariesToRemove || name in legacyLibrariesToRemove) {
+            keptLibraries += name
+            if (existing.classUrls.isNotEmpty() || existing.sourceUrls.isNotEmpty()) {
+                libraryWriteOps += LibraryWriteOp(
+                    libraryName = name,
+                    createWithKind = false,
+                    addClassUrls = emptyList(),
+                    removeClassUrls = existing.classUrls.toList(),
+                    addSourceUrls = emptyList(),
+                    removeSourceUrls = existing.sourceUrls.toList(),
+                    recreateWith = LibraryRoots(emptyList(), emptyList()),
+                )
+            }
         }
-        .toSet()
+    }
+    librariesToRemove -= keptLibraries
+    legacyLibrariesToRemove -= keptLibraries
+
+    // -----------------------------------------------------------------------
+    // Step 3b - Drop the roots no plan replaces
+    //
+    // A Mix library whose `deps` or `_build` directory went keeps roots that point at nothing unless a write op this
+    // plan already emits rewrites it, and the startup check requests a full sync for every dangling root. The library
+    // stays, emptied of them.
+    // -----------------------------------------------------------------------
+    val writtenLibraryNames = libraryWriteOps.mapTo(HashSet()) { it.libraryName }
+    val moduleWantedNames = syncPlan.modulePlans.flatMapTo(HashSet()) { it.libraryDeps }
+    for ((name, snap) in libSnap) {
+        ProgressManager.checkCanceled()
+        if (!snap.isKind || snap.danglingClassUrls.isEmpty() && snap.danglingSourceUrls.isEmpty()) continue
+        if (name in writtenLibraryNames || name in librariesToRemove || name in legacyLibrariesToRemove) continue
+        libraryWriteOps += LibraryWriteOp(
+            libraryName = name,
+            createWithKind = false,
+            addClassUrls = emptyList(),
+            removeClassUrls = snap.danglingClassUrls,
+            addSourceUrls = emptyList(),
+            removeSourceUrls = snap.danglingSourceUrls,
+            recreateWith = LibraryRoots(
+                (snap.classUrls - snap.danglingClassUrls.toSet()).toList(),
+                (snap.sourceUrls - snap.danglingSourceUrls.toSet()).toList(),
+            ).takeIf { name in moduleWantedNames },
+        )
+    }
 
     // -----------------------------------------------------------------------
     // Step 4 - Compute moduleWriteOps
@@ -368,20 +419,34 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
     // -----------------------------------------------------------------------
     // Set of library names that will exist after all write-plan operations complete:
     //   = current snapshot - to-remove + newly-created (write ops + placeholders)
-    val futureLibraries: Set<String> =
-        (libSnap.keys - allLibrariesToRemoveSet) + plannedLibraryNames + placeholderLibraries
+    val futureLibraries: Set<String> = buildSet {
+        addAll(libSnap.keys)
+        removeAll(librariesToRemove)
+        removeAll(legacyLibrariesToRemove)
+        addAll(plannedLibraryNames)
+        addAll(placeholderLibraries)
+    }
 
     val moduleManager = ModuleManager.getInstance(project)
-    // Current content-root scope tokens, used to recognise stale root-scoped library entries: a
-    // scoped name embedding a token outside this set references a root that left the project - or
-    // names the same root in a scheme the plugin no longer writes, which is how an entry left by
-    // an older version is recognised as superseded rather than current.
-    val projectContentRootTokens = ProjectRootManager.getInstance(project).contentRoots
-        .mapTo(HashSet()) { contentRootToken(project, it.url) }
+    // Removing a library leaves every order entry naming it dangling, whichever module holds it. Only this plugin
+    // creates a Mix library, so its entries go with it, except a dep's scoped to a current root: that stays as the
+    // placeholder a re-fetch fills.
+    val removedMixLibraries = (librariesToRemove + legacyLibrariesToRemove)
+        .filterTo(HashSet()) { name ->
+            isConsolidatedLibraryName(name) || scopedLibraryNameToken(name) !in projectContentRootTokens
+        }
     val moduleNames = buildSet {
         syncPlan.modulePlans.mapTo(this) { it.moduleName }
         syncPlan.libraryPlans.flatMap { it.excludeFolders }.mapTo(this) { it.moduleName }
         syncPlan.consolidatedPlans.mapNotNullTo(this) { it.ownerModuleName }
+        if (removedMixLibraries.isNotEmpty()) {
+            moduleManager.modules
+                .filter { module ->
+                    !module.isDisposed && ModuleRootManager.getInstance(module).orderEntries
+                        .any { it is LibraryOrderEntry && it.libraryName in removedMixLibraries }
+                }
+                .mapTo(this) { it.name }
+        }
     }
     val modulePlansByName = syncPlan.modulePlans.associateBy { it.moduleName }
     val excludeFoldersByModule = syncPlan.libraryPlans.flatMap { it.excludeFolders }
@@ -430,6 +495,7 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
 
             for (libName in modulePlan.libraryDeps) {
                 ProgressManager.checkCanceled()
+                if (libName in userLibraryNames) continue
                 if (libName in existingLibraryDeps) continue
                 // Use the anticipated post-operation library state to decide valid vs invalid.
                 // If the library will exist after all write-plan ops, wire it as a valid entry.
@@ -444,6 +510,7 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
         // Wire consolidated library dependencies for this module (from ConsolidatedLibraryPlan).
         for (consolidatedLibName in consolidatedLibsByModule[moduleName].orEmpty()) {
             ProgressManager.checkCanceled()
+            if (consolidatedLibName in userLibraryNames) continue
             if (consolidatedLibName in existingLibraryDeps) continue
             if (consolidatedLibName in futureLibraries) {
                 addLibraryDeps += consolidatedLibName
@@ -462,21 +529,9 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
             .map { it.folderUrl }
             .filterNot { it in existingExcludeFolderUrls }
 
-        // Stale-entry pruning: an INVALID project-level library entry whose root-scoped name
-        // embeds a content-root URL that is no longer part of the project can never become
-        // valid again - no sync will ever recreate a library scoped to a root that left the
-        // project.  Entries scoped to a CURRENT content root are the deliberate placeholder
-        // wiring for declared-but-unfetched deps and stay untouched, as do entries without
-        // the `name [token]` scoped-name shape (potentially user-created libraries).
-        // Only entries the plugin itself writes are ever removed, and the `"<dep> [<token>]"` shape
-        // is what identifies them - nothing else produces it, so a name without it may be a
-        // user-created reference and is left strictly alone.
-        //
-        // Of those, an entry is dead when its token is not a current content root: either the root
-        // left the project (it moved on disk, or a WSL distro rename changed every file URL), or it
-        // names a still-current root in a scheme the plugin has stopped writing, which is how the
-        // entries left by an older version are recognised. Validity does not come into it - the
-        // superseded ones are usually valid, since their libraries still exist.
+        // An entry scoped to a token that is no longer a content root, whose library will not exist once this plan is
+        // applied, can never be wanted again: the root left, or an older version wrote the name in another scheme. One
+        // whose library stays, such as an external `path:` dep's, is still wanted.
         val removeStaleLibraryDeps = LinkedHashSet<String>()
 
         for (entry in rootManager.orderEntries.filterIsInstance<LibraryOrderEntry>()) {
@@ -487,7 +542,9 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
             if (modulePlan != null && name in modulePlan.libraryDeps) continue
             if (consolidatedLibsByModule[moduleName].orEmpty().contains(name)) continue
 
-            if (scopedLibraryNameToken(name)?.let { it !in projectContentRootTokens } == true) {
+            if (name in removedMixLibraries ||
+                name !in futureLibraries && scopedLibraryNameToken(name)?.let { it !in projectContentRootTokens } == true
+            ) {
                 removeStaleLibraryDeps += name
             }
         }
@@ -510,7 +567,7 @@ private fun buildWritePlanInCurrentContext(project: Project, syncPlan: SyncPlan)
     }
 
     return WritePlan(
-        librariesToRemove = librariesToRemove,
+        librariesToRemove = librariesToRemove.toList(),
         libraryWriteOps = libraryWriteOps,
         placeholderLibraries = placeholderLibraries,
         moduleWriteOps = moduleWriteOps,

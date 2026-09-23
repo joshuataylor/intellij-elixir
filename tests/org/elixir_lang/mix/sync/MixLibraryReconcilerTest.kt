@@ -6,6 +6,7 @@ import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.common.runAll
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_BASE_NAME
 import org.elixir_lang.mix.library.Kind as MixLibraryKind
 
 /**
@@ -88,48 +89,67 @@ class MixLibraryReconcilerTest : PlatformTestCase() {
         assertTrue("A library root the VFS cannot resolve must trigger a full sync", reconcilerNeedsResync())
     }
 
-    /**
-     * A library scoped by an older scheme to a root that is *still current* must be detected. This
-     * is the whole-project upgrade case: every name is in the old form, so treating that form as
-     * current would report the one project that most needs re-syncing as healthy.
-     */
-    fun testLibraryScopedByOlderSchemeToCurrentRootNeedsResync() {
-        val root = myFixture.tempDirFixture.findOrCreateDir("reconcile_old_scheme")
-        PsiTestUtil.addContentRoot(myFixture.module, root)
-
-        val currentToken = contentRootToken(project, root.url)
-        val olderScheme = "file:///previous/scheme/${root.name}"
-        assertFalse("Fixture needs the two schemes to differ", currentToken == olderScheme)
-
-        createMixLibrary(scopedDepLibraryName(olderScheme, "phoenix"), null)
-
-        assertTrue(
-            "A name scoped by a superseded scheme must trigger a full sync",
-            reconcilerNeedsResync()
-        )
-    }
-
-    /**
-     * A name scoped to a root the project no longer has - which is also the shape of every name
-     * written before scope tokens became project-relative, so upgrades migrate on the next open.
-     */
-    fun testForeignScopeTokenNeedsResync() {
-        val root = myFixture.tempDirFixture.findOrCreateDir("reconcile_foreign")
-        PsiTestUtil.addContentRoot(myFixture.module, root)
-
-        createMixLibrary(scopedDepLibraryName("file:///gone/elsewhere/mix_root", "phoenix"), null)
-
-        assertTrue("A scope token naming no current content root must trigger a full sync", reconcilerNeedsResync())
-    }
-
-    /** Unscoped and consolidated names are not this check's business. */
-    fun testUnscopedAndConsolidatedNamesNeedNoResync() {
+    /** Any drain's sweep removes it, but only a sync of every root recreates each root's scoped replacement. */
+    fun testUnscopedDepNamesNeedResync() {
         val root = myFixture.tempDirFixture.findOrCreateDir("reconcile_unscoped")
         PsiTestUtil.addContentRoot(myFixture.module, root)
 
         createMixLibrary("phoenix", null)
-        createMixLibrary("reconcile_unscoped (consolidated)", null)
 
-        assertFalse("Names without a scope token must not trigger a full sync", reconcilerNeedsResync())
+        assertTrue("A name without a scope token must trigger a full sync", reconcilerNeedsResync())
+    }
+
+    /** A consolidated library named before scoping migrates at open, as its replacement needs a sync of its root. */
+    fun testAnUnscopedConsolidatedNameNeedsResync() {
+        val root = myFixture.tempDirFixture.findOrCreateDir("reconcile_consolidated")
+        PsiTestUtil.addContentRoot(myFixture.module, root)
+
+        createMixLibrary("reconcile_consolidated (consolidated)", null)
+
+        assertTrue("A consolidated library named before scoping must trigger a full sync", reconcilerNeedsResync())
+    }
+
+    /** An external `path:` dep is scoped to a directory that is never a content root, and no sync removes it. */
+    fun testAnExternalDepsRelativeTokenNeedsNoResync() {
+        val root = myFixture.tempDirFixture.findOrCreateDir("reconcile_external")
+        PsiTestUtil.addContentRoot(myFixture.module, root)
+
+        createMixLibrary(scopedDepLibraryName("../shared_parent", "shared"), null)
+
+        assertFalse("An external dep's library must not force a full sync on every open", reconcilerNeedsResync())
+    }
+
+    /** A consolidated library whose root left is removed by a sync, so one is worth running. */
+    fun testAConsolidatedLibraryOfARootThatLeftNeedsResync() {
+        val root = myFixture.tempDirFixture.findOrCreateDir("reconcile_consolidated_left")
+        PsiTestUtil.addContentRoot(myFixture.module, root)
+
+        createMixLibrary(scopedDepLibraryName("apps/gone", CONSOLIDATED_LIBRARY_BASE_NAME), null)
+
+        assertTrue("A consolidated library of a root that left must trigger a full sync", reconcilerNeedsResync())
+    }
+
+    /** A dep on another drive has no relative token, so the plugin still writes its absolute one. */
+    fun testAnAbsoluteTokenWithNoRelativeFormNeedsNoResync() {
+        assertFalse(
+            "A library the current scheme would name the same must not force a full sync on every open",
+            isSweptMixLibraryName("foo [file://D:/libs]", setOf("."), "C:/project"),
+        )
+    }
+
+    /** Only a current root's old-scheme name is renamed by a sync; any other stays, so a sync would buy nothing. */
+    fun testAnOlderSchemeNameOfARootThatLeftNeedsNoResync() {
+        assertFalse(
+            "An old-scheme name no sync renames must not force a full sync on every open",
+            isSweptMixLibraryName("phoenix [file:///elsewhere/gone]", setOf("."), "/project"),
+        )
+    }
+
+    /** The whole-project upgrade case: treating the old form as current would call this project healthy. */
+    fun testAnOlderSchemeNameOfACurrentRootNeedsResync() {
+        assertTrue(
+            "A current root's old-scheme name must trigger a full sync",
+            isSweptMixLibraryName("phoenix [file:///project/apps/a]", setOf(".", "apps/a"), "/project"),
+        )
     }
 }

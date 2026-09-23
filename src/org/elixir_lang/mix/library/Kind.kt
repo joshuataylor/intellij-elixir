@@ -7,5 +7,7 @@ object Kind : PersistentLibraryKind<DummyLibraryProperties>("mix") {
     override fun createDefaultProperties(): DummyLibraryProperties = DummyLibraryProperties.INSTANCE
 }
 
-/** Suffix appended to the project-wide consolidated-protocols library name, e.g. `mymodule (consolidated)`. */
-internal const val CONSOLIDATED_LIBRARY_SUFFIX = "(consolidated)"
+/**
+ * What a content root's consolidated-protocols library is named after, scoped like a dep: `(consolidated) [apps/api]`.
+ */
+internal const val CONSOLIDATED_LIBRARY_BASE_NAME = "(consolidated)"

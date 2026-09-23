@@ -310,10 +310,12 @@ internal suspend fun buildSyncPlan(project: Project, requests: CoalescedRequests
 
     val consolidatedPlans = buildConsolidatedLibraryPlans(project, requests)
 
+    val basePath = project.basePath?.let(FileUtil::toSystemIndependentName)
+
     return SyncPlan(
         deleteAlls = requests.deleteAlls.map { DeleteAllPlan(it.depsUrl) },
         deleteOnes = requests.deleteOnes.map {
-            DeleteOnePlan(it.depName, it.contentRootUrl, it.contentRootUrl?.let { url -> contentRootToken(project, url) })
+            DeleteOnePlan(it.depName, it.contentRootUrl, it.contentRootUrl?.let { url -> contentRootToken(basePath, url) })
         },
         libraryPlans = libraryPlans,
         modulePlans = modulePlans,
@@ -380,10 +382,13 @@ private suspend fun buildConsolidatedLibraryPlans(
             }
         }
 
-        contentRoots.mapNotNull { contentRoot ->
+        val basePath = project.basePath?.let(FileUtil::toSystemIndependentName)
+        contentRoots.map { contentRoot ->
             ProgressManager.checkCanceled()
-            val build = contentRoot.findChild("_build") ?: return@mapNotNull null
-            if (!build.isValid || !build.isDirectory) return@mapNotNull null
+            val token = contentRootToken(basePath, contentRoot.url)
+            // An empty plan, not none, so a library left from before `_build` was deleted is removed.
+            val build = contentRoot.findChild("_build")?.takeIf { it.isValid && it.isDirectory }
+                ?: return@map ConsolidatedLibraryPlan(contentRoot.url, token, emptyList(), ownerModuleName = null)
 
             val consolidatedDirs = build.children
                 .filter { it.isDirectory }
@@ -393,6 +398,7 @@ private suspend fun buildConsolidatedLibraryPlans(
 
             ConsolidatedLibraryPlan(
                 contentRootUrl = contentRoot.url,
+                contentRootToken = token,
                 classRootUrls = consolidatedDirs.map { it.url },
                 ownerModuleName = ownerModuleName,
             )
@@ -580,7 +586,7 @@ internal suspend fun buildModuleDepsPlan(
     val externalLibNames: Map<String, String> = externalLibraryPlans.associateBy({ it.depName }, { it.libraryName })
     val libraryDeps: Set<String> = readAction {
         val basePath = project.basePath?.let { FileUtil.toSystemIndependentName(it) }
-        fun token(url: String) = basePath?.let { contentRootToken(it, url) } ?: url
+        fun token(url: String) = contentRootToken(basePath, url)
         val mixExsRoots by lazy { contentRoots.filter { it.findFileByRelativePath("mix.exs") != null } }
         deps.filter { it.type == Dep.Type.LIBRARY }.mapTo(LinkedHashSet()) { dep ->
             val owningRoot = contentRoots.firstOrNull { root ->
@@ -745,7 +751,7 @@ internal fun buildLibraryRootsPlansInCurrentContext(project: Project, deps: Coll
 
             LibraryRootsPlan(
                 contentRootUrl = contentRootUrl,
-                contentRootToken = basePath?.let { contentRootToken(it, contentRootUrl) } ?: contentRootUrl,
+                contentRootToken = contentRootToken(basePath, contentRootUrl),
                 depName = depName,
                 classRootUrls = classRoots.map { it.url }.distinct(),
                 sourceRootUrls = dep.children

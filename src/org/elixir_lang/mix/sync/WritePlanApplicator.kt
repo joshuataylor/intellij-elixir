@@ -31,7 +31,7 @@ internal data class ApplyStats(val librariesChanged: Int, val modulesChanged: In
  * Stale-plan resilience: if the project is disposed at entry, or a target module is disposed
  * during iteration, the operation is skipped gracefully without throwing.
  *
- * Known limitation - narrow read→write race window: [ModuleWriteOp] only carries entries that
+ * Known limitation - narrow read->write race window: [ModuleWriteOp] only carries entries that
  * were *missing* at [buildWritePlan] snapshot time.  If a concurrent write action removes an
  * already-existing entry in the gap between the read phase and this write phase, it will not
  * be restored during this cycle.  Self-healing occurs on the next VFS-triggered drain.  This
@@ -68,20 +68,31 @@ internal suspend fun applyWritePlan(project: Project, writePlan: WritePlan): App
 
             // ------------------------------------------------------------------
             // Step 2: Create or update libraries using pre-computed root diffs.
-            // One modifiable model → one commit() for all library changes.
+            // One modifiable model -> one commit() for all library changes.
             // ------------------------------------------------------------------
             for (op in writePlan.libraryWriteOps) {
                 if (project.isDisposed) break
                 ProgressManager.checkCanceled()
-                val library = if (op.createWithKind) {
-                    tableModel.createLibrary(op.libraryName, Kind)
+                if (op.createWithKind) {
+                    applyLibraryRootsDiff(tableModel.createLibrary(op.libraryName, Kind), op)
                 } else {
-                    // Library should exist (was in snapshot); fall back to create if a concurrent
-                    // removal happened between the read phase and now.
-                    tableModel.getLibraryByName(op.libraryName)
-                        ?: tableModel.createLibrary(op.libraryName, Kind)
+                    val existing = tableModel.getLibraryByName(op.libraryName)
+                    if (existing != null) {
+                        applyLibraryRootsDiff(existing, op)
+                    } else {
+                        // Removed between the read phase and now, such as by the user: the diff no longer applies.
+                        val roots = op.recreateWith ?: continue
+                        applyLibraryRootsDiff(
+                            tableModel.createLibrary(op.libraryName, Kind),
+                            op.copy(
+                                addClassUrls = roots.classUrls,
+                                removeClassUrls = emptyList(),
+                                addSourceUrls = roots.sourceUrls,
+                                removeSourceUrls = emptyList(),
+                            ),
+                        )
+                    }
                 }
-                applyLibraryRootsDiff(library, op)
                 librariesChanged++
             }
 
@@ -181,15 +192,16 @@ private fun applyModuleWriteOp(
     moduleManager: ModuleManager,
     libraryTable: com.intellij.openapi.roots.libraries.LibraryTable,
 ) {
-    // Remove the entries scheduled by buildWritePlan.  Validity is deliberately not re-checked:
-    // these are removed because their scope token is not a current content root, which has nothing
-    // to do with whether the library still exists - and for entries left by an older naming scheme
-    // it usually does, so a validity guard here would silently drop every removal.
+    // Validity is deliberately not re-checked: an entry left by an older naming scheme usually still resolves, so a
+    // validity guard here would silently drop those removals.
     if (op.removeStaleLibraryDeps.isNotEmpty()) {
         var removed = 0
         for (entry in modifiableModel.orderEntries.filterIsInstance<LibraryOrderEntry>()) {
             ProgressManager.checkCanceled()
-            if (entry.libraryName in op.removeStaleLibraryDeps) {
+            // The planner chose these names from project-level entries only.
+            if (entry.libraryLevel == LibraryTablesRegistrar.PROJECT_LEVEL &&
+                entry.libraryName in op.removeStaleLibraryDeps
+            ) {
                 modifiableModel.removeOrderEntry(entry)
                 removed++
             }
@@ -215,7 +227,7 @@ private fun applyModuleWriteOp(
     val liveExcludeFolderUrls = modifiableModel.contentEntries
         .flatMapTo(HashSet()) { it.excludeFolderUrls.filter(String::isNotEmpty) }
 
-    // Module deps - re-validate existence at apply time to handle the read→write race.
+    // Module deps - re-validate existence at apply time to handle the read->write race.
     for (depName in op.addModuleDeps) {
         ProgressManager.checkCanceled()
         if (depName in liveModuleDeps) continue
