@@ -7,6 +7,7 @@ import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
+import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -17,6 +18,8 @@ import org.elixir_lang.annotator.InvalidConstruct
 import org.elixir_lang.annotator.InvalidToken
 import org.elixir_lang.annotator.VersionedSyntax
 import org.elixir_lang.intellij_elixir.Quoter
+import org.elixir_lang.junit.SharedFixture
+import org.elixir_lang.junit.SharedFixtureHost
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import java.lang.reflect.Proxy
@@ -28,15 +31,17 @@ import java.nio.file.Path
  * of Elixir's own tests: under the release of the Elixir under test, the annotators must report nothing where that
  * Elixir accepts the source, and where they report, give that Elixir's message. Elixir's hints after the first line are
  * left to hovers.
+ *
+ * The cases share one [SharedFixture]: a fixture per case cost more than the check.
  */
+@Suppress("JUnitMalformedDeclaration") // Built only by `suite()`.
 class AnnotatorQuoterAgreementTestCase private constructor(
-    private val hash: String,
-    private val source: String,
-    private val answer: String?,
-    private val knownFailures: KnownFailures,
-) : BasePlatformTestCase() {
+    private val fixture: SharedFixture<AnnotatorQuoterAgreementTestCase>?,
+    private val case: Case?,
+) : BasePlatformTestCase(), SharedFixtureHost<AnnotatorQuoterAgreementTestCase> {
     init {
-        name = hash
+        name = case?.hash ?: "shared fixture"
+        fixture?.add(this)
     }
 
     override fun setUp() {
@@ -57,15 +62,29 @@ class AnnotatorQuoterAgreementTestCase private constructor(
         }
     }
 
+    override fun runShared(serve: ThrowableRunnable<Throwable>) {
+        runBare(serve)
+    }
+
     override fun runBare(testRunnable: ThrowableRunnable<Throwable>) {
-        if (knownFailures.contains(hash)) {
-            super.runBare { knownFailures.expectFailure(hash) { assertAgrees() } }
+        if (fixture == null) {
+            super.runBare(testRunnable)
         } else {
-            super.runBare { assertAgrees() }
+            fixture.check(this)
         }
     }
 
-    private fun assertAgrees() {
+    override fun check(case: AnnotatorQuoterAgreementTestCase) {
+        val (hash, source, answer, knownFailures) = case.case!!
+
+        if (knownFailures.contains(hash)) {
+            knownFailures.expectFailure(hash) { assertAgrees(source, answer) }
+        } else {
+            assertAgrees(source, answer)
+        }
+    }
+
+    private fun assertAgrees(source: String, answer: String?) {
         val reported = annotate(source)
         val elixir = "Elixir ${System.getenv("ELIXIR_VERSION")}"
 
@@ -87,7 +106,7 @@ class AnnotatorQuoterAgreementTestCase private constructor(
             Proxy.newProxyInstance(javaClass.classLoader, arrayOf(method.returnType)) { builder, builderMethod, builderArguments ->
                 when (builderMethod.name) {
                     "range" -> {
-                        start = (builderArguments[0] as com.intellij.openapi.util.TextRange).startOffset
+                        start = (builderArguments[0] as TextRange).startOffset
                         builder
                     }
                     "create" -> {
@@ -110,13 +129,16 @@ class AnnotatorQuoterAgreementTestCase private constructor(
         return found.sortedBy { it.first }.map { it.second }
     }
 
+    private data class Case(val hash: String, val source: String, val answer: String?, val knownFailures: KnownFailures)
+
     companion object {
         private val SOURCES = Path.of("testData", "org", "elixir_lang", "annotator", "quoter_agreement", "sources.jsonl")
         private val KNOWN_DIFFERENCES = Path.of("testData", "org", "elixir_lang", "annotator", "quoter_agreement", "known_differences.tsv")
 
         @JvmStatic
         fun suite(): Test {
-            val suite = TestSuite(AnnotatorQuoterAgreementTestCase::class.java.name)
+            val fixture = SharedFixture { AnnotatorQuoterAgreementTestCase(null, null) }
+            val suite = fixture.suite(AnnotatorQuoterAgreementTestCase::class.java.name)
             val knownFailures = KnownFailures.forElixirUnderTest(KNOWN_DIFFERENCES)
             val sources = LinkedHashMap<String, String>()
 
@@ -140,7 +162,7 @@ class AnnotatorQuoterAgreementTestCase private constructor(
                     return suite
                 }
 
-                suite.addTest(AnnotatorQuoterAgreementTestCase(hash, source, message(quoted), knownFailures))
+                suite.addTest(AnnotatorQuoterAgreementTestCase(fixture, Case(hash, source, message(quoted), knownFailures)))
             }
 
             knownFailures.checkStale(suite, sources.keys)
