@@ -52,6 +52,7 @@ import sdk.versionWithoutBuildTag
 import sdk.elixirTestEnvironment
 import testing.recordTimeline
 import testing.runInForks
+import testing.TestProgress
 import versioning.ChangelogSettings
 import versioning.GitSourceIdValueSource
 import versioning.PluginVersion
@@ -443,6 +444,8 @@ allprojects {
             showStackTraces = true
             showFullStackTraces = false
             slowThreshold = 2000
+            // A full run lists too many to read; `-Dtestlogger.showPassed=true` lists them again.
+            showPassed = false
             showSummary = true
             showStandardStreams = false
             showFailedStandardStreams = true
@@ -1147,6 +1150,7 @@ tasks.named<Test>("test") {
         explicitForks = providers.gradleProperty("testForks").map(String::toInt),
         stepSummary = providers.environmentVariable("GITHUB_STEP_SUMMARY"),
     )
+    addTestListener(TestProgress(every = 1000))
     providers.gradleProperty("testTimeline").orNull?.let { recordTimeline(layout.projectDirectory.file(it).asFile) }
 
     // Add Mockito as javaagent to avoid dynamic loading warnings (root project only)
