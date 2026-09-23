@@ -26,9 +26,11 @@ import java.io.File
  * occurrence, resolution, classification, the chain root, Find Usages, the rename target and both scopes, and
  * the rename itself is run once per class, since carets with one target run one search. Every disagreement is
  * collected, so a change that moves one path away from the others fails here by path, fixture and position.
+ *
+ * The fixtures are split over [SHARDS] classes by id, so parallel test JVMs share the corpus between them.
  */
 @Suppress("UnstableApiUsage")
-class VariableOracleCorpusTest : PlatformTestCase() {
+abstract class VariableOracleCorpusTestCase(private val shard: Int) : PlatformTestCase() {
     private class Occurrence(
         val name: String,
         val line: Int,
@@ -55,7 +57,7 @@ class VariableOracleCorpusTest : PlatformTestCase() {
 
     fun testEveryPathAgreesWithTheCompiler() {
         val cases = cases()
-        println("variable oracle corpus: ${cases.size} fixtures")
+        println("variable oracle corpus shard $shard: ${cases.size} fixtures")
 
         for (case in cases) {
             load(case)
@@ -187,7 +189,7 @@ class VariableOracleCorpusTest : PlatformTestCase() {
 
     private fun report() {
         // the assertion shows the first few per path; the whole lists go under build/ for triage
-        val directory = File("build/oracle-corpus").apply { mkdirs() }
+        val directory = File("build/oracle-corpus/shard-$shard").apply { mkdirs() }
         val sections = PATHS.mapNotNull { path ->
             val failures = disagreements.getValue(path)
             directory.resolve("$path.txt").writeText(failures.joinToString("\n"))
@@ -196,7 +198,7 @@ class VariableOracleCorpusTest : PlatformTestCase() {
                 "$path: ${it.size} disagree:\n  " + it.take(REPORTED).joinToString("\n  ") + more
             }
         }
-        println("variable oracle corpus: $checked checks")
+        println("variable oracle corpus shard $shard: $checked checks")
         assertTrue(
             "$checked checks; disagreements with the compiler:\n" + sections.joinToString("\n"),
             sections.isEmpty()
@@ -254,7 +256,7 @@ class VariableOracleCorpusTest : PlatformTestCase() {
         val selected = goldens.sortedBy { it.name }.filter { only?.containsMatchIn(it.nameWithoutExtension) ?: true }
         assertFalse("no fixture id matches ELIXIR_ORACLE_CASES=$only", selected.isEmpty())
 
-        return selected.map { golden ->
+        return selected.filter { Math.floorMod(it.nameWithoutExtension.hashCode(), SHARDS) == shard }.map { golden ->
             val id = golden.nameWithoutExtension
             val source = sources.getValue(id)
             val occurrences = golden.readLines().filterNot { it.startsWith("#") || it.isBlank() }.map { line ->
@@ -273,6 +275,8 @@ class VariableOracleCorpusTest : PlatformTestCase() {
     }
 
     companion object {
+        const val SHARDS = 4
+
         private val PATHS =
             listOf("declaration", "resolution", "chain root", "usages", "rename target", "scope", "rename")
 
@@ -281,3 +285,11 @@ class VariableOracleCorpusTest : PlatformTestCase() {
         private const val REPORTED = 25
     }
 }
+
+class VariableOracleCorpusShard0Test : VariableOracleCorpusTestCase(0)
+
+class VariableOracleCorpusShard1Test : VariableOracleCorpusTestCase(1)
+
+class VariableOracleCorpusShard2Test : VariableOracleCorpusTestCase(2)
+
+class VariableOracleCorpusShard3Test : VariableOracleCorpusTestCase(3)
