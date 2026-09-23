@@ -727,9 +727,7 @@ dependencies {
     implementation(files("lib/OtpErlang.jar"))
     implementation(libCommonsIo)
 
-    @Suppress("AvoidDuplicateDependencies")
     testImplementation(libMockitoCore)
-    @Suppress("AvoidDuplicateDependencies")
     mockitoAgent(libMockitoCore) { isTransitive = false }
 
     // Explicit here (not pulled in via ide-starter) because the IntelliJ Platform Gradle Plugin
@@ -1211,7 +1209,7 @@ tasks.register<Test>("testUI") {
     maxHeapSize = "4g"
 
     systemProperty("path.to.build.plugin", tasks.buildPlugin.get().archiveFile.get().asFile.absolutePath)
-    systemProperty("idea.home.path", tasks.prepareTestSandbox.get().getDestinationDir().parentFile.absolutePath)
+    systemProperty("idea.home.path", tasks.prepareTestSandbox.get().destinationDir.parentFile.absolutePath)
     systemProperty("uiPlatformBuildVersion", actualPlatformVersion)
     systemProperty("projectPath", unzipQuoter.get().destinationDir.absolutePath)
     // Keep Allure outputs under build/ instead of the repo root.
