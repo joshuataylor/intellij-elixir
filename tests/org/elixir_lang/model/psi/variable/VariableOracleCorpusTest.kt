@@ -1,6 +1,6 @@
 package org.elixir_lang.model.psi.variable
 
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.openapi.vfs.VirtualFile
@@ -27,6 +27,7 @@ import java.io.File
  * the rename itself is run once per class, since carets with one target run one search. Every disagreement is
  * collected, so a change that moves one path away from the others fails here by path, fixture and position.
  */
+@Suppress("UnstableApiUsage")
 class VariableOracleCorpusTest : PlatformTestCase() {
     private class Occurrence(
         val name: String,
@@ -88,6 +89,7 @@ class VariableOracleCorpusTest : PlatformTestCase() {
         // a rename is the only edit, so a document still holding the text has nothing to reparse
         if (StringUtil.equals(myFixture.editor.document.immutableCharSequence, case.text)) return
         WriteCommandAction.runWriteCommandAction(project) {
+            @Suppress("UsePropertyAccessSyntax") // `Document.text` has no setter
             myFixture.editor.document.setText(case.text)
             // committing under the same write lock forestalls the background commit the change would otherwise queue
             PsiDocumentManager.getInstance(project).commitAllDocuments()
@@ -96,7 +98,7 @@ class VariableOracleCorpusTest : PlatformTestCase() {
 
     private fun checkIdentity(case: Case, occurrence: Occurrence) {
         check(case, occurrence, "declaration") { element ->
-            val declares = runReadAction { VariableSymbol.isDeclaration(element) }
+            val declares = runReadActionBlocking { VariableSymbol.isDeclaration(element) }
             if (declares == occurrence.binds) {
                 null
             } else {
@@ -108,13 +110,13 @@ class VariableOracleCorpusTest : PlatformTestCase() {
         if (occurrence.binds) {
             check(case, occurrence, "chain root") { element ->
                 val root = case.root(occurrence).position
-                val chained = runReadAction { VariableSymbol.fromDeclaration(element)?.chainRootSymbol() }
+                val chained = runReadActionBlocking { VariableSymbol.fromDeclaration(element)?.chainRootSymbol() }
                     ?.let { position(it.range.startOffset) }
                 if (chained == root) null else "chains to $chained, not to $root"
             }
         } else {
             check(case, occurrence, "resolution") { element ->
-                val resolved = runReadAction { VariableReference.resolveSymbols(element) }
+                val resolved = runReadActionBlocking { VariableReference.resolveSymbols(element) }
                     .map { position(it.range.startOffset) }
                 val group = case.group(occurrence).map { it.position }
 
@@ -155,9 +157,9 @@ class VariableOracleCorpusTest : PlatformTestCase() {
 
         check(case, occurrence, "scope") { element ->
             val classmates = case.group(occurrence).map { elementAt(it) }
-            val useScope = runReadAction { element.useScope } as? LocalSearchScope
+            val useScope = runReadActionBlocking { element.useScope } as? LocalSearchScope
             val symbolScope =
-                runReadAction { VariableSymbol.fromElement(element)?.maximalSearchScope } as? LocalSearchScope
+                runReadActionBlocking { VariableSymbol.fromElement(element)?.maximalSearchScope } as? LocalSearchScope
 
             listOfNotNull(
                 useScope?.leftOut(classmates)?.let { "use scope leaves out $it" },
@@ -202,7 +204,7 @@ class VariableOracleCorpusTest : PlatformTestCase() {
     }
 
     private fun RenameTarget.chainRoot(): Any =
-        (this as? VariableSymbol)?.let { runReadAction { it.chainRootSymbol() } } ?: this
+        (this as? VariableSymbol)?.let { runReadActionBlocking { it.chainRootSymbol() } } ?: this
 
     private fun LocalSearchScope.leftOut(elements: List<PsiElement>): List<Pair<Int, Int>>? =
         elements.filterNot { PsiSearchScopeUtil.isInScope(this, it) }
