@@ -18,7 +18,7 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
- * Pins each way the decompiler renders a head to a fixture. `SdkStubSignatureTest` holds the stub to the mirror
+ * Pins each way the decompiler renders a head to a fixture. `SdkStdlibSweepTest` holds the stub to the mirror
  * across whole SDKs.
  */
 class CallDefinitionStubSignatureTest : PlatformTestCase() {
