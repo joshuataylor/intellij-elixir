@@ -6,6 +6,7 @@ import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.diagnostic.ThreadDumper
 import com.intellij.testFramework.PlatformTestUtil
 import java.io.File
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
@@ -54,7 +55,13 @@ internal object SdkFixtures {
     fun waitUntil(message: String, timeoutMillis: Long = 10_000, condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMillis
         while (!condition()) {
-            if (System.currentTimeMillis() > deadline) throw AssertionError(message)
+            if (System.currentTimeMillis() > deadline) {
+                // Lands in the JUnit XML's system-err, beside the failure.
+                System.err.println(ThreadDumper.dumpThreadsToString())
+                throw AssertionError(
+                    "$message (watch: ${SdkVersionWatchService.describeForTests()}; ${SdkVersionsFiller.describeForTests()})"
+                )
+            }
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             Thread.sleep(10)
         }
