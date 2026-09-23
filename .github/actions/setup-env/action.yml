@@ -159,6 +159,10 @@ runs:
           echo "ORG_GRADLE_PROJECT_platformVersion=$IDEA_VERSION" >> $GITHUB_ENV
         fi
         echo "ORG_GRADLE_PROJECT_skipSearchableOptions=$SKIP_SEARCHABLE_OPTIONS" >> $GITHUB_ENV
+        # Prefixes every setup-gradle cache key, the extracted build-cache and transforms entries included. Those are
+        # keyed by OS but not by IDE, so a leg on one IDEA version otherwise restores another version's compiled
+        # classes and extracted IDE, and recompiles everything.
+        echo "GRADLE_BUILD_ACTION_CACHE_KEY_PREFIX=idea-${IDEA_VERSION:-default}-" >> $GITHUB_ENV
 
     # modules-2 is cached so the IDE archive (1.3-1.6 GiB/version) downloads once, not per job -
     # concurrent downloads hit JetBrains rate limiting. The enhanced provider dedups it to one copy
