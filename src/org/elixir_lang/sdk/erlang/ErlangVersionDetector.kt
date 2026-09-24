@@ -53,7 +53,8 @@ object ErlangVersionDetector {
         }
 
         if (text.isBlank()) {
-            LOGGER.warn("OTP_VERSION file is empty: ${otpVersionFile.path}")
+            // What a read racing the write of an install or upgrade sees; the version-file watch reads it again.
+            LOGGER.debug("OTP_VERSION file is empty: ${otpVersionFile.path}")
             return null
         }
 

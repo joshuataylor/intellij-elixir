@@ -262,6 +262,70 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         }
     }
 
+    /** A version file read while it is being written is blank; the write that completes it must still be read. */
+    @RequiresEdt
+    fun testAHomeReadWhileItsVersionFileWasBlankIsReadOnceItIsWritten() {
+        val home = erlangHome("27", "27.3.4")
+        File(home, "releases/27/OTP_VERSION").writeText("")
+        SdkVersionWatchService.install(testRootDisposable)
+        SdkFixtures.registerAndWaitForFill(SdkFixtures.erlangSdk("Blank Erlang", home), testRootDisposable)
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(home)
+            SdkVersionWatchService.rewatch()
+        }
+        assertNull("precondition: a blank version file reports nothing", SdkVersionsStore.getInstance().otpVersion(home))
+
+        val otpVersionFile = LocalFileSystem.getInstance()
+            .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")
+        assertNotNull("precondition: the version file is in the VFS", otpVersionFile)
+        WriteAction.run<Throwable> { VfsUtil.saveText(otpVersionFile!!, "27.3.7\n") }
+
+        SdkFixtures.waitUntil("a home whose version file read blank must be read again once the file is written") {
+            SdkVersionsStore.getInstance().otpVersion(home) == "27.3.7"
+        }
+    }
+
+    /** A candidate home read while choosing an SDK answers nothing either, and no removal ever forgets it. */
+    fun testAHomeThatReadBlankIsNotWatchedOnceNoSdkUsesIt() {
+        val home = erlangHome("27", "27.3.4")
+        File(home, "releases/27/OTP_VERSION").writeText("")
+        SdkVersionWatchService.install(testRootDisposable)
+        runSuspendOnPooledThread { SdkVersionsFiller.fill(home) }
+
+        rewatch()
+
+        assertFalse(
+            "a home no SDK uses must not stay watched",
+            installationKey(home) in SdkVersionWatchService.homesToWatch(),
+        )
+    }
+
+    /**
+     * A home configured through a path that is not its canonical one, such as a symlink, is watched by its canonical
+     * path while it reads blank, and must stop being watched when its SDK goes, which names the configured path.
+     */
+    @RequiresEdt
+    fun testAHomeThatReadBlankIsForgottenByItsConfiguredPath() {
+        val home = File(erlangHome("27", "27.3.4"))
+        File(home, "releases/27/OTP_VERSION").writeText("")
+        File(home.parentFile, "elsewhere").mkdirs()
+        val configured = "${home.parentFile.path}/elsewhere/../${home.name}"
+        SdkVersionWatchService.install(testRootDisposable)
+        val sdk = SdkFixtures.registerAndWaitForFill(SdkFixtures.erlangSdk("Blank Erlang", configured), testRootDisposable)
+        runSuspendOnPooledThread { SdkVersionsFiller.fill(configured) }
+        rewatch()
+        assertTrue(
+            "precondition: the home is watched while it reads blank",
+            installationKey(home.path) in SdkVersionWatchService.homesToWatch(),
+        )
+
+        WriteAction.run<Throwable> { ProjectJdkTable.getInstance().removeJdk(sdk) }
+
+        SdkFixtures.waitUntil("a home no SDK uses any more must not stay watched") {
+            installationKey(home.path) !in SdkVersionWatchService.homesToWatch()
+        }
+    }
+
     /**
      * The SDK is registered before the watch is installed and assigned to the module after, so the table reports
      * nothing and only the module roots say its installation is now in use.

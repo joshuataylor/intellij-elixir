@@ -79,7 +79,10 @@ internal object SdkVersionsFiller {
         if (elixir == null && otpRelease == null) {
             // Recording an empty entry would publish a change that did not happen, and every parsed Elixir file in the
             // affected modules would lose its tree for it.
-            if (!clearWhenUnreadable || (stored == null && storedOtpRelease == null)) return false
+            if (!clearWhenUnreadable || (stored == null && storedOtpRelease == null)) {
+                if (!detected.homeIsGone) SdkVersionWatchService.watchUnanswered(detected.canonicalHomePath, homePath)
+                return false
+            }
 
             // A signal from the files is not proof the installation went: a forced refresh of a path the VFS could
             // not stat, such as a home on a stopped distro, reports a deletion.
