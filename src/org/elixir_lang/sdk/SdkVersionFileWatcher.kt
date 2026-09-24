@@ -101,7 +101,13 @@ internal object SdkVersionFileWatcher {
                 VirtualFileManager.VFS_CHANGES,
                 object : BulkFileListener {
                     override fun after(events: List<VFileEvent>) {
-                        for (homePath in homesToRevalidate(events, homeByWatchedPath)) {
+                        val homes = homesToRevalidate(events, homeByWatchedPath)
+                        SdkVersionWatchService.traceForTests {
+                            val underHomes = events.mapNotNull(::pathOf)
+                                .filter { path -> homeByWatchedPath.values.any { path.startsWith("$it/") } }
+                            if (underHomes.isEmpty()) null else "VFS events under watched homes $underHomes matched $homes"
+                        }
+                        for (homePath in homes) {
                             LOG.debug("A version file under '$homePath' changed")
                             revalidate(homePath)
                         }

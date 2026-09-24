@@ -17,7 +17,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.time.LocalTime
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import org.jetbrains.annotations.TestOnly
@@ -157,6 +159,7 @@ internal object SdkVersionWatchService {
             val unreachable = withContext(Dispatchers.IO) { homes.filterNotTo(HashSet(), wslCompat::isReachable) }
             // A value re-read changes the store without changing its homes, and every rebuild does I/O per home.
             if (homes == installation.lastWatched.get() && unreachable == installation.lastUnreachable) {
+                traceForTests { "rewatch skipped: already watching $homes" }
                 return@withLock false
             }
             val lifetime = homes.takeIf { it.isNotEmpty() }?.let { Disposer.newDisposable("SdkVersionFileWatcher") }
@@ -169,6 +172,7 @@ internal object SdkVersionWatchService {
             // rewatch of that set skip while nothing is watched.
             installation.lastWatched.set(null)
             installation.watching.getAndSet(lifetime)?.let(Disposer::dispose)
+            traceForTests { "rewatch disposed the previous watch, building one for $homes" }
             installation.lastUnreachable = unreachable
             if (lifetime == null) {
                 installation.lastWatched.set(homes)
@@ -176,12 +180,19 @@ internal object SdkVersionWatchService {
             }
 
             LOG.debug("Watching the version files of ${homes.size} installation(s)")
-            withContext(Dispatchers.IO) {
+            val watched = withContext(Dispatchers.IO) {
                 // Only the reachable homes, so what is recorded as unreachable is what this watch left out.
                 SdkVersionFileWatcher.watch(homes - unreachable, lifetime) { homePath ->
-                    installation.scope.launch { SdkVersionsFiller.fill(homePath, clearWhenUnreadable = true) }
+                    traceForTests { "a version file under $homePath changed" }
+                    installation.scope.launch {
+                        val changed = SdkVersionsFiller.fill(homePath, clearWhenUnreadable = true)
+                        traceForTests {
+                            "re-read $homePath: changed $changed, OTP ${SdkVersionsStore.getInstance().otpVersion(homePath)}"
+                        }
+                    }
                 }
             }
+            traceForTests { "rewatch built: ${watched.size} path(s) watched" }
             // Only after `watch` returns: it throws for a distro that stopped answering, and a recorded set is skipped.
             installation.lastWatched.set(homes)
             true
@@ -199,6 +210,7 @@ internal object SdkVersionWatchService {
     @TestOnly
     fun stopWatchingForTests() {
         unanswered.clear()
+        trace.clear()
         val installation = installed ?: return
         installation.watching.getAndSet(null)?.let(Disposer::dispose)
         installation.lastWatched.set(emptySet())
@@ -211,8 +223,22 @@ internal object SdkVersionWatchService {
 
         return "installed, scope active: ${installation.scope.isActive}; watching: ${installation.lastWatched.get()}; " +
             "rewatch pending: ${installation.rewatchPending.get()}, running: ${installation.rewatches.isLocked}; " +
-            "store homes: ${homesToWatch()}"
+            "store homes: ${SdkVersionsStore.getInstance().homes()}; unanswered: ${unanswered.values}; " +
+            "recent: ${trace.joinToString(" | ")}"
     }
+
+    // Exists only to track down flaky SDK-watch tests, which see a changed version file go unread; remove it if those
+    // flakes have not shown up in a while.
+    private val trace = ConcurrentLinkedDeque<String>()
+
+    /** [event] is only built in unit-test mode, and a null one records nothing. */
+    internal fun traceForTests(event: () -> String?) {
+        if (!ApplicationManager.getApplication().isUnitTestMode) return
+        trace.addLast("${LocalTime.now()} ${event() ?: return}")
+        while (trace.size > TRACE_LIMIT) trace.pollFirst()
+    }
+
+    private const val TRACE_LIMIT = 40
 
     /**
      * [rewatches] serialises rewatches: each disposes the previous [watching] registration and builds the next, and two
