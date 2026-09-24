@@ -1086,6 +1086,8 @@ tasks.named<Test>("test") {
     // output.
     dependsOn("prepareTestSandbox", resolveElixirErlangSdks, startQuoter)
     usesService(quoterService)
+    // Every fork starting the ~150 other bundled plugins cost each one seconds before its first test.
+    systemProperty("idea.load.plugins.id", providers.gradleProperty("testLoadedPlugins").get())
 
     val sdkProps = sdkPropertiesFile
     val quoterAvailability = quoterAvailabilityFile.asFile
