@@ -89,8 +89,14 @@ internal object SdkVersionFileWatcher {
         }
         if (homeByWatchedPath.isEmpty()) return emptySet()
 
-        // Subscribed before loading: loading a file that changed since it was read is itself a change event.
-        ApplicationManager.getApplication().messageBus.connect(parentDisposable)
+        // Subscribed before loading: loading a file that changed since it was read is itself a change event. The parent
+        // can be disposed while this runs, by a later rewatch or installation, and registering on it then throws.
+        val connection = ApplicationManager.getApplication().messageBus.connect()
+        if (!Disposer.tryRegister(parentDisposable, connection)) {
+            connection.disconnect()
+            return emptySet()
+        }
+        connection
             .subscribe(
                 VirtualFileManager.VFS_CHANGES,
                 object : BulkFileListener {
@@ -110,7 +116,8 @@ internal object SdkVersionFileWatcher {
             localFileSystem.loadForEvents(path)?.let(loaded::add)
             localFileSystem.addRootToWatch(path, false)?.also { watched.add(path) }
         }
-        Disposer.register(parentDisposable) { localFileSystem.removeWatchedRoots(watchRequests) }
+        val unwatch = Disposable { localFileSystem.removeWatchedRoots(watchRequests) }
+        if (!Disposer.tryRegister(parentDisposable, unwatch)) Disposer.dispose(unwatch)
         service<WslFlatWatchRefresh>().follow(homeByWatchedPath.keys, parentDisposable)
 
         // Finding a file the VFS already has compares neither timestamp nor length, so an installation replaced while
