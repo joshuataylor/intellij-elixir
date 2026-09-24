@@ -65,6 +65,25 @@ inputs:
 runs:
   using: composite
   steps:
+    # One runner label covers more than one hardware type, which is otherwise invisible when leg timings disagree.
+    - name: Report runner hardware
+      id: report-runner-hardware
+      continue-on-error: true
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          cpu=$(pwsh -NoProfile -Command '(Get-CimInstance Win32_Processor | Select-Object -First 1).Name' | tr -d '\r')
+          memory=$(pwsh -NoProfile -Command '[math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 1)' | tr -d '\r')
+          memory="$memory GiB"
+        else
+          cpu=$(sed -n 's/^model name[[:space:]]*: //p' /proc/cpuinfo | head -1)
+          memory=$(awk '/^MemTotal:/ { printf "%.1f GiB", $2 / 1048576 }' /proc/meminfo)
+        fi
+        cpu=$(echo "$cpu" | sed 's/[[:space:]]*$//')
+        line="Runner: ${RUNNER_NAME:-unknown}; image ${ImageOS:-unknown} ${ImageVersion:-unknown}; $(nproc) CPUs, ${cpu:-unknown model}; ${memory:-unknown} memory"
+        echo "$line"
+        echo "$line" >> "$GITHUB_STEP_SUMMARY"
+
     # Any version input left empty is resolved from the CI declaration, so callers that don't care
     # (release/tag/build-plugin) always get the minimum supported platform and its JBR level
     # without restating it. The test matrix passes every value explicitly, so its legs read neither

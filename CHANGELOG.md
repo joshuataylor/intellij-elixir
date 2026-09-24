@@ -470,7 +470,7 @@
 - [#4171](https://github.com/intellij-elixir/intellij-elixir/pull/4171) [@sh41](https://github.com/sh41)
   - **The test suite runs on the JUnit Platform in parallel test JVMs sized to the machine's spare cores and memory, and no longer starts shells in real WSL distributions.**
 - [#4181](https://github.com/intellij-elixir/intellij-elixir/pull/4181) [@sh41](https://github.com/sh41)
-  - **Each CI leg restores only its own IDEA version's Gradle caches, instead of another's that it then rebuilt.**
+  - **Each CI leg restores only its own IDEA version's Gradle caches, instead of another's that it then rebuilt, and every job reports its runner's hardware.**
 - [#4154](https://github.com/intellij-elixir/intellij-elixir/pull/4154) [@sh41](https://github.com/sh41)
   - **Changelog entries merge without conflicting, and change notes are truncated at the descriptor's character cap instead of failing the build.**
 - [#4148](https://github.com/intellij-elixir/intellij-elixir/pull/4148) [@sh41](https://github.com/sh41)
