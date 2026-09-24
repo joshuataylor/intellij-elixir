@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
@@ -138,6 +139,10 @@ internal object SdkVersionWatchService {
 
     @Volatile
     private var installed: Installation? = null
+
+    /** Whether every fill and rewatch launched so far has finished, for a test that must see the store settled. */
+    @TestOnly
+    fun isIdleForTests(): Boolean = installed?.scope?.coroutineContext?.job?.children?.none() ?: true
 
     /** Stops watching what [SdkVersionsStore.clearForTests] emptied, which it does without telling anyone. */
     @TestOnly

@@ -61,6 +61,8 @@ class OtpMismatchTest : PlatformTestCase() {
     fun testDetectOtpMismatch_declinesForAnErlangHomeNotReadYet() {
         // The file would say 25; it is not consulted, because this runs under the status bar's refresh.
         val erlangSdk = registerErlangSdk(createErlangHome(major = "25", otpVersion = "25.3"), otpVersion = null)
+        // Registering read the real home; undone, since the case is a home nothing has read.
+        SdkVersionsStore.getInstance().clearForTests()
         val elixirSdk = registerElixirSdkPairedWith(erlangSdk, elixirOtpMajor = "27")
 
         assertNull(detectOnBackgroundThread(elixirSdk))
@@ -87,14 +89,20 @@ class OtpMismatchTest : PlatformTestCase() {
     // -------------------------------------------------------------------------
 
     fun testDetectOtpMismatchHomes_comparesWhatTheStoreHolds() {
-        SdkVersionsStore.getInstance().setElixirVersions("/fake/elixir/homes", ElixirVersions("1.16.3", OtpMajor.Known("27")))
+        SdkVersionsStore.getInstance().setElixirVersions(
+            "/fake/elixir/homes",
+            ElixirVersions("1.16.3", OtpMajor.Known("27")),
+        )
         SdkVersionsStore.getInstance().setOtpVersion("/fake/erlang/homes", "26.2.5")
 
         assertEquals("27" to "26", ElixirSdkValidation.detectOtpMismatch("/fake/elixir/homes", "/fake/erlang/homes"))
     }
 
     fun testDetectOtpMismatchHomes_declinesForAHomeNotReadYet() {
-        SdkVersionsStore.getInstance().setElixirVersions("/fake/elixir/homes", ElixirVersions("1.16.3", OtpMajor.Known("27")))
+        SdkVersionsStore.getInstance().setElixirVersions(
+            "/fake/elixir/homes",
+            ElixirVersions("1.16.3", OtpMajor.Known("27")),
+        )
         val erlangHome = createErlangHome(major = "26", otpVersion = "26.2.5")
 
         assertNull(ElixirSdkValidation.detectOtpMismatch("/fake/elixir/homes", erlangHome))
@@ -132,7 +140,10 @@ class OtpMismatchTest : PlatformTestCase() {
             .get()
 
     private fun registerErlangSdk(homePath: String, otpVersion: String?): Sdk {
-        val sdk = SdkFixtures.register(SdkFixtures.erlangSdk("OTP mismatch Erlang $homePath", homePath), testRootDisposable)
+        val sdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.erlangSdk("OTP mismatch Erlang $homePath", homePath),
+            testRootDisposable,
+        )
         // A null version leaves the store empty: a home nothing has read yet.
         if (otpVersion != null) SdkVersionsStore.getInstance().setOtpVersion(homePath, otpVersion)
         return sdk
@@ -144,14 +155,20 @@ class OtpMismatchTest : PlatformTestCase() {
         suppressWarning: Boolean = false,
     ): Sdk {
         val homePath = "/fake/elixir/1.16"
-        val sdk = SdkFixtures.register(SdkFixtures.elixirSdk("OTP mismatch Elixir ${erlangSdk.name}", homePath), testRootDisposable)
+        val sdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("OTP mismatch Elixir ${erlangSdk.name}", homePath),
+            testRootDisposable,
+        )
         // The pairing and the suppress flag stay with the SDK; the versions are the installation's.
         SdkFixtures.commit(
             sdk,
             SdkAdditionalData(erlangSdk, sdk).apply { setSuppressOtpMismatchWarning(suppressWarning) },
         )
         if (elixirOtpMajor != null) {
-            SdkVersionsStore.getInstance().setElixirVersions(homePath, ElixirVersions("1.16.3", OtpMajor.Known(elixirOtpMajor)))
+            SdkVersionsStore.getInstance().setElixirVersions(
+                homePath,
+                ElixirVersions("1.16.3", OtpMajor.Known(elixirOtpMajor)),
+            )
         }
         return sdk
     }

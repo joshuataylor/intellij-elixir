@@ -39,6 +39,15 @@ internal object SdkFixtures {
         return sdk
     }
 
+    /**
+     * [register], then wait for the read the registration starts once a project's startup has installed the SDK table
+     * listeners, so that read cannot land between a test's own store writes and its assertion.
+     */
+    fun registerAndWaitForFill(sdk: Sdk, parentDisposable: Disposable): Sdk =
+        register(sdk, parentDisposable).also {
+            waitUntil("the registration fill finishes") { SdkVersionWatchService.isIdleForTests() }
+        }
+
     fun commit(sdk: Sdk, data: com.intellij.openapi.projectRoots.SdkAdditionalData?) {
         WriteAction.run<Throwable> {
             sdk.sdkModificator.apply {
