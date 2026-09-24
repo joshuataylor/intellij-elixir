@@ -4,6 +4,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
+import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import kotlinx.coroutines.runBlocking
@@ -82,6 +83,8 @@ internal object MixSyncTestHelpers {
         val toRemove = libraryTable.libraries.toList()
         if (toRemove.isNotEmpty()) {
             WriteAction.run<Throwable> { toRemove.forEach { libraryTable.removeLibrary(it) } }
+            // The removal queues a rescan; a tear-down closing the project first leaves it starting on a closed project.
+            IndexingTestUtil.waitUntilIndexesAreReady(project)
         }
     }
 }
