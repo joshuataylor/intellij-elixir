@@ -4,6 +4,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.util.SystemInfoRt
 import com.intellij.testFramework.registerOrReplaceServiceInstance
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.sdk.SdkFixtures.fakeHome
 import org.elixir_lang.sdk.elixir.ElixirVersions
 import org.elixir_lang.sdk.elixir.OtpMajor
 import org.elixir_lang.sdk.erlang.Release
@@ -35,14 +36,14 @@ class SdkVersionsStoreTest : PlatformTestCase() {
     }
 
     fun testElixirVersionsAreReadBackByHomePath() {
-        store.setElixirVersions("/fake/elixir/1.20.5", ElixirVersions("1.20.5", OtpMajor.Known("28")))
+        store.setElixirVersions(fakeHome("elixir/1.20.5"), ElixirVersions("1.20.5", OtpMajor.Known("28")))
 
-        assertEquals(ElixirVersions("1.20.5", OtpMajor.Known("28")), store.elixirVersions("/fake/elixir/1.20.5"))
+        assertEquals(ElixirVersions("1.20.5", OtpMajor.Known("28")), store.elixirVersions(fakeHome("elixir/1.20.5")))
     }
 
     fun testAnUnknownHomeHasNoVersions() {
-        assertNull(store.elixirVersions("/fake/elixir/unknown"))
-        assertNull(store.otpVersion("/fake/erlang/unknown"))
+        assertNull(store.elixirVersions(fakeHome("elixir/unknown")))
+        assertNull(store.otpVersion(fakeHome("erlang/unknown")))
     }
 
     fun testANullHomeHasNoVersions() {
@@ -80,9 +81,9 @@ class SdkVersionsStoreTest : PlatformTestCase() {
     }
 
     fun testAnSdkTheDialogHasNotSavedIsAnsweredByItsHome() {
-        val erlangSdk = SdkFixtures.erlangSdk("Unsaved Erlang", "/fake/erlang/unsaved")
+        val erlangSdk = SdkFixtures.erlangSdk("Unsaved Erlang", fakeHome("erlang/unsaved"))
 
-        store.setOtpVersion("/fake/erlang/unsaved", "27.3.4")
+        store.setOtpVersion(fakeHome("erlang/unsaved"), "27.3.4")
 
         assertEquals(
             "an SDK that is not in the table is answered by its home",
@@ -93,30 +94,30 @@ class SdkVersionsStoreTest : PlatformTestCase() {
 
     fun testAChangedValueIsPublished() {
         val published = published()
-        store.setElixirVersions("/fake/elixir/published", ElixirVersions("1.19.5", OtpMajor.Known("27")))
+        store.setElixirVersions(fakeHome("elixir/published"), ElixirVersions("1.19.5", OtpMajor.Known("27")))
         published.clear()
 
-        store.setElixirVersions("/fake/elixir/published", ElixirVersions("1.19.6", OtpMajor.Known("27")))
+        store.setElixirVersions(fakeHome("elixir/published"), ElixirVersions("1.19.6", OtpMajor.Known("27")))
 
-        assertEquals(listOf("/fake/elixir/published"), published.toList())
+        assertEquals(listOf(installationKey(fakeHome("elixir/published"))), published.toList())
     }
 
     fun testAnUnchangedValuePublishesNothing() {
         val published = published()
-        store.setOtpVersion("/fake/erlang/unchanged", "27.3.4")
+        store.setOtpVersion(fakeHome("erlang/unchanged"), "27.3.4")
         published.clear()
 
-        store.setOtpVersion("/fake/erlang/unchanged", "27.3.4")
+        store.setOtpVersion(fakeHome("erlang/unchanged"), "27.3.4")
 
         assertEmpty(published)
     }
 
     fun testForgettingAHomeRemovesItsVersions() {
-        store.setOtpVersion("/fake/erlang/forgotten", "27.3.4")
+        store.setOtpVersion(fakeHome("erlang/forgotten"), "27.3.4")
 
-        store.forgetInstallation("/fake/erlang/forgotten")
+        store.forgetInstallation(fakeHome("erlang/forgotten"))
 
-        assertNull(store.otpVersion("/fake/erlang/forgotten"))
+        assertNull(store.otpVersion(fakeHome("erlang/forgotten")))
     }
 
     fun testTwoWslHomesDifferingOnlyInCaseAreDifferentInstallations() {
@@ -140,8 +141,8 @@ class SdkVersionsStoreTest : PlatformTestCase() {
     }
 
     fun testRecordingAnInstallationAnswersForBothSpellings() {
-        val canonicalHome = "/fake/erlang/27.3.4"
-        val configuredHome = "/fake/erlang/latest"
+        val canonicalHome = fakeHome("erlang/27.3.4")
+        val configuredHome = fakeHome("erlang/latest")
 
         store.record(canonicalHome, configuredHome, null, Release.of("27.3.4"))
 
@@ -160,12 +161,12 @@ class SdkVersionsStoreTest : PlatformTestCase() {
 
     fun testRecordingTheSameValuesAgainIsNotAChange() {
         val published = published()
-        store.record("/fake/erlang/again", "/fake/erlang/again", null, Release.of("27.3.4"))
+        store.record(fakeHome("erlang/again"), fakeHome("erlang/again"), null, Release.of("27.3.4"))
         published.clear()
 
         assertFalse(
             "re-reading an installation that has not changed must not reparse every file using it",
-            store.record("/fake/erlang/again", "/fake/erlang/again", null, Release.of("27.3.4")),
+            store.record(fakeHome("erlang/again"), fakeHome("erlang/again"), null, Release.of("27.3.4")),
         )
         assertEmpty(published)
     }
@@ -180,13 +181,13 @@ class SdkVersionsStoreTest : PlatformTestCase() {
     fun testForgettingAnInstallationThatWasNeverHeldIsNotAChange() {
         val published = published()
 
-        assertFalse(store.forgetInstallation("/fake/erlang/never", "/fake/erlang/never"))
+        assertFalse(store.forgetInstallation(fakeHome("erlang/never"), fakeHome("erlang/never")))
         assertEmpty("nothing was held, so nothing changed and nothing is reparsed", published)
     }
 
     fun testTheInstallationAHomeBelongsToIsItselfAValue() {
-        val configuredHome = "/fake/erlang/latest"
-        store.record("/fake/erlang/27.3.4", configuredHome, null, Release.of("27.3.4"))
+        val configuredHome = fakeHome("erlang/latest")
+        store.record(fakeHome("erlang/27.3.4"), configuredHome, null, Release.of("27.3.4"))
         val published = published()
 
         // What a WSL outage does: the same versions, but the home now resolves to itself. Reparsing keys off the
@@ -199,40 +200,40 @@ class SdkVersionsStoreTest : PlatformTestCase() {
     fun testAHomeThatWasNeverReadBelongsToItself() {
         assertEquals(
             "with nothing recorded the home is its own installation, so a comparison still has two sides",
-            installationKey("/fake/erlang/unheard-of"),
-            store.canonicalHome("/fake/erlang/unheard-of"),
+            installationKey(fakeHome("erlang/unheard-of")),
+            store.canonicalHome(fakeHome("erlang/unheard-of")),
         )
     }
 
     fun testEverySpellingIsHeld() {
-        store.record("/fake/erlang/27.3.4", "/fake/erlang/latest", null, Release.of("27.3.4"))
+        store.record(fakeHome("erlang/27.3.4"), fakeHome("erlang/latest"), null, Release.of("27.3.4"))
 
         assertEquals(
             "the watch covers what the store holds, and a change seen through either spelling must be read",
-            setOfNotNull(installationKey("/fake/erlang/27.3.4"), installationKey("/fake/erlang/latest")),
+            setOfNotNull(installationKey(fakeHome("erlang/27.3.4")), installationKey(fakeHome("erlang/latest"))),
             store.homes(),
         )
     }
 
     fun testAChangeToTheTextAloneIsPublished() {
         val published = published()
-        store.setOtpVersion("/fake/erlang/repackaged", "25.3.2.7")
+        store.setOtpVersion(fakeHome("erlang/repackaged"), "25.3.2.7")
         published.clear()
 
         // Ordered equal, because a package revision is not a release part, yet the text is what the SDK shows.
-        store.setOtpVersion("/fake/erlang/repackaged", "25.3.2.7-1")
+        store.setOtpVersion(fakeHome("erlang/repackaged"), "25.3.2.7-1")
 
-        assertEquals(listOf(installationKey("/fake/erlang/repackaged")), published.toList())
-        assertEquals("25.3.2.7-1", store.otpVersion("/fake/erlang/repackaged"))
+        assertEquals(listOf(installationKey(fakeHome("erlang/repackaged"))), published.toList())
+        assertEquals("25.3.2.7-1", store.otpVersion(fakeHome("erlang/repackaged")))
     }
 
     fun testATrailingSeparatorNamesTheSameInstallation() {
-        store.setOtpVersion("/fake/erlang/trailing/", "27.3.4")
+        store.setOtpVersion(fakeHome("erlang/trailing/"), "27.3.4")
 
         assertEquals(
             "a home the user typed with a trailing separator is the same directory",
             "27.3.4",
-            store.otpVersion("/fake/erlang/trailing"),
+            store.otpVersion(fakeHome("erlang/trailing")),
         )
     }
 

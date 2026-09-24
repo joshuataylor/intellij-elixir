@@ -5,6 +5,7 @@ import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.testFramework.common.runAll
 import com.intellij.testFramework.registerOrReplaceServiceInstance
+import org.elixir_lang.sdk.SdkFixtures.fakeHome
 import org.elixir_lang.sdk.wsl.MockWslCompatService
 import org.elixir_lang.sdk.wsl.WslCompatService
 import java.util.concurrent.atomic.AtomicInteger
@@ -35,21 +36,21 @@ class OtpMismatchTest : PlatformTestCase() {
     // -------------------------------------------------------------------------
 
     fun testDetectOtpMismatch_readsTheStoreWithNoFilesOnDisk() {
-        val erlangSdk = registerErlangSdk("/fake/erlang/25.3", otpVersion = "25.3")
+        val erlangSdk = registerErlangSdk(fakeHome("erlang/25.3"), otpVersion = "25.3")
         val elixirSdk = registerElixirSdkPairedWith(erlangSdk, elixirOtpMajor = "27")
 
         assertEquals("27" to "25", detectOnBackgroundThread(elixirSdk))
     }
 
     fun testDetectOtpMismatch_comparesMajorsNotFullVersions() {
-        val erlangSdk = registerErlangSdk("/fake/erlang/26.2.5.21", otpVersion = "26.2.5.21")
+        val erlangSdk = registerErlangSdk(fakeHome("erlang/26.2.5.21"), otpVersion = "26.2.5.21")
         val elixirSdk = registerElixirSdkPairedWith(erlangSdk, elixirOtpMajor = "26")
 
         assertNull(detectOnBackgroundThread(elixirSdk))
     }
 
     fun testDetectOtpMismatch_returnsNullWhenWarningSuppressed() {
-        val erlangSdk = registerErlangSdk("/fake/erlang/25.3", otpVersion = "25.3")
+        val erlangSdk = registerErlangSdk(fakeHome("erlang/25.3"), otpVersion = "25.3")
         val elixirSdk = registerElixirSdkPairedWith(erlangSdk, elixirOtpMajor = "27", suppressWarning = true)
 
         assertNull(
@@ -69,14 +70,14 @@ class OtpMismatchTest : PlatformTestCase() {
     }
 
     fun testDetectOtpMismatch_declinesWhenTheElixirOtpMajorIsNotRecorded() {
-        val erlangSdk = registerErlangSdk("/fake/erlang/25.3", otpVersion = "25.3")
+        val erlangSdk = registerErlangSdk(fakeHome("erlang/25.3"), otpVersion = "25.3")
         val elixirSdk = registerElixirSdkPairedWith(erlangSdk, elixirOtpMajor = null)
 
         assertNull(detectOnBackgroundThread(elixirSdk))
     }
 
     fun testDetectOtpMismatch_danglingPairingHasNoOtpVersion() {
-        val unregisteredErlangSdk = SdkFixtures.erlangSdk("OTP mismatch dangling Erlang", "/fake/erlang/dangling")
+        val unregisteredErlangSdk = SdkFixtures.erlangSdk("OTP mismatch dangling Erlang", fakeHome("erlang/dangling"))
         // Recorded, so the null result is the dangling pairing and not a missing version.
         SdkVersionsStore.getInstance().setOtpVersion(unregisteredErlangSdk.homePath!!, "25.3")
         val elixirSdk = registerElixirSdkPairedWith(unregisteredErlangSdk, elixirOtpMajor = "27")
@@ -90,26 +91,26 @@ class OtpMismatchTest : PlatformTestCase() {
 
     fun testDetectOtpMismatchHomes_comparesWhatTheStoreHolds() {
         SdkVersionsStore.getInstance().setElixirVersions(
-            "/fake/elixir/homes",
+            fakeHome("elixir/homes"),
             ElixirVersions("1.16.3", OtpMajor.Known("27")),
         )
-        SdkVersionsStore.getInstance().setOtpVersion("/fake/erlang/homes", "26.2.5")
+        SdkVersionsStore.getInstance().setOtpVersion(fakeHome("erlang/homes"), "26.2.5")
 
-        assertEquals("27" to "26", ElixirSdkValidation.detectOtpMismatch("/fake/elixir/homes", "/fake/erlang/homes"))
+        assertEquals("27" to "26", ElixirSdkValidation.detectOtpMismatch(fakeHome("elixir/homes"), fakeHome("erlang/homes")))
     }
 
     fun testDetectOtpMismatchHomes_declinesForAHomeNotReadYet() {
         SdkVersionsStore.getInstance().setElixirVersions(
-            "/fake/elixir/homes",
+            fakeHome("elixir/homes"),
             ElixirVersions("1.16.3", OtpMajor.Known("27")),
         )
         val erlangHome = createErlangHome(major = "26", otpVersion = "26.2.5")
 
-        assertNull(ElixirSdkValidation.detectOtpMismatch("/fake/elixir/homes", erlangHome))
+        assertNull(ElixirSdkValidation.detectOtpMismatch(fakeHome("elixir/homes"), erlangHome))
     }
 
     fun testDetectOtpMismatch_readsNoFilesForABuildRecordedAsHavingNoOtpMajor() {
-        val erlangSdk = registerErlangSdk("/fake/erlang/25.3", otpVersion = "25.3")
+        val erlangSdk = registerErlangSdk(fakeHome("erlang/25.3"), otpVersion = "25.3")
         // Elixir below 1.6 reports no OTP major: an answer, not a gap to re-read on every status bar refresh.
         val elixirSdk = registerElixirSdkPairedWith(erlangSdk, elixirOtpMajor = null)
         SdkVersionsStore.getInstance().setElixirVersions(elixirSdk.homePath!!, ElixirVersions("1.5.3", OtpMajor.None))
@@ -154,7 +155,7 @@ class OtpMismatchTest : PlatformTestCase() {
         elixirOtpMajor: String?,
         suppressWarning: Boolean = false,
     ): Sdk {
-        val homePath = "/fake/elixir/1.16"
+        val homePath = fakeHome("elixir/1.16")
         val sdk = SdkFixtures.registerAndWaitForFill(
             SdkFixtures.elixirSdk("OTP mismatch Elixir ${erlangSdk.name}", homePath),
             testRootDisposable,

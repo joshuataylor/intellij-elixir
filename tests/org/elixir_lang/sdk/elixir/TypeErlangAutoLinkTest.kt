@@ -14,6 +14,7 @@ import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.beam.BeamBytes
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.sdk.SdkFixtures
+import org.elixir_lang.sdk.SdkFixtures.fakeHome
 import org.elixir_lang.sdk.SdkHomeKey
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import java.io.File
@@ -102,8 +103,8 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
 
     fun testFindRegisteredErlangSdk_considersAnErlangSdkPendingInTheDialog() {
         erlangSdks("28.1")
-        val pending = ProjectJdkImpl("Erlang 27.3.4 pending", ErlangSdkType.instance, "/fake/erlang/27.3.4", "")
-        SdkVersionsStore.getInstance().setOtpVersion("/fake/erlang/27.3.4", "27.3.4")
+        val pending = ProjectJdkImpl("Erlang 27.3.4 pending", ErlangSdkType.instance, fakeHome("erlang/27.3.4"), "")
+        SdkVersionsStore.getInstance().setOtpVersion(fakeHome("erlang/27.3.4"), "27.3.4")
         val sdkModel = dialogModel(pending)
 
         val result = runReadActionBlocking {
@@ -196,7 +197,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
 
     private fun erlangSdks(vararg otpVersions: String): Map<String, Sdk> =
         otpVersions.associateWith { otpVersion ->
-            val homePath = "/fake/erlang/$otpVersion"
+            val homePath = fakeHome("erlang/$otpVersion")
             val sdk = ProjectJdkImpl("Erlang $otpVersion", ErlangSdkType.instance, homePath, "")
             WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(sdk) }
             registeredSdks.add(sdk)
@@ -206,7 +207,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         }
 
     private fun elixirSdkCompiledAgainst(otpMajor: String): Sdk {
-        val homePath = "/fake/elixir/otp-$otpMajor"
+        val homePath = fakeHome("elixir/otp-$otpMajor")
         SdkVersionsStore.getInstance().setElixirVersions(homePath, ElixirVersions("1.20.5", OtpMajor.Known(otpMajor)))
 
         return ProjectJdkImpl("Elixir for OTP $otpMajor", Type.instance, homePath, "")
@@ -217,7 +218,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val erlangSdk = ProjectJdkImpl("Test Erlang SDK", ErlangSdkType()).apply {
             WriteAction.run<Throwable> {
                 sdkModificator.apply {
-                    homePath = "/fake/erlang/28.0"
+                    homePath = fakeHome("erlang/28.0")
                     commitChanges()
                 }
             }
@@ -249,8 +250,8 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
 
     @RequiresEdt
     fun testFindRegisteredErlangSdk_skipsACandidateWhoseVersionWasNeverRead() {
-        val unread = ProjectJdkImpl("Erlang Never Read", ErlangSdkType.instance, "/fake/erlang/unread", "")
-        val known = ProjectJdkImpl("Erlang Known", ErlangSdkType.instance, "/fake/erlang/25.3.2.21", "")
+        val unread = ProjectJdkImpl("Erlang Never Read", ErlangSdkType.instance, fakeHome("erlang/unread"), "")
+        val known = ProjectJdkImpl("Erlang Known", ErlangSdkType.instance, fakeHome("erlang/25.3.2.21"), "")
         WriteAction.run<Throwable> {
             ProjectJdkTable.getInstance().addJdk(unread)
             ProjectJdkTable.getInstance().addJdk(known)
@@ -258,7 +259,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         registeredSdks.add(unread)
         registeredSdks.add(known)
         SdkFixtures.waitForRegistrationFills()
-        SdkVersionsStore.getInstance().setOtpVersion("/fake/erlang/25.3.2.21", "25.3.2.21")
+        SdkVersionsStore.getInstance().setOtpVersion(fakeHome("erlang/25.3.2.21"), "25.3.2.21")
 
         val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(elixirSdkCompiledAgainst("25")) }
 
@@ -269,8 +270,8 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
     @RequiresEdt
     fun testFindRegisteredErlangSdk_putsEveryCandidateToTheEnvironmentFirst() {
         val otherMachine =
-            ProjectJdkImpl("Erlang Other Machine", ErlangSdkType.instance, "/fake/other-machine/erlang", "")
-        val sameMachine = ProjectJdkImpl("Erlang Same Machine", ErlangSdkType.instance, "/fake/same-machine/erlang", "")
+            ProjectJdkImpl("Erlang Other Machine", ErlangSdkType.instance, fakeHome("other-machine/erlang"), "")
+        val sameMachine = ProjectJdkImpl("Erlang Same Machine", ErlangSdkType.instance, fakeHome("same-machine/erlang"), "")
         WriteAction.run<Throwable> {
             ProjectJdkTable.getInstance().addJdk(otherMachine)
             ProjectJdkTable.getInstance().addJdk(sameMachine)
@@ -278,7 +279,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         registeredSdks.add(otherMachine)
         registeredSdks.add(sameMachine)
         SdkFixtures.waitForRegistrationFills()
-        val elixirSdk = ProjectJdkImpl("Elixir Same Machine", Type.instance, "/fake/same-machine/elixir", "")
+        val elixirSdk = ProjectJdkImpl("Elixir Same Machine", Type.instance, fakeHome("same-machine/elixir"), "")
 
         val result = runReadActionBlocking {
             ErlangSdkResolver.bestRegisteredFor(elixirSdk) { _ ->
@@ -296,12 +297,12 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
     @RequiresEdt
     fun testTheElixirSdkEnvironmentIsResolvedOncePerLookup() {
         val candidates = listOf("27.3.4", "26.2.5", "28.0").map { version ->
-            ProjectJdkImpl("Erlang Resolved Once $version", ErlangSdkType.instance, "/fake/same/erlang/$version", "")
+            ProjectJdkImpl("Erlang Resolved Once $version", ErlangSdkType.instance, fakeHome("same/erlang/$version"), "")
         }
         WriteAction.run<Throwable> { candidates.forEach { ProjectJdkTable.getInstance().addJdk(it) } }
         candidates.forEach(registeredSdks::add)
         SdkFixtures.waitForRegistrationFills()
-        val elixirSdk = ProjectJdkImpl("Elixir Resolved Once", Type.instance, "/fake/same/elixir", "")
+        val elixirSdk = ProjectJdkImpl("Elixir Resolved Once", Type.instance, fakeHome("same/elixir"), "")
         var resolutions = 0
 
         runReadActionBlocking {
@@ -345,7 +346,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val elixirSdk = ProjectJdkImpl("Test Elixir SDK", Type.instance).apply {
             WriteAction.run<Throwable> {
                 sdkModificator.apply {
-                    homePath = "/fake/elixir/1.15"
+                    homePath = fakeHome("elixir/1.15")
                     commitChanges()
                 }
             }
@@ -362,7 +363,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
     }
 
     /** Unregistered, as an SDK a settings dialog has not saved yet is: it is answered by home path. */
-    private fun anElixirSdk() = ProjectJdkImpl("Auto-link Elixir", Type.instance, "/fake/elixir/auto-link", "")
+    private fun anElixirSdk() = ProjectJdkImpl("Auto-link Elixir", Type.instance, fakeHome("elixir/auto-link"), "")
 
     fun testRegisterErlangSdk_returnsNullForInvalidPath() {
         // Use a path that exists but isn't a valid Erlang home
