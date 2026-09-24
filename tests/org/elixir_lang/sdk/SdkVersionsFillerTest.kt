@@ -3,11 +3,12 @@ package org.elixir_lang.sdk
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.WriteAction
-import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.testFramework.registerOrReplaceServiceInstance
+import kotlinx.coroutines.asContextElement
+import kotlinx.coroutines.withContext
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.sdk.SdkFixtures.elixirHome
@@ -123,8 +124,14 @@ class SdkVersionsFillerTest : PlatformTestCase() {
 
     @RequiresEdt
     fun testFillingTheSdksAProjectUsesCoversThePairedErlangSdk() {
-        val erlangSdk = register(SdkFixtures.erlangSdk("Filler Erlang", erlangHome("26", "26.2.5.21")))
-        val elixirSdk = register(SdkFixtures.elixirSdk("Filler Elixir", elixirHome("1.18.4")))
+        val erlangSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.erlangSdk("Filler Erlang", erlangHome("26", "26.2.5.21")),
+            testRootDisposable,
+        )
+        val elixirSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Filler Elixir", elixirHome("1.18.4")),
+            testRootDisposable,
+        )
         SdkFixtures.commit(elixirSdk, ElixirSdkAdditionalData(erlangSdk, elixirSdk))
         ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
 
@@ -142,20 +149,27 @@ class SdkVersionsFillerTest : PlatformTestCase() {
     fun testFillingWhatAProjectUsesSkipsAnInstallationAlreadyRead() {
         val erlangHomePath = erlangHome("27", "27.3.4")
         val elixirHomePath = elixirHome("1.19.5")
-        val erlangSdk = register(SdkFixtures.erlangSdk("Filler read once Erlang", erlangHomePath))
-        val elixirSdk = register(SdkFixtures.elixirSdk("Filler read once Elixir", elixirHomePath))
+        val erlangSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.erlangSdk("Filler read once Erlang", erlangHomePath),
+            testRootDisposable,
+        )
+        val elixirSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Filler read once Elixir", elixirHomePath),
+            testRootDisposable,
+        )
         SdkFixtures.commit(elixirSdk, ElixirSdkAdditionalData(erlangSdk, elixirSdk))
         ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
         runSuspendOnPooledThread { SdkVersionsFiller.fillUsedBy(project) }
-        val used = setOf(erlangHomePath, elixirHomePath)
+        val used = setOf(erlangHomePath, elixirHomePath).mapTo(HashSet(), FileUtil::toSystemIndependentName)
         val reads = AtomicInteger()
+        // Only the second fill's reads are counted: the one `setModuleSdk` queued may still be resolving a home, and
+        // the mock replaces an application-level service that a fill another test left running can land on too.
+        val secondFill = ThreadLocal.withInitial { false }
         ApplicationManager.getApplication().registerOrReplaceServiceInstance(
             WslCompatService::class.java,
-            // Only this project's homes are counted: the mock replaces an application-level service, so a fill
-            // another test left running on a coroutine can land on it.
             object : WslCompatService by MockWslCompatService() {
                 override fun canonicalizePath(path: String): String {
-                    if (path in used) reads.incrementAndGet()
+                    if (secondFill.get() && FileUtil.toSystemIndependentName(path) in used) reads.incrementAndGet()
                     return path
                 }
             },
@@ -163,7 +177,9 @@ class SdkVersionsFillerTest : PlatformTestCase() {
         )
 
         // A second project opening, using the same installations.
-        runSuspendOnPooledThread { SdkVersionsFiller.fillUsedBy(project) }
+        runSuspendOnPooledThread {
+            withContext(secondFill.asContextElement(true)) { SdkVersionsFiller.fillUsedBy(project) }
+        }
 
         assertEquals("what the store already holds is the record of what was read", 0, reads.get())
     }
@@ -246,9 +262,13 @@ class SdkVersionsFillerTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testFillingTheSdksAProjectUsesReadsAgainForAMajorNothingLearned() {
         val home = elixirHome("1.19.5")
-        val elixirSdk = register(SdkFixtures.elixirSdk("Unread Major", home))
+        val elixirSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Unread Major", home),
+            testRootDisposable,
+        )
         ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
         store.setElixirVersions(home, ElixirVersions("1.19.5", OtpMajor.Unread))
 
@@ -287,7 +307,10 @@ class SdkVersionsFillerTest : PlatformTestCase() {
         assertTrue(File(home, "releases/27/OTP_VERSION").delete())
         assertTrue("precondition: the home itself is still there", File(home).isDirectory)
 
-        assertFalse("nothing proved the installation went, so nothing is forgotten", fill(home, clearWhenUnreadable = true))
+        assertFalse(
+            "nothing proved the installation went, so nothing is forgotten",
+            fill(home, clearWhenUnreadable = true),
+        )
 
         assertEquals("the version read before still stands", "27.3.4", store.otpVersion(home))
     }
@@ -478,5 +501,4 @@ class SdkVersionsFillerTest : PlatformTestCase() {
     private fun fill(homePath: String, clearWhenUnreadable: Boolean = false): Boolean =
         runSuspendOnPooledThread { SdkVersionsFiller.fill(homePath, clearWhenUnreadable) }
 
-    private fun register(sdk: Sdk): Sdk = SdkFixtures.register(sdk, testRootDisposable)
 }

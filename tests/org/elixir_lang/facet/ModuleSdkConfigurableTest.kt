@@ -68,6 +68,7 @@ class ModuleSdkConfigurableTest : PlatformTestCase() {
         val sdk = ProjectJdkImpl(name, ElixirSdkType.instance)
         WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(sdk) }
         added.add(sdk)
+        SdkFixtures.waitForRegistrationFills()
         SdksService.getInstance()!!.resetForTests()
         return sdk
     }
@@ -127,7 +128,10 @@ class ModuleSdkConfigurableTest : PlatformTestCase() {
         // Installed here rather than relied on: registering an SDK reads it only while the watch service is
         // listening, and whether it already is depends on what else ran in this JVM first.
         SdkVersionWatchService.install(testRootDisposable)
-        val sdk = SdkFixtures.register(SdkFixtures.elixirSdk("Elixir Module Test Unread", homePath), testRootDisposable)
+        val sdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Elixir Module Test Unread", homePath),
+            testRootDisposable,
+        )
         SdksService.getInstance()!!.resetForTests()
 
         val component = moduleConfigurable().createComponent()

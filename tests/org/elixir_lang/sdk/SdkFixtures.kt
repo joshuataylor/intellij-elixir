@@ -42,15 +42,17 @@ internal object SdkFixtures {
         return sdk
     }
 
-    /**
-     * [register], then wait for the read the registration starts once a project's startup has installed the SDK table
-     * listeners, so that read cannot land between a test's own store writes and its assertion.
-     */
+    /** [register], then [waitForRegistrationFills]. */
     @RequiresEdt
     fun registerAndWaitForFill(sdk: Sdk, parentDisposable: Disposable): Sdk =
-        register(sdk, parentDisposable).also {
-            waitUntil("the registration fill finishes") { SdkVersionWatchService.isIdleForTests() }
-        }
+        register(sdk, parentDisposable).also { waitForRegistrationFills() }
+
+    /**
+     * Waits for the reads registering SDKs starts once a project's startup has installed the SDK table listeners, so
+     * one cannot land between a test's own store writes and its assertion.
+     */
+    fun waitForRegistrationFills() =
+        waitUntil("the registration fill finishes") { SdkVersionWatchService.isIdleForTests() }
 
     @RequiresEdt
     fun commit(sdk: Sdk, data: SdkAdditionalData?) {
@@ -73,7 +75,8 @@ internal object SdkFixtures {
                 // Lands in the JUnit XML's system-err, beside the failure.
                 System.err.println(ThreadDumper.dumpThreadsToString())
                 throw AssertionError(
-                    "$message (watch: ${SdkVersionWatchService.describeForTests()}; ${SdkVersionsFiller.describeForTests()})"
+                    "$message (watch: ${SdkVersionWatchService.describeForTests()}; " +
+                        "${SdkVersionsFiller.describeForTests()})"
                 )
             }
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
