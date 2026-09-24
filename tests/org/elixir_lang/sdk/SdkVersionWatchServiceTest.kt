@@ -269,18 +269,24 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     @RequiresEdt
     fun testAnAlreadyRegisteredSdkAssignedToAModuleIsWatched() {
         val home = erlangHome("27", "27.3.4")
+        // Where the watch and the store stood after each step, for a failure that is otherwise only its end state.
+        val timeline = mutableListOf(snapshot("start", home))
         val erlangSdk = SdkFixtures.registerAndWaitForFill(
             SdkFixtures.erlangSdk("Assigned Later Erlang", home),
             testRootDisposable,
         )
+        timeline += snapshot("Erlang SDK registered", home)
         val elixirSdk = SdkFixtures.registerAndWaitForFill(
             SdkFixtures.elixirSdk("Assigned Later Elixir", elixirHome("1.20.5")),
             testRootDisposable,
         )
+        timeline += snapshot("Elixir SDK registered", home)
         SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
         SdkVersionWatchService.install(testRootDisposable)
+        timeline += snapshot("watch installed", home)
 
         ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
+        timeline += snapshot("module SDK set", home)
 
         val otpVersionFile = LocalFileSystem.getInstance()
             .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")
@@ -289,12 +295,20 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
             "precondition: the asserted version is not already held",
             SdkVersionsStore.getInstance().otpVersion(home) == "27.4.1",
         )
+        timeline += snapshot("version file found", home)
         // Rewritten on each pass: the assignment hands the rewatch to a coroutine there is nothing here to await.
-        SdkFixtures.waitUntil("assigning a registered SDK to a module must put its installation under watch") {
+        SdkFixtures.waitUntil(
+            "assigning a registered SDK to a module must put its installation under watch\n  " +
+                timeline.joinToString("\n  ") + "\nat the deadline"
+        ) {
             WriteAction.run<Throwable> { VfsUtil.saveText(otpVersionFile!!, "27.4.1\n") }
             SdkVersionsStore.getInstance().otpVersion(home) == "27.4.1"
         }
     }
+
+    private fun snapshot(step: String, erlangHome: String): String =
+        "$step: Erlang home's OTP version ${SdkVersionsStore.getInstance().otpVersion(erlangHome)}; " +
+            "fills idle: ${SdkVersionWatchService.isIdleForTests()}; watch: ${SdkVersionWatchService.describeForTests()}"
 
     /**
      * A value re-read changes the store without changing which homes it holds, and each rebuild lists `releases/` and
