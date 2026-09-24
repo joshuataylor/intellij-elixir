@@ -1,5 +1,6 @@
 package org.elixir_lang.sdk
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.projectRoots.ProjectJdkTable
@@ -9,12 +10,15 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.testFramework.registerOrReplaceServiceInstance
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.sdk.SdkFixtures.elixirHome
 import org.elixir_lang.sdk.SdkFixtures.erlangHome
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
+import org.elixir_lang.sdk.wsl.MockWslCompatService
+import org.elixir_lang.sdk.wsl.WslCompatService
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -307,6 +311,32 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         rewatch()
 
         assertFalse("a rewatch for a set already watched must not rebuild it", rewatch())
+    }
+
+    /**
+     * A home skipped because its distribution is not installed is tried again once the distribution is, and not on every
+     * rewatch before then: each rebuild does I/O for every home.
+     */
+    @RequiresEdt
+    fun testAHomeThatCouldNotBeWatchedIsTriedAgainOnceItCanBe() {
+        // A local home standing in for one in a distribution, so watching it once "installed" reads nothing remote.
+        val home = erlangHome("27", "27.3.4")
+        var installed = false
+        val mock = MockWslCompatService()
+        val wsl = object : WslCompatService by mock {
+            override fun isReachable(path: String): Boolean =
+                if (installationKey(path) == installationKey(home)) installed else mock.isReachable(path)
+        }
+        ApplicationManager.getApplication()
+            .registerOrReplaceServiceInstance(WslCompatService::class.java, wsl, testRootDisposable)
+        SdkVersionsStore.getInstance().setOtpVersion(home, "27.3.4")
+        SdkVersionWatchService.install(testRootDisposable)
+        rewatch()
+
+        assertFalse("nothing changed, so nothing is rebuilt", rewatch())
+
+        installed = true
+        assertTrue("a home the last rewatch could not watch is watched once it can be", rewatch())
     }
 
     private fun rewatch(): Boolean = runSuspendOnPooledThread { SdkVersionWatchService.rewatch() }

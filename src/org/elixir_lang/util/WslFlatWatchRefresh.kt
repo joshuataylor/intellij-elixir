@@ -16,6 +16,7 @@ import org.jetbrains.annotations.VisibleForTesting
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.seconds
+import org.elixir_lang.sdk.wsl.wslCompat
 
 /**
  * Refreshes the non-recursive watch roots on WSL every [INTERVAL], so they raise the events the platform's watcher
@@ -78,7 +79,7 @@ internal class WslFlatWatchRefresh(private val scope: CoroutineScope) {
         @VisibleForTesting
         internal fun refresh(paths: Collection<String>) {
             val lfs = LocalFileSystem.getInstance()
-            val files = paths.mapNotNull { lfs.findFileByPathIfCached(it) }
+            val files = paths.filter(wslCompat::isReachable).mapNotNull { lfs.findFileByPathIfCached(it) }
             if (files.isNotEmpty()) VfsUtil.markDirtyAndRefresh(false, false, false, *files.toTypedArray())
         }
     }

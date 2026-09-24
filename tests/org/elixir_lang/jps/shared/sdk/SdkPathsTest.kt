@@ -1,5 +1,6 @@
 package org.elixir_lang.jps.shared.sdk
 
+import com.intellij.openapi.util.io.FileUtil
 import org.elixir_lang.PlatformTestCase
 import java.io.File
 
@@ -65,6 +66,19 @@ class SdkPathsTest : PlatformTestCase() {
     fun testDetectSource_kerl() {
         assertEquals("kerl", SdkPaths.detectSource("/Users/josh/otp/25.0"))
         assertEquals("kerl", SdkPaths.detectSource("/home/user/otp/26.1"))
+    }
+
+    /** A kerl install elsewhere is found by its `.kerl_config`, which is only probed where the home can be reached. */
+    fun testDetectSource_kerlConfigIsProbedOnlyWhereReachable() {
+        val home = FileUtil.createTempDirectory("kerl_install", null, true)
+        File(home, ".kerl_config").writeText("")
+
+        assertEquals("kerl", SdkPaths.detectSource(home.path))
+        assertNull(SdkPaths.detectSource(home.path, reachable = false))
+        assertNull(
+            "a WSL home is not probed unless a caller says it is reachable",
+            SdkPaths.detectSource("//wsl.localhost/Missing/home/user/erlang"),
+        )
     }
 
     fun testDetectSource_unknown() {

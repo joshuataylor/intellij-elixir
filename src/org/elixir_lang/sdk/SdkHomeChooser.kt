@@ -12,7 +12,6 @@ import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.SdkModel
 import com.intellij.openapi.projectRoots.SdkType
 import com.intellij.openapi.projectRoots.impl.SdkConfigurationUtil
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import org.elixir_lang.sdk.wsl.wslCompat
 import org.jetbrains.annotations.VisibleForTesting
@@ -22,6 +21,7 @@ import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
+import com.intellij.openapi.util.io.FileUtil
 
 /**
  * Plugin-side replacement for SdkConfigurationUtil.selectSdkHome.
@@ -111,9 +111,9 @@ object SdkHomeChooser {
             null,
         )
         scan.cancel(true)
-        val lfs = LocalFileSystem.getInstance()
 
-        return home?.let(lfs::refreshAndFindFileByPath) ?: lfs.refreshAndFindFileByNioFile(basePath)
+        return home?.let { wslCompat.findFileByPath(it, refresh = true) }
+            ?: wslCompat.findFileByPath(FileUtil.toSystemIndependentName(basePath.toString()), refresh = true)
     }
 
     @VisibleForTesting

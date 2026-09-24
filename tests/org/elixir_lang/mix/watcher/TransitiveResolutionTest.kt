@@ -6,10 +6,10 @@ import com.intellij.psi.PsiManager
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.mix.Dep
 import org.elixir_lang.mix.sync.MixSyncTestHelpers
-import org.elixir_lang.mix.watcher.TransitiveResolution.transitiveResolution
+import org.elixir_lang.mix.watcher.TransitiveResolution.transitiveDepRoots
 
 /**
- * Pins which deps [transitiveResolution] reaches, at each of the three positions a `mix.exs` can
+ * Pins which deps [transitiveDepRoots] reaches, at each of the three positions a `mix.exs` can
  * occupy: a project root, an umbrella app, and a dependency's own file.
  *
  * Every dep reached becomes a library the sync pipeline believes the project should have, so a dep
@@ -31,7 +31,7 @@ class TransitiveResolutionTest : PlatformTestCase() {
     private fun applicationsFrom(vararg roots: VirtualFile): Set<String> =
         MixSyncTestHelpers
             .runSuspendOnPooledThread(timeoutMillis = 60_000L) {
-                transitiveResolution(PsiManager.getInstance(project), EmptyProgressIndicator(), *roots)
+                transitiveDepRoots(PsiManager.getInstance(project), EmptyProgressIndicator(), *roots).keys
             }
             .map(Dep::application)
             .toSet()
@@ -114,10 +114,10 @@ class TransitiveResolutionTest : PlatformTestCase() {
         )
     }
 
-    private fun assertReachedInsideADep(depTuple: String, application: String) {
+    private fun assertReachedInsideADep(depTuple: String) {
         assertEquals(
             "A dep Mix would fetch must be reached: $depTuple",
-            setOf("cachex", application),
+            setOf("cachex", "jason"),
             dependencyDeclaring(depTuple),
         )
     }
@@ -433,28 +433,28 @@ class TransitiveResolutionTest : PlatformTestCase() {
 
     fun testUnrestrictedDepIsReachedEverywhere() {
         assertReachedAtProjectPositions("{:jason, \">= 0.0.0\"}", "jason")
-        assertReachedInsideADep("{:jason, \">= 0.0.0\"}", "jason")
+        assertReachedInsideADep("{:jason, \">= 0.0.0\"}")
     }
 
     /** `:prod` is the environment a dep's own deps are resolved in, so this excludes nothing. */
     fun testProdOnlyDepIsReachedEverywhere() {
         assertReachedAtProjectPositions("{:jason, \">= 0.0.0\", only: [:prod]}", "jason")
-        assertReachedInsideADep("{:jason, \">= 0.0.0\", only: [:prod]}", "jason")
+        assertReachedInsideADep("{:jason, \">= 0.0.0\", only: [:prod]}")
     }
 
     fun testSingleAtomProdOnlyDepIsReachedEverywhere() {
         assertReachedAtProjectPositions("{:jason, \">= 0.0.0\", only: :prod}", "jason")
-        assertReachedInsideADep("{:jason, \">= 0.0.0\", only: :prod}", "jason")
+        assertReachedInsideADep("{:jason, \">= 0.0.0\", only: :prod}")
     }
 
     fun testOnlyListIncludingProdIsReachedEverywhere() {
         assertReachedAtProjectPositions("{:jason, \">= 0.0.0\", only: [:dev, :prod]}", "jason")
-        assertReachedInsideADep("{:jason, \">= 0.0.0\", only: [:dev, :prod]}", "jason")
+        assertReachedInsideADep("{:jason, \">= 0.0.0\", only: [:dev, :prod]}")
     }
 
     fun testOptionalFalseDepIsReachedEverywhere() {
         assertReachedAtProjectPositions("{:jason, \">= 0.0.0\", optional: false}", "jason")
-        assertReachedInsideADep("{:jason, \">= 0.0.0\", optional: false}", "jason")
+        assertReachedInsideADep("{:jason, \">= 0.0.0\", optional: false}")
     }
 
     /**
@@ -470,7 +470,7 @@ class TransitiveResolutionTest : PlatformTestCase() {
             "only: Mix.env()",
             "only: [:dev] ++ other()",
         ).forEach { option ->
-            assertReachedInsideADep("{:jason, \">= 0.0.0\", $option}", "jason")
+            assertReachedInsideADep("{:jason, \">= 0.0.0\", $option}")
         }
     }
 

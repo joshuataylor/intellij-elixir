@@ -12,14 +12,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.OrderRootType
-import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.debugger.settings.stepping.ModuleFilter
 import org.elixir_lang.mix.ensureMostSpecificSdk
 import org.elixir_lang.run.configuration.Module
 import org.elixir_lang.sdk.wsl.wslCompat
 import org.jdom.Element
-import java.io.File
+import com.intellij.openapi.util.io.FileUtil
 
 fun ensureWorkingDirectory(project: Project) = project.basePath!!
 
@@ -146,7 +145,7 @@ fun Element.readModuleFilters(
 fun Element.writeExternalModule(configuration: Configuration) {
     val moduleName = configuration.configurationModule.moduleName
 
-    if (!moduleName.isBlank()) {
+    if (moduleName.isNotBlank()) {
         ensureChild(MODULE).setAttribute(NAME, moduleName)
     }
 }
@@ -199,11 +198,11 @@ private const val WORKING_DIRECTORY = "working-directory"
 abstract class Configuration(name: String, project: Project, configurationFactory: ConfigurationFactory) :
         ModuleBasedConfiguration<Module, Element>(name, Module(project), configurationFactory),
         CommonProgramRunConfigurationParameters {
-    override fun getEnvs(): Map<String, String> = _envs
+    override fun getEnvs(): Map<String, String> = mutableEnvs
 
     override fun setEnvs(envs: Map<String, String>) {
-        _envs.clear()
-        _envs.putAll(envs)
+        mutableEnvs.clear()
+        mutableEnvs.putAll(envs)
     }
 
     abstract fun commandLine(): GeneralCommandLine
@@ -257,7 +256,7 @@ abstract class Configuration(name: String, project: Project, configurationFactor
     @RequiresReadLock
     fun sdkPaths(): List<String> = ensureModule().sdkPaths()
 
-    protected val _envs = mutableMapOf<String, String>()
+    protected val mutableEnvs = mutableMapOf<String, String>()
     private var _passParentEnvs: Boolean = false
     protected var workingDirectoryURL: String? = null
 }
@@ -265,7 +264,7 @@ abstract class Configuration(name: String, project: Project, configurationFactor
 private const val ARGUMENT = "argument"
 
 private fun ensureModule(workingDirectory: String, project: Project): com.intellij.openapi.module.Module {
-    val virtualFile = VfsUtil.findFileByIoFile(File(workingDirectory), true)
+    val virtualFile = wslCompat.findFileByPath(FileUtil.toSystemIndependentName(workingDirectory), refresh = true)
             ?: error("Working directory ($workingDirectory) could not be mapped to a VirtualFile")
 
     return ModuleUtilCore.findModuleForFile(virtualFile, project)

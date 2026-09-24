@@ -119,6 +119,8 @@
 - [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
   - **A Mix project that is not an umbrella now gets its consolidated protocols as a `(consolidated)` library; only umbrellas did before.**
 - [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
+  - **An SDK, working directory or path in a WSL distribution that is no longer installed no longer stalls the IDE each time it is read; running from one reports the missing distribution.**
+- [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
   - **Removing a module, closing a project or changing SDKs while their versions are being read no longer reports an internal error.**
 - [#4167](https://github.com/intellij-elixir/intellij-elixir/pull/4167) [@sh41](https://github.com/sh41)
   - **Go to Declaration on a compiled function with more than one clause for the same arity now lands on the first clause, not the last.** Refs [#4164](https://github.com/intellij-elixir/intellij-elixir/issues/4164).

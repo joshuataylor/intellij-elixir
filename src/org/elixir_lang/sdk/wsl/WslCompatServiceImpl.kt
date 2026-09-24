@@ -3,8 +3,10 @@ package org.elixir_lang.sdk.wsl
 import com.intellij.execution.wsl.WSLDistribution
 import com.intellij.execution.wsl.WslDistributionManager
 import com.intellij.execution.wsl.WslPath
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressManager
+import java.util.concurrent.CancellationException
 
 /**
  * Default implementation of WslCompatService using the IntelliJ Platform WSL API.
@@ -13,19 +15,14 @@ import com.intellij.openapi.progress.ProgressManager
 internal class WslCompatServiceImpl : WslCompatService {
     override val log = Logger.getInstance(WslCompatServiceImpl::class.java)
 
-    override fun isWslUncPath(path: String?): Boolean {
-        if (path.isNullOrEmpty()) {
-            return false
-        }
-
-        return try {
+    override fun isWslUncPath(path: String?): Boolean =
+        !path.isNullOrEmpty() && try {
             // Delegate to native IntelliJ API
             WslPath.isWslUncPath(path)
         } catch (e: Exception) {
             log.debug("Error checking if path is WSL: $path", e)
             false
         }
-    }
 
     override fun getDistributionByWindowsUncPath(path: String?): WSLDistribution? {
         if (path.isNullOrEmpty() || ! isWslUncPath(path)) {
@@ -57,10 +54,30 @@ internal class WslCompatServiceImpl : WslCompatService {
         }
     }
 
+    /**
+     * Never runs `wsl.exe` on the EDT or under any lock: there only a list the platform already holds counts.
+     * `isReadAccessAllowed` is also true under a write or write-intent lock, which `holdsReadLock` is not.
+     */
+    override fun knownInstalledDistributions(): List<WSLDistribution>? = try {
+        val manager = WslDistributionManager.getInstance()
+        val application = ApplicationManager.getApplication()
+        val distributions = if (application.isDispatchThread || application.isReadAccessAllowed) {
+            manager.cachedInstalledDistributions ?: manager.lastInstalledDistributions
+        } else {
+            manager.installedDistributions
+        }
+        distributions?.takeIf { it.isNotEmpty() }
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        log.debug("Error getting WSL distributions", e)
+        null
+    }
+
     override fun getInstalledDistributions(): List<WSLDistribution> {
         return try {
             WslDistributionManager.getInstance().installedDistributions
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             log.debug("Error getting WSL distributions", e)
             emptyList()
         }

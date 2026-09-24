@@ -37,6 +37,13 @@ object SdkPaths {
     /** kerl installs wherever it is told, so only Travis CI's `~/otp/<version>` is a known layout. */
     const val TRAVIS_CI_KERL_DIR_NAME = "otp"
 
+    private const val WSL_UNC_PREFIX = "//wsl.localhost/"
+    private const val LEGACY_WSL_UNC_PREFIX = "//wsl$/"
+
+    private fun isWslPath(homePath: String): Boolean =
+        FileUtil.toSystemIndependentName(homePath).lowercase(Locale.ROOT)
+            .let { it.startsWith(WSL_UNC_PREFIX) || it.startsWith(LEGACY_WSL_UNC_PREFIX) }
+
     /**
      * Whether any of [segments] appears anywhere in this already-lowercased path.
      *
@@ -54,7 +61,11 @@ object SdkPaths {
     private fun String.containsAnyPath(vararg segments: String): Boolean =
         segments.any { contains(it.lowercase(Locale.ROOT)) }
 
-    fun detectSource(homePath: String): String? {
+    /**
+     * @param reachable whether [homePath] can be probed for a kerl install. Probing a home in a WSL distribution that
+     * is not installed blocks, so without a caller who can tell, WSL homes are not probed.
+     */
+    fun detectSource(homePath: String, reachable: Boolean = !isWslPath(homePath)): String? {
         val posixPath = FileUtil.toSystemIndependentName(homePath)
         val matchPath = posixPath.lowercase(Locale.ROOT)
 
@@ -81,7 +92,7 @@ object SdkPaths {
         // Unlike the rest, the second test touches the filesystem - see TRAVIS_CI_KERL_DIR_NAME for
         // why there is no installer root to match instead.
         if (matchPath.containsAnyPath("/$TRAVIS_CI_KERL_DIR_NAME/") ||
-            File(homePath, ".kerl_config").exists()
+            (reachable && File(homePath, ".kerl_config").exists())
         ) {
             return SOURCE_NAME_KERL
         }

@@ -4,6 +4,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import java.io.File
+import org.elixir_lang.sdk.wsl.wslCompat
 
 /**
  * Reads an Erlang/OTP installation's version from the filesystem - no subprocess required.
@@ -30,7 +31,7 @@ object ErlangVersionDetector {
         ThreadingAssertions.assertBackgroundThread()
         val releasesDir = File(canonicalHome, "releases")
 
-        val otpMajorDir = if (!releasesDir.exists()) {
+        val otpMajorDir = if (!wslCompat.exists(releasesDir)) {
             // Also every Elixir home: the version filler reads both kinds from each home.
             LOGGER.debug("Can't detect Erlang version: ${releasesDir.path} is missing")
             return null

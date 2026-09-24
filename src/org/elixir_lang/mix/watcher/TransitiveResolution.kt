@@ -8,20 +8,22 @@ import java.util.*
 
 object TransitiveResolution {
     /**
-     * Computes the full set of transitive deps reachable from [rootVirtualFiles].
+     * The transitive deps reachable from [rootVirtualFiles] in the order reached, each with the directory [Resolution]
+     * resolved it to, or null when that directory is not there.
      *
      * Delegates PSI reads to [Resolution.resolution] which uses WARA ([com.intellij.openapi.application.readAction]) internally,
      * allowing write actions to preempt without blocking the EDT.
      */
-    suspend fun transitiveResolution(
+    suspend fun transitiveDepRoots(
             psiManager: PsiManager,
             progressIndicator: ProgressIndicator,
             vararg rootVirtualFiles: VirtualFile
-    ): Set<Dep> =
-            transitiveResolution(
-                Resolution.resolution(psiManager, progressIndicator, *rootVirtualFiles),
-                *rootVirtualFiles
-            )
+    ): Map<Dep, VirtualFile?> {
+        val resolution = Resolution.resolution(psiManager, progressIndicator, *rootVirtualFiles)
+
+        return transitiveResolution(resolution, *rootVirtualFiles)
+            .associateWith { resolution.depToRootVirtualFile[it] }
+    }
 
     // Non-suspend: walks pre-computed maps with no PSI access.
     private fun transitiveResolution(resolution: Resolution, vararg rootVirtualFiles: VirtualFile): Set<Dep> {

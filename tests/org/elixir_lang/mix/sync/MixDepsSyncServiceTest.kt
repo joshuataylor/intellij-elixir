@@ -1955,6 +1955,70 @@ class MixDepsSyncServiceTest : PlatformTestCase() {
         assertEquals(emptyList<String>(), moduleEntryNames)
     }
 
+    /** Mix resolves a dep's relative `path:` against the `mix.exs` that declares it, not the project that reached it. */
+    @RequiresEdt
+    fun testATransitivePathDepResolvesBesideTheDepThatDeclaresIt() {
+        val external = File(FileUtil.createTempDirectory("transitive", null, true), "libs")
+        File(external, "middle_lib/lib").mkdirs()
+        // Named apart from its app, as a `path:` dep's directory may be.
+        File(external, "sibling_dir/lib").mkdirs()
+        File(external, "middle_lib/mix.exs").writeText(
+            """
+            defmodule MiddleLib.MixProject do
+              use Mix.Project
+
+              def project do
+                [app: :middle_lib, version: "0.1.0", deps: deps()]
+              end
+
+              def deps do
+                [{:sibling_lib, path: "../sibling_dir"}]
+              end
+            end
+            """.trimIndent(),
+        )
+        val externalDir = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(external)!!
+        VfsRootAccess.allowRootAccess(myFixture.testRootDisposable, externalDir.path)
+        val myApp = myFixture.tempDirFixture.findOrCreateDir("transitive_app")
+        // Where the path would point were it read against the project instead of the dep that declares it.
+        myFixture.tempDirFixture.findOrCreateDir("sibling_dir/lib")
+        myFixture.tempDirFixture.createFile(
+            "transitive_app/mix.exs",
+            """
+            defmodule TransitiveApp.MixProject do
+              use Mix.Project
+
+              def project do
+                [app: :transitive_app, version: "0.1.0", deps: deps()]
+              end
+
+              def deps do
+                [{:middle_lib, path: "${externalDir.path}/middle_lib"}]
+              end
+            end
+            """.trimIndent(),
+        )
+        PsiTestUtil.addContentRoot(myFixture.module, myApp)
+        val service = project.service<MixDepsSyncService>()
+        service.clearPendingForTesting()
+        service.enqueue(SyncRequest.MixFile(myApp.findChild("mix.exs")!!))
+        drainDirectly(service)
+
+        val siblingDir = externalDir.findChild("sibling_dir")!!.url
+        val sibling = libraryTable().libraries.firstOrNull { library ->
+            library.getUrls(OrderRootType.SOURCES).any { it.startsWith(siblingDir) }
+        }
+        assertNotNull(
+            "the directory beside the dep that declares it must get a library; " +
+                "libraries: ${libraryTable().libraries.map { it.name }}",
+            sibling,
+        )
+        assertTrue(
+            "the module must reference that library; references: ${moduleLibraryEntryNames()}",
+            sibling!!.name in moduleLibraryEntryNames(),
+        )
+    }
+
     /** A reference whose token is not a content root is stale only once its library is gone. */
     @RequiresEdt
     fun testAnExternalDepsEntryOutlivesAModuleVisit() {

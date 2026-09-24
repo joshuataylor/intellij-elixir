@@ -22,8 +22,11 @@ import java.util.concurrent.Callable
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditionalData
+import java.util.concurrent.TimeUnit
+import kotlin.system.measureTimeMillis
 
 private const val CONFIGURED_HOME = "/fake/erlang/latest"
+private const val NOT_INSTALLED_WSL_HOME = "//wsl.localhost/IntellijElixirWSLDistribution/home/user/erlang"
 
 class SdkVersionsFillerTest : PlatformTestCase() {
     private val store get() = SdkVersionsStore.getInstance()
@@ -496,6 +499,26 @@ class SdkVersionsFillerTest : PlatformTestCase() {
                 SdkVersionsListener { _, canonicalHome -> published.add(canonicalHome) },
             )
         return published
+    }
+
+    /** Anything under a distribution this machine does not have waits out a network timeout on Windows. */
+    fun testAHomeInAWslDistributionThatIsNotInstalledIsNotRead() {
+        val millis = measureTimeMillis { assertFalse(fill(NOT_INSTALLED_WSL_HOME)) }
+
+        assertTrue("a home in a distribution this machine does not have was read: $millis ms", millis < 5_000)
+    }
+
+    fun testABlockingFillOfAHomeInAWslDistributionThatIsNotInstalledReadsNothing() {
+        val millis = measureTimeMillis { fillTheNotInstalledWslHomeBlockingOffTheEdt() }
+
+        assertTrue("a home in a distribution this machine does not have was read: $millis ms", millis < 5_000)
+        assertNull(store.otpVersion(NOT_INSTALLED_WSL_HOME))
+    }
+
+    private fun fillTheNotInstalledWslHomeBlockingOffTheEdt() {
+        ApplicationManager.getApplication()
+            .executeOnPooledThread { SdkVersionsFiller.fillIfUnreadBlocking(NOT_INSTALLED_WSL_HOME) }
+            .get(30, TimeUnit.SECONDS)
     }
 
     private fun fill(homePath: String, clearWhenUnreadable: Boolean = false): Boolean =

@@ -40,6 +40,8 @@ object Type {
 
     @JvmStatic
     fun ebinPathChainVirtualFile(ebinPath: Path, virtualFileConsumer: Consumer<VirtualFile?>) {
+        if (!wslCompat.isReachable(ebinPath.toString())) return
+
         // LocalFileSystem.refreshAndFindFileByNioFile handles both regular paths and WSL UNC paths correctly
         // For WSL paths, ebinPath is already a Windows UNC path thanks to maybeTranslateToUnc in SdkEbinPaths.eachEbinPath
         val virtualFile = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(ebinPath)

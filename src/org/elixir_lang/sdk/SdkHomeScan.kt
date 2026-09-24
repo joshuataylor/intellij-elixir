@@ -155,6 +155,11 @@ object SdkHomeScan {
         val distribution = wslCompat.getDistributionByWindowsUncPath(path.toString())
 
         val distributionsToScan = if (distribution != null) {
+            // `WslPath` makes a distribution for any name, installed or not.
+            if (!wslCompat.isReachable(path.toString())) {
+                LOG.debug("Project in WSL (${distribution.msId}), which is not installed, so nothing is scanned")
+                return
+            }
             LOG.debug("Project in WSL (${distribution.msId}), scanning only that distribution")
             listOf(distribution)
         } else {
