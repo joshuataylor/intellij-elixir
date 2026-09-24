@@ -29,7 +29,7 @@ class ClassifyVfsEventTest : PlatformTestCase() {
     }
 
     // ------------------------------------------------------------------
-    // classifyByPath - _build structural paths → unresolved SyncRequest.BuildPath
+    // classifyByPath - _build structural paths -> unresolved SyncRequest.BuildPath
     // ------------------------------------------------------------------
 
     fun testClassifyByPath_buildRoot_returnsAll() {
@@ -69,6 +69,30 @@ class ClassifyVfsEventTest : PlatformTestCase() {
         assertEquals(root.path, (result as SyncRequest.BuildPath).contentRootCandidate.path)
     }
 
+    /** A regular project consolidates into its own app's build directory. */
+    fun testClassifyByPath_appConsolidated_returnsConsolidated() {
+        MixTestFixtures.createMixRoot(myFixture, "my_app")
+        val root = myFixture.tempDirFixture.findOrCreateDir("my_app")
+        val consolidated = myFixture.tempDirFixture.findOrCreateDir("my_app/_build/dev/lib/my_app/consolidated")
+
+        val result = classifyByPath(consolidated)
+
+        assertTrue("got $result", result is SyncRequest.Consolidated)
+        assertEquals(root.path, (result as SyncRequest.Consolidated).contentRootCandidate.path)
+    }
+
+    fun testClassifyByPath_beamInAppConsolidated_returnsConsolidated() {
+        MixTestFixtures.createMixRoot(myFixture, "my_app")
+        val root = myFixture.tempDirFixture.findOrCreateDir("my_app")
+        val beam = myFixture.tempDirFixture
+            .createFile("my_app/_build/dev/lib/my_app/consolidated/Elixir.Enumerable.beam")
+
+        val result = classifyByPath(beam)
+
+        assertTrue("got $result", result is SyncRequest.Consolidated)
+        assertEquals(root.path, (result as SyncRequest.Consolidated).contentRootCandidate.path)
+    }
+
     fun testClassifyByPath_buildEnvLib_returnsAll() {
         MixTestFixtures.createMixRoot(myFixture, "my_app")
         val root = myFixture.tempDirFixture.findOrCreateDir("my_app")
@@ -82,7 +106,7 @@ class ClassifyVfsEventTest : PlatformTestCase() {
     }
 
     // ------------------------------------------------------------------
-    // classifyByPath - deps/<dep>/source → SyncRequest.DepRoot
+    // classifyByPath - deps/<dep>/source -> SyncRequest.DepRoot
     // ------------------------------------------------------------------
 
     fun testClassifyByPath_depsDepLib_returnsDepRoot() {
@@ -109,7 +133,7 @@ class ClassifyVfsEventTest : PlatformTestCase() {
     }
 
     // ------------------------------------------------------------------
-    // classifyByPath - _build/<env>/lib/<dep>/ebin → SyncRequest.DepRoot
+    // classifyByPath - _build/<env>/lib/<dep>/ebin -> SyncRequest.DepRoot
     // ------------------------------------------------------------------
 
     fun testClassifyByPath_ebinPath_mapsToDepRoot() {
@@ -141,7 +165,7 @@ class ClassifyVfsEventTest : PlatformTestCase() {
     }
 
     // ------------------------------------------------------------------
-    // classifyByPath - _build/<env>/lib/<dep> → SyncRequest.DepRoot
+    // classifyByPath - _build/<env>/lib/<dep> -> SyncRequest.DepRoot
     // ------------------------------------------------------------------
 
     fun testClassifyByPath_buildEnvLibDep_mapsToDepRoot() {
@@ -160,7 +184,7 @@ class ClassifyVfsEventTest : PlatformTestCase() {
     }
 
     // ------------------------------------------------------------------
-    // classifyByPath - unrelated paths → null
+    // classifyByPath - unrelated paths -> null
     // ------------------------------------------------------------------
 
     fun testClassifyByPath_libSourceDir_returnsNull() {
@@ -273,7 +297,7 @@ class ClassifyVfsEventTest : PlatformTestCase() {
     }
 
     // ------------------------------------------------------------------
-    // classifyVfsEvent - content-change events → mix.exs or path-shape requests
+    // classifyVfsEvent - content-change events -> mix.exs or path-shape requests
     // ------------------------------------------------------------------
 
     @Suppress("UnstableApiUsage")

@@ -117,6 +117,8 @@
 - [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
   - **Dependency sync no longer deletes a project's `(consolidated)` library, or a dependency re-fetched as it syncs, and no longer rewrites the project when nothing changed; two Mix projects whose directories share a name each get their own `(consolidated)` library.**
 - [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
+  - **A Mix project that is not an umbrella now gets its consolidated protocols as a `(consolidated)` library; only umbrellas did before.**
+- [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
   - **Removing a module, closing a project or changing SDKs while their versions are being read no longer reports an internal error.**
 - [#4167](https://github.com/intellij-elixir/intellij-elixir/pull/4167) [@sh41](https://github.com/sh41)
   - **Go to Declaration on a compiled function with more than one clause for the same arity now lands on the first clause, not the last.** Refs [#4164](https://github.com/intellij-elixir/intellij-elixir/issues/4164).

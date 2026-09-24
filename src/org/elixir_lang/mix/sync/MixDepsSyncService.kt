@@ -415,7 +415,7 @@ internal data class SyncPlan(
 /**
  * Desired state for a consolidated protocol library at one content root.
  *
- * Built during the read phase by scanning `_build/{env}/consolidated/` directories.
+ * Built during the read phase by scanning `_build/{env}/consolidated/` and `_build/{env}/lib/{app}/consolidated/`.
  * Diffed in `buildWritePlan` against the existing library table state.
  */
 internal data class ConsolidatedLibraryPlan(
@@ -423,7 +423,7 @@ internal data class ConsolidatedLibraryPlan(
     val contentRootUrl: String,
     /** [contentRootUrl] reduced by [contentRootToken] - the form that appears in [libraryName]. */
     val contentRootToken: String,
-    /** Desired class root URLs (the `_build/{env}/consolidated/` directories). */
+    /** Desired class root URLs (the `consolidated/` directories). */
     val classRootUrls: List<String>,
     /** The module name of the owner module (for wiring the library as a module dependency). */
     val ownerModuleName: String?,
@@ -448,10 +448,11 @@ internal fun isSweptMixLibraryName(
 ): Boolean {
     if (" [" !in name || isUnscopedConsolidatedLibraryName(name)) return true
     val token = scopedLibraryNameToken(name) ?: return false
-    if (token in contentRootTokens) return false
 
-    return isConsolidatedLibraryName(name) ||
-        "://" in token && contentRootToken(systemIndependentBasePath, token) in contentRootTokens
+    return token !in contentRootTokens && (
+        isConsolidatedLibraryName(name) ||
+            "://" in token && contentRootToken(systemIndependentBasePath, token) in contentRootTokens
+        )
 }
 
 /**

@@ -92,6 +92,10 @@ private fun resolvePathShapedRequest(
                     ?.findChild(request.depName)
                     ?.takeIf { it.isValid && it.isDirectory }
                     ?.let { SyncRequest.DepRoot(it) }
+                    // No such dep: the project's own app, whose build holds a regular project's consolidated
+                    // protocols, or an umbrella child or `path:` dep, for which the consolidated rescan is merely
+                    // redundant.
+                    ?: SyncRequest.Consolidated(contentRoot)
             }
         }
 
@@ -390,9 +394,17 @@ private suspend fun buildConsolidatedLibraryPlans(
             val build = contentRoot.findChild("_build")?.takeIf { it.isValid && it.isDirectory }
                 ?: return@map ConsolidatedLibraryPlan(contentRoot.url, token, emptyList(), ownerModuleName = null)
 
+            // An umbrella consolidates into `_build/<env>/consolidated`, any other project into its app's
+            // `_build/<env>/lib/<app>/consolidated`. `lib/<app>/consolidated` is used only when
+            // `_build/<env>/consolidated` is absent: an umbrella child compiled on its own leaves a copy there too.
+            // Deps never consolidate.
             val consolidatedDirs = build.children
                 .filter { it.isDirectory }
-                .flatMap { env -> env.children.filter { it.isDirectory && it.name == "consolidated" } }
+                .flatMap { env ->
+                    env.findChild("consolidated")?.takeIf { it.isDirectory }?.let { listOf(it) }
+                        ?: env.findChild("lib")?.children.orEmpty()
+                            .mapNotNull { it.findChild("consolidated")?.takeIf(VirtualFile::isDirectory) }
+                }
 
             val ownerModuleName = ModuleUtil.findModuleForFile(contentRoot, project)?.name
 
