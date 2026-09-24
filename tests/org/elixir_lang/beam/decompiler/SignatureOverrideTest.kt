@@ -1,9 +1,9 @@
 package org.elixir_lang.beam.decompiler
 
-import junit.framework.TestCase
 import org.elixir_lang.beam.MacroNameArity
+import org.elixir_lang.junit.UnitTestCase
 
-class SignatureOverrideTest : TestCase() {
+class SignatureOverrideTest : UnitTestCase() {
     fun testStructArityOneIncludesDefinitionMacro() {
         val decompiled = StringBuilder()
 

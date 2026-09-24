@@ -2,8 +2,10 @@ package org.elixir_lang.flex_lexer;
 
 import com.intellij.lexer.Lexer;
 import org.elixir_lang.junit.EscapedNameRunnerFactory;
+import org.elixir_lang.junit.logs.UnexpectedLogsRule;
 import org.jetbrains.annotations.NotNull;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.runners.Parameterized;
 
 
@@ -11,6 +13,9 @@ import org.junit.runners.Parameterized;
 // having to repeat the annotation. Subclasses that aren't parameterised ignore it.
 @Parameterized.UseParametersRunnerFactory(EscapedNameRunnerFactory.class)
 public abstract class Test<L extends Lexer> {
+    @Rule
+    public final UnexpectedLogsRule unexpectedLogs = new UnexpectedLogsRule();
+
     /*
      * Fields
      */

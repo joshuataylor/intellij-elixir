@@ -2,9 +2,9 @@ package org.elixir_lang.beam.term
 
 import com.ericsson.otp.erlang.OtpErlangAtom
 import com.ericsson.otp.erlang.OtpErlangString
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class InspectTest : TestCase() {
+class InspectTest : UnitTestCase() {
     fun testEscapesInterpolationMarkers() {
         assertEquals("'abc\\#{value}'", "'abc#{value}'".elixirEscape())
     }

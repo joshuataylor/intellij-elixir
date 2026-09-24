@@ -1,9 +1,9 @@
 package org.elixir_lang.beam.chunk.beam_documentation.docs
 
 import com.ericsson.otp.erlang.*
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class DocumentedTest : TestCase() {
+class DocumentedTest : UnitTestCase() {
 
     private fun bin(s: String) = OtpErlangBinary(s.toByteArray())
     private fun charlist(s: String) = OtpErlangList(s.map { OtpErlangLong(it.code.toLong()) }.toTypedArray())

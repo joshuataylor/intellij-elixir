@@ -1,6 +1,8 @@
 package org.elixir_lang.tool_manager.mise
 
 import com.intellij.testFramework.UsefulTestCase
+import com.intellij.util.ThrowableRunnable
+import org.elixir_lang.junit.logs.UnexpectedLogs
 
 class MiseToolManagerTest : UsefulTestCase() {
     /** The description is HTML the widget shows as is, so the config path it names is escaped here. */
@@ -9,5 +11,9 @@ class MiseToolManagerTest : UsefulTestCase() {
 
         assertTrue(description, description.contains("/home/u/a&lt;b&gt;/mise.toml"))
         assertTrue(description, description.contains("<code>mise trust</code>"))
+    }
+
+    override fun runBare(testRunnable: ThrowableRunnable<Throwable>) {
+        UnexpectedLogs.failOnUnexpectedLogs { super.runBare(testRunnable) }
     }
 }

@@ -5,7 +5,9 @@ import com.ericsson.otp.erlang.OtpErlangDecodeException
 import org.elixir_lang.beam.BeamBytes.bytesOf
 import org.elixir_lang.beam.BeamBytes.unsignedInt
 import org.elixir_lang.beam.BeamBytes.writeUnsignedInt
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.junit.Assert
+import org.junit.Rule
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.util.zip.Deflater
@@ -16,6 +18,9 @@ import java.util.zip.Deflater
  * JVM refuses whatever the heap, so an unbounded decode fails on any machine.
  */
 class BinaryToTermTest {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     @Test
     fun aBinaryLongerThanTheBytesLeftIsRefused() = assertRefused(BINARY, unsignedInt(Int.MAX_VALUE))
 

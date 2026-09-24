@@ -4,9 +4,9 @@ import com.ericsson.otp.erlang.OtpErlangAtom
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class SizeTest : TestCase() {
+class SizeTest : UnitTestCase() {
 
     /**
      * Default size should return null (no size specifier to render).

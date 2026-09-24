@@ -2,7 +2,10 @@ package org.elixir_lang.elixir_flex_lexer;
 
 import com.intellij.lexer.Lexer;
 import com.intellij.testFramework.LexerTestCase;
+import com.intellij.util.ThrowableRunnable;
 import org.elixir_lang.ElixirLexer;
+import org.elixir_lang.junit.logs.UnexpectedLogs;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * {@code checkCorrectRestart} is called explicitly because {@code doTest} only performs it
@@ -12,75 +15,86 @@ import org.elixir_lang.ElixirLexer;
  */
 public class Issue1888Test extends LexerTestCase {
     public void testAtom() {
-        String text = "defmodule MyModule do\n" +
-                "  def my_function([:list_atom], :argument_atom)\n" +
-                "end\n";
+        String text = """
+                defmodule MyModule do
+                  def my_function([:list_atom], :argument_atom)
+                end
+                """;
 
         doTest(text,
-                "identifier ('defmodule')\n" +
-                        "WHITE_SPACE (' ')\n" +
-                        "Alias ('MyModule')\n" +
-                        "WHITE_SPACE (' ')\n" +
-                        "do ('do')\n" +
-                        "WHITE_SPACE ('\\n  ')\n" +
-                        "identifier ('def')\n" +
-                        "WHITE_SPACE (' ')\n" +
-                        "identifier ('my_function')\n" +
-                        "<zero-width-call> ('')\n" +
-                        "( ('(')\n" +
-                        "[ ('[')\n" +
-                        ": (':')\n" +
-                        "A-Z, a-z, _, @, 0-9. ?, ! ('list_atom')\n" +
-                        "] (']')\n" +
-                        ", (',')\n" +
-                        "WHITE_SPACE (' ')\n" +
-                        ": (':')\n" +
-                        "A-Z, a-z, _, @, 0-9. ?, ! ('argument_atom')\n" +
-                        ") (')')\n" +
-                        "WHITE_SPACE ('\\n')\n" +
-                        "end ('end')\n" +
-                        "\\\\n, \\\\r\\\\n ('\\n')");
+                """
+                identifier ('defmodule')
+                WHITE_SPACE (' ')
+                Alias ('MyModule')
+                WHITE_SPACE (' ')
+                do ('do')
+                WHITE_SPACE ('\\n  ')
+                identifier ('def')
+                WHITE_SPACE (' ')
+                identifier ('my_function')
+                <zero-width-call> ('')
+                ( ('(')
+                [ ('[')
+                : (':')
+                A-Z, a-z, _, @, 0-9. ?, ! ('list_atom')
+                ] (']')
+                , (',')
+                WHITE_SPACE (' ')
+                : (':')
+                A-Z, a-z, _, @, 0-9. ?, ! ('argument_atom')
+                ) (')')
+                WHITE_SPACE ('\\n')
+                end ('end')
+                \\\\n, \\\\r\\\\n ('\\n')""");
         checkCorrectRestart(text);
     }
 
     public void testColumn() {
-        String text = "defmodule MyModule do\n" +
-                "  def my_function([:list_atom], :)\n" +
-                "end\n";
+        String text = """
+                defmodule MyModule do
+                  def my_function([:list_atom], :)
+                end
+                """;
 
         doTest(text,
-                        "identifier ('defmodule')\n" +
-                        "WHITE_SPACE (' ')\n" +
-                        "Alias ('MyModule')\n" +
-                        "WHITE_SPACE (' ')\n" +
-                        "do ('do')\n" +
-                        "WHITE_SPACE ('\\n  ')\n" +
-                        "identifier ('def')\n" +
-                        "WHITE_SPACE (' ')\n" +
-                        "identifier ('my_function')\n" +
-                        "<zero-width-call> ('')\n" +
-                        "( ('(')\n" +
-                        "[ ('[')\n" +
-                        ": (':')\n" +
-                        "A-Z, a-z, _, @, 0-9. ?, ! ('list_atom')\n" +
-                        "] (']')\n" +
-                        ", (',')\n" +
-                        "WHITE_SPACE (' ')\n" +
-                        ": (':')\n" +
-                        ") (')')\n" +
-                        "WHITE_SPACE ('\\n')\n" +
-                        "end ('end')\n" +
-                        "\\\\n, \\\\r\\\\n ('\\n')");
+                """
+                identifier ('defmodule')
+                WHITE_SPACE (' ')
+                Alias ('MyModule')
+                WHITE_SPACE (' ')
+                do ('do')
+                WHITE_SPACE ('\\n  ')
+                identifier ('def')
+                WHITE_SPACE (' ')
+                identifier ('my_function')
+                <zero-width-call> ('')
+                ( ('(')
+                [ ('[')
+                : (':')
+                A-Z, a-z, _, @, 0-9. ?, ! ('list_atom')
+                ] (']')
+                , (',')
+                WHITE_SPACE (' ')
+                : (':')
+                ) (')')
+                WHITE_SPACE ('\\n')
+                end ('end')
+                \\\\n, \\\\r\\\\n ('\\n')""");
         checkCorrectRestart(text);
     }
 
     @Override
-    protected Lexer createLexer() {
+    protected @NotNull Lexer createLexer() {
         return new ElixirLexer();
     }
 
     @Override
-    protected String getDirPath() {
+    protected @NotNull String getDirPath() {
         return "testData/org/elixir_lang/elixir_flex_lexer/issue_1888";
+    }
+
+    @Override
+    protected void runBare(@NotNull ThrowableRunnable<Throwable> testRunnable) throws Throwable {
+        UnexpectedLogs.failOnUnexpectedLogs(() -> super.runBare(testRunnable));
     }
 }

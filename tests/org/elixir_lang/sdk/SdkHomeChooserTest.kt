@@ -2,11 +2,11 @@ package org.elixir_lang.sdk
 
 import com.intellij.openapi.project.guessProjectDir
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.testFramework.HeavyPlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
+import org.elixir_lang.junit.HeavyTestCase
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
 
-class SdkHomeChooserTest : HeavyPlatformTestCase() {
+class SdkHomeChooserTest : HeavyTestCase() {
     fun testTheErlangSdkTypeCreatesThroughItsOwnDialog() {
         assertTrue(
             "the platform's fallback checks the environment against user.home and rejects every WSL home",
@@ -58,7 +58,11 @@ class SdkHomeChooserTest : HeavyPlatformTestCase() {
 
         val chosen = SdkHomeChooser.firstUnregistered(homes, registered)
 
-        assertEquals("29.0 is registered, spelled as the SDK table stores it", homes[1], chosen)
+        assertEquals(
+            "29.0 is registered, spelled as the SDK table stores it",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\u\\.local\\share\\mise\\installs\\erlang\\28.1.1",
+            chosen,
+        )
     }
 
     fun testTheNewestHomeIsChosenWhenEveryHomeIsAnSdk() {
@@ -66,7 +70,7 @@ class SdkHomeChooserTest : HeavyPlatformTestCase() {
 
         val chosen = SdkHomeChooser.firstUnregistered(homes, homes)
 
-        assertEquals(homes[0], chosen)
+        assertEquals("/erlang/29.0", chosen)
     }
 
     fun testElixirBuildsForTheChosenErlangsOtpComeFirst() {

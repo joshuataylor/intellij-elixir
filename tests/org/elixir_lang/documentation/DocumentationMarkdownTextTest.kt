@@ -1,8 +1,8 @@
 package org.elixir_lang.documentation
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class DocumentationMarkdownTextTest : TestCase() {
+class DocumentationMarkdownTextTest : UnitTestCase() {
     fun testDedentDocumentationHeredocLinesRemovesDocIndentForListItems() {
         val dedented = dedentDocumentationHeredocLines(
             prefixLength = 4,

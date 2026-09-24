@@ -10,7 +10,6 @@ import com.intellij.lang.annotation.Annotator
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.ThrowableRunnable
 import junit.framework.Test
 import junit.framework.TestSuite
@@ -18,8 +17,10 @@ import org.elixir_lang.annotator.InvalidConstruct
 import org.elixir_lang.annotator.InvalidToken
 import org.elixir_lang.annotator.VersionedSyntax
 import org.elixir_lang.intellij_elixir.Quoter
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.junit.SharedFixture
 import org.elixir_lang.junit.SharedFixtureHost
+import org.elixir_lang.junit.logs.UnexpectedLogs
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import java.lang.reflect.Proxy
@@ -38,7 +39,7 @@ import java.nio.file.Path
 class AnnotatorQuoterAgreementTestCase private constructor(
     private val fixture: SharedFixture<AnnotatorQuoterAgreementTestCase>?,
     private val case: Case?,
-) : BasePlatformTestCase(), SharedFixtureHost<AnnotatorQuoterAgreementTestCase> {
+) : LightTestCase(), SharedFixtureHost<AnnotatorQuoterAgreementTestCase> {
     init {
         name = case?.hash ?: "shared fixture"
         fixture?.add(this)
@@ -70,7 +71,8 @@ class AnnotatorQuoterAgreementTestCase private constructor(
         if (fixture == null) {
             super.runBare(testRunnable)
         } else {
-            fixture.check(this)
+            // Checked on the shared host; logs during the check are this case's.
+            UnexpectedLogs.failOnUnexpectedLogs { fixture.check(this) }
         }
     }
 

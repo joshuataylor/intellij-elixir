@@ -4,14 +4,14 @@ import com.intellij.openapi.actionSystem.impl.SimpleDataContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.options.Configurable
 import com.intellij.testFramework.TestActionEvent
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.testFramework.replaceService
 import org.elixir_lang.facet.configurable.SmallIdeTopLevelElixirConfigurableFactory
 import org.elixir_lang.facet.configurable.TopLevelElixirConfigurableFactory
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.sdk.ProcessOutput
 import org.elixir_lang.settings.SettingsPageLookup
 
-class SettingsSdkSettingsOpenerTest : BasePlatformTestCase() {
+class SettingsSdkSettingsOpenerTest : LightTestCase() {
     private lateinit var lookup: SettingsPageLookup
 
     override fun setUp() {

@@ -2,10 +2,10 @@ package org.elixir_lang.psi.impl
 
 import com.intellij.openapi.application.WriteAction
 import com.intellij.psi.impl.source.PsiFileImpl
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.concurrency.annotations.RequiresEdt
+import org.elixir_lang.junit.LightTestCase
 
-class TreeReloadTest : BasePlatformTestCase() {
+class TreeReloadTest : LightTestCase() {
     /**
      * Building a stub asks whether a keyword pair's key is `do`, which quotes a key such as `"a"` and so asks for its
      * line. When the file's tree is being loaded from its stubs, that must not ask the file for its tree again. The

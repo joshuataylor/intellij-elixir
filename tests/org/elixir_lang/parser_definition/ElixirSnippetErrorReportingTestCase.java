@@ -8,7 +8,6 @@ import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 import com.intellij.codeInspection.InspectionProfileEntry;
 import com.intellij.codeInspection.LocalInspectionEP;
 import com.intellij.lang.annotation.HighlightSeverity;
-import com.intellij.testFramework.fixtures.BasePlatformTestCase;
 import com.intellij.util.ThrowableRunnable;
 import junit.framework.Test;
 import junit.framework.TestSuite;
@@ -18,6 +17,7 @@ import org.elixir_lang.inspection.MatchOperatorInsteadOfTypeOperator;
 import org.elixir_lang.inspection.NoParenthesesManyStrict;
 import org.elixir_lang.inspection.NoParenthesesStrict;
 import org.elixir_lang.intellij_elixir.Quoter;
+import org.elixir_lang.junit.LightTestCase;
 import org.elixir_lang.language_level.ElixirLanguageLevel;
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver;
 import org.jetbrains.annotations.NotNull;
@@ -35,7 +35,8 @@ import java.util.stream.Collectors;
  * rejects: highlighting it must report an error, from the parser, an annotator or an inspection of syntax. Inspections
  * that resolve names are left off, since an unresolved name would pass a snippet whose real error goes unreported.
  */
-public class ElixirSnippetErrorReportingTestCase extends BasePlatformTestCase {
+@SuppressWarnings("JUnitMalformedDeclaration") // Built only by suite().
+public class ElixirSnippetErrorReportingTestCase extends LightTestCase {
     private static final Path UNREPORTED =
             Path.of("testData", "org", "elixir_lang", "parser_definition", "unreported_errors.tsv");
 

@@ -10,9 +10,11 @@ import com.intellij.util.execution.ParametersListUtil
 import com.intellij.util.system.OS
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.jps.shared.cli.CliTool
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.elixir_lang.sdk.erlang_dependent.ErlangSdkResolver
 import org.elixir_lang.sdk.erlang_dependent.ErlangSdkResult
 import org.elixir_lang.sdk.erlang_dependent.MissingErlangSdkReason
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -27,9 +29,12 @@ import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
  */
 @RunWith(Parameterized::class)
 class CliArgumentsDataTest(private val case: Case) : PlatformTestCase() {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     companion object {
         private val dataFilePath = Path.of("testData", "org", "elixir_lang", "cli", "elixir_cli_base_args.txt")
-        private const val elixirHomePlaceholder = "{elixirHomePath}"
+        private const val ELIXIR_HOME_PLACEHOLDER = "{elixirHomePath}"
         private val legacyLibRegex = Regex("/lib/([^/\\s]+)/ebin")
 
         @JvmStatic
@@ -153,9 +158,9 @@ class CliArgumentsDataTest(private val case: Case) : PlatformTestCase() {
 
     private fun createErlangHome(): Path {
         val home = trackPath(Files.createTempDirectory("erlang-home"))
-        val bin = Files.createDirectories(home.resolve("bin"), )
+        val bin = Files.createDirectories(home.resolve("bin"))
         Files.createFile(bin.resolve("erl"))
-        val lib = Files.createDirectories(home.resolve("lib"), )
+        val lib = Files.createDirectories(home.resolve("lib"))
         listOf("asn1-5.0.18.1",
             "common_test-1.22.1",
             "compiler-8.1.1.1",
@@ -192,7 +197,7 @@ class CliArgumentsDataTest(private val case: Case) : PlatformTestCase() {
             "tools-3.5.2",
             "wx-2.1.4",
             "xmerl-1.3.28").forEach {
-            Files.createDirectories(lib.resolve(it),)
+            Files.createDirectories(lib.resolve(it))
         }
         return home
     }
@@ -203,7 +208,7 @@ class CliArgumentsDataTest(private val case: Case) : PlatformTestCase() {
 
     private fun expectedParameters(argsLine: String, elixirHome: Path): List<String> {
         val normalizedHome = normalize(elixirHome.toString())
-        val rewritten = argsLine.replace(elixirHomePlaceholder, normalizedHome)
+        val rewritten = argsLine.replace(ELIXIR_HOME_PLACEHOLDER, normalizedHome)
         val rawTokens = rewritten.trim().split(Regex("\\s+"))
         val withoutErl = if (rawTokens.firstOrNull() == "erl") rawTokens.drop(1) else rawTokens
         return normalize(withoutErl)

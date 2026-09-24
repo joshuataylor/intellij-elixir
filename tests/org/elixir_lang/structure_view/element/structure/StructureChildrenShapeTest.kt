@@ -1,12 +1,12 @@
 package org.elixir_lang.structure_view.element.structure
 
 import com.intellij.ide.structureView.StructureViewTreeElement
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.structure_view.Model
 
 // Drives defstruct/defexception shapes through the structure view, none of which may throw.
-class StructureChildrenShapeTest : BasePlatformTestCase() {
+class StructureChildrenShapeTest : LightTestCase() {
     private data class Shape(val label: String, val source: String)
 
     // Recurses because getChildren() is where the crash lives, not just the root's own children.

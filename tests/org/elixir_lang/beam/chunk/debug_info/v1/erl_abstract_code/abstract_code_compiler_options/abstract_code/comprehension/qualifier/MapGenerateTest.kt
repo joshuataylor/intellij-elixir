@@ -4,10 +4,10 @@ import com.ericsson.otp.erlang.OtpErlangAtom
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
-import junit.framework.TestCase
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.Scope
+import org.elixir_lang.junit.UnitTestCase
 
-class MapGenerateTest : TestCase() {
+class MapGenerateTest : UnitTestCase() {
 
     /**
      * Verifies that [MapGenerate] is recognised for an `m_generate` term (OTP 26 map generator)

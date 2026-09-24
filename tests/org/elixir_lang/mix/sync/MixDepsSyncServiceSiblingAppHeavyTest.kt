@@ -11,9 +11,9 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.testFramework.HeavyPlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.common.runAll
+import org.elixir_lang.junit.HeavyTestCase
 import java.io.File
 import java.util.concurrent.Callable
 
@@ -36,7 +36,7 @@ import java.util.concurrent.Callable
  * [#3990](https://github.com/intellij-elixir/intellij-elixir/issues/3990) reports, and it is what makes
  * `app_a`'s own content root the only place the resolver starts from.
  */
-class MixDepsSyncServiceSiblingAppHeavyTest : HeavyPlatformTestCase() {
+class MixDepsSyncServiceSiblingAppHeavyTest : HeavyTestCase() {
 
     private lateinit var umbrellaVf: VirtualFile
     private lateinit var appAMixExs: VirtualFile

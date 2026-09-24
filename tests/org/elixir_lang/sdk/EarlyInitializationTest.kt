@@ -1,6 +1,7 @@
 package org.elixir_lang.sdk
 
 import com.intellij.testFramework.TestLoggerFactory
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
@@ -15,6 +16,9 @@ import org.junit.Test
  * because we want to test class loading WITHOUT a full IDE context.
  */
 class EarlyInitializationTest {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     @Rule
     @JvmField
     val testWatcher = TestLoggerFactory.createTestWatcher()

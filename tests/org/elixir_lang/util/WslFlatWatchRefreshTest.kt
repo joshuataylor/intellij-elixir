@@ -9,15 +9,15 @@ import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
-import com.intellij.testFramework.HeavyPlatformTestCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import org.elixir_lang.junit.HeavyTestCase
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.FileTime
 
-class WslFlatWatchRefreshTest : HeavyPlatformTestCase() {
+class WslFlatWatchRefreshTest : HeavyTestCase() {
     private val lfs get() = LocalFileSystem.getInstance()
 
     fun testOnlyAWslPathIsRefreshedAndOnlyBeforeThePlatformFix() {

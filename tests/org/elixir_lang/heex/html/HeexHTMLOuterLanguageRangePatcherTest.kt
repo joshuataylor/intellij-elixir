@@ -1,19 +1,19 @@
 package org.elixir_lang.heex.html
 
 import com.intellij.psi.templateLanguages.DefaultOuterLanguagePatcher
-import junit.framework.TestCase
 import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.heex.file.psi.TemplateData
+import org.elixir_lang.junit.UnitTestCase
 
 /**
  * [HeexHTMLOuterLanguageRangePatcher] is registered for `language="HTML"`, so it runs for every
  * HTML-data template language in the IDE, not just HEEx -
- * [com.intellij.psi.templateLanguages.TemplateDataElementType.OuterLanguageRangePatcher.EXTENSION]
+ * `TemplateDataElementType.OuterLanguageRangePatcher.EXTENSION`
  * has one patcher per language. It must therefore check which [com.intellij.psi.templateLanguages.TemplateDataElementType]
  * the range belongs to, not just which language, and return `null` - "insert nothing" - for anyone
  * else's, leaving other HTML template languages' own (patcher-less) behaviour untouched.
  */
-class HeexHTMLOuterLanguageRangePatcherTest : TestCase() {
+class HeexHTMLOuterLanguageRangePatcherTest : UnitTestCase() {
     private val patcher = HeexHTMLOuterLanguageRangePatcher()
 
     fun testReturnsThePlatformPlaceholderForHeex() {

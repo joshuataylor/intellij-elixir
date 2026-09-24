@@ -1,6 +1,6 @@
 package org.elixir_lang.debugger
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 import java.io.File
 
 /**
@@ -13,7 +13,7 @@ import java.io.File
  * where the temporary path genuinely contains backslashes; on the Linux legs the round-trip assertion
  * still holds but the escaping is a no-op.
  */
-class ModulesTest : TestCase() {
+class ModulesTest : UnitTestCase() {
     fun testRequireFilePathsEscapeBackslashes() {
         val requireFilePaths = requireFilePaths()
 
@@ -51,7 +51,7 @@ class ModulesTest : TestCase() {
             .map { argument ->
                 val start = argument.indexOf(BINARY_PREFIX)
                 val end = argument.lastIndexOf(BINARY_SUFFIX)
-                check(start >= 0 && end > start) { "Unrecognized require_file argument: $argument" }
+                check(start in 0..<end) { "Unrecognized require_file argument: $argument" }
 
                 argument.substring(start + BINARY_PREFIX.length, end)
             }

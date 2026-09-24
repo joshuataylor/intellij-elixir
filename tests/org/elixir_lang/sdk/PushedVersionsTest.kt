@@ -1,11 +1,16 @@
 package org.elixir_lang.sdk
 
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Rule
 import org.junit.Test
 
 class PushedVersionsTest {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     @Test
     fun `an unknown OTP version writes the Elixir version alone`() {
         assertEquals("1.18.4", PushedVersions.encode(ElixirLanguageLevel.of("1.18.4", null)))

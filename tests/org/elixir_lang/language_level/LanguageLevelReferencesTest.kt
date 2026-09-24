@@ -1,6 +1,8 @@
 package org.elixir_lang.language_level
 
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.junit.Assert.assertEquals
+import org.junit.Rule
 import org.junit.Test
 import java.io.File
 
@@ -8,9 +10,12 @@ import java.io.File
  * The code that parses, quotes and checks Elixir asks an [ElixirLanguageFeature] rather than naming an Elixir release.
  */
 class LanguageLevelReferencesTest {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     @Test
     fun `only the language level and its features name an Elixir release`() {
-        val references = SCANNED.map(::File).flatMap { it.walkTopDown() }
+        val references = SCANNED.asSequence().map(::File).flatMap { it.walkTopDown() }
             .filter { it.isFile && it.extension in SOURCE_EXTENSIONS && it.name !in ALLOWED }
             .sortedBy { it.invariantSeparatorsPath }
             .flatMap { file ->
@@ -32,6 +37,6 @@ class LanguageLevelReferencesTest {
         )
         val ALLOWED = setOf("ElixirLanguageLevel.kt", "ElixirLanguageFeature.kt")
         val SOURCE_EXTENSIONS = setOf("kt", "java")
-        val RELEASE = Regex("""["][0-9]+[.][0-9]+([.][0-9]+)?(-rc[.][0-9]+)?["]""")
+        val RELEASE = Regex(""""[0-9]+[.][0-9]+([.][0-9]+)?(-rc[.][0-9]+)?"""")
     }
 }

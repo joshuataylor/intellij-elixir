@@ -1,8 +1,8 @@
 package org.elixir_lang.string
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class TokenizerTest : TestCase() {
+class TokenizerTest : UnitTestCase() {
     fun testStartsWithDigit() {
         assertEquals(Tokenizer.Tokenized.Empty, Tokenizer.tokenize("4k"))
     }

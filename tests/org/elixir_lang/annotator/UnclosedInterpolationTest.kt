@@ -1,13 +1,13 @@
 package org.elixir_lang.annotator
 
 import com.intellij.lang.annotation.HighlightSeverity
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import org.elixir_lang.language_level.elixir
 
 /** Expected messages were taken from `Code.string_to_quoted/1` on every release from 1.11.4 to 1.20.4. */
-class UnclosedInterpolationTest : BasePlatformTestCase() {
+class UnclosedInterpolationTest : LightTestCase() {
     private var files = 0
 
     override fun tearDown() {

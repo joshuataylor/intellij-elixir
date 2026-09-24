@@ -1,9 +1,9 @@
 package org.elixir_lang.code
 
 import com.ericsson.otp.erlang.OtpErlangAtom
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class VariableNameTest : TestCase() {
+class VariableNameTest : UnitTestCase() {
     fun testSanitizesAtSign() {
         assertEquals("f__1", sanitizeErlangVariableName("f@_1"))
     }
@@ -28,7 +28,7 @@ class VariableNameTest : TestCase() {
         assertEquals("left_1", sanitizeErlangVariableName(OtpErlangAtom("left@1")))
     }
 
-    // `_Token`, `_Line` patterns in Erlang code — `_Token` is already valid Elixir
+    // `_Token`, `_Line` patterns in Erlang code - `_Token` is already valid Elixir
     // (underscore-prefixed unused variable), so it passes through unchanged.
     fun testPreservesUnderscorePrefixedCapitalizedVariable() {
         assertEquals("_Token", sanitizeErlangVariableName("_Token"))

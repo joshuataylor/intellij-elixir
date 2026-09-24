@@ -4,9 +4,9 @@ import com.ericsson.otp.erlang.OtpErlangAtom
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class RecordFieldTest : TestCase() {
+class RecordFieldTest : UnitTestCase() {
     fun testRendersWildcardVarFieldWithoutUnknownFieldFallback() {
         val line = OtpErlangLong(1)
         val wildcardVarField = tuple(

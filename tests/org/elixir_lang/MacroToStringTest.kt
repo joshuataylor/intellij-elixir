@@ -5,11 +5,16 @@ import com.ericsson.otp.erlang.OtpErlangList
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
 class MacroToStringTest {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     // Clause heads
 
     @Test
@@ -103,7 +108,12 @@ class MacroToStringTest {
 
     @Test
     fun charlistLineBreakAndBidirectionalCharactersAreEscaped() {
-        val codePoints = listOf(0x2028, 0x2029) + (0x202A..0x202E) + (0x2066..0x2069)
+        val codePoints = buildList {
+            add(0x2028)
+            add(0x2029)
+            addAll(0x202A..0x202E)
+            addAll(0x2066..0x2069)
+        }
 
         for (codePoint in codePoints) {
             val escape = "\\u" + "%04X".format(codePoint)

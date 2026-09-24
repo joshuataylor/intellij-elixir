@@ -5,9 +5,9 @@ import com.ericsson.otp.erlang.OtpErlangList
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class ComprehensionTest : TestCase() {
+class ComprehensionTest : UnitTestCase() {
 
     /**
      * Smoke-test: `lc` (list comprehension) is recognised.

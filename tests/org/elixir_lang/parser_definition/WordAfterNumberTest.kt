@@ -4,9 +4,9 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.impl.DebugUtil
 import com.intellij.psi.tree.IElementType
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.ElixirFileType
 import org.elixir_lang.intellij_elixir.Quoter
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.language_level.ElixirLanguageFeature
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
@@ -18,7 +18,7 @@ import org.elixir_lang.psi.ElixirTypes
  * release and after any number before 1.12. Cases were run through `Code.string_to_quoted/1` on 1.11.4, 1.12.3 and
  * 1.20.4.
  */
-class WordAfterNumberTest : BasePlatformTestCase() {
+class WordAfterNumberTest : LightTestCase() {
     private var files = 0
 
     override fun tearDown() {

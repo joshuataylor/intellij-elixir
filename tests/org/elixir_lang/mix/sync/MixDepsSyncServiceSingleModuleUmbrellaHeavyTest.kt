@@ -10,9 +10,9 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.testFramework.HeavyPlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.common.runAll
+import org.elixir_lang.junit.HeavyTestCase
 import java.io.File
 import java.util.concurrent.Callable
 
@@ -43,7 +43,7 @@ import java.util.concurrent.Callable
  *   `apps/<app>/mix.exs` must resolve to the owning umbrella module (not be dropped) and wire
  *   the app-declared deps.
  */
-class MixDepsSyncServiceSingleModuleUmbrellaHeavyTest : HeavyPlatformTestCase() {
+class MixDepsSyncServiceSingleModuleUmbrellaHeavyTest : HeavyTestCase() {
 
     private lateinit var umbrellaVf: VirtualFile
     private lateinit var rootMixExs: VirtualFile

@@ -1,6 +1,7 @@
 package org.elixir_lang.mix.project
 
 import com.intellij.facet.FacetManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.notification.Notification
 import com.intellij.notification.Notifications
 import com.intellij.openapi.module.ModuleManager
@@ -13,7 +14,10 @@ import com.intellij.testFramework.LoggedErrorProcessor
 import com.intellij.testFramework.PlatformTestUtil
 import kotlinx.coroutines.runBlocking
 import org.elixir_lang.Facet
+import org.elixir_lang.junit.HeavyTestCase
+import org.elixir_lang.junit.logs.GuardedLoggedErrorProcessor
 import java.io.File
+import java.util.concurrent.Callable
 
 /**
  * Drives [DirectoryConfigurator] the way a small IDE does - through the platform's own
@@ -23,7 +27,7 @@ import java.io.File
  * Needs [HeavyPlatformTestCase]: [runDirectoryProjectConfigurators] resolves its argument with
  * `refreshAndFindFileByNioFile`, and the facet lands on `ModuleManager.modules[0]`.
  */
-class DirectoryConfiguratorHeavyTest : HeavyPlatformTestCase() {
+class DirectoryConfiguratorHeavyTest : HeavyTestCase() {
     /** [runDirectoryProjectConfigurators] dispatches to `Dispatchers.EDT`, which a [runBlocking] on the EDT would never reach. */
     override fun runInDispatchThread(): Boolean = false
 
@@ -45,7 +49,8 @@ class DirectoryConfiguratorHeavyTest : HeavyPlatformTestCase() {
 
         // The facet commits separately from the roots, so asserting only the facet would pass on a
         // half-configured module.
-        val contentEntries = ModuleRootManager.getInstance(module).contentEntries
+        val contentEntries = ReadAction.nonBlocking(Callable { ModuleRootManager.getInstance(module).contentEntries })
+            .executeSynchronously()
         val contentEntry = contentEntries.singleOrNull { it.file == appVirtualFile }
 
         assertNotNull(
@@ -111,7 +116,7 @@ class DirectoryConfiguratorHeavyTest : HeavyPlatformTestCase() {
      */
     private fun configureDirectory(dir: File) {
         val logged = mutableListOf<String>()
-        val processor = object : LoggedErrorProcessor() {
+        val processor = object : GuardedLoggedErrorProcessor() {
             override fun processError(
                 category: String,
                 message: String,

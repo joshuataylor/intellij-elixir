@@ -1,6 +1,6 @@
 package org.elixir_lang.mix.sync
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
 /**
  * Unit tests for [scopedLibraryNameToken], the inverse of [scopedDepLibraryName].
@@ -8,7 +8,7 @@ import junit.framework.TestCase
  * The parser guards stale-entry pruning: a wrong parse can misclassify an invalid placeholder
  * entry scoped to a CURRENT content root as stale and delete it, so the edge cases here matter.
  */
-class ScopedLibraryNameTest : TestCase() {
+class ScopedLibraryNameTest : UnitTestCase() {
 
     fun testRoundTripsScopedDepLibraryName() {
         val url = "file:///home/dev/workspace/my_project"

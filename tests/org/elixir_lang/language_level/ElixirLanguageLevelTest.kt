@@ -1,15 +1,20 @@
 package org.elixir_lang.language_level
 
 import com.intellij.util.text.SemVer
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.elixir_lang.sdk.erlang.Release
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 
 class ElixirLanguageLevelTest {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     @Test
     fun `a bare version is read as it is`() {
         assertEquals(SemVer.parseFromText("1.16.2"), ElixirLanguageLevel.of("1.16.2").elixir)
@@ -70,6 +75,8 @@ class ElixirLanguageLevelTest {
         assertEquals(ElixirLanguageLevel.of("1.18.4", "27.0"), ElixirLanguageLevel.of("1.18.4", "27.0.0"))
     }
 
+    // FALLBACK is the expected value.
+    @Suppress("KotlinMisorderedAssertEqualsArguments")
     @Test
     fun `a version-less string falls back`() {
         assertEquals(ElixirLanguageLevel.FALLBACK, ElixirLanguageLevel.of(null))

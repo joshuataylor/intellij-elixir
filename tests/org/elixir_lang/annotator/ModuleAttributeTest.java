@@ -214,8 +214,8 @@ public class ModuleAttributeTest extends PlatformTestCase {
      */
 
     /**
-     * Every error the annotator logs while highlighting the configured file, suppressed rather than
-     * rethrown so that a failure names the offending element.
+     * Every error the annotator logs while highlighting the configured file, suppressed so that a
+     * failure names the offending element.
      */
     private List<LoggedError> loggedErrors() {
         return captureLoggedErrors(true, () -> myFixture.doHighlighting()).getSecond();

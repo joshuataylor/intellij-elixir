@@ -332,6 +332,21 @@ leave out. Each fork keeps its own index in the
 sandbox's `system-test-fork-<n>` between builds, so a stale index is reset by deleting `system-test*`, not
 just `system-test`.
 
+A test fails on any error logged while it runs, any warning from the plugin's own (`org.elixir_lang`)
+loggers, and any exception left uncaught, on any thread, that it did not expect. A platform warning does not fail
+it: `checkUnexpectedLogs` lists those after `test` without failing the build. A test that exercises a warning or an error wraps the code in
+`expectWarnings(TheLoggingClass::class.java, Regex("..."))` or `expectErrors(...)`
+(`org.elixir_lang.junit.logs`), which return the matching messages for the test to validate and fail if there
+were none. The test is failed once it has finished, tearDown included, so nothing is thrown into the code that
+logged: JUnit 3 tests get this from the base classes in `org.elixir_lang.junit` (`LightTestCase`,
+`HeavyTestCase`, `UnitTestCase`, and `PlatformTestCase` on top of `LightTestCase`), JUnit 4 tests from
+`UnexpectedLogsRule`, and Jupiter tests from an auto-detected extension. A log no test was failed for - logged after its test
+finished, outside any test, or in a class on another base - fails the build after `test`, in
+`checkUnexpectedLogs`. `-PunexpectedLogs=report` lists them all without failing anything. Platform noise
+nothing in the plugin can prevent goes in `IgnoredLogs`, marked `silent` if it should not reach the console or
+`idea.log` either, for noise a test provokes on purpose. A test that installs its own
+`LoggedErrorProcessor` extends `GuardedLoggedErrorProcessor`, or it switches the check off while installed.
+
 `test` builds and starts the Elixir quoter daemon, because the parser tests
 (`org.elixir_lang.parser_definition.*`) quote source through it and compare the result against the
 plugin's own quoting. Gradle stops the daemon at the end of the build. On a warm cache this costs

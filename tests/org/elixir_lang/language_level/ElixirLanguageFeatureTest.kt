@@ -1,6 +1,6 @@
 package org.elixir_lang.language_level
 
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.language_level.ElixirLanguageFeature.*
 
 /**
@@ -8,7 +8,7 @@ import org.elixir_lang.language_level.ElixirLanguageFeature.*
  * with it, pre-releases included, so a boundary edited by mistake fails by name rather than as a quoting failure on
  * one CI leg. The tags are the first ones containing the commits each entry's KDoc cites.
  */
-class ElixirLanguageFeatureTest : BasePlatformTestCase() {
+class ElixirLanguageFeatureTest : LightTestCase() {
     fun testEachFeatureAppliesFromTheFirstTagThatShippedIt() {
         val boundaries = mapOf(
             ESCAPED_NEWLINE_KEPT_IN_EXTRACTED_BUFFER to ("1.11.4" to "1.12.0-rc.0"),

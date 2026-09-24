@@ -471,6 +471,8 @@
 
 ### Build / CI
 
+- [#4183](https://github.com/intellij-elixir/intellij-elixir/pull/4183) [@sh41](https://github.com/sh41)
+  - **A test that logs an error or a plugin warning, or leaves an exception uncaught, that it does not expect now fails.**
 - [#4171](https://github.com/intellij-elixir/intellij-elixir/pull/4171) [@sh41](https://github.com/sh41)
   - **The test suite runs on the JUnit Platform in parallel test JVMs sized to the machine's spare cores and memory, and no longer starts shells in real WSL distributions.**
 - [#4181](https://github.com/intellij-elixir/intellij-elixir/pull/4181) [@sh41](https://github.com/sh41)

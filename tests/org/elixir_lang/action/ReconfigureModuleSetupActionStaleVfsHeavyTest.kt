@@ -14,7 +14,9 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.testFramework.HeavyPlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
+import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.facet.Type
+import org.elixir_lang.junit.HeavyTestCase
 import java.io.File
 
 /**
@@ -29,8 +31,9 @@ import java.io.File
  * in-memory, so writing through [File] there produces no stale entry to reproduce - it produces no
  * entry at all.
  */
-class ReconfigureModuleSetupActionStaleVfsHeavyTest : HeavyPlatformTestCase() {
+class ReconfigureModuleSetupActionStaleVfsHeavyTest : HeavyTestCase() {
 
+    @RequiresReadLock
     fun testAddsMarksForAnUmbrellaSubAppWrittenOutsideVfs() {
         val umbrellaDir = createTempDir("umbrella")
         FileUtil.writeToFile(File(umbrellaDir, "mix.exs"), "")

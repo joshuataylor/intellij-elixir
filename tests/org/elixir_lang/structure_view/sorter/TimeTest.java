@@ -1,12 +1,12 @@
 package org.elixir_lang.structure_view.sorter;
 
-import junit.framework.TestCase;
+import org.elixir_lang.junit.UnitTestCase;
 import org.elixir_lang.structure_view.element.Timed;
 
 import java.util.Comparator;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class TimeTest extends TestCase {
+public class TimeTest extends UnitTestCase {
     /*
      * Fixtures
      */

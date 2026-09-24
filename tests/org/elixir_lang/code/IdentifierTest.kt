@@ -1,8 +1,8 @@
 package org.elixir_lang.code
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class IdentifierTest : TestCase() {
+class IdentifierTest : UnitTestCase() {
     fun testInspectAsFunctionEscapesBackslash() {
         assertEquals("\"\\\\\"", Identifier.inspectAsFunction("\\"))
     }

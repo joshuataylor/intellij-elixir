@@ -1,11 +1,11 @@
 package org.elixir_lang.structure_view
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
 /**
  * The table's invariants. Pure assertions over [ChildCall.ENTRIES] - no fixture, no IDE.
  */
-class ChildCallTest : TestCase() {
+class ChildCallTest : UnitTestCase() {
     private fun names(entries: List<ChildCall.Entry>) = entries.map { it.name }.sorted()
 
     private val nonEmpty = "the table must not be empty or this assertion is vacuous"

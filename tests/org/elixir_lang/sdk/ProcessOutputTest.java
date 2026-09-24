@@ -1,9 +1,9 @@
 package org.elixir_lang.sdk;
 
 import com.intellij.execution.ExecutionException;
-import junit.framework.TestCase;
+import org.elixir_lang.junit.UnitTestCase;
 
-public class ProcessOutputTest extends TestCase {
+public class ProcessOutputTest extends UnitTestCase {
     /*
      * Tests
      */
@@ -15,8 +15,7 @@ public class ProcessOutputTest extends TestCase {
                         .getProcessOutput(
                                 1,
                                 null,
-                                "/exe-path",
-                                new String[0]
+                                "/exe-path"
                         )
                         .getExitCode()
         );

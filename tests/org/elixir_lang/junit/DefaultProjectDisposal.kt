@@ -24,8 +24,8 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Settles the real application before a [ParsingTestCase] class installs its [MockApplication], which anything the real
  * application still runs then reaches through `ApplicationManager`. Disposes the default project an earlier class
- * left, as the platform disposes an idle one on a JVM-wide timer, and waits for the clean-up of every disposed project
- * and service, such as a project's removal from the platform's kernel database, which runs after its disposal.
+ * left, as the platform disposes an idle one on a JVM-wide timer, and waits for the application's cancelled coroutines.
+ * A project's removal from the platform's kernel database can still run later; `IgnoredLogs` covers that.
  */
 @Suppress("UnstableApiUsage") // The platform's own test-only disposal; nothing public disposes the default project.
 class DefaultProjectDisposal : TestExecutionListener {

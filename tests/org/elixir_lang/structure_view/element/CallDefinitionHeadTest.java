@@ -1,10 +1,10 @@
 package org.elixir_lang.structure_view.element;
 
 import com.intellij.psi.PsiElement;
-import com.intellij.testFramework.fixtures.BasePlatformTestCase;
+import org.elixir_lang.junit.LightTestCase;
 import org.elixir_lang.psi.call.Call;
 
-public class CallDefinitionHeadTest extends BasePlatformTestCase {
+public class CallDefinitionHeadTest extends LightTestCase {
     /*
      * Tests
      */
@@ -38,11 +38,11 @@ public class CallDefinitionHeadTest extends BasePlatformTestCase {
      */
 
     private void assertIssue468CallDefinitionHeadClauseHead() {
-        PsiElement element = myFixture
-                .getFile()
-                .findElementAt(myFixture.getCaretOffset())
-                .getParent()
-                .getParent();
+        PsiElement leaf = myFixture.getFile().findElementAt(myFixture.getCaretOffset());
+
+        assertNotNull(leaf);
+
+        PsiElement element = leaf.getParent().getParent();
 
         assertNotNull(element);
         assertInstanceOf(element, Call.class);

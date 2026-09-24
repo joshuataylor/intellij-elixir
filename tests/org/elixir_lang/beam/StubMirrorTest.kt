@@ -76,8 +76,8 @@ class StubMirrorTest : PlatformTestCase() {
     }
 
     /**
-     * `BeamFileImpl.getMirror` turns an `InvalidMirrorException` into `LOGGER.error`, which the default
-     * `LoggedErrorProcessor` rethrows - so building the mirror is itself the assertion that neither
+     * `BeamFileImpl.getMirror` turns an `InvalidMirrorException` into `LOGGER.error`, which fails the test
+     * as an unexpected log - so building the mirror is itself the assertion that neither
      * `setMirror` call site rejected the decompiled source.
      */
     private fun mirroredModule(name: String): ModuleImpl<*> {

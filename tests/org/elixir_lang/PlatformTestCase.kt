@@ -3,11 +3,12 @@ package org.elixir_lang
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.testFramework.LoggedErrorProcessor
 import com.intellij.testFramework.TestLoggerFactory
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.elixir_lang.junit.LightTestCase
+import org.elixir_lang.junit.logs.GuardedLoggedErrorProcessor
 import org.junit.Rule
 import java.nio.file.Path
 
-abstract class PlatformTestCase : BasePlatformTestCase() {
+abstract class PlatformTestCase : LightTestCase() {
 
     @Rule
     @JvmField
@@ -28,33 +29,31 @@ abstract class PlatformTestCase : BasePlatformTestCase() {
     }
 
     /**
-     * Executes code that is expected to log a warning, capturing and returning the warning message.
+     * Executes code that may log a warning from [category], capturing and returning the last one. Warnings from any
+     * other logger still reach [org.elixir_lang.junit.logs.UnexpectedLogs].
      *
      * @param category The logger category to monitor (e.g., "org.elixir_lang.sdk.erlang.Type")
      * @param block The code to execute that will log the warning
      * @return Pair of (result from block, captured warning message or null)
      */
     protected fun <T> captureLoggedWarning(category: String, block: () -> T): Pair<T, String?> {
-        var capturedMessage: String? = null
-        var result: T? = null
+        val captured = mutableListOf<String>()
+        val watched = category
 
-        val processor = object : LoggedErrorProcessor() {
-            override fun processWarn(logCategory: String, message: String, t: Throwable?): Boolean {
+        val processor = object : GuardedLoggedErrorProcessor() {
+            override fun processWarn(category: String, message: String, t: Throwable?): Boolean =
                 // TestLoggerFactory prefixes categories with '#'
-                val normalizedCategory = logCategory.removePrefix("#")
-                if (normalizedCategory == category) {
-                    capturedMessage = message
+                if (category.removePrefix("#") == watched) {
+                    captured += message
+                    false
+                } else {
+                    super.processWarn(category, message, t)
                 }
-                return false
-            }
         }
 
-        LoggedErrorProcessor.executeWith<RuntimeException>(processor) {
-            result = block()
-        }
+        val result = LoggedErrorProcessor.executeWith(processor).use { block() }
 
-        @Suppress("UNCHECKED_CAST")
-        return Pair(result as T, capturedMessage)
+        return Pair(result, captured.lastOrNull())
     }
 
     /**
@@ -75,11 +74,8 @@ abstract class PlatformTestCase : BasePlatformTestCase() {
      * through [org.elixir_lang.errorreport.Logger]. Baking any one of those into the helper would
      * leave the other two writing their own [LoggedErrorProcessor].
      *
-     * @param suppress whether to swallow what is captured. [LoggedErrorProcessor]'s default action
-     *   set includes [LoggedErrorProcessor.Action.RETHROW], so a test that deliberately trips a
-     *   logged error fails on the error itself rather than on its own assertion unless this is true.
-     *   Pass `false` to keep the default, where any logged error should fail the test outright and
-     *   the captured list only sharpens the message.
+     * @param suppress whether to swallow what is captured. Pass `false` where any logged error should
+     *   still fail the test, and the captured list only sharpens the message.
      * @param block The code to execute
      * @return Pair of (result from block, errors in the order they were logged)
      */
@@ -89,9 +85,8 @@ abstract class PlatformTestCase : BasePlatformTestCase() {
         block: () -> T
     ): Pair<T, kotlin.collections.List<LoggedError>> {
         val captured = mutableListOf<LoggedError>()
-        var result: T? = null
 
-        val processor = object : LoggedErrorProcessor() {
+        val processor = object : GuardedLoggedErrorProcessor() {
             override fun processError(
                 category: String,
                 message: String,
@@ -100,16 +95,13 @@ abstract class PlatformTestCase : BasePlatformTestCase() {
             ): Set<Action> {
                 captured.add(LoggedError(category.removePrefix("#"), message, t?.message))
 
-                return if (suppress) Action.NONE else Action.ALL
+                return if (suppress) Action.NONE else super.processError(category, message, details, t)
             }
         }
 
-        LoggedErrorProcessor.executeWith<RuntimeException>(processor) {
-            result = block()
-        }
+        val result = LoggedErrorProcessor.executeWith(processor).use { block() }
 
-        @Suppress("UNCHECKED_CAST")
-        return Pair(result as T, captured.toList())
+        return Pair(result, captured.toList())
     }
 
 }
