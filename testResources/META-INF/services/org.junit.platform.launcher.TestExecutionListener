@@ -1,2 +1,3 @@
+org.elixir_lang.junit.DefaultProjectDisposal
 org.elixir_lang.junit.ForkTimeline
 org.elixir_lang.junit.SdkVersionsStoreReset
