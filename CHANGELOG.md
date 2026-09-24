@@ -109,6 +109,8 @@
 
 ### Bug Fixes
 
+- [#4182](https://github.com/intellij-elixir/intellij-elixir/pull/4182) [@sh41](https://github.com/sh41)
+  - **Removing an SDK while the IDE watches SDK version files no longer reports an internal error or stops that watch.**
 - [#4167](https://github.com/intellij-elixir/intellij-elixir/pull/4167) [@sh41](https://github.com/sh41)
   - **Go to Declaration on a compiled function with more than one clause for the same arity now lands on the first clause, not the last.** Refs [#4164](https://github.com/intellij-elixir/intellij-elixir/issues/4164).
 - [#4146](https://github.com/intellij-elixir/intellij-elixir/pull/4146) [@sh41](https://github.com/sh41)

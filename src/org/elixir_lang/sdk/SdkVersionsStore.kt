@@ -56,7 +56,8 @@ class SdkVersionsStore : ModificationTracker {
     fun canonicalHome(homePath: String?): String? = install(homePath)?.canonicalHome ?: installationKey(homePath)
 
     /** Every home held, under every spelling it was read through. */
-    fun homes(): Set<String> = byHomePath.keys.toSet()
+    // Not `toSet`: for one key it calls `next()` without `hasNext()`, which throws if the key is removed meanwhile.
+    fun homes(): Set<String> = byHomePath.keys.toHashSet()
 
     /**
      * Stored under both spellings so a reader holding either is answered without resolving one, which is I/O.
