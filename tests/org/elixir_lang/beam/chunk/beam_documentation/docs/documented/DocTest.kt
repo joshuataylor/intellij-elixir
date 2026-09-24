@@ -2,6 +2,7 @@ package org.elixir_lang.beam.chunk.beam_documentation.docs.documented
 
 import com.ericsson.otp.erlang.*
 import org.elixir_lang.junit.UnitTestCase
+import org.elixir_lang.junit.logs.expectErrors
 
 class DocTest : UnitTestCase() {
 
@@ -19,19 +20,14 @@ class DocTest : UnitTestCase() {
     }
 
     fun testUnknownAtomLogsErrorAndReturnsNull() {
-        // DefaultLogger.error() throws AssertionError outside the full IDE test framework.
-        // Catch it and verify the error message mentions the unrecognised atom.
-        val error = try {
-            Doc.from(OtpErlangAtom("something_else"))
-            null
-        } catch (e: AssertionError) {
-            e
-        }
-        assertNotNull("Expected Logger.error() to throw AssertionError for unrecognised atom", error)
-        assertTrue(
-            "Error message should mention the unrecognised atom, got: ${error!!.message}",
-            error.message!!.contains("something_else")
-        )
+        assertNull(fromLoggingItsError(OtpErlangAtom("something_else"), Regex("atom :something_else$")))
+    }
+
+    // Kept out of the test methods: JUnit 3 would run a Kotlin lambda's `test...$lambda$0` method as a test of its own.
+    private fun fromLoggingItsError(element: OtpErlangObject, message: Regex): Doc? {
+        var doc: Doc? = null
+        expectErrors(Doc::class.java, message) { doc = Doc.from(element) }
+        return doc
     }
 
     fun testMarkdownByLanguageFromBinaryMap() {
