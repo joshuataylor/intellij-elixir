@@ -5,9 +5,7 @@ import com.ericsson.otp.erlang.OtpErlangBinary
 import com.ericsson.otp.erlang.OtpErlangTuple
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import com.intellij.lang.annotation.AnnotationHolder
 import com.intellij.lang.annotation.Annotator
-import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.intellij.util.ThrowableRunnable
@@ -16,6 +14,7 @@ import junit.framework.TestSuite
 import org.elixir_lang.annotator.InvalidConstruct
 import org.elixir_lang.annotator.InvalidToken
 import org.elixir_lang.annotator.VersionedSyntax
+import org.elixir_lang.annotator.recordingAnnotationHolder
 import org.elixir_lang.intellij_elixir.Quoter
 import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.junit.SharedFixture
@@ -23,7 +22,6 @@ import org.elixir_lang.junit.SharedFixtureHost
 import org.elixir_lang.junit.logs.UnexpectedLogs
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
-import java.lang.reflect.Proxy
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -101,24 +99,7 @@ class AnnotatorQuoterAgreementTestCase private constructor(
     private fun annotate(source: String): List<String> {
         val file = myFixture.configureByText("agreement.ex", source)
         val found = mutableListOf<Pair<Int, String>>()
-        val holder = Proxy.newProxyInstance(javaClass.classLoader, arrayOf(AnnotationHolder::class.java)) { _, method, arguments ->
-            var start = -1
-            val message = arguments[1] as String
-
-            Proxy.newProxyInstance(javaClass.classLoader, arrayOf(method.returnType)) { builder, builderMethod, builderArguments ->
-                when (builderMethod.name) {
-                    "range" -> {
-                        start = (builderArguments[0] as TextRange).startOffset
-                        builder
-                    }
-                    "create" -> {
-                        found.add(start to message)
-                        null
-                    }
-                    else -> builder
-                }
-            }
-        } as AnnotationHolder
+        val holder = recordingAnnotationHolder { range, message -> found.add((range?.startOffset ?: -1) to message) }
         val annotators: List<Annotator> = listOf(VersionedSyntax(), InvalidConstruct(), InvalidToken())
 
         file.accept(object : PsiRecursiveElementWalkingVisitor() {
