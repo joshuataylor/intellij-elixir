@@ -25,6 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 class SdkVersionWatchServiceTest : PlatformTestCase() {
     override fun tearDown() {
         try {
+            SdkVersionWatchService.beforeWatchRebuiltForTests = null
             ModuleRootModificationUtil.setModuleSdk(module, null)
             SdkVersionsStore.getInstance().clearForTests()
         } finally {
@@ -167,6 +168,35 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         WriteAction.run<Throwable> { VfsUtil.saveText(otpVersionFile!!, "27.3.5\n") }
 
         SdkFixtures.waitUntil("a version file that changed must be read again") {
+            SdkVersionsStore.getInstance().otpVersion(home) == "27.3.5"
+        }
+    }
+
+    @RequiresEdt
+    fun testAVersionFileChangedWhileTheWatchIsRebuiltIsReadAgain() {
+        val home = erlangHome("27", "27.3.4")
+        SdkVersionWatchService.install(testRootDisposable)
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(home)
+            SdkVersionWatchService.rewatch()
+        }
+        SdkFixtures.waitUntil("precondition: the watch on the first home is settled") {
+            SdkVersionWatchService.isIdleForTests()
+        }
+        val otpVersionFile = LocalFileSystem.getInstance()
+            .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")!!
+        SdkVersionWatchService.beforeWatchRebuiltForTests = {
+            SdkVersionWatchService.beforeWatchRebuiltForTests = null
+            WriteAction.runAndWait<Throwable> { VfsUtil.saveText(otpVersionFile, "27.3.5\n") }
+        }
+
+        // A second home makes the watch rebuild, and the hook changes the first home's file as it does.
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(elixirHome("1.20.5"))
+            SdkVersionWatchService.rewatch()
+        }
+
+        SdkFixtures.waitUntil("a version file changed while the watch was rebuilt must be read again") {
             SdkVersionsStore.getInstance().otpVersion(home) == "27.3.5"
         }
     }

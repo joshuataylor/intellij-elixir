@@ -168,31 +168,42 @@ internal object SdkVersionWatchService {
                 Disposer.dispose(lifetime)
                 return@withLock false
             }
-            // Cleared first so a throw below does not leave the previous set recorded, which would make every later
-            // rewatch of that set skip while nothing is watched.
+            // Cleared first because `lastUnreachable` is overwritten below: a throw must not leave the two describing
+            // different watches.
             installation.lastWatched.set(null)
-            installation.watching.getAndSet(lifetime)?.let(Disposer::dispose)
-            traceForTests { "rewatch disposed the previous watch, building one for $homes" }
             installation.lastUnreachable = unreachable
             if (lifetime == null) {
+                installation.watching.getAndSet(null)?.let(Disposer::dispose)
+                traceForTests { "rewatch disposed the previous watch; nothing to watch" }
                 installation.lastWatched.set(homes)
                 return@withLock true
             }
 
             LOG.debug("Watching the version files of ${homes.size} installation(s)")
-            val watched = withContext(Dispatchers.IO) {
-                // Only the reachable homes, so what is recorded as unreachable is what this watch left out.
-                SdkVersionFileWatcher.watch(homes - unreachable, lifetime) { homePath ->
-                    traceForTests { "a version file under $homePath changed" }
-                    installation.scope.launch {
-                        val changed = SdkVersionsFiller.fill(homePath, clearWhenUnreadable = true)
-                        traceForTests {
-                            "re-read $homePath: changed $changed, OTP ${SdkVersionsStore.getInstance().otpVersion(homePath)}"
+            traceForTests { "rewatch building a watch for $homes" }
+            // The previous watch stays subscribed until this one is: a version file changed through the VFS in between
+            // is published once, and a refresh afterwards finds nothing changed.
+            val watched = try {
+                withContext(Dispatchers.IO) {
+                    beforeWatchRebuiltForTests?.invoke()
+                    // Only the reachable homes, so what is recorded as unreachable is what this watch left out.
+                    SdkVersionFileWatcher.watch(homes - unreachable, lifetime) { homePath ->
+                        traceForTests { "a version file under $homePath changed" }
+                        installation.scope.launch {
+                            val changed = SdkVersionsFiller.fill(homePath, clearWhenUnreadable = true)
+                            traceForTests {
+                                val otp = SdkVersionsStore.getInstance().otpVersion(homePath)
+                                "re-read $homePath: changed $changed, OTP $otp"
+                            }
                         }
                     }
                 }
+            } catch (e: Throwable) {
+                Disposer.dispose(lifetime)
+                throw e
             }
-            traceForTests { "rewatch built: ${watched.size} path(s) watched" }
+            installation.watching.getAndSet(lifetime)?.let(Disposer::dispose)
+            traceForTests { "rewatch built: ${watched.size} path(s) watched, and disposed the previous watch" }
             // Only after `watch` returns: it throws for a distro that stopped answering, and a recorded set is skipped.
             installation.lastWatched.set(homes)
             true
@@ -201,6 +212,11 @@ internal object SdkVersionWatchService {
 
     @Volatile
     private var installed: Installation? = null
+
+    /** Runs as a rebuild starts, for a test that changes a version file while the watch is being replaced. */
+    @Volatile
+    @set:TestOnly
+    var beforeWatchRebuiltForTests: (() -> Unit)? = null
 
     /** Whether every fill and rewatch launched so far has finished, for a test that must see the store settled. */
     @TestOnly
@@ -241,8 +257,8 @@ internal object SdkVersionWatchService {
     private const val TRACE_LIMIT = 40
 
     /**
-     * [rewatches] serialises rewatches: each disposes the previous [watching] registration and builds the next, and two
-     * interleaved would leak one registration's watch roots and subscription for the application's lifetime.
+     * [rewatches] serialises rewatches: interleaved, the one that read the older homes could finish last and install
+     * them over the newer set, leaving a home unwatched.
      */
     private class Installation(val scope: CoroutineScope, val parentDisposable: Disposable) {
         val watching = AtomicReference<Disposable?>()
