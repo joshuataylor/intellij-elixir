@@ -227,6 +227,11 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         // Written behind the VFS's back: through the VFS would publish the change this test is asking the watch
         // to discover for itself.
         otpVersionFile.writeText("27.3.9\n")
+        // Same length and within one timestamp tick, a refresh would see it unchanged.
+        assertTrue(
+            "precondition: the rewrite moved the timestamp",
+            otpVersionFile.setLastModified(loaded!!.timeStamp + 2_000),
+        )
 
         val revalidated = CopyOnWriteArrayList<String>()
         runSuspendOnPooledThread {
