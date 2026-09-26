@@ -12,6 +12,10 @@ import java.nio.file.InvalidPathException
 import java.nio.file.Paths
 import java.util.concurrent.CancellationException
 import kotlin.io.path.absolutePathString
+import java.io.File
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.execution.ExecutionException
 
 const val MODERN_WSL_PREFIX = "\\\\wsl.localhost\\"
 const val LEGACY_WSL_PREFIX = "\\\\wsl$\\"
@@ -68,6 +72,47 @@ interface WslCompatService {
     fun isWslUncPath(path: String?): Boolean
 
     /**
+     * Whether [path] can be read without Windows looking for a WSL distribution this machine does not have, which it
+     * is slow to fail to find before calling the path missing. Only a distribution known to be absent makes a
+     * path unreachable: while [knownInstalledDistributions] cannot say, the path is read.
+     */
+    fun isReachable(path: String): Boolean {
+        if (!isWslUncPath(path)) return true
+        val distribution = getDistributionByWindowsUncPath(path)?.msId ?: return true
+        val installed = knownInstalledDistributions() ?: return true
+
+        return installed.any { it.msId.equals(distribution, ignoreCase = true) }
+    }
+
+    /**
+     * The installed distributions when they can be told without delay, else null. An empty list is null too: a failed
+     * `wsl.exe --list` also produces one, and would otherwise make every WSL path unreachable.
+     */
+    fun knownInstalledDistributions(): List<WSLDistribution>? = getInstalledDistributions().takeIf { it.isNotEmpty() }
+
+    /** [File.exists], but false without touching the file system for a path that is not [isReachable]. */
+    fun exists(file: File): Boolean = isReachable(file.path) && file.exists()
+
+    /** Throws [ExecutionException] naming [what] for a path that is not [isReachable], before anything reads it. */
+    @Throws(ExecutionException::class)
+    fun requireReachable(path: String, what: String) {
+        if (!isReachable(path)) {
+            throw ExecutionException("$what ($path) is in a WSL distribution that is not installed")
+        }
+    }
+
+    /**
+     * [LocalFileSystem.findFileByPath], or with [refresh] [LocalFileSystem.refreshAndFindFileByPath], but null without
+     * touching the file system for a path that is not [isReachable].
+     */
+    fun findFileByPath(path: String, refresh: Boolean = false): VirtualFile? {
+        if (!isReachable(path)) return null
+        val localFileSystem = LocalFileSystem.getInstance()
+
+        return if (refresh) localFileSystem.refreshAndFindFileByPath(path) else localFileSystem.findFileByPath(path)
+    }
+
+    /**
      * Canonicalizes path:
      *  - Standardizes any WSL UNC prefix if needed so that it always uses the correct prefix for the current windows version
      *  - Resolves any symlinks to the realpath
@@ -92,6 +137,7 @@ interface WslCompatService {
                 "filesystem I/O on a \\\\wsl.localhost path boots the WSL distro and can block indefinitely"
         }
         val maybeConvertedPath = path.canonicalizeWslPrefix()
+        if (!isReachable(maybeConvertedPath)) return maybeConvertedPath
         // toRealPath can fail for reasons other than IOException - a dead IJent bridge can surface
         // as e.g. ClassNotFoundException when the ijent module isn't fully wired up. Any such
         // failure means the path can't be resolved, which is valid input: fall back lexically.
@@ -197,11 +243,11 @@ interface WslCompatService {
      * This method detects WSL context from the process builder's working directory and performs conversions.
      *
      * Examples of conversions in arguments and environment variables:
-     * - `--path=\\wsl$\Ubuntu\home\user` → `--path=/home/user`
-     * - `--map=\\wsl$\Ubuntu\home\user\dir1:\\wsl$\Ubuntu\home\user\dir2` → `--map=/home/user/dir1:/home/user/dir2`
-     * - `\\wsl.localhost\Ubuntu\home\user\file.txt` → `/home/user/file.txt`
-     * - `C:/Users/user/file.txt` → `/mnt/c/Users/user/file.txt`
-     * - `D:\data\file.txt` → `/mnt/d/data/file.txt`
+     * - `--path=\\wsl$\Ubuntu\home\user` -> `--path=/home/user`
+     * - `--map=\\wsl$\Ubuntu\home\user\dir1:\\wsl$\Ubuntu\home\user\dir2` -> `--map=/home/user/dir1:/home/user/dir2`
+     * - `\\wsl.localhost\Ubuntu\home\user\file.txt` -> `/home/user/file.txt`
+     * - `C:/Users/user/file.txt` -> `/mnt/c/Users/user/file.txt`
+     * - `D:\data\file.txt` -> `/mnt/d/data/file.txt`
      *
      * @param processBuilder The process builder to convert (modified in place)
      */

@@ -1,18 +1,12 @@
 package org.elixir_lang.mix.sync
 
-import com.intellij.openapi.roots.ModuleRootManager
+import com.intellij.openapi.roots.LibraryOrderEntry
+import com.intellij.openapi.roots.ModuleOrderEntry
 import com.intellij.openapi.roots.ModuleRootModificationUtil
-import com.intellij.openapi.util.io.FileUtil
-import com.intellij.openapi.vfs.VfsUtilCore
+import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.fixtures.CodeInsightTestFixture
-import org.elixir_lang.mix.sync.MixTestFixtures.addBuildArtifacts
-import org.elixir_lang.mix.sync.MixTestFixtures.addDeps
-import org.elixir_lang.mix.sync.MixTestFixtures.createMixRoot
-import org.elixir_lang.mix.sync.MixTestFixtures.createMixRootWithDeps
-import org.elixir_lang.mix.sync.MixTestFixtures.createSeparateRoots
-import org.elixir_lang.mix.sync.MixTestFixtures.createUmbrellaRoot
 
 /**
  * Shared VFS fixture helpers for Mix-related tests.
@@ -56,8 +50,8 @@ object MixTestFixtures {
         val moduleName = rootPath.split("/").last().split("_").joinToString("") { it.replaceFirstChar(Char::uppercase) }
         fixture.tempDirFixture.createFile("$rootPath/mix.exs", mixExsContent(moduleName))
         // Register as a content root so isModuleContentRoot() returns true for this directory.
-        // PsiTestUtil.addContentRoot handles the write action internally and the test framework
-        // cleans up content root entries on tearDown.
+        // PsiTestUtil.addContentRoot handles the write action internally; the caller's tearDown
+        // removes the entry with removeAllContentRoots.
         PsiTestUtil.addContentRoot(fixture.module, root)
         return root
     }
@@ -201,19 +195,6 @@ object MixTestFixtures {
     }
 
     /**
-     * [VirtualFile]-accepting overload of [addDeps].
-     *
-     * Derives the temp-dir-relative path from [root] automatically, so call sites that already
-     * hold a [VirtualFile] (e.g. from [createMixRoot] or [createUmbrellaRoot]) cannot pass a
-     * mismatched string path by accident.
-     */
-    fun addDeps(
-        fixture: CodeInsightTestFixture,
-        root: VirtualFile,
-        vararg depNames: String,
-    ): List<VirtualFile> = addDeps(fixture, relativeToTempDir(fixture, root), *depNames)
-
-    /**
      * Adds `_build/<env>/lib/<depName>/ebin/` artifacts under [rootPath] for each [depNames].
      *
      * [rootPath] must be the same relative path passed to [createMixRoot] - see [addDeps] for
@@ -237,64 +218,41 @@ object MixTestFixtures {
     }
 
     /**
-     * [VirtualFile]-accepting overload of [addBuildArtifacts].
-     *
-     * Derives the temp-dir-relative path from [root] automatically, so call sites that already
-     * hold a [VirtualFile] cannot pass a mismatched string path by accident.
-     */
-    @Suppress("unused")
-    fun addBuildArtifacts(
-        fixture: CodeInsightTestFixture,
-        root: VirtualFile,
-        env: String,
-        vararg depNames: String,
-    ): List<VirtualFile> = addBuildArtifacts(fixture, relativeToTempDir(fixture, root), env, *depNames)
-
-    /**
-     * Derives the path of [root] relative to the fixture's temp directory.
-     *
-     * Throws [IllegalArgumentException] if [root] is not under the fixture temp dir, which
-     * indicates the VirtualFile was not created by this fixture.
-     */
-    private fun relativeToTempDir(fixture: CodeInsightTestFixture, root: VirtualFile): String {
-        val tempDir = FileUtil.toSystemIndependentName(fixture.tempDirPath)
-        val rootPath = FileUtil.toSystemIndependentName(root.path)
-        return FileUtil.getRelativePath(tempDir, rootPath, '/')
-            ?: error("VirtualFile '${root.path}' is not under fixture temp dir '${fixture.tempDirPath}'")
-    }
-
-    /**
-     * Removes all content entries that were added to [CodeInsightTestFixture.module] inside the
-     * fixture's temp directory by [createMixRoot], [createUmbrellaRoot], [createSeparateRoots],
-     * or [createMixRootWithDeps].
+     * Removes what tests add to the shared light [CodeInsightTestFixture.module], through
+     * [createMixRoot], [createUmbrellaRoot], [createSeparateRoots], [createMixRootWithDeps] or directly.
      *
      * [PsiTestUtil.addContentRoot] is **not** tracked by the IntelliJ fixture teardown machinery;
      * callers that use these factory methods must invoke this helper in their `tearDown` (wrapped
      * in `runAll`) to prevent content-root leakage into subsequent test classes that share the
      * same light module.
      *
-     * Only entries whose URL is under the fixture's temp dir are affected; framework-registered
-     * roots outside that tree are left untouched.
+     * Every content entry but the light fixture's own source root goes, as do that root's exclude folders
+     * and every module and project-level library entry: the libraries themselves go in
+     * [MixSyncTestHelpers.removeAllLibraries].
      */
     fun removeAllContentRoots(fixture: CodeInsightTestFixture) {
         val module = fixture.module
-        val tempDirUrl = VfsUtilCore.pathToUrl(FileUtil.toSystemIndependentName(fixture.tempDirPath))
-        val toRemove = ModuleRootManager.getInstance(module).contentEntries
-            .filter { entry -> entry.url.startsWith(tempDirUrl) }
-        if (toRemove.isNotEmpty()) {
-            // ModuleRootModificationUtil.updateModel uses ApplicationManager.invokeAndWait
-            // internally. In test tearDown the call always originates from the EDT thread,
-            // so invokeAndWait is a same-thread no-op and there is no deadlock risk.
-            // Production sync code must NOT use this helper (it would deadlock on any
-            // coroutine-dispatched thread), which is why WritePlanApplicator uses direct
-            // modifiableModel.commit() inside edtWriteAction instead.
-            ModuleRootModificationUtil.updateModel(module) { model ->
-                toRemove.forEach { entry ->
-                    model.contentEntries
-                        .firstOrNull { it.url == entry.url }
-                        ?.let { model.removeContentEntry(it) }
+        val sourceRootUrl = fixture.tempDirFixture.findOrCreateDir("").url
+        // ModuleRootModificationUtil.updateModel uses ApplicationManager.invokeAndWait
+        // internally. In test tearDown the call always originates from the EDT thread,
+        // so invokeAndWait is a same-thread no-op and there is no deadlock risk.
+        // Production sync code must NOT use this helper (it would deadlock on any
+        // coroutine-dispatched thread), which is why WritePlanApplicator uses direct
+        // modifiableModel.commit() inside edtWriteAction instead.
+        ModuleRootModificationUtil.updateModel(module) { model ->
+            model.contentEntries.forEach { entry ->
+                if (entry.url == sourceRootUrl) {
+                    entry.excludeFolders.forEach(entry::removeExcludeFolder)
+                } else {
+                    model.removeContentEntry(entry)
                 }
             }
+            model.orderEntries
+                .filter {
+                    it is ModuleOrderEntry ||
+                        it is LibraryOrderEntry && it.libraryLevel == LibraryTablesRegistrar.PROJECT_LEVEL
+                }
+                .forEach(model::removeOrderEntry)
         }
     }
 }

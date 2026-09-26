@@ -50,14 +50,15 @@ import com.intellij.openapi.application.ReadAction
 import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import org.elixir_lang.sdk.wsl.wslCompat
 
 // Based on [NewPythonProjectStep](https://github.com/JetBrains/intellij-community/blob/7bb876b50c1601c8563c444d5f133dd19247e814/python/src/com/jetbrains/python/newProject/NewProjectWizardPythonData.kt#L74)
 class Step(parent: NewProjectWizardStep) : AbstractNewProjectWizardStep(parent),
                                            NewProjectWizardBaseData by parent.baseData!!,
                                            Data {
     override val sdkProperty = propertyGraph.property<Sdk?>(null)
-    override val mixNewAppProperty = propertyGraph.property<String>("")
-    override val mixNewModuleProperty = propertyGraph.property<String>("")
+    override val mixNewAppProperty = propertyGraph.property("")
+    override val mixNewModuleProperty = propertyGraph.property("")
     override val mixNewSupProperty = propertyGraph.property(false)
     override val mixNewUmbrellaProperty = propertyGraph.property(false)
 
@@ -274,7 +275,7 @@ fun Row.elixirSdkComboBox(
         if (erlangSdk == null) {
             sdksModel.removeSdk(sdk)
             comboBox.reloadModel()
-            comboBox.setSelectedJdk(null)
+            comboBox.selectedJdk = null
         } else {
             // The Erlang SDK was registered into ProjectJdkTable by registerErlangSdk /
             // SdkRegistrar. Add the Elixir SDK to sdksModel (not yet in JdkTable) so that
@@ -285,7 +286,7 @@ fun Row.elixirSdkComboBox(
             // later - that is handled in setupProject via runWriteAction re-registration.
             sdksModel.addSdk(sdk)
             comboBox.reloadModel()
-            comboBox.setSelectedJdk(sdk)
+            comboBox.selectedJdk = sdk
             onErlangSdkRegistered(erlangSdk)
         }
     }
@@ -331,7 +332,12 @@ private fun validateAndGetSdkValidationMessage(
     val internalErlangSdk = ErlangSdkResolver.getInstance().resolveErlangSdk(sdk, sdkModel)
         ?: return "Internal Erlang SDK is not configured. Set it before picking this Elixir SDK."
 
-    if (internalErlangSdk.homeDirectory == null) {
+    val internalErlangHome = internalErlangSdk.homePath
+    if (internalErlangHome != null && !wslCompat.isReachable(internalErlangHome)) {
+        return "Internal Erlang SDK (${internalErlangSdk.name}) home directory ($internalErlangHome) is in a WSL" +
+                " distribution that is not installed."
+    }
+    if (internalErlangHome?.let { wslCompat.findFileByPath(it) } == null) {
         return "Internal Erlang SDK (${internalErlangSdk.name}) home directory" +
                 " (${internalErlangSdk.homePath}) does not exist. Did you uninstall it?"
     }

@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import org.jetbrains.annotations.TestOnly
 import org.elixir_lang.util.ElixirAppCoroutineService
+import org.elixir_lang.sdk.wsl.wslCompat
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
 
@@ -106,8 +107,10 @@ internal object SdkVersionWatchService {
 
         return installation.rewatches.withLock {
             val homes = homesToWatch()
+            // Checked on every rewatch, so a home skipped because its distro was not installed is retried then.
+            val unreachable = withContext(Dispatchers.IO) { homes.filterNotTo(HashSet(), wslCompat::isReachable) }
             // A value re-read changes the store without changing its homes, and every rebuild does I/O per home.
-            if (homes == installation.lastWatched.get()) {
+            if (homes == installation.lastWatched.get() && unreachable == installation.lastUnreachable) {
                 return@withLock false
             }
             val lifetime = homes.takeIf { it.isNotEmpty() }?.let { Disposer.newDisposable("SdkVersionFileWatcher") }
@@ -120,6 +123,7 @@ internal object SdkVersionWatchService {
             // rewatch of that set skip while nothing is watched.
             installation.lastWatched.set(null)
             installation.watching.getAndSet(lifetime)?.let(Disposer::dispose)
+            installation.lastUnreachable = unreachable
             if (lifetime == null) {
                 installation.lastWatched.set(homes)
                 return@withLock true
@@ -127,7 +131,8 @@ internal object SdkVersionWatchService {
 
             LOG.debug("Watching the version files of ${homes.size} installation(s)")
             withContext(Dispatchers.IO) {
-                SdkVersionFileWatcher.watch(homes, lifetime) { homePath ->
+                // Only the reachable homes, so what is recorded as unreachable is what this watch left out.
+                SdkVersionFileWatcher.watch(homes - unreachable, lifetime) { homePath ->
                     installation.scope.launch { SdkVersionsFiller.fill(homePath, clearWhenUnreadable = true) }
                 }
             }
@@ -171,5 +176,8 @@ internal object SdkVersionWatchService {
         val lastWatched = AtomicReference<Set<String>?>()
         val rewatches = Mutex()
         val rewatchPending = AtomicBoolean(false)
+
+        /** The homes the last rebuild skipped as unreachable, guarded by [rewatches]. */
+        var lastUnreachable: Set<String> = emptySet()
     }
 }

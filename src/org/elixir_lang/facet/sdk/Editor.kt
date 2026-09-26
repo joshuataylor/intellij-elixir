@@ -1,6 +1,5 @@
 package org.elixir_lang.facet.sdk
 
-import com.google.common.collect.Lists
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.options.Configurable
@@ -33,6 +32,7 @@ import java.util.*
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPanel
+import org.elixir_lang.sdk.wsl.wslCompat
 
 class Editor(private val sdkModel: SdkModel, private val history: History, private var sdk: ProjectJdkImpl) :
     Configurable, Place.Navigator {
@@ -85,7 +85,7 @@ class Editor(private val sdkModel: SdkModel, private val history: History, priva
             .filter { showTabForType(it) }
             .forEach { orderRootType ->
                 pathEditor(orderRootType)?.let { pathEditor ->
-                    pathEditor.setAddBaseDir(sdk.homeDirectory)
+                    pathEditor.setAddBaseDir(sdk.homePath?.let { wslCompat.findFileByPath(it) })
                     tabbedPane.addTab(pathEditor.displayName, pathEditor.createComponent())
                     sdkPathEditorByOrderRootType[orderRootType] = pathEditor
                 }
@@ -236,7 +236,7 @@ class Editor(private val sdkModel: SdkModel, private val history: History, priva
                     val homeDir = File(absolutePath)
                     val homeMustBeDirectory = (sdk.sdkType as SdkType).homeChooserDescriptor.isChooseFolders
 
-                    if (homeDir.exists() && homeDir.isDirectory == homeMustBeDirectory) {
+                    if (wslCompat.exists(homeDir) && homeDir.isDirectory == homeMustBeDirectory) {
                         UIUtil.getFieldForegroundColor()
                     } else {
                         PathEditor.INVALID_COLOR
@@ -330,12 +330,7 @@ class Editor(private val sdkModel: SdkModel, private val history: History, priva
         additionalDataPanel.removeAll()
 
         for (configurable in additionalDataConfigurable) {
-            var component: JComponent? = componentByAdditionalDataConfigurable[configurable]
-
-            if (component == null) {
-                component = configurable.createComponent()
-                componentByAdditionalDataConfigurable[configurable] = component
-            }
+            val component = componentByAdditionalDataConfigurable.getOrPut(configurable) { configurable.createComponent() }
 
             if (component != null) {
                 additionalDataPanel.add(component, BorderLayout.CENTER)
@@ -345,18 +340,9 @@ class Editor(private val sdkModel: SdkModel, private val history: History, priva
 
     private fun initAdditionalDataConfigurable(sdk: Sdk): MutableList<AdditionalDataConfigurable> {
         val sdkType = sdk.sdkType as SdkType
-        var configurables: MutableList<AdditionalDataConfigurable>? = additionalDataConfigurableListBySdkType[sdkType]
-
-        if (configurables == null) {
-            configurables = Lists.newArrayList()
-            additionalDataConfigurableListBySdkType[sdkType] = configurables
-
-            sdkType.createAdditionalDataConfigurable(sdkModel, editedSdkModificator)?.let {
-                configurables.add(it)
-            }
+        return additionalDataConfigurableListBySdkType.getOrPut(sdkType) {
+            listOfNotNull(sdkType.createAdditionalDataConfigurable(sdkModel, editedSdkModificator)).toMutableList()
         }
-
-        return configurables
     }
 
     override fun navigateTo(place: Place?, requestFocus: Boolean): ActionCallback {

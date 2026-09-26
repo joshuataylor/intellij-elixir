@@ -23,18 +23,16 @@ class MockWslCompatService(
     override val log = Logger.getInstance(MockWslCompatService::class.java)
 
     override fun isWslUncPath(path: String?): Boolean {
-        if (path.isNullOrEmpty()) {
-            return false
-        }
-
         // In mock mode, check for WSL-like patterns (both old and new formats)
         // Old format: \\wsl$\IntellijElixirWSLDistribution\... or //wsl$/IntellijElixirWSLDistribution/...
         // New format: \\wsl.localhost\IntellijElixirWSLDistribution\... or //wsl.localhost/IntellijElixirWSLDistribution/...
         // Case-insensitive matching
-        return path.startsWith("\\\\wsl$\\", ignoreCase = true) ||
-               path.startsWith("//wsl$/", ignoreCase = true) ||
-               path.startsWith("\\\\wsl.localhost\\", ignoreCase = true) ||
-               path.startsWith("//wsl.localhost/", ignoreCase = true)
+        return path != null && (
+            path.startsWith("\\\\wsl$\\", ignoreCase = true) ||
+                path.startsWith("//wsl$/", ignoreCase = true) ||
+                path.startsWith("\\\\wsl.localhost\\", ignoreCase = true) ||
+                path.startsWith("//wsl.localhost/", ignoreCase = true)
+            )
     }
 
     override fun getDistributionByWindowsUncPath(path: String?): WSLDistribution? {
@@ -72,25 +70,28 @@ class MockWslCompatService(
             // Find the second slash after //wsl$/
             val distroStart = 7 // Length of "//wsl$/"
             val pathStart = result.indexOf('/', distroStart)
-            if (pathStart > distroStart) {
-                result = result.substring(pathStart)
-            } else {
-                result = "/"
-            }
+            result = if (pathStart > distroStart) result.substring(pathStart) else "/"
         }
         // Handle //wsl.localhost/IntellijElixirWSLDistribution/... format
         else if (result.startsWith("//wsl.localhost/", ignoreCase = true)) {
             // Find the second slash after //wsl.localhost/
             val distroStart = 16 // Length of "//wsl.localhost/"
             val pathStart = result.indexOf('/', distroStart)
-            if (pathStart > distroStart) {
-                result = result.substring(pathStart)
-            } else {
-                result = "/"
-            }
+            result = if (pathStart > distroStart) result.substring(pathStart) else "/"
         }
 
-        return if (result.isEmpty()) "/" else result
+        return result.ifEmpty { "/" }
+    }
+
+    /** Known, and without the fictional distributions the tests' WSL paths name, so those paths are never read. */
+    override fun knownInstalledDistributions(): List<WSLDistribution> = knownInstalled
+
+    private val knownInstalled: List<WSLDistribution> by lazy {
+        listOf(
+            Mockito.mock(WSLDistribution::class.java).also {
+                Mockito.`when`(it.msId).thenReturn("InstalledWSLDistribution")
+            },
+        )
     }
 
     override fun getInstalledDistributions(): List<WSLDistribution> {

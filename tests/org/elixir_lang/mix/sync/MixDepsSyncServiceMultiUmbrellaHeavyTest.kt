@@ -1,6 +1,8 @@
 package org.elixir_lang.mix.sync
 
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.components.service
+import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.roots.LibraryOrderEntry
 import com.intellij.openapi.roots.ModuleRootManager
@@ -71,15 +73,13 @@ class MixDepsSyncServiceMultiUmbrellaHeavyTest : MixDepsSyncServiceHeavyTestBase
         val moduleChildB = ModuleManager.getInstance(project).findModuleByName("module_child_b")
             ?: error("module_child_b not found")
 
-        val entriesA = ModuleRootManager.getInstance(moduleChildA).orderEntries
-            .filterIsInstance<LibraryOrderEntry>().mapNotNull { it.libraryName }
+        val entriesA = libraryEntryNames(moduleChildA)
         assertTrue(
             "module_child_a must be wired to phoenix [umbrella_a]. Order entries: $entriesA",
             entriesA.contains(libNameA)
         )
 
-        val entriesB = ModuleRootManager.getInstance(moduleChildB).orderEntries
-            .filterIsInstance<LibraryOrderEntry>().mapNotNull { it.libraryName }
+        val entriesB = libraryEntryNames(moduleChildB)
         assertFalse(
             "module_child_b must NOT have any phoenix library entry - it belongs to umbrella_b " +
                 "which was not synced. Order entries: $entriesB",
@@ -95,8 +95,8 @@ class MixDepsSyncServiceMultiUmbrellaHeavyTest : MixDepsSyncServiceHeavyTestBase
      * H2: An `All`-style drain (both [SyncRequest.SyncRoot]s + both [SyncRequest.MixFile]s)
      * must wire each child exclusively to its own umbrella's scoped library.
      *
-     * `module_child_a` → `phoenix \[umbrella_a\]` and NOT `phoenix \[umbrella_b\]`
-     * `module_child_b` → `phoenix \[umbrella_b\]` and NOT `phoenix \[umbrella_a\]`
+     * `module_child_a` -> `phoenix \[umbrella_a\]` and NOT `phoenix \[umbrella_b\]`
+     * `module_child_b` -> `phoenix \[umbrella_b\]` and NOT `phoenix \[umbrella_a\]`
      *
      * This is the authoritative two-sided cross-root isolation test. The existing single-sided
      * regression test (`testUmbrellaFallback_twoModuleSeparatedUmbrellas_*`) only asserts
@@ -122,8 +122,7 @@ class MixDepsSyncServiceMultiUmbrellaHeavyTest : MixDepsSyncServiceHeavyTestBase
         val moduleChildB = ModuleManager.getInstance(project).findModuleByName("module_child_b")
             ?: error("module_child_b not found")
 
-        val entriesA = ModuleRootManager.getInstance(moduleChildA).orderEntries
-            .filterIsInstance<LibraryOrderEntry>().mapNotNull { it.libraryName }
+        val entriesA = libraryEntryNames(moduleChildA)
         assertTrue(
             "module_child_a must be wired to phoenix [umbrella_a]. Order entries: $entriesA",
             entriesA.contains(libNameA)
@@ -133,8 +132,7 @@ class MixDepsSyncServiceMultiUmbrellaHeavyTest : MixDepsSyncServiceHeavyTestBase
             entriesA.contains(libNameB)
         )
 
-        val entriesB = ModuleRootManager.getInstance(moduleChildB).orderEntries
-            .filterIsInstance<LibraryOrderEntry>().mapNotNull { it.libraryName }
+        val entriesB = libraryEntryNames(moduleChildB)
         assertTrue(
             "module_child_b must be wired to phoenix [umbrella_b]. Order entries: $entriesB",
             entriesB.contains(libNameB)
@@ -176,8 +174,7 @@ class MixDepsSyncServiceMultiUmbrellaHeavyTest : MixDepsSyncServiceHeavyTestBase
 
         val moduleChildA = ModuleManager.getInstance(project).findModuleByName("module_child_a")
             ?: error("module_child_a not found")
-        val entries = ModuleRootManager.getInstance(moduleChildA).orderEntries
-            .filterIsInstance<LibraryOrderEntry>().mapNotNull { it.libraryName }
+        val entries = libraryEntryNames(moduleChildA)
 
         assertTrue(
             "module_child_a must be wired to the umbrella-scoped library '$correctLibName' " +
@@ -220,20 +217,43 @@ class MixDepsSyncServiceMultiUmbrellaHeavyTest : MixDepsSyncServiceHeavyTestBase
         val moduleUmbrellaB = ModuleManager.getInstance(project).findModuleByName("module_umbrella_b")
             ?: error("module_umbrella_b not found")
 
-        val entriesChildB = ModuleRootManager.getInstance(moduleChildB).orderEntries
-            .filterIsInstance<LibraryOrderEntry>().mapNotNull { it.libraryName }
+        val entriesChildB = libraryEntryNames(moduleChildB)
         assertFalse(
             "module_child_b must have no phoenix library entry - it belongs to umbrella_b, " +
                 "which was not involved in the sync. Order entries: $entriesChildB",
             entriesChildB.any { it.startsWith("phoenix [") }
         )
 
-        val entriesUmbrellaB = ModuleRootManager.getInstance(moduleUmbrellaB).orderEntries
-            .filterIsInstance<LibraryOrderEntry>().mapNotNull { it.libraryName }
+        val entriesUmbrellaB = libraryEntryNames(moduleUmbrellaB)
         assertFalse(
             "module_umbrella_b must have no phoenix library entry - it owns umbrella_b, " +
                 "which was not involved in the sync. Order entries: $entriesUmbrellaB",
             entriesUmbrellaB.any { it.startsWith("phoenix [") }
         )
+    }
+
+    /** An unloaded module's root is still the project's, so a sync of another root must keep its library. */
+    fun testASyncKeepsAnUnloadedModulesConsolidatedLibrary() {
+        val service = project.service<MixDepsSyncService>()
+        val consolidatedA = consolidatedLibraryName(project, umbrellaAVf.url)
+        service.clearPendingForTesting()
+        service.enqueue(SyncRequest.SyncRoot(umbrellaAVf.url))
+        drainDirectly(service)
+        val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
+        assertNotNull("precondition: umbrella_a's consolidated library", libraryTable.getLibraryByName(consolidatedA))
+
+        runSuspendOnPooledThread {
+            @Suppress("UnstableApiUsage")
+            ModuleManager.getInstance(project).setUnloadedModules(listOf("module_umbrella_a", "module_child_a"))
+        }
+        service.clearPendingForTesting()
+        service.enqueue(SyncRequest.SyncRoot(umbrellaBVf.url))
+        drainDirectly(service)
+
+        assertNotNull("an unloaded module's consolidated library must survive", libraryTable.getLibraryByName(consolidatedA))
+    }
+
+    private fun libraryEntryNames(module: Module): List<String> = runReadActionBlocking {
+        ModuleRootManager.getInstance(module).orderEntries.filterIsInstance<LibraryOrderEntry>().mapNotNull { it.libraryName }
     }
 }

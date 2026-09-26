@@ -66,9 +66,9 @@ sealed class SyncRequest(
     data class BuildDep(val contentRootCandidate: VirtualFile, val depName: String) : SyncRequest()
 
     /**
-     * Unresolved `_build/<env>/consolidated/` path change.
+     * Unresolved `_build/<env>/consolidated/` or `_build/<env>/lib/<app>/consolidated/` path change.
      *
-     * Produced when a `.beam` file is created inside `_build/{env}/consolidated/`. The service
+     * Produced when a `.beam` file is created inside either. The service
      * validates [contentRootCandidate] under read access and then triggers only the consolidated
      * library sync (not a full dep rescan).
      */
@@ -117,21 +117,22 @@ private val SOURCE_NAMES get() = MIX_DEP_SOURCE_DIR_NAMES
  * lookups. [MixDepsSyncService] validates module/content-root ownership later under read access.
  *
  * Delete events:
- * - `deps/` → [SyncRequest.DeleteAll] with the deleted dir's URL and parent URL candidate
- * - `deps/<dep>` → [SyncRequest.DeleteOne] with the dep name and parent URL candidates
- * - anything else that matches the path rules below → sync request
+ * - `deps/` -> [SyncRequest.DeleteAll] with the deleted dir's URL and parent URL candidate
+ * - `deps/<dep>` -> [SyncRequest.DeleteOne] with the dep name and parent URL candidates
+ * - anything else that matches the path rules below -> sync request
  *
  * Create/change events (and non-delete events routed through the path rules):
- * - `mix.exs` content change → [SyncRequest.MixFile]
- * - `_build` → [SyncRequest.BuildPath]
- * - `_build/<env>` → [SyncRequest.BuildPath]
- * - `_build/<env>/consolidated` or `_build/<env>/lib` → [SyncRequest.BuildPath]
- * - `deps/<dep>/lib|src|priv|c_src` → [SyncRequest.DepRoot] (the `deps/<dep>` dir)
- * - `_build/<env>/lib/<dep>` → [SyncRequest.BuildDep]
- * - `_build/<env>/lib/<dep>/ebin` → [SyncRequest.BuildDep]
- * - `deps/` → [SyncRequest.DepsRoot]
- * - `deps/<dep>` → [SyncRequest.DepRoot]
- * - anything else → `null`
+ * - `mix.exs` content change -> [SyncRequest.MixFile]
+ * - `_build` -> [SyncRequest.BuildPath]
+ * - `_build/<env>` -> [SyncRequest.BuildPath]
+ * - `_build/<env>/consolidated` or `_build/<env>/lib` -> [SyncRequest.BuildPath]
+ * - `deps/<dep>/lib|src|priv|c_src` -> [SyncRequest.DepRoot] (the `deps/<dep>` dir)
+ * - `_build/<env>/lib/<dep>` -> [SyncRequest.BuildDep]
+ * - `_build/<env>/lib/<dep>/ebin` -> [SyncRequest.BuildDep]
+ * - `_build/<env>/lib/<app>/consolidated`, or a file in it -> [SyncRequest.Consolidated]
+ * - `deps/` -> [SyncRequest.DepsRoot]
+ * - `deps/<dep>` -> [SyncRequest.DepRoot]
+ * - anything else -> `null`
  */
 fun classifyVfsEvent(event: VFileEvent): SyncRequest? =
     when (event) {
@@ -210,6 +211,14 @@ internal fun classifyByPath(file: VirtualFile): SyncRequest? {
         return SyncRequest.BuildDep(greatGreatGrandParent, fileName)
     }
 
+    // _build/<env>/lib/<app>/consolidated: where a project that is not an umbrella consolidates.
+    if (fileName == "consolidated" &&
+        grandParent.name == "lib" &&
+        greatGreatGrandParent.name == "_build"
+    ) {
+        return SyncRequest.Consolidated(greatGreatGrandParent.parent ?: return null)
+    }
+
     // _build/<env>/lib/<dep>/ebin
     if (fileName == "ebin" &&
         grandParent.name == "lib" &&
@@ -218,10 +227,16 @@ internal fun classifyByPath(file: VirtualFile): SyncRequest? {
         return SyncRequest.BuildDep(greatGreatGrandParent.parent ?: return null, parent.name)
     }
 
-    // _build/<env>/consolidated/<file> — a .beam file created inside consolidated triggers only
+    // _build/<env>/consolidated/<file> - a .beam file created inside consolidated triggers only
     // a consolidated library sync, not a full dep rescan.
     if (parent.name == "consolidated" && greatGrandParent.name == "_build") {
         return SyncRequest.Consolidated(greatGreatGrandParent)
+    }
+
+    // _build/<env>/lib/<app>/consolidated/<file>
+    if (parent.name == "consolidated" && greatGrandParent.name == "lib") {
+        val build = greatGreatGrandParent.parent ?: return null
+        if (build.name == "_build") return SyncRequest.Consolidated(build.parent ?: return null)
     }
 
     return null

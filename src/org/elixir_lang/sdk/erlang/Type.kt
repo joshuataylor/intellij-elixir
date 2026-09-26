@@ -15,7 +15,7 @@ import org.elixir_lang.sdk.SdkVersionsFiller
 import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.jps.shared.ErlangSdkTypeId
 import org.elixir_lang.jps.shared.cli.CliTool
-import org.elixir_lang.jps.shared.sdk.SdkPaths
+import org.elixir_lang.sdk.detectSource
 import com.intellij.openapi.vfs.VfsUtil
 import org.elixir_lang.sdk.SdkDetectionContext
 import org.elixir_lang.sdk.SdkEbinPaths
@@ -29,6 +29,7 @@ import java.io.File
 import java.nio.file.Path
 import java.util.function.Consumer
 import javax.swing.JComponent
+import org.elixir_lang.sdk.wsl.wslCompat
 
 internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
     companion object {
@@ -73,7 +74,7 @@ internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
             version: Release?,
         ): String =
             buildString {
-                val source = SdkPaths.detectSource(sdkHome)
+                val source = detectSource(sdkHome)
                 if (source != null) {
                     append(source).append(" ")
                 }
@@ -102,7 +103,7 @@ internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
                         release ?: SdkVersionsStore.getInstance().otpRelease(sdkHome),
                     )
                 } else {
-                    val source = SdkPaths.detectSource(sdkHome)
+                    val source = detectSource(sdkHome)
                     val dirVersion = File(sdkHome).name
                     val displayVersion =
                         if (dirVersion.startsWith(normalizedVersion)) dirVersion else normalizedVersion
@@ -135,7 +136,7 @@ internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
                 } else {
                     version
                 }
-            return erlangDisplayString(SdkPaths.detectSource(sdkHome), displayVersion)
+            return erlangDisplayString(detectSource(sdkHome), displayVersion)
         }
 
         private fun erlangDisplayString(source: String?, version: String): String = buildString {
@@ -267,6 +268,7 @@ internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
         SdkHomePaths.adjustSelectedSdkHome(homePath, "erlang")
 
     override fun isValidSdkHome(path: String): Boolean {
+        if (!wslCompat.isReachable(path)) return false
         val erlExe = File(CliTool.ERL.getExecutableFilepathWslSafe(path))
         return erlExe.canExecute()
     }
@@ -284,7 +286,7 @@ internal class Type : SdkType(ErlangSdkTypeId.ERLANG_SDK_TYPE_ID) {
         val release = SdkVersionsStore.getInstance().otpRelease(sdkHome) ?: return null
         val dirVersion = File(sdkHome).name
         val displayVersion = if (dirVersion.startsWith(release.otpMajor)) dirVersion else release.otpVersion
-        return erlangDisplayString(SdkPaths.detectSource(sdkHome), displayVersion)
+        return erlangDisplayString(detectSource(sdkHome), displayVersion)
     }
 
     override fun createAdditionalDataConfigurable(

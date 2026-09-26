@@ -253,9 +253,9 @@ public class ElixirWslSdkTest extends PlatformTestCase {
             fail("ebinPathChainVirtualFile should not throw exceptions for WSL paths: " + e.getMessage());
         }
 
-        // Then: Should complete without exception
-        // Note: In CI without WSL, resolvedFile.get() will be null, which is expected and acceptable
-        assertNotNull("Method should execute (resolvedFile reference initialized)", resolvedFile);
+        // Then: nothing is looked up, as the distribution is not installed; on Windows the lookup is a UNC stat
+        // that blocks
+        assertNull("an ebin in a distribution that is not installed is not looked up", resolvedFile.get());
     }
 
 

@@ -4,10 +4,16 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
+import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import kotlinx.coroutines.runBlocking
+import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_BASE_NAME
 import java.util.concurrent.atomic.AtomicBoolean
+
+/** The name a sync gives the consolidated library of the content root at [contentRootUrl]. */
+internal fun consolidatedLibraryName(project: Project, contentRootUrl: String): String =
+    scopedDepLibraryName(contentRootToken(project, contentRootUrl), CONSOLIDATED_LIBRARY_BASE_NAME)
 
 /**
  * Shared test helpers for [MixDepsSyncService] light and heavy test classes.
@@ -32,20 +38,17 @@ internal object MixSyncTestHelpers {
         var error: Throwable? = null
         val done = AtomicBoolean(false)
         ApplicationManager.getApplication().executeOnPooledThread {
-            runBlocking {
-                try {
-                    @Suppress("UNCHECKED_CAST")
-                    result = block()
-                } catch (e: Throwable) {
-                    error = e
-                }
+            try {
+                result = runBlocking { block() }
+            } catch (e: Throwable) {
+                error = e
             }
             done.set(true)
         }
         val deadline = System.currentTimeMillis() + timeoutMillis
         while (!done.get()) {
             if (System.currentTimeMillis() >= deadline) {
-                throw AssertionError("runSuspendOnPooledThread timed out after ${timeoutMillis} ms")
+                throw AssertionError("runSuspendOnPooledThread timed out after $timeoutMillis ms")
             }
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             // Pumping without pause keeps the EDT permanently inside a prioritized activity, which
@@ -80,6 +83,8 @@ internal object MixSyncTestHelpers {
         val toRemove = libraryTable.libraries.toList()
         if (toRemove.isNotEmpty()) {
             WriteAction.run<Throwable> { toRemove.forEach { libraryTable.removeLibrary(it) } }
+            // The removal queues a rescan; a tear-down closing the project first leaves it starting on a closed project.
+            IndexingTestUtil.waitUntilIndexesAreReady(project)
         }
     }
 }

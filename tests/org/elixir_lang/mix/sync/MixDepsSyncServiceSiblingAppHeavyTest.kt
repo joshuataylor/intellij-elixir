@@ -1,12 +1,16 @@
 package org.elixir_lang.mix.sync
 
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.components.service
 import com.intellij.openapi.module.Module
 import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.roots.LibraryOrderEntry
 import com.intellij.openapi.roots.ModuleOrderEntry
 import com.intellij.openapi.roots.ModuleRootManager
+import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.roots.OrderRootType
+import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
@@ -14,6 +18,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.common.runAll
 import org.elixir_lang.junit.HeavyTestCase
+import org.elixir_lang.mix.library.Kind as MixLibraryKind
 import java.io.File
 import java.util.concurrent.Callable
 
@@ -117,12 +122,69 @@ class MixDepsSyncServiceSiblingAppHeavyTest : HeavyTestCase() {
                 .mapNotNull { it.libraryName }
         }).executeSynchronously()
 
-    private fun moduleEntryNames(moduleName: String): List<String> =
+    /** `app_a`'s module entries. */
+    private fun appAModuleEntryNames(): List<String> =
         ReadAction.nonBlocking(Callable {
-            ModuleRootManager.getInstance(module(moduleName)).orderEntries
+            ModuleRootManager.getInstance(module("module_app_a")).orderEntries
                 .filterIsInstance<ModuleOrderEntry>()
                 .map { it.moduleName }
         }).executeSynchronously()
+
+    /** Only the apps are content roots, so the umbrella's dep libraries keep their roots, as an external dep's do. */
+    fun testAnUmbrellaDepsDanglingRootIsLeftAlone() {
+        val name = scopedDepLibraryName(contentRootToken(project, umbrellaVf.url), "gone_dep")
+        val danglingRoot = "${umbrellaVf.url}/_build/dev/lib/gone_dep/ebin"
+        WriteAction.runAndWait<Throwable> {
+            val model = LibraryTablesRegistrar.getInstance().getLibraryTable(project).modifiableModel
+            model.createLibrary(name, MixLibraryKind).modifiableModel.let { libraryModel ->
+                libraryModel.addRoot(danglingRoot, OrderRootType.CLASSES)
+                libraryModel.commit()
+            }
+            model.commit()
+        }
+        val needsResync = { MixSyncTestHelpers.runSuspendOnPooledThread { MixLibraryReconciler.needsResync(project) } }
+
+        assertFalse("an umbrella dep's dangling root must not trigger a full sync", needsResync())
+        val service = project.service<MixDepsSyncService>()
+        service.clearPendingForTesting()
+        service.enqueue(SyncRequest.All)
+        MixSyncTestHelpers.drainDirectly(service)
+        assertEquals(
+            listOf(danglingRoot),
+            LibraryTablesRegistrar.getInstance().getLibraryTable(project).getLibraryByName(name)!!
+                .getUrls(OrderRootType.CLASSES).toList(),
+        )
+    }
+
+    /** An app visited without a plan of its own still owns its references to the umbrella's dep libraries. */
+    fun testAnAppVisitedWithoutAPlanKeepsItsUmbrellaDepEntries() {
+        val appA = umbrellaVf.findFileByRelativePath("apps/app_a")!!
+        val phoenixName = scopedDepLibraryName(contentRootToken(project, umbrellaVf.url), "phoenix")
+        val consolidatedName = consolidatedLibraryName(project, appA.url)
+        WriteAction.runAndWait<Throwable> {
+            val model = LibraryTablesRegistrar.getInstance().getLibraryTable(project).modifiableModel
+            val phoenix = model.createLibrary(phoenixName, MixLibraryKind)
+            val consolidated = model.createLibrary(consolidatedName, MixLibraryKind)
+            model.commit()
+            ModuleRootModificationUtil.addDependency(module("module_app_a"), phoenix)
+            ModuleRootModificationUtil.addDependency(module("module_app_a"), consolidated)
+        }
+        // `app_a`'s `_build` went, so its consolidated library goes, which sends its module through the stale pass.
+        val syncPlan = SyncPlan(
+            consolidatedPlans = listOf(
+                ConsolidatedLibraryPlan(appA.url, contentRootToken(project, appA.url), emptyList(), "module_app_a"),
+            ),
+        )
+
+        val writePlan = MixSyncTestHelpers.runSuspendOnPooledThread { buildWritePlan(project, syncPlan) }
+
+        assertTrue("the precondition: the consolidated library goes", consolidatedName in writePlan.librariesToRemove)
+        assertEquals(
+            "the umbrella's dep entry must stay",
+            emptyList<String>(),
+            writePlan.moduleWriteOps.flatMap { it.removeStaleLibraryDeps }.filter { it == phoenixName },
+        )
+    }
 
     private fun drainForAppA() {
         val service = project.service<MixDepsSyncService>()
@@ -165,8 +227,8 @@ class MixDepsSyncServiceSiblingAppHeavyTest : HeavyTestCase() {
         drainForAppA()
 
         assertTrue(
-            "app_b is a module of the project. Module dep entries: ${moduleEntryNames("module_app_a")}",
-            moduleEntryNames("module_app_a").contains("app_b"),
+            "app_b is a module of the project. Module dep entries: ${appAModuleEntryNames()}",
+            appAModuleEntryNames().contains("app_b"),
         )
         assertFalse(
             "app_b must not also be wired as a library. Order entries: ${libraryEntryNames("module_app_a")}",

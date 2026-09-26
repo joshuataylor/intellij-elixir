@@ -17,7 +17,7 @@ import com.intellij.util.concurrency.annotations.RequiresReadLock
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import org.elixir_lang.mix.Dep
-import org.elixir_lang.mix.watcher.TransitiveResolution.transitiveResolution
+import org.elixir_lang.mix.watcher.TransitiveResolution.transitiveDepRoots
 import org.elixir_lang.mix.Project as MixProject
 
 // ---------------------------------------------------------------------------
@@ -92,6 +92,10 @@ private fun resolvePathShapedRequest(
                     ?.findChild(request.depName)
                     ?.takeIf { it.isValid && it.isDirectory }
                     ?.let { SyncRequest.DepRoot(it) }
+                    // No such dep: the project's own app, whose build holds a regular project's consolidated
+                    // protocols, or an umbrella child or `path:` dep, for which the consolidated rescan is merely
+                    // redundant.
+                    ?: SyncRequest.Consolidated(contentRoot)
             }
         }
 
@@ -242,7 +246,11 @@ internal suspend fun buildSyncPlan(project: Project, requests: CoalescedRequests
                 val fromDepRoots = requests.depRoots.mapNotNull { depRoot ->
                     depRoot.depRoot.takeIf { it.isValid }
                 }
-                fromSyncRoots + fromDepsRoots + fromDepRoots
+                buildList {
+                    addAll(fromSyncRoots)
+                    addAll(fromDepsRoots)
+                    addAll(fromDepRoots)
+                }
             }
             buildLibraryRootsPlans(project, depRoots)
         }
@@ -306,10 +314,12 @@ internal suspend fun buildSyncPlan(project: Project, requests: CoalescedRequests
 
     val consolidatedPlans = buildConsolidatedLibraryPlans(project, requests)
 
+    val basePath = project.basePath?.let(FileUtil::toSystemIndependentName)
+
     return SyncPlan(
         deleteAlls = requests.deleteAlls.map { DeleteAllPlan(it.depsUrl) },
         deleteOnes = requests.deleteOnes.map {
-            DeleteOnePlan(it.depName, it.contentRootUrl, it.contentRootUrl?.let { url -> contentRootToken(project, url) })
+            DeleteOnePlan(it.depName, it.contentRootUrl, it.contentRootUrl?.let { url -> contentRootToken(basePath, url) })
         },
         libraryPlans = libraryPlans,
         modulePlans = modulePlans,
@@ -329,11 +339,11 @@ private suspend fun allDepRoots(project: Project): List<VirtualFile> =
  * Builds [ConsolidatedLibraryPlan]s for the affected content roots.
  *
  * Scoping rules:
- * - [CoalescedRequests.hasAll] → scan all content roots
- * - [CoalescedRequests.syncRoots] / [CoalescedRequests.depsRoots] / [CoalescedRequests.depRoots] → affected roots only
- * - [CoalescedRequests.consolidatedRoots] → specified content roots only
- * - [CoalescedRequests.syncModuleNames] → content roots of named modules
- * - Delete-only requests → empty list (deletion is handled by [buildWritePlan])
+ * - [CoalescedRequests.hasAll] -> scan all content roots
+ * - [CoalescedRequests.syncRoots] / [CoalescedRequests.depsRoots] / [CoalescedRequests.depRoots] -> affected roots only
+ * - [CoalescedRequests.consolidatedRoots] -> specified content roots only
+ * - [CoalescedRequests.syncModuleNames] -> content roots of named modules
+ * - Delete-only requests -> empty list (deletion is handled by [buildWritePlan])
  */
 private suspend fun buildConsolidatedLibraryPlans(
     project: Project,
@@ -366,24 +376,41 @@ private suspend fun buildConsolidatedLibraryPlans(
                         ?.let { ModuleRootManager.getInstance(it).contentRoots.toList() }
                         .orEmpty()
                 }
-                (fromSyncRoots + fromDepsRoots + fromDepRoots + fromConsolidated + fromModules)
-                    .distinctBy { it.url }
+                buildList {
+                    addAll(fromSyncRoots)
+                    addAll(fromDepsRoots)
+                    addAll(fromDepRoots)
+                    addAll(fromConsolidated)
+                    addAll(fromModules)
+                }.distinctBy { it.url }
             }
         }
 
-        contentRoots.mapNotNull { contentRoot ->
+        val basePath = project.basePath?.let(FileUtil::toSystemIndependentName)
+        contentRoots.map { contentRoot ->
             ProgressManager.checkCanceled()
-            val build = contentRoot.findChild("_build") ?: return@mapNotNull null
-            if (!build.isValid || !build.isDirectory) return@mapNotNull null
+            val token = contentRootToken(basePath, contentRoot.url)
+            // An empty plan, not none, so a library left from before `_build` was deleted is removed.
+            val build = contentRoot.findChild("_build")?.takeIf { it.isValid && it.isDirectory }
+                ?: return@map ConsolidatedLibraryPlan(contentRoot.url, token, emptyList(), ownerModuleName = null)
 
+            // An umbrella consolidates into `_build/<env>/consolidated`, any other project into its app's
+            // `_build/<env>/lib/<app>/consolidated`. `lib/<app>/consolidated` is used only when
+            // `_build/<env>/consolidated` is absent: an umbrella child compiled on its own leaves a copy there too.
+            // Deps never consolidate.
             val consolidatedDirs = build.children
                 .filter { it.isDirectory }
-                .flatMap { env -> env.children.filter { it.isDirectory && it.name == "consolidated" } }
+                .flatMap { env ->
+                    env.findChild("consolidated")?.takeIf { it.isDirectory }?.let { listOf(it) }
+                        ?: env.findChild("lib")?.children.orEmpty()
+                            .mapNotNull { it.findChild("consolidated")?.takeIf(VirtualFile::isDirectory) }
+                }
 
             val ownerModuleName = ModuleUtil.findModuleForFile(contentRoot, project)?.name
 
             ConsolidatedLibraryPlan(
                 contentRootUrl = contentRoot.url,
+                contentRootToken = token,
                 classRootUrls = consolidatedDirs.map { it.url },
                 ownerModuleName = ownerModuleName,
             )
@@ -520,7 +547,7 @@ internal suspend fun buildModuleDepsPlan(
 
     // Single-module umbrella: the module's content root is the umbrella root and the apps under
     // apps/ are plain sub-directories, so the only mix.exs directly at a root is the umbrella's
-    // own (usually dep-less) one.  transitiveResolution parses just the mix.exs at each root it
+    // own (usually dep-less) one.  transitiveDepRoots parses just the mix.exs at each root it
     // is given, so without expansion every app-declared dep would stay invisible and never be
     // wired.  Expand the root set with each apps/<app> dir that carries its own mix.exs.  App
     // dirs that are content roots in their own right belong to a child module (multi-module
@@ -540,68 +567,65 @@ internal suspend fun buildModuleDepsPlan(
 
     val psiManager = PsiManager.getInstance(project)
     val indicator = EmptyProgressIndicator()
-    val deps = transitiveResolution(psiManager, indicator, *resolutionRoots.toTypedArray()).toList()
+    val depRoots = transitiveDepRoots(psiManager, indicator, *resolutionRoots.toTypedArray())
+    val deps = depRoots.keys.toList()
     if (deps.isEmpty()) return null
 
-    val externalLibraryPlans = buildExternalLibraryPlans(project, deps, contentRoots)
+    val externalPlansByDir = buildExternalLibraryPlans(project, depRoots.values.filterNotNull())
 
     // Compute scoped library names for the module's library deps.
     // Resolution is restricted to this module's own content roots (not global) to prevent
     // cross-module contamination when multiple modules declare the same dep name.
     // dep.path is "deps/<name>" (relative). We search only this module's content roots so
     // that module B never resolves against module A's deps/phoenix directory.
-    // If the dep directory is not yet fetched, fall back in order:
-    //   1. the name from the already-computed external library plan for this dep - when the
-    //      dep's `path:` option points outside all content roots (e.g. an absolute path or a
-    //      relative `"../sibling"` path) the dep directory is not findable via
-    //      `findFileByRelativePath`. Without this check the module order entry would be
-    //      scoped to the mix.exs content root instead of the external path, producing a name
-    //      that does not match the library created by `applyLibraryPlans` for the external dep.
-    //   2. the library name from the already-computed requestedLibraryPlans for the same dep
+    // A dep whose directory resolved outside every content root takes its external plan's name. Otherwise, if the dep
+    // directory is not yet fetched, fall back in order:
+    //   1. the library name from the already-computed requestedLibraryPlans for the same dep
     //      name - handles umbrella child modules where the dep physically lives under the
     //      umbrella root's deps/ directory, which is NOT a content root of the child module.
     //      Uses the plan whose contentRootUrl is an ancestor of one of this module's content
     //      roots, choosing the nearest (longest URL = most specific) match. This prevents a
     //      child module under umbrella_b from being wired to umbrella_a's scoped library when
     //      both umbrellas contain a dep with the same name (e.g. both have deps/phoenix).
-    //   3. the first content root that has a mix.exs (the actual Mix project root)
-    //   4. the first content root overall
+    //   2. the first content root that has a mix.exs (the actual Mix project root)
+    //   3. the first content root overall
     // This ensures every declared dep stays in libraryDeps even before `mix deps.get` has
     // run, so that the missingLibraryDeps path creates a placeholder library for it.
-    val externalLibNames: Map<String, String> = externalLibraryPlans.associateBy({ it.depName }, { it.libraryName })
     val libraryDeps: Set<String> = readAction {
         val basePath = project.basePath?.let { FileUtil.toSystemIndependentName(it) }
-        fun token(url: String) = basePath?.let { contentRootToken(it, url) } ?: url
+        fun token(url: String) = contentRootToken(basePath, url)
         val mixExsRoots by lazy { contentRoots.filter { it.findFileByRelativePath("mix.exs") != null } }
         deps.filter { it.type == Dep.Type.LIBRARY }.mapTo(LinkedHashSet()) { dep ->
+            // Before the path is re-read against this module's roots, which is not where Mix looks for a dep's own
+            // `path:` dep.
+            depRoots[dep]?.let(externalPlansByDir::get)?.let { return@mapTo it.libraryName }
             val owningRoot = contentRoots.firstOrNull { root ->
                 root.findFileByRelativePath(dep.path)?.isValid == true
             }
             if (owningRoot != null) {
                 scopedDepLibraryName(token(owningRoot.url), dep.application)
             } else {
-                externalLibNames[dep.application]
-                    ?: requestedLibraryPlans
-                        .filter { it.depName == dep.application }
-                        .filter { plan ->
-                            // Only consider library plans whose content root is an ancestor of
-                            // one of this module's own content roots. This prevents a child
-                            // module under umbrella_b from being wired to umbrella_a's plan
-                            // when both umbrellas declare the same dep name. Without the "/"
-                            // suffix, "file:///parent/app" would match "file:///parent/app2".
-                            val normalizedPlanRoot = if (plan.contentRootUrl.endsWith("/"))
-                                plan.contentRootUrl
-                            else
-                                "${plan.contentRootUrl}/"
-                            contentRoots.any { cr ->
-                                VfsUtilCore.isEqualOrAncestor(normalizedPlanRoot, cr.url)
-                            }
+                requestedLibraryPlans
+                    .filter { it.depName == dep.application }
+                    .filter { plan ->
+                        // Only consider library plans whose content root is an ancestor of
+                        // one of this module's own content roots. This prevents a child
+                        // module under umbrella_b from being wired to umbrella_a's plan
+                        // when both umbrellas declare the same dep name. Without the "/"
+                        // suffix, "file:///parent/app" would match "file:///parent/app2".
+                        val normalizedPlanRoot = if (plan.contentRootUrl.endsWith("/"))
+                            plan.contentRootUrl
+                        else
+                            "${plan.contentRootUrl}/"
+                        contentRoots.any { cr ->
+                            VfsUtilCore.isEqualOrAncestor(normalizedPlanRoot, cr.url)
                         }
-                        // Prefer the nearest ancestor (longest contentRootUrl = most specific).
-                        // "file:///parent/apps/child" is more specific than "file:///parent"
-                        // should one ever be a registered content root and a deps owner.
-                        .maxByOrNull { it.contentRootUrl.length }
-                        ?.libraryName
+                    }
+                    // Prefer the nearest ancestor (longest contentRootUrl = most specific).
+                    // "file:///parent/apps/child" is more specific than "file:///parent"
+                    // should one ever be a registered content root and a deps owner.
+                    .maxByOrNull { it.contentRootUrl.length }
+                    ?.libraryName
                     ?: scopedDepLibraryName(
                         (mixExsRoots.firstOrNull()?.url ?: contentRoots.firstOrNull()?.url)
                             ?.let { url -> token(url) }
@@ -625,41 +649,31 @@ internal suspend fun buildModuleDepsPlan(
         moduleName = moduleName,
         moduleDeps = moduleDeps,
         libraryDeps = libraryDeps,
-        externalLibraryPlans = externalLibraryPlans,
+        externalLibraryPlans = externalPlansByDir.values.toList(),
     )
 }
 
 /**
- * Syncs libraries for dep paths that live outside this module's content roots.
+ * Syncs libraries for dep paths that live outside every content root, keyed by the dep's directory.
  *
- * @param contentRoots The content roots of the module that declared these deps. Used to resolve
- *   relative dep paths; deps found under these roots are not considered "external".
+ * @param depFiles each dep's directory, as dep resolution found it: resolved outside any read lock, since a dep outside
+ *   the VFS is found by a synchronous refresh.
  */
 private suspend fun buildExternalLibraryPlans(
     project: Project,
-    deps: Collection<Dep>,
-    contentRoots: Array<VirtualFile>,
-): List<LibraryRootsPlan> {
-    val externalPaths = readAction {
-        val projectFileIndex = ProjectRootManager.getInstance(project).fileIndex
-        deps.mapNotNull { dep ->
-            ProgressManager.checkCanceled()
-            // Search only this module's content roots for the dep, not all project roots.
-            // This prevents cross-module contamination in umbrella projects.
-            contentRoots.firstNotNullOfOrNull { root -> dep.virtualFile(root) }?.let { virtualFile ->
-                if (projectFileIndex.getContentRootForFile(virtualFile) == null &&
-                    !projectFileIndex.isInLibrary(virtualFile) &&
-                    !projectFileIndex.isExcluded(virtualFile)
-                ) {
-                    virtualFile
-                } else {
-                    null
-                }
-            }
-        }
+    depFiles: Collection<VirtualFile>,
+): Map<VirtualFile, LibraryRootsPlan> = readAction {
+    val projectFileIndex = ProjectRootManager.getInstance(project).fileIndex
+    val externalPaths = depFiles.filter { virtualFile ->
+        ProgressManager.checkCanceled()
+        virtualFile.isValid &&
+            virtualFile.isDirectory &&
+            projectFileIndex.getContentRootForFile(virtualFile) == null &&
+            !projectFileIndex.isInLibrary(virtualFile) &&
+            !projectFileIndex.isExcluded(virtualFile)
     }
 
-    return buildLibraryRootsPlans(project, externalPaths)
+    externalPaths.associateWith(LibraryRootsPlanner(project)::plan)
 }
 
 // ---------------------------------------------------------------------------
@@ -675,77 +689,83 @@ private suspend fun buildLibraryRootsPlans(project: Project, deps: Collection<Vi
 internal fun buildLibraryRootsPlansInCurrentContext(project: Project, deps: Collection<VirtualFile>): List<LibraryRootsPlan> {
     ThreadingAssertions.assertReadAccess()
     if (deps.isEmpty()) return emptyList()
+    val planner = LibraryRootsPlanner(project)
 
+    return deps.filter { it.isValid && it.isDirectory }.map(planner::plan)
+}
+
+/** Builds each dep directory's [LibraryRootsPlan], reading what every plan shares once. */
+private class LibraryRootsPlanner(private val project: Project) {
     // Fall-back _build roots for external deps that don't sit under a project content root.
-    val allBuildRoots by lazy {
+    private val allBuildRoots by lazy {
         ProjectRootManager
             .getInstance(project)
             .contentRoots
             .mapNotNull { it.findChild("_build") }
     }
 
-    val basePath = project.basePath?.let { FileUtil.toSystemIndependentName(it) }
+    private val basePath = project.basePath?.let { FileUtil.toSystemIndependentName(it) }
 
-    return deps
-        .filter { it.isValid && it.isDirectory }
-        .map { dep ->
+    /** [dep] must be a valid directory. */
+    @RequiresReadLock
+    fun plan(dep: VirtualFile): LibraryRootsPlan {
+        ProgressManager.checkCanceled()
+        val depName = dep.name
+        // The content root is the grandparent of the dep: <contentRoot>/deps/<depName>.
+        // Scope the _build scan to this dep's own content root to prevent cross-contamination
+        // between content roots that share a dep name.
+        val contentRoot = dep.parent?.parent
+        val contentRootUrl = contentRoot?.url ?: ""
+        val buildRootsToScan = if (contentRoot != null)
+            listOfNotNull(contentRoot.findChild("_build"))
+        else
+            allBuildRoots
+
+        val classRoots = ArrayList<VirtualFile>()
+        val excludeFolders = ArrayList<ExcludeFolderPlan>()
+
+        for (build in buildRootsToScan) {
             ProgressManager.checkCanceled()
-            val depName = dep.name
-            // The content root is the grandparent of the dep: <contentRoot>/deps/<depName>.
-            // Scope the _build scan to this dep's own content root to prevent cross-contamination
-            // between content roots that share a dep name.
-            val contentRoot = dep.parent?.parent
-            val contentRootUrl = contentRoot?.url ?: ""
-            val buildRootsToScan = if (contentRoot != null)
-                listOfNotNull(contentRoot.findChild("_build"))
-            else
-                allBuildRoots
-
-            val classRoots = ArrayList<VirtualFile>()
-            val excludeFolders = ArrayList<ExcludeFolderPlan>()
-
-            for (build in buildRootsToScan) {
+            for (environment in build.children.filter { it.isDirectory }) {
                 ProgressManager.checkCanceled()
-                for (environment in build.children.filter { it.isDirectory }) {
+                for (environmentChild in environment.children.filter { it.isDirectory }) {
                     ProgressManager.checkCanceled()
-                    for (environmentChild in environment.children.filter { it.isDirectory }) {
-                        ProgressManager.checkCanceled()
-                        // Consolidated roots are NOT added to per-dep libraries;
-                        // they belong in a separate shared library managed by
-                        // syncConsolidatedLibrary().
-                        if (environmentChild.name == "lib") {
-                            environmentChild.findChild(depName)?.let { depEnvLib ->
-                                depEnvLib.findChild("ebin")?.let { ebin ->
-                                    if (ebin.isDirectory) {
-                                        ModuleUtil.findModuleForFile(depEnvLib, project)?.let { module ->
-                                            excludeFolders += ExcludeFolderPlan(module.name, depEnvLib.url)
-                                        }
-                                        // Resolve symlinks via VFS before registering: Erlang deps
-                                        // have _build/{env}/lib/{dep}/ebin → deps/{dep}/ebin, so
-                                        // without canonicalization the same physical directory is
-                                        // added once per build environment.
-                                        val canonicalEbin = ebin.canonicalFile ?: ebin
-                                        classRoots += canonicalEbin
+                    // Consolidated roots are NOT added to per-dep libraries;
+                    // they belong in a separate shared library managed by
+                    // syncConsolidatedLibrary().
+                    if (environmentChild.name == "lib") {
+                        environmentChild.findChild(depName)?.let { depEnvLib ->
+                            depEnvLib.findChild("ebin")?.let { ebin ->
+                                if (ebin.isDirectory) {
+                                    ModuleUtil.findModuleForFile(depEnvLib, project)?.let { module ->
+                                        excludeFolders += ExcludeFolderPlan(module.name, depEnvLib.url)
                                     }
+                                    // Resolve symlinks via VFS before registering: Erlang deps
+                                    // have _build/{env}/lib/{dep}/ebin -> deps/{dep}/ebin, so
+                                    // without canonicalization the same physical directory is
+                                    // added once per build environment.
+                                    val canonicalEbin = ebin.canonicalFile ?: ebin
+                                    classRoots += canonicalEbin
                                 }
                             }
                         }
                     }
                 }
             }
-
-            LibraryRootsPlan(
-                contentRootUrl = contentRootUrl,
-                contentRootToken = basePath?.let { contentRootToken(it, contentRootUrl) } ?: contentRootUrl,
-                depName = depName,
-                classRootUrls = classRoots.map { it.url }.distinct(),
-                sourceRootUrls = dep.children
-                    .filter { child -> child.isDirectory && child.name in MIX_DEP_SOURCE_DIR_NAMES }
-                    .map { child -> child.url }
-                    .distinct(),
-                excludeFolders = excludeFolders.distinctBy { it.moduleName to it.folderUrl },
-            )
         }
+
+        return LibraryRootsPlan(
+            contentRootUrl = contentRootUrl,
+            contentRootToken = contentRootToken(basePath, contentRootUrl),
+            depName = depName,
+            classRootUrls = classRoots.map { it.url }.distinct(),
+            sourceRootUrls = dep.children
+                .filter { child -> child.isDirectory && child.name in MIX_DEP_SOURCE_DIR_NAMES }
+                .map { child -> child.url }
+                .distinct(),
+            excludeFolders = excludeFolders.distinctBy { it.moduleName to it.folderUrl },
+        )
+    }
 }
 
 internal fun deduplicateLibraryPlans(plans: List<LibraryRootsPlan>): List<LibraryRootsPlan> =

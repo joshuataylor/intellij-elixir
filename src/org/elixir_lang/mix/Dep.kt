@@ -1,6 +1,5 @@
 package org.elixir_lang.mix
 
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import org.elixir_lang.errorreport.Logger
@@ -8,6 +7,7 @@ import org.elixir_lang.psi.*
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.impl.stripAccessExpressions
+import org.elixir_lang.sdk.wsl.wslCompat
 
 /**
  * `Mix.Dep`
@@ -21,7 +21,7 @@ data class Dep(val application: String, val path: String, val type: Type = Type.
      * resolved via [VirtualFile.findFileByRelativePath]; if that fails (e.g. because parent
      * directories above the content root are not yet in the VFS), the path is resolved against
      * [moduleRoot]'s filesystem path using [java.nio.file.Path] before attempting a
-     * [LocalFileSystem.refreshAndFindFileByPath] lookup.
+     * refreshing [org.elixir_lang.sdk.wsl.WslCompatService.findFileByPath] lookup.
      *
      * @param moduleRoot The content root of the module that declared this dependency.
      * @return The VirtualFile for the dep directory, or null if not found.
@@ -46,7 +46,7 @@ data class Dep(val application: String, val path: String, val type: Type = Type.
                 return null
             }
         }
-        return LocalFileSystem.getInstance().refreshAndFindFileByPath(absolutePath)
+        return wslCompat.findFileByPath(absolutePath, refresh = true)
     }
 
     enum class Type {
@@ -73,9 +73,7 @@ data class Dep(val application: String, val path: String, val type: Type = Type.
                     val options = if (stripped.size > 1) {
                         keywords(stripped.last())?.keywordPairList?.let { keywordPairList ->
                             keywordPairList.fold(initial) { acc, keywordPair ->
-                                val key = keywordPair.keywordKey.text
-
-                                when (key) {
+                                when (val key = keywordPair.keywordKey.text) {
                                     "allow_pre", "app", "branch", "commit", "compile", "env", "hex",
                                     "manager", "organization", "override", "ref", "repo", "runtime",
                                     GUARDIAN_RUNTIME_TYPO, "submodules", "system_env", "tag", "targets",
@@ -207,9 +205,7 @@ data class Dep(val application: String, val path: String, val type: Type = Type.
         private fun name(line: ElixirLine): String? = line.body?.text
 
         private fun putPath(dep: Dep, keywordValue: Quotable): Dep {
-            val strippedKeywordValue = keywordValue.stripAccessExpression()
-
-            return when (strippedKeywordValue) {
+            return when (val strippedKeywordValue = keywordValue.stripAccessExpression()) {
                 is ElixirLine -> putPath(dep, strippedKeywordValue)
                 is Call -> putPath(dep, strippedKeywordValue)
                 // Anything else cannot be read as a path either, and leaves the dep where it was

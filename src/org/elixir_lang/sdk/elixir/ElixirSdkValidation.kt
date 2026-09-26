@@ -4,7 +4,6 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.util.concurrency.ThreadingAssertions
@@ -13,6 +12,7 @@ import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import java.util.concurrent.Callable
+import org.elixir_lang.sdk.wsl.wslCompat
 
 /**
  * Validation and health-check queries for Elixir SDK pairings.
@@ -94,9 +94,7 @@ object ElixirSdkValidation {
         val erlangHomePath = erlangSdk.homePath ?: return false
         // No refresh: a root under the home puts the home in the VFS already, and a refresh fires its events in a write
         // action, which throws inside the read action the settings page resets in.
-        val erlangHomePathVf = LocalFileSystem.getInstance()
-            .findFileByPath(FileUtil.toSystemIndependentName(erlangHomePath))
-            ?: return false
+        val erlangHomePathVf = wslCompat.findFileByPath(FileUtil.toSystemIndependentName(erlangHomePath)) ?: return false
         return classRoots.any { root -> VfsUtilCore.isAncestor(erlangHomePathVf, root, true) }
     }
 }

@@ -56,7 +56,10 @@ internal object SdkVersionFileWatcher {
         }
     }
 
-    /** @return the paths actually watched, so a caller can tell whether the registration happened. */
+    /**
+     * @param homePaths reachable homes only: watching one in an uninstalled WSL distribution stalls on its network path.
+     * @return the paths actually watched, so a caller can tell whether the registration happened.
+     */
     fun watch(
         homePaths: Collection<String>,
         parentDisposable: Disposable,
@@ -75,9 +78,11 @@ internal object SdkVersionFileWatcher {
         val homeByWatchedPath = mutableMapOf<String, String>()
         for (homePath in homePaths) {
             // An upgrade adding `releases/28` beside `releases/27` rewrites no watched file; only `releases/` sees it.
-            val watchedForHome = elixirVersionFiles(homePath) +
-                otpVersionFiles(homePath) +
-                "${normalize(homePath)}/releases"
+            val watchedForHome = buildList {
+                addAll(elixirVersionFiles(homePath))
+                addAll(otpVersionFiles(homePath))
+                add("${normalize(homePath)}/releases")
+            }
             for (path in watchedForHome) {
                 homeByWatchedPath[path] = normalize(homePath)
             }

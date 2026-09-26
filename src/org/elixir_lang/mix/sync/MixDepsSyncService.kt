@@ -5,7 +5,11 @@ import com.intellij.ide.SaveAndSyncHandler
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.module.Module
+import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.OrderRootType
+import com.intellij.openapi.roots.ProjectRootManager
+import com.intellij.openapi.roots.impl.libraries.LibraryEx
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.platform.ide.progress.withBackgroundProgress
@@ -15,11 +19,12 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_SUFFIX
-import org.elixir_lang.mix.sync.MixDepsSyncService.Companion.LOG
+import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_BASE_NAME
 import org.elixir_lang.util.awaitJpsProjectLoaded
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
+import kotlin.time.measureTimedValue
 
 /**
  * Project-level service that owns the lifecycle of the Mix dep-sync pipeline.
@@ -145,39 +150,39 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
             val requests = resolvePathShapedRequests(project, rawRequests)
             if (requests.isEmpty()) return
 
-            val drainStartNs = System.nanoTime()
+            val drainStart = TimeSource.Monotonic.markNow()
             LOG.debug("MixDepsSyncService: draining ${requests.size} request(s)")
 
             val coalescedRequests = coalesceRequests(requests)
 
-            val buildSyncPlanStartNs = System.nanoTime()
-            val syncPlan = withBackgroundProgress(project, "Syncing Elixir dependencies") {
-                withContext(Dispatchers.Default) {
-                    buildSyncPlan(project, coalescedRequests)
+            val (syncPlan, buildSyncPlanTime) = measureTimedValue {
+                withBackgroundProgress(project, "Syncing Elixir dependencies") {
+                    withContext(Dispatchers.Default) {
+                        buildSyncPlan(project, coalescedRequests)
+                    }
                 }
             }
-            val buildSyncPlanMs = (System.nanoTime() - buildSyncPlanStartNs) / 1_000_000
 
-            var buildWritePlanMs = 0L
-            var applyWritePlanMs = 0L
-            var applyStats = ApplyStats(0, 0)
-
-            if (!syncPlan.isEmpty) {
-                val buildWritePlanStartNs = System.nanoTime()
-                val writePlan = withBackgroundProgress(project, "Computing Elixir dependency changes") {
-                    withContext(Dispatchers.Default) {
-                        buildWritePlan(project, syncPlan)
+            val (writePlan, buildWritePlanTime) = measureTimedValue {
+                // A full sync sweeps even with nothing to plan, or the startup check that asked for it would ask again
+                // on every open.
+                if (syncPlan.isEmpty && !coalescedRequests.hasAll) {
+                    null
+                } else {
+                    withBackgroundProgress(project, "Computing Elixir dependency changes") {
+                        withContext(Dispatchers.Default) {
+                            buildWritePlan(project, syncPlan)
+                        }
                     }
                 }
-                buildWritePlanMs = (System.nanoTime() - buildWritePlanStartNs) / 1_000_000
+            }
 
-                if (!writePlan.isEmpty) {
-                    val applyWritePlanStartNs = System.nanoTime()
-                    applyStats = withBackgroundProgress(project, "Applying Elixir dependency sync") {
-                        applyWritePlan(project, writePlan)
+            val (applyStats, applyWritePlanTime) = measureTimedValue {
+                writePlan?.takeUnless { it.isEmpty }?.let { plan ->
+                    withBackgroundProgress(project, "Applying Elixir dependency sync") {
+                        applyWritePlan(project, plan)
                     }
-                    applyWritePlanMs = (System.nanoTime() - applyWritePlanStartNs) / 1_000_000
-                }
+                } ?: ApplyStats(0, 0)
             }
 
             // The platform only flushes project settings at its own save points - frame
@@ -191,12 +196,12 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
                 SaveAndSyncHandler.getInstance().scheduleProjectSave(project, forceSavingAllSettings = true)
             }
 
-            val totalMs = (System.nanoTime() - drainStartNs) / 1_000_000
             LOG.debug(
-                "MixDepsSyncService: drain complete - ${requests.size} request(s) in ${totalMs}ms " +
-                    "(buildSyncPlan=${buildSyncPlanMs}ms, " +
-                    "buildWritePlan=${buildWritePlanMs}ms, " +
-                    "applyWritePlan=${applyWritePlanMs}ms [write-lock hold], " +
+                "MixDepsSyncService: drain complete - ${requests.size} request(s) in " +
+                    "${drainStart.elapsedNow().inWholeMilliseconds}ms " +
+                    "(buildSyncPlan=${buildSyncPlanTime.inWholeMilliseconds}ms, " +
+                    "buildWritePlan=${buildWritePlanTime.inWholeMilliseconds}ms, " +
+                    "applyWritePlan=${applyWritePlanTime.inWholeMilliseconds}ms [write-lock hold], " +
                     "deleteAlls=${coalescedRequests.deleteAlls.size}, " +
                     "deleteOnes=${coalescedRequests.deleteOnes.size}, " +
                     "hasAll=${coalescedRequests.hasAll}, " +
@@ -234,8 +239,22 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
 
     companion object {
         private const val DEBOUNCE_MS: Long = 250
-        private val LOG = logger<MixDepsSyncService>()
+        internal val LOG = logger<MixDepsSyncService>()
     }
+}
+
+/**
+ * [contentRootToken] of every content root, an unloaded module's included: its libraries must survive until it is
+ * loaded again.
+ */
+@Suppress("UnstableApiUsage") // Nothing stable reaches an unloaded module's content roots.
+internal fun contentRootTokens(project: Project, systemIndependentBasePath: String?): Set<String> = buildSet {
+    // URLs, not files: a root whose directory cannot be read just now, such as on a stopped WSL distro, has no file.
+    val urls = ProjectRootManager.getInstance(project).contentRootUrls.asSequence() +
+        ModuleManager.getInstance(project).unloadedModuleDescriptions.asSequence()
+            .flatMap { it.contentRoots }
+            .map { it.url }
+    urls.mapTo(this) { contentRootToken(systemIndependentBasePath, it) }
 }
 
 /**
@@ -253,12 +272,8 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
  *   or [contentRootUrl] unchanged when no relative path exists - no base directory, or another
  *   drive or mount, where the dep genuinely is machine-specific.
  */
-internal fun contentRootToken(project: Project, contentRootUrl: String): String {
-    // The "no owning root known" fallback, which must stay distinct from the project root's ".".
-    if (contentRootUrl.isEmpty()) return ""
-    val basePath = project.basePath ?: return contentRootUrl
-    return contentRootToken(FileUtil.toSystemIndependentName(basePath), contentRootUrl)
-}
+internal fun contentRootToken(project: Project, contentRootUrl: String): String =
+    contentRootToken(project.basePath?.let(FileUtil::toSystemIndependentName), contentRootUrl)
 
 /**
  * [contentRootToken] against a base path already read and normalised by the caller.
@@ -266,8 +281,10 @@ internal fun contentRootToken(project: Project, contentRootUrl: String): String 
  * A plan builder resolves a token per dep, nearly always for the same handful of roots, so hoisting
  * the base path keeps a `Path`-to-`String` conversion and a separator scan out of that loop.
  */
-internal fun contentRootToken(systemIndependentBasePath: String, contentRootUrl: String): String {
+internal fun contentRootToken(systemIndependentBasePath: String?, contentRootUrl: String): String {
+    // The "no owning root known" fallback, which must stay distinct from the project root's ".".
     if (contentRootUrl.isEmpty()) return ""
+    if (systemIndependentBasePath == null) return contentRootUrl
     val rootPath = VirtualFileManager.extractPath(contentRootUrl)
     return FileUtil.getRelativePath(
         systemIndependentBasePath,
@@ -298,11 +315,7 @@ internal fun scopedDepLibraryName(contentRootToken: String, depName: String): St
 
 /**
  * Inverse of [scopedDepLibraryName]: extracts the embedded scope token from a root-scoped library
- * name, or returns null when [libraryName] does not have the `"<dep> [<token>]"` shape (legacy
- * unscoped names, consolidated libraries, user-created libraries).
- *
- * Used by stale-entry pruning to decide whether an invalid library order entry references a
- * content root that is no longer part of the project.
+ * name, or returns null when [libraryName] does not have the `"<dep> [<token>]"` shape.
  */
 @VisibleForTesting
 internal fun scopedLibraryNameToken(libraryName: String): String? {
@@ -402,17 +415,64 @@ internal data class SyncPlan(
 /**
  * Desired state for a consolidated protocol library at one content root.
  *
- * Built during the read phase by scanning `_build/{env}/consolidated/` directories.
+ * Built during the read phase by scanning `_build/{env}/consolidated/` and `_build/{env}/lib/{app}/consolidated/`.
  * Diffed in `buildWritePlan` against the existing library table state.
  */
 internal data class ConsolidatedLibraryPlan(
     /** The content root URL that owns this `_build` directory. */
     val contentRootUrl: String,
-    /** Desired class root URLs (the `_build/{env}/consolidated/` directories). */
+    /** [contentRootUrl] reduced by [contentRootToken] - the form that appears in [libraryName]. */
+    val contentRootToken: String,
+    /** Desired class root URLs (the `consolidated/` directories). */
     val classRootUrls: List<String>,
     /** The module name of the owner module (for wiring the library as a module dependency). */
     val ownerModuleName: String?,
 ) {
-    val libraryName: String
-        get() = "${contentRootUrl.trimEnd('/').substringAfterLast('/')} $CONSOLIDATED_LIBRARY_SUFFIX"
+    /** Scoped to its root: named after the directory alone, two roots of the same name would share one library. */
+    val libraryName: String get() = scopedDepLibraryName(contentRootToken, CONSOLIDATED_LIBRARY_BASE_NAME)
 }
+
+/** [ConsolidatedLibraryPlan.libraryName]'s shape, or `<dir> (consolidated)`, the name from before it was scoped. */
+internal fun isConsolidatedLibraryName(name: String): Boolean =
+    name.startsWith("$CONSOLIDATED_LIBRARY_BASE_NAME [") || isUnscopedConsolidatedLibraryName(name)
+
+/**
+ * Whether a sync's sweep removes the Mix library [name]: named without a root, consolidated for a root not in
+ * [contentRootTokens], or named after a current root's absolute URL, as before tokens went relative. An external `path:`
+ * dep is scoped to its directory's grandparent, never a content root, so other names are not swept by root.
+ */
+internal fun isSweptMixLibraryName(
+    name: String,
+    contentRootTokens: Set<String>,
+    systemIndependentBasePath: String?,
+): Boolean {
+    if (" [" !in name || isUnscopedConsolidatedLibraryName(name)) return true
+    val token = scopedLibraryNameToken(name) ?: return false
+
+    return token !in contentRootTokens && (
+        isConsolidatedLibraryName(name) ||
+            "://" in token && contentRootToken(systemIndependentBasePath, token) in contentRootTokens
+        )
+}
+
+/**
+ * The tokens of the content roots the VFS holds now. A library scoped to any other token, such as an external `path:`
+ * dep's, an umbrella's whose root was left out at import, or one under a content root that is deleted or cannot be
+ * read, keeps its roots.
+ */
+internal fun liveContentRootTokens(project: Project, systemIndependentBasePath: String?): Set<String> =
+    ProjectRootManager.getInstance(project).contentRoots.mapTo(HashSet()) {
+        contentRootToken(systemIndependentBasePath, it.url)
+    }
+
+/** [library]'s [rootType] roots the VFS cannot resolve, when its name is scoped to one of [liveTokens]. */
+internal fun danglingRootUrls(library: LibraryEx, rootType: OrderRootType, liveTokens: Set<String>): List<String> =
+    if (scopedLibraryNameToken(library.name.orEmpty()) in liveTokens) {
+        library.getInvalidRootUrls(rootType)
+    } else {
+        emptyList()
+    }
+
+/** Checked apart from other unscoped names: the directory in `<dir> (consolidated)` may itself hold ` [`. */
+internal fun isUnscopedConsolidatedLibraryName(name: String): Boolean =
+    name.endsWith(" $CONSOLIDATED_LIBRARY_BASE_NAME")

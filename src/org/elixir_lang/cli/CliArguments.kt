@@ -11,6 +11,7 @@ import org.elixir_lang.jps.shared.cli.CliTool
 import org.elixir_lang.sdk.erlang_dependent.getErlangSdk
 import org.elixir_lang.sdk.erlang_dependent.requireErlangSdkOrNotifyAndThrow
 import org.elixir_lang.jps.shared.cli.CliArguments as SharedCliArguments
+import org.elixir_lang.sdk.wsl.wslCompat
 
 object CliArguments {
     fun args(
@@ -50,6 +51,8 @@ object CliArguments {
         val erlangHomePath =
             erlangSdk.homePath
                 ?: throw ExecutionException("Erlang SDK home path is not configured")
+        wslCompat.requireReachable(elixirHomePath, "Elixir SDK home")
+        wslCompat.requireReachable(erlangHomePath, "Erlang SDK home")
 
         return SharedCliArguments.args(
             elixirHomePath,

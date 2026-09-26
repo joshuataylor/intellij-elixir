@@ -187,7 +187,7 @@ internal object SdkVersionsFiller {
      * dropped mount also report nothing while the installation is still there.
      */
     private fun homeIsGone(canonicalHome: String): Boolean =
-        try {
+        wslCompat.isReachable(canonicalHome) && try {
             Files.readAttributes(Paths.get(canonicalHome), BasicFileAttributes::class.java)
             false
         } catch (_: NoSuchFileException) {
@@ -204,7 +204,7 @@ internal object SdkVersionsFiller {
      * `File.exists` answers `false` for both.
      */
     private fun beamAbsence(canonicalHome: String): OtpMajor =
-        try {
+        if (!wslCompat.isReachable(canonicalHome)) OtpMajor.Unread else try {
             Files.readAttributes(
                 Paths.get(canonicalHome, "lib", "elixir", "ebin", "Elixir.System.beam"),
                 BasicFileAttributes::class.java,

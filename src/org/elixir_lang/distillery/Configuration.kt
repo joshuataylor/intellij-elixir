@@ -22,7 +22,7 @@ import org.jdom.Element
 import java.io.File
 import java.nio.file.Path
 import java.nio.file.Paths
-import kotlin.io.path.exists
+import org.elixir_lang.sdk.wsl.wslCompat
 
 class Configuration(name: String, project: Project, configurationFactory: ConfigurationFactory) :
     org.elixir_lang.run.Configuration(name, project, configurationFactory),
@@ -88,82 +88,82 @@ class Configuration(name: String, project: Project, configurationFactory: Config
         set(arguments) = releaseCLIArgumentList.fromArguments(arguments)
 
     var erlArguments: String?
-        get() = _envs[ERL_OPTS]
+        get() = mutableEnvs[ERL_OPTS]
         set(erlArguments) {
             if (erlArguments.isNullOrBlank()) {
-                _envs.remove(ERL_OPTS)
+                mutableEnvs.remove(ERL_OPTS)
             } else {
-                _envs[ERL_OPTS] = erlArguments
+                mutableEnvs[ERL_OPTS] = erlArguments
             }
         }
 
     var extraArguments: String?
-        get() = _envs[EXTRA_OPTS]
+        get() = mutableEnvs[EXTRA_OPTS]
         set(extraArguments) {
             if (extraArguments.isNullOrBlank()) {
-                _envs.remove(EXTRA_OPTS)
+                mutableEnvs.remove(EXTRA_OPTS)
             } else {
-                _envs[EXTRA_OPTS] = extraArguments
+                mutableEnvs[EXTRA_OPTS] = extraArguments
             }
         }
 
     var codeLoadingMode: CodeLoadingMode?
-        get() = _envs[CODE_LOADING_MODE]?.let { CodeLoadingMode.valueOf(it.uppercase()) }
+        get() = mutableEnvs[CODE_LOADING_MODE]?.let { CodeLoadingMode.valueOf(it.uppercase()) }
         set(codeLoadingMode) {
             if (codeLoadingMode == null) {
-                _envs.remove(CODE_LOADING_MODE)
+                mutableEnvs.remove(CODE_LOADING_MODE)
             } else {
-                _envs[CODE_LOADING_MODE] = codeLoadingMode.toString()
+                mutableEnvs[CODE_LOADING_MODE] = codeLoadingMode.toString()
             }
         }
 
     var logDirectory: String?
-        get() = _envs[RUNNER_LOG_DIR]
+        get() = mutableEnvs[RUNNER_LOG_DIR]
         set(logDirectory) {
             if (logDirectory.isNullOrBlank()) {
-                _envs.remove(RUNNER_LOG_DIR)
+                mutableEnvs.remove(RUNNER_LOG_DIR)
             } else {
-                _envs[RUNNER_LOG_DIR] = logDirectory
+                mutableEnvs[RUNNER_LOG_DIR] = logDirectory
             }
         }
 
     var replaceOSVars: Boolean?
-        get() = _envs[REPLACE_OS_VARS]?.toBoolean() ?: DEFAULT_REPLACE_OS_VARS
+        get() = mutableEnvs[REPLACE_OS_VARS]?.toBoolean() ?: DEFAULT_REPLACE_OS_VARS
         set(replaceOSVars) {
             if (replaceOSVars != DEFAULT_REPLACE_OS_VARS) {
-                _envs[REPLACE_OS_VARS] = replaceOSVars.toString()
+                mutableEnvs[REPLACE_OS_VARS] = replaceOSVars.toString()
             } else {
-                _envs.remove(REPLACE_OS_VARS)
+                mutableEnvs.remove(REPLACE_OS_VARS)
             }
         }
 
     var sysConfigPath: String?
-        get() = _envs[SYS_CONFIG_PATH]
+        get() = mutableEnvs[SYS_CONFIG_PATH]
         set(sysConfigPath) {
             if (sysConfigPath.isNullOrBlank()) {
-                _envs.remove(SYS_CONFIG_PATH)
+                mutableEnvs.remove(SYS_CONFIG_PATH)
             } else {
-                _envs[SYS_CONFIG_PATH] = sysConfigPath
+                mutableEnvs[SYS_CONFIG_PATH] = sysConfigPath
             }
         }
 
     var releaseConfigDirectory: String?
-        get() = _envs[RELEASE_CONFIG_DIR]
+        get() = mutableEnvs[RELEASE_CONFIG_DIR]
         set(releaseConfigDirectory) {
             if (releaseConfigDirectory.isNullOrBlank()) {
-                _envs.remove(RELEASE_CONFIG_DIR)
+                mutableEnvs.remove(RELEASE_CONFIG_DIR)
             } else {
-                _envs[RELEASE_CONFIG_DIR] = releaseConfigDirectory
+                mutableEnvs[RELEASE_CONFIG_DIR] = releaseConfigDirectory
             }
         }
 
     var pipeDirectory: String?
-        get() = _envs[PIPE_DIR]
+        get() = mutableEnvs[PIPE_DIR]
         set(pipeDirectory) {
             if (pipeDirectory.isNullOrBlank()) {
-                _envs.remove(PIPE_DIR)
+                mutableEnvs.remove(PIPE_DIR)
             } else {
-                _envs[PIPE_DIR] = pipeDirectory
+                mutableEnvs[PIPE_DIR] = pipeDirectory
             }
         }
 
@@ -235,7 +235,7 @@ class Configuration(name: String, project: Project, configurationFactory: Config
                 ?.let { release ->
                     val vmArgsPath = releasesPath.resolve(release).resolve("vm.args")
 
-                    if (vmArgsPath.exists()) {
+                    if (wslCompat.exists(vmArgsPath.toFile())) {
                         vmArgsPath.toString()
                     } else {
                         null
@@ -268,27 +268,21 @@ private const val START_ERL_DATA_REGEX_RELEASE_INDEX = 2
 
 private val SETCOOKIE_REGEX = Regex("-setcookie ([^ ]+)")
 
-private fun vmArgsPathToCookie(vmArgsPath: String): String? = pathToGroupValue(vmArgsPath, SETCOOKIE_REGEX, 1)
+private fun vmArgsPathToCookie(vmArgsPath: String): String? = pathToFirstGroupValue(vmArgsPath, SETCOOKIE_REGEX)
 
 private val NAME_REGEX = Regex("-name ([^ ]+)")
 
-private fun vmArgsPathToNodeName(vmArgsPath: String): String? = pathToGroupValue(vmArgsPath, NAME_REGEX, 1)
+private fun vmArgsPathToNodeName(vmArgsPath: String): String? = pathToFirstGroupValue(vmArgsPath, NAME_REGEX)
 
 private fun Path.toGroupValue(regex: Regex, groupIndex: Int): String? = toFile().toGroupValue(regex, groupIndex)
 
-private fun pathToGroupValue(path: String, regex: Regex, groupIndex: Int): String? =
-    File(path).toGroupValue(regex, groupIndex)
+private fun pathToFirstGroupValue(path: String, regex: Regex): String? = File(path).toGroupValue(regex, 1)
 
 private fun File.toGroupValue(regex: Regex, groupIndex: Int): String? =
-    if (exists()) {
+    if (wslCompat.exists(this)) {
         bufferedReader()
             .lineSequence()
-            .mapNotNull { line ->
-                regex
-                    .matchEntire(line)
-                    ?.let { it.groupValues[groupIndex] }
-            }
-            .firstOrNull()
+            .firstNotNullOfOrNull { line -> regex.matchEntire(line)?.let { it.groupValues[groupIndex] } }
     } else {
         null
     }

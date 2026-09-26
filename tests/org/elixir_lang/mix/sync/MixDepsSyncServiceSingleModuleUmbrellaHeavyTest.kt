@@ -123,7 +123,7 @@ class MixDepsSyncServiceSingleModuleUmbrellaHeavyTest : HeavyTestCase() {
      * `apps/child_app/mix.exs` and wire `phoenix \[umbrella\]` as a library order entry on the
      * module - even though the umbrella root mix.exs declares no deps at all.
      *
-     * Without descending into `apps/<app>/mix.exs`, transitiveResolution sees only the depless
+     * Without descending into `apps/<app>/mix.exs`, transitiveDepRoots sees only the depless
      * root mix.exs, buildModuleDepsPlan returns null, and the module is never wired (regression:
      * unresolved module aliases for all app-declared deps in single-module umbrellas).
      */

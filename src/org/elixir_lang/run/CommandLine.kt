@@ -2,12 +2,18 @@ package org.elixir_lang.run
 
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.util.system.OS
+import com.intellij.execution.ExecutionException
+import org.elixir_lang.sdk.wsl.wslCompat
 
-fun baseCommandLine(pty: Boolean, environment: Map<String, String>, workingDirectory: String?): GeneralCommandLine =
-        baseCommandLine(pty)
-                .withCharset(Charsets.UTF_8)
-                .withEnvironment(environment)
-                .withWorkDirectory(workingDirectory)
+@Throws(ExecutionException::class)
+fun baseCommandLine(pty: Boolean, environment: Map<String, String>, workingDirectory: String?): GeneralCommandLine {
+    workingDirectory?.let { wslCompat.requireReachable(it, "Working directory") }
+
+    return baseCommandLine(pty)
+            .withCharset(Charsets.UTF_8)
+            .withEnvironment(environment)
+            .withWorkDirectory(workingDirectory)
+}
 
 private fun baseCommandLine(pty: Boolean): GeneralCommandLine =
         if (pty) {

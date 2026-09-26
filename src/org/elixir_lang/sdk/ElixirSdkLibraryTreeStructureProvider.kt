@@ -17,7 +17,7 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import org.elixir_lang.jps.shared.ElixirSdkTypeId
 import org.elixir_lang.jps.shared.ErlangSdkTypeId
-import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_SUFFIX
+import org.elixir_lang.mix.sync.isConsolidatedLibraryName
 import org.elixir_lang.mix.sync.scopedLibraryNameToken
 
 /**
@@ -54,11 +54,11 @@ internal class ElixirSdkLibraryTreeStructureProvider : TreeStructureProvider, Du
         settings: ViewSettings,
     ): Collection<AbstractTreeNode<*>> {
         // Give nodes explicit weights so IntelliJ's tree sorter produces a stable order:
-        //   Elixir/Erlang SDKs (weight -2) → consolidated (weight -1) → all other deps (weight 0, alphabetical)
+        //   Elixir/Erlang SDKs (weight -2) -> consolidated (weight -1) -> all other deps (weight 0, alphabetical)
         //
         // This provider is registered application-wide (the treeStructureProvider extension point has no
         // per-project filter), so scope the transformations to Elixir/Erlang content only: guard SDK nodes by
-        // their SDK type and consolidated nodes by the plugin-specific library-name suffix. Otherwise SDKs in
+        // their SDK type and consolidated nodes by the plugin-specific library name. Otherwise SDKs in
         // unrelated (e.g. Java) projects would be re-weighted too.
         if (parent is ExternalLibrariesNode) {
             return children.map { node ->
@@ -69,7 +69,7 @@ internal class ElixirSdkLibraryTreeStructureProvider : TreeStructureProvider, Du
                     is LibraryOrderEntry -> {
                         val libName = entry.libraryName
                         when {
-                            libName?.endsWith(CONSOLIDATED_LIBRARY_SUFFIX) == true ->
+                            libName != null && isConsolidatedLibraryName(libName) ->
                                 ConsolidatedLibraryNode(node, settings)
                             libName != null && scopedLibraryNameToken(libName) != null ->
                                 ScopedDepLibraryNode(node, settings)
@@ -109,15 +109,6 @@ internal class ElixirSdkLibraryTreeStructureProvider : TreeStructureProvider, Du
             result.add(BuildEnvGroupNode(project, env, byEnv[env]!!, settings))
         }
         return result
-    }
-
-    private companion object {
-        /**
-         * Siblings of an `ebin` that hold source, in the order they are preferred. An application
-         * written in Elixir keeps its `.ex` under `lib`; OTP's own applications keep their `.erl`
-         * under `src`.
-         */
-        private val SOURCE_DIRECTORY_NAMES = listOf("lib", "src")
     }
 
     /**
@@ -242,6 +233,11 @@ private class ConsolidatedLibraryNode(
     settings: ViewSettings,
 ) : NamedLibraryElementNode(wrapped.project!!, wrapped.value!!, settings) {
     override fun getWeight(): Int = -1
+
+    override fun update(presentation: PresentationData) {
+        super.update(presentation)
+        presentScoped(presentation)
+    }
 }
 
 /**
@@ -258,19 +254,29 @@ private class ScopedDepLibraryNode(
 ) : NamedLibraryElementNode(wrapped.project!!, wrapped.value!!, settings) {
     override fun update(presentation: PresentationData) {
         super.update(presentation)
-        val name = presentation.presentableText ?: return
-        // Parsed through the naming helper rather than by matching a literal prefix: the scope
-        // token is a project-relative path, and only falls back to a `file://` URL where no
-        // relative path can express it.
-        val token = scopedLibraryNameToken(name) ?: return
-        val bracketIdx = name.indexOf(" [")
-        if (bracketIdx <= 0) return
-        presentation.presentableText = name.substring(0, bracketIdx)
-        // Final segment only, as a location hint. The project's own root is "." and needs no hint -
-        // every dep without one sits there.
-        presentation.locationString = token
-            .trimEnd('/')
-            .substringAfterLast('/')
-            .takeUnless { it == "." || it.isEmpty() }
+        presentScoped(presentation)
     }
 }
+
+private fun presentScoped(presentation: PresentationData) {
+    val name = presentation.presentableText ?: return
+    // Parsed through the naming helper rather than by matching a literal prefix: the scope
+    // token is a project-relative path, and only falls back to a `file://` URL where no
+    // relative path can express it.
+    val token = scopedLibraryNameToken(name) ?: return
+    val bracketIdx = name.indexOf(" [")
+    if (bracketIdx <= 0) return
+    presentation.presentableText = name.substring(0, bracketIdx)
+    // Final segment only, as a location hint. The project's own root is "." and needs no hint -
+    // every dep without one sits there.
+    presentation.locationString = token
+        .trimEnd('/')
+        .substringAfterLast('/')
+        .takeUnless { it == "." || it.isEmpty() }
+}
+
+/**
+ * Siblings of an `ebin` that hold source, in the order they are preferred. An application written in Elixir keeps its
+ * `.ex` under `lib`; OTP's own applications keep their `.erl` under `src`.
+ */
+private val SOURCE_DIRECTORY_NAMES = listOf("lib", "src")

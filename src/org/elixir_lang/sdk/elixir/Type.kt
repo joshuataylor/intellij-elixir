@@ -14,7 +14,6 @@ import org.elixir_lang.Icons
 import org.elixir_lang.cli.getExecutableFilepathWslSafe
 import org.elixir_lang.jps.shared.ElixirSdkTypeId
 import org.elixir_lang.jps.shared.cli.CliTool
-import org.elixir_lang.jps.shared.sdk.SdkPaths
 import org.elixir_lang.sdk.*
 import org.elixir_lang.sdk.erlang_dependent.AdditionalDataConfigurable
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
@@ -24,6 +23,7 @@ import org.jetbrains.annotations.Unmodifiable
 import java.io.File
 import java.nio.file.Path
 import javax.swing.Icon
+import org.elixir_lang.sdk.wsl.wslCompat
 
 
 internal class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.ELIXIR_SDK_TYPE_ID) {
@@ -48,7 +48,7 @@ internal class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.
         SdkVersionsFiller.fillIfUnreadBlocking(sdkHome)
         return versionStringForHome(sdkHome, null)
             ?: buildString {
-                SdkPaths.detectSource(sdkHome)?.let { append(it).append(" ") }
+                detectSource(sdkHome)?.let { append(it).append(" ") }
                 append("Elixir Unknown")
             }
     }
@@ -98,6 +98,7 @@ ELIXIR_SDK_HOME
         }
 
     override fun isValidSdkHome(path: String): Boolean {
+        if (!wslCompat.isReachable(path)) return false
         val elixir = File(CliTool.ELIXIR.getExecutableFilepathWslSafe(path))
         val elixirc = File(CliTool.ELIXIRC.getExecutableFilepathWslSafe(path))
         val iex = File(CliTool.IEX.getExecutableFilepathWslSafe(path))
@@ -202,7 +203,7 @@ ELIXIR_SDK_HOME
         ): String? {
             val versions = knownVersions ?: SdkVersionsStore.getInstance().elixirVersions(sdkHome)
             val version = resolvedVersion?.takeIf { it.isNotBlank() } ?: versions?.elixirVersion ?: return null
-            val source = SdkPaths.detectSource(sdkHome)
+            val source = detectSource(sdkHome)
             val otpMajor = versions?.elixirOtpMajor?.knownOrNull
             return buildString {
                 if (source != null) {
@@ -220,7 +221,7 @@ ELIXIR_SDK_HOME
 
         @JvmStatic
         internal fun suggestSdkNameForHome(sdkHome: String, resolvedVersion: String?): String {
-            val source = SdkPaths.detectSource(sdkHome)
+            val source = detectSource(sdkHome)
             val version = elixirVersionOf(sdkHome, resolvedVersion)
             val base = buildString {
                 if (source != null) {
@@ -254,7 +255,7 @@ ELIXIR_SDK_HOME
             erlangFullVersion: String?,
         ): String {
             if (otpMajor == null) return suggestSdkNameForHome(sdkHome, resolvedVersion)
-            val source = SdkPaths.detectSource(sdkHome)
+            val source = detectSource(sdkHome)
             val elixirVersion = elixirVersionOf(sdkHome, resolvedVersion)
             val base = buildString {
                 if (source != null) {

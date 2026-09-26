@@ -9,12 +9,17 @@ import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.Paths
+import org.elixir_lang.sdk.wsl.wslCompat
 
 object SdkEbinPaths {
     private val LOGGER = Logger.getInstance(SdkEbinPaths::class.java)
 
     @JvmStatic
     fun eachEbinPath(homePath: String, ebinPathConsumer: (Path) -> Unit) {
+        if (!wslCompat.isReachable(homePath)) {
+            LOGGER.info("$homePath is in a WSL distribution that is not installed, so its ebin paths are not enumerated")
+            return
+        }
         val lib = Paths.get(homePath, "lib")
 
         // For WSL paths, newDirectoryStream translates them to Linux paths, and there's no way to stop it. It's also the
@@ -53,6 +58,7 @@ object SdkEbinPaths {
 
     @JvmStatic
     fun hasEbinPath(homePath: String): Boolean {
+        if (!wslCompat.isReachable(homePath)) return false
         val lib = Paths.get(homePath, "lib")
         var hasEbinPath = false
 
