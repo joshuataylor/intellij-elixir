@@ -40,10 +40,9 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
             SdkVersionsFiller.fill(elixir)
         }
 
-        assertEquals(
-            setOfNotNull(installationKey(erlang), installationKey(elixir)),
-            SdkVersionWatchService.homesToWatch(),
-        )
+        val expected = setOfNotNull(installationKey(erlang), installationKey(elixir))
+
+        assertEquals(expected, SdkVersionWatchService.homesToWatch())
     }
 
     @RequiresEdt
