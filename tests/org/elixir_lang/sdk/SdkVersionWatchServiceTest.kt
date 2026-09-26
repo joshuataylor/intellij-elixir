@@ -320,6 +320,23 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         }
     }
 
+    /** The write that completes a blank version file can land before the watch loads it, which then fires no event. */
+    @RequiresEdt
+    fun testAHomeWhoseBlankVersionFileWasWrittenBeforeItWasWatchedIsRead() {
+        val home = erlangHome("27", "27.3.4")
+        val otpVersionFile = File(home, "releases/27/OTP_VERSION")
+        otpVersionFile.writeText("")
+        SdkVersionWatchService.install(testRootDisposable)
+        // Behind the VFS's back, so the watch loads the complete file as though nothing had changed.
+        SdkVersionWatchService.beforeWatchRebuiltForTests = { otpVersionFile.writeText("27.3.7\n") }
+
+        SdkFixtures.registerAndWaitForFill(SdkFixtures.erlangSdk("Written Erlang", home), testRootDisposable)
+
+        SdkFixtures.waitUntil("a home read blank must be read once its watch starts, in case the write came first") {
+            SdkVersionsStore.getInstance().otpVersion(home) == "27.3.7"
+        }
+    }
+
     /** A candidate home read while choosing an SDK answers nothing either, and no removal ever forgets it. */
     fun testAHomeThatReadBlankIsNotWatchedOnceNoSdkUsesIt() {
         val home = erlangHome("27", "27.3.4")

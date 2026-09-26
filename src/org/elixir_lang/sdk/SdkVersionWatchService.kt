@@ -170,7 +170,7 @@ internal object SdkVersionWatchService {
             }
             // Cleared first because `lastUnreachable` is overwritten below: a throw must not leave the two describing
             // different watches.
-            installation.lastWatched.set(null)
+            val previouslyWatched = installation.lastWatched.getAndSet(null).orEmpty()
             installation.lastUnreachable = unreachable
             if (lifetime == null) {
                 installation.watching.getAndSet(null)?.let(Disposer::dispose)
@@ -204,6 +204,14 @@ internal object SdkVersionWatchService {
             }
             installation.watching.getAndSet(lifetime)?.let(Disposer::dispose)
             traceForTests { "rewatch built: ${watched.size} path(s) watched, and disposed the previous watch" }
+            // A write that completed a blank version file before this watch loaded it fires no event, so an unanswered
+            // home it has just started watching is read once.
+            val unansweredHomes = unanswered.values.toSet()
+            homes
+                .filter { it in unansweredHomes && it !in unreachable && it !in previouslyWatched }
+                .forEach { home ->
+                    installation.scope.launch { SdkVersionsFiller.fill(home, clearWhenUnreadable = true) }
+                }
             // Only after `watch` returns: it throws for a distro that stopped answering, and a recorded set is skipped.
             installation.lastWatched.set(homes)
             true

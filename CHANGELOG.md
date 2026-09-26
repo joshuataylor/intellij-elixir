@@ -114,21 +114,15 @@
 - [#4177](https://github.com/intellij-elixir/intellij-elixir/pull/4177) [@sh41](https://github.com/sh41)
   - **Decompiled OTP 29 modules show the built-in `record()` type and remote native record types instead of `missing_name()`.**
 - [#4183](https://github.com/intellij-elixir/intellij-elixir/pull/4183) [@sh41](https://github.com/sh41)
+  - **Removing a module, closing a project or changing SDKs while their versions are being read no longer reports an internal error.**
 - [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
+  - **Dependency sync no longer deletes a project's `(consolidated)` library, or a dependency re-fetched as it syncs, and no longer rewrites the project when nothing changed; two Mix projects whose directories share a name each get their own `(consolidated)` library.**
+  - **A Mix project that is not an umbrella now gets its consolidated protocols as a `(consolidated)` library; only umbrellas did before.**
+  - **An SDK, working directory or path in a WSL distribution that is no longer installed no longer stalls the IDE each time it is read; running from one reports the missing distribution.**
 - [#4185](https://github.com/intellij-elixir/intellij-elixir/pull/4185) [@sh41](https://github.com/sh41)
   - **An SDK with no home, or a relative one, is no longer read as though the IDE's own directory were its installation.**
-- [#4185](https://github.com/intellij-elixir/intellij-elixir/pull/4185) [@sh41](https://github.com/sh41)
   - **An Erlang SDK read while its installation was still writing `OTP_VERSION` is read again once the file is complete, instead of showing no version until the IDE restarts.**
-- [#4185](https://github.com/intellij-elixir/intellij-elixir/pull/4185) [@sh41](https://github.com/sh41)
   - **An SDK installed or upgraded while the IDE is open now shows its version, instead of none or a stale one until the IDE restarts.**
-- [#4185](https://github.com/intellij-elixir/intellij-elixir/pull/4185) [@sh41](https://github.com/sh41)
-  - **Dependency sync no longer deletes a project's `(consolidated)` library, or a dependency re-fetched as it syncs, and no longer rewrites the project when nothing changed; two Mix projects whose directories share a name each get their own `(consolidated)` library.**
-- [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
-  - **A Mix project that is not an umbrella now gets its consolidated protocols as a `(consolidated)` library; only umbrellas did before.**
-- [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
-  - **An SDK, working directory or path in a WSL distribution that is no longer installed no longer stalls the IDE each time it is read; running from one reports the missing distribution.**
-- [#4184](https://github.com/intellij-elixir/intellij-elixir/pull/4184) [@sh41](https://github.com/sh41)
-  - **Removing a module, closing a project or changing SDKs while their versions are being read no longer reports an internal error.**
 - [#4167](https://github.com/intellij-elixir/intellij-elixir/pull/4167) [@sh41](https://github.com/sh41)
   - **Go to Declaration on a compiled function with more than one clause for the same arity now lands on the first clause, not the last.** Refs [#4164](https://github.com/intellij-elixir/intellij-elixir/issues/4164).
 - [#4146](https://github.com/intellij-elixir/intellij-elixir/pull/4146) [@sh41](https://github.com/sh41)
