@@ -40,13 +40,6 @@ internal object IgnoredLogs {
             Regex("""^\\\\wsl\$\\$TEST_DISTRIBUTION\\"""),
             silent = true,
         ),
-        // The bundled Groovy plugin reads a service from a class initializer.
-        Ignored(
-            "#com.intellij.serviceContainer.ComponentManagerImpl",
-            Regex("^org\\.jetbrains\\.plugins\\.groovy\\.grape\\.GrabDependencies <clinit> requests "),
-        ),
-        // The bundled Kotlin plugin registers a configurable under a deprecated group.
-        Ignored("#com.intellij.openapi.options.ex.ConfigurableExtensionPointUtil", Regex("^ignore deprecated groupId: ")),
         // CI runs headless, where the platform's registry disables JCEF, which the Markdown plugin's settings ask about.
         Ignored("#com.intellij.ui.jcef.JBCefApp", Regex("^JCEF is manually disabled in headless env")),
         // 2026.2 checks the product's environment-configured modules against a plugin set that tests do not complete.
