@@ -3,12 +3,13 @@ package org.elixir_lang.sdk.elixir
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.sdk.SdkFixtures.fakeHome
 import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 
 /**
  * Tests for [ModuleSdkStatus] and [summaryHtml] - the shared per-module SDK status text used by
- * both the status-bar widget and the Settings → Elixir SDK page.
+ * both the status-bar widget and the Settings -> Elixir SDK page.
  */
 class ModuleSdkStatusTest : PlatformTestCase() {
 
@@ -27,13 +28,13 @@ class ModuleSdkStatusTest : PlatformTestCase() {
 
     fun testOfSdkWhoseInstallationHasNoRecordedVersionIsInvalid() {
         // Validity comes from the store, not the directory, and nothing has read this home.
-        val status = ModuleSdkStatus.of(elixirSdkAt("Unrecorded Elixir", "/fake/elixir/unrecorded"))
+        val status = ModuleSdkStatus.of(elixirSdkAt("Unrecorded Elixir", fakeHome("elixir/unrecorded")))
 
         assertTrue("expected Invalid, got $status", status is ModuleSdkStatus.Invalid)
     }
 
     fun testOfSdkWhoseInstallationHasARecordedVersionIsNotInvalid() {
-        val homePath = "/fake/elixir/recorded"
+        val homePath = fakeHome("elixir/recorded")
         SdkVersionsStore.getInstance()
             .record(homePath, homePath, ElixirVersions("1.20.5", OtpMajor.Known("27")), null)
 

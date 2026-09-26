@@ -1,6 +1,7 @@
 package org.elixir_lang.sdk.elixir
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.testFramework.registerOrReplaceServiceInstance
 import org.elixir_lang.PlatformTestCase
@@ -132,7 +133,7 @@ class TypeNamingTest : PlatformTestCase() {
             testRootDisposable,
         )
 
-        val name = elixirType.suggestSdkName(null, "/not/a/real/elixir/install")
+        val name = elixirType.suggestSdkName(null, absentHome("not/a/real/elixir/install"))
 
         assertTrue("Name should still be produced even if canonicalization fails; was: $name", name.contains("Elixir"))
         verify(throwingService, atLeastOnce()).toRealPath(anyString())
@@ -153,7 +154,7 @@ class TypeNamingTest : PlatformTestCase() {
     }
 
     fun testGetVersionString_unknownWhenNoAppFile() {
-        val version = elixirType.getVersionString("/not/a/real/path/elixir")
+        val version = elixirType.getVersionString(absentHome("not/a/real/path/elixir"))
         assertTrue("Fallback should still contain 'Elixir'; was: $version", version.contains("Elixir"))
     }
 
@@ -175,7 +176,7 @@ class TypeNamingTest : PlatformTestCase() {
             testRootDisposable,
         )
 
-        val version = elixirType.getVersionString("/not/a/real/path/elixir")
+        val version = elixirType.getVersionString(absentHome("not/a/real/path/elixir"))
 
         assertTrue("Version string should still be produced when canonicalization fails; was: $version", version.contains("Elixir"))
         verify(throwingService, atLeastOnce()).toRealPath(anyString())
@@ -232,4 +233,7 @@ class TypeNamingTest : PlatformTestCase() {
         )
         return tmpRoot.path
     }
+
+    // Absolute on every OS: a relative home is never read, so it would not reach canonicalization at all.
+    private fun absentHome(path: String): String = File(FileUtil.getTempDirectory(), path).path
 }

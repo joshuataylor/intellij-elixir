@@ -17,6 +17,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.time.LocalTime
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import org.jetbrains.annotations.TestOnly
@@ -30,10 +33,30 @@ private val LOG = logger<SdkVersionWatchService>()
 /** Keeps [SdkVersionFileWatcher] watching every installation [SdkVersionsStore] holds. */
 internal object SdkVersionWatchService {
     /**
-     * Only homes already read: watching loads version files into the VFS, which boots a stopped `\\wsl.localhost`
-     * distro, and a home that was read had its distro running at some point in this session.
+     * Only homes already read, or read without an answer: watching loads version files into the VFS, which boots a
+     * stopped `\\wsl.localhost` distro, and a home that was read had its distro running at some point in this session.
      */
-    fun homesToWatch(): Set<String> = SdkVersionsStore.getInstance().homes()
+    fun homesToWatch(): Set<String> = SdkVersionsStore.getInstance().homes() + unanswered.values
+
+    /**
+     * A home whose version files answered nothing, such as an `OTP_VERSION` read while an install was still writing
+     * it, is watched too, so the write that completes it is read.
+     */
+    fun watchUnanswered(canonicalHomePath: String, homePath: String) {
+        val canonicalKey = installationKey(canonicalHomePath) ?: return
+        val key = installationKey(homePath) ?: return
+        val changed = synchronized(unanswered) {
+            unansweredWrites++
+            unanswered.put(key, canonicalKey) != canonicalKey
+        }
+        if (changed) requestRewatch()
+    }
+
+    /** Canonical home by configured home: an SDK that goes away names its home as configured, a symlink maybe. */
+    private val unanswered = ConcurrentHashMap<String, String>()
+
+    /** Guarded by [unanswered]. */
+    private var unansweredWrites = 0L
 
     fun install(parentDisposable: Disposable) {
         val scope = service<ElixirAppCoroutineService>().supervisedChildScope("SdkVersionWatchService")
@@ -86,7 +109,31 @@ internal object SdkVersionWatchService {
             (table.getSdksOfType(ElixirSdkType.instance) + table.getSdksOfType(ErlangSdkType.instance))
                 .any { store.canonicalHome(it.homePath) == canonicalHome }
         }
-        if (!stillRegistered) store.forgetInstallation(canonicalHome, homePath)
+        if (!stillRegistered) {
+            store.forgetInstallation(canonicalHome, homePath)
+            requestRewatch()
+        }
+    }
+
+    /**
+     * Drops the homes the store has answered for since they were recorded, and those no SDK uses: a candidate home read
+     * while an SDK was being chosen answers nothing, and no SDK removal would ever forget it.
+     */
+    private suspend fun pruneUnanswered() {
+        if (unanswered.isEmpty()) return
+        val stored = SdkVersionsStore.getInstance().homes()
+        synchronized(unanswered) { unanswered.values.removeAll(stored) }
+        val writes = synchronized(unanswered) { unansweredWrites }
+        val registered = readAction {
+            val table = ProjectJdkTable.getInstance()
+            (table.getSdksOfType(ElixirSdkType.instance) + table.getSdksOfType(ErlangSdkType.instance))
+                .mapNotNullTo(HashSet()) { installationKey(it.homePath) }
+        }
+        // A home recorded since the table was read may be an SDK added since, so the pass after this one prunes.
+        val pruned = synchronized(unanswered) {
+            (unansweredWrites == writes).also { if (it) unanswered.keys.retainAll(registered) }
+        }
+        if (!pruned) requestRewatch()
     }
 
     private fun requestRewatch() {
@@ -106,11 +153,13 @@ internal object SdkVersionWatchService {
         val installation = installed ?: return false
 
         return installation.rewatches.withLock {
+            pruneUnanswered()
             val homes = homesToWatch()
             // Checked on every rewatch, so a home skipped because its distro was not installed is retried then.
             val unreachable = withContext(Dispatchers.IO) { homes.filterNotTo(HashSet(), wslCompat::isReachable) }
             // A value re-read changes the store without changing its homes, and every rebuild does I/O per home.
             if (homes == installation.lastWatched.get() && unreachable == installation.lastUnreachable) {
+                traceForTests { "rewatch skipped: already watching $homes" }
                 return@withLock false
             }
             val lifetime = homes.takeIf { it.isNotEmpty() }?.let { Disposer.newDisposable("SdkVersionFileWatcher") }
@@ -119,23 +168,50 @@ internal object SdkVersionWatchService {
                 Disposer.dispose(lifetime)
                 return@withLock false
             }
-            // Cleared first so a throw below does not leave the previous set recorded, which would make every later
-            // rewatch of that set skip while nothing is watched.
-            installation.lastWatched.set(null)
-            installation.watching.getAndSet(lifetime)?.let(Disposer::dispose)
+            // Cleared first because `lastUnreachable` is overwritten below: a throw must not leave the two describing
+            // different watches.
+            val previouslyWatched = installation.lastWatched.getAndSet(null).orEmpty()
             installation.lastUnreachable = unreachable
             if (lifetime == null) {
+                installation.watching.getAndSet(null)?.let(Disposer::dispose)
+                traceForTests { "rewatch disposed the previous watch; nothing to watch" }
                 installation.lastWatched.set(homes)
                 return@withLock true
             }
 
             LOG.debug("Watching the version files of ${homes.size} installation(s)")
-            withContext(Dispatchers.IO) {
-                // Only the reachable homes, so what is recorded as unreachable is what this watch left out.
-                SdkVersionFileWatcher.watch(homes - unreachable, lifetime) { homePath ->
-                    installation.scope.launch { SdkVersionsFiller.fill(homePath, clearWhenUnreadable = true) }
+            traceForTests { "rewatch building a watch for $homes" }
+            // The previous watch stays subscribed until this one is: a version file changed through the VFS in between
+            // is published once, and a refresh afterwards finds nothing changed.
+            val watched = try {
+                withContext(Dispatchers.IO) {
+                    beforeWatchRebuiltForTests?.invoke()
+                    // Only the reachable homes, so what is recorded as unreachable is what this watch left out.
+                    SdkVersionFileWatcher.watch(homes - unreachable, lifetime) { homePath ->
+                        traceForTests { "a version file under $homePath changed" }
+                        installation.scope.launch {
+                            val changed = SdkVersionsFiller.fill(homePath, clearWhenUnreadable = true)
+                            traceForTests {
+                                val otp = SdkVersionsStore.getInstance().otpVersion(homePath)
+                                "re-read $homePath: changed $changed, OTP $otp"
+                            }
+                        }
+                    }
                 }
+            } catch (e: Throwable) {
+                Disposer.dispose(lifetime)
+                throw e
             }
+            installation.watching.getAndSet(lifetime)?.let(Disposer::dispose)
+            traceForTests { "rewatch built: ${watched.size} path(s) watched, and disposed the previous watch" }
+            // A write that completed a blank version file before this watch loaded it fires no event, so an unanswered
+            // home it has just started watching is read once.
+            val unansweredHomes = unanswered.values.toSet()
+            homes
+                .filter { it in unansweredHomes && it !in unreachable && it !in previouslyWatched }
+                .forEach { home ->
+                    installation.scope.launch { SdkVersionsFiller.fill(home, clearWhenUnreadable = true) }
+                }
             // Only after `watch` returns: it throws for a distro that stopped answering, and a recorded set is skipped.
             installation.lastWatched.set(homes)
             true
@@ -145,6 +221,11 @@ internal object SdkVersionWatchService {
     @Volatile
     private var installed: Installation? = null
 
+    /** Runs as a rebuild starts, for a test that changes a version file while the watch is being replaced. */
+    @Volatile
+    @set:TestOnly
+    var beforeWatchRebuiltForTests: (() -> Unit)? = null
+
     /** Whether every fill and rewatch launched so far has finished, for a test that must see the store settled. */
     @TestOnly
     fun isIdleForTests(): Boolean = installed?.scope?.coroutineContext?.job?.children?.none() ?: true
@@ -152,6 +233,8 @@ internal object SdkVersionWatchService {
     /** Stops watching what [SdkVersionsStore.clearForTests] emptied, which it does without telling anyone. */
     @TestOnly
     fun stopWatchingForTests() {
+        unanswered.clear()
+        trace.clear()
         val installation = installed ?: return
         installation.watching.getAndSet(null)?.let(Disposer::dispose)
         installation.lastWatched.set(emptySet())
@@ -164,12 +247,26 @@ internal object SdkVersionWatchService {
 
         return "installed, scope active: ${installation.scope.isActive}; watching: ${installation.lastWatched.get()}; " +
             "rewatch pending: ${installation.rewatchPending.get()}, running: ${installation.rewatches.isLocked}; " +
-            "store homes: ${homesToWatch()}"
+            "store homes: ${SdkVersionsStore.getInstance().homes()}; unanswered: ${unanswered.values}; " +
+            "recent: ${trace.joinToString(" | ")}"
     }
 
+    // Exists only to track down flaky SDK-watch tests, which see a changed version file go unread; remove it if those
+    // flakes have not shown up in a while.
+    private val trace = ConcurrentLinkedDeque<String>()
+
+    /** [event] is only built in unit-test mode, and a null one records nothing. */
+    internal fun traceForTests(event: () -> String?) {
+        if (!ApplicationManager.getApplication().isUnitTestMode) return
+        trace.addLast("${LocalTime.now()} ${event() ?: return}")
+        while (trace.size > TRACE_LIMIT) trace.pollFirst()
+    }
+
+    private const val TRACE_LIMIT = 40
+
     /**
-     * [rewatches] serialises rewatches: each disposes the previous [watching] registration and builds the next, and two
-     * interleaved would leak one registration's watch roots and subscription for the application's lifetime.
+     * [rewatches] serialises rewatches: interleaved, the one that read the older homes could finish last and install
+     * them over the newer set, leaving a home unwatched.
      */
     private class Installation(val scope: CoroutineScope, val parentDisposable: Disposable) {
         val watching = AtomicReference<Disposable?>()

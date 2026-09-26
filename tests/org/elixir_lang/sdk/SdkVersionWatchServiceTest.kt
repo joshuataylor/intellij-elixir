@@ -25,6 +25,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 class SdkVersionWatchServiceTest : PlatformTestCase() {
     override fun tearDown() {
         try {
+            SdkVersionWatchService.beforeWatchRebuiltForTests = null
             ModuleRootModificationUtil.setModuleSdk(module, null)
             SdkVersionsStore.getInstance().clearForTests()
         } finally {
@@ -40,10 +41,9 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
             SdkVersionsFiller.fill(elixir)
         }
 
-        assertEquals(
-            setOfNotNull(installationKey(erlang), installationKey(elixir)),
-            SdkVersionWatchService.homesToWatch(),
-        )
+        val expected = setOfNotNull(installationKey(erlang), installationKey(elixir))
+
+        assertEquals(expected, SdkVersionWatchService.homesToWatch())
     }
 
     @RequiresEdt
@@ -173,6 +173,35 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     }
 
     @RequiresEdt
+    fun testAVersionFileChangedWhileTheWatchIsRebuiltIsReadAgain() {
+        val home = erlangHome("27", "27.3.4")
+        SdkVersionWatchService.install(testRootDisposable)
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(home)
+            SdkVersionWatchService.rewatch()
+        }
+        SdkFixtures.waitUntil("precondition: the watch on the first home is settled") {
+            SdkVersionWatchService.isIdleForTests()
+        }
+        val otpVersionFile = LocalFileSystem.getInstance()
+            .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")!!
+        SdkVersionWatchService.beforeWatchRebuiltForTests = {
+            SdkVersionWatchService.beforeWatchRebuiltForTests = null
+            WriteAction.runAndWait<Throwable> { VfsUtil.saveText(otpVersionFile, "27.3.5\n") }
+        }
+
+        // A second home makes the watch rebuild, and the hook changes the first home's file as it does.
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(elixirHome("1.20.5"))
+            SdkVersionWatchService.rewatch()
+        }
+
+        SdkFixtures.waitUntil("a version file changed while the watch was rebuilt must be read again") {
+            SdkVersionsStore.getInstance().otpVersion(home) == "27.3.5"
+        }
+    }
+
+    @RequiresEdt
     fun testAnInstallationStillWatchesAfterAnEarlierInstallIsDisposed() {
         val home = erlangHome("27", "27.3.4")
         val erlangSdk = SdkFixtures.registerAndWaitForFill(
@@ -228,6 +257,11 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         // Written behind the VFS's back: through the VFS would publish the change this test is asking the watch
         // to discover for itself.
         otpVersionFile.writeText("27.3.9\n")
+        // Same length and within one timestamp tick, a refresh would see it unchanged.
+        assertTrue(
+            "precondition: the rewrite moved the timestamp",
+            otpVersionFile.setLastModified(loaded!!.timeStamp + 2_000),
+        )
 
         val revalidated = CopyOnWriteArrayList<String>()
         runSuspendOnPooledThread {
@@ -263,6 +297,87 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         }
     }
 
+    /** A version file read while it is being written is blank; the write that completes it must still be read. */
+    @RequiresEdt
+    fun testAHomeReadWhileItsVersionFileWasBlankIsReadOnceItIsWritten() {
+        val home = erlangHome("27", "27.3.4")
+        File(home, "releases/27/OTP_VERSION").writeText("")
+        SdkVersionWatchService.install(testRootDisposable)
+        SdkFixtures.registerAndWaitForFill(SdkFixtures.erlangSdk("Blank Erlang", home), testRootDisposable)
+        runSuspendOnPooledThread {
+            SdkVersionsFiller.fill(home)
+            SdkVersionWatchService.rewatch()
+        }
+        assertNull("precondition: a blank version file reports nothing", SdkVersionsStore.getInstance().otpVersion(home))
+
+        val otpVersionFile = LocalFileSystem.getInstance()
+            .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")
+        assertNotNull("precondition: the version file is in the VFS", otpVersionFile)
+        WriteAction.run<Throwable> { VfsUtil.saveText(otpVersionFile!!, "27.3.7\n") }
+
+        SdkFixtures.waitUntil("a home whose version file read blank must be read again once the file is written") {
+            SdkVersionsStore.getInstance().otpVersion(home) == "27.3.7"
+        }
+    }
+
+    /** The write that completes a blank version file can land before the watch loads it, which then fires no event. */
+    @RequiresEdt
+    fun testAHomeWhoseBlankVersionFileWasWrittenBeforeItWasWatchedIsRead() {
+        val home = erlangHome("27", "27.3.4")
+        val otpVersionFile = File(home, "releases/27/OTP_VERSION")
+        otpVersionFile.writeText("")
+        SdkVersionWatchService.install(testRootDisposable)
+        // Behind the VFS's back, so the watch loads the complete file as though nothing had changed.
+        SdkVersionWatchService.beforeWatchRebuiltForTests = { otpVersionFile.writeText("27.3.7\n") }
+
+        SdkFixtures.registerAndWaitForFill(SdkFixtures.erlangSdk("Written Erlang", home), testRootDisposable)
+
+        SdkFixtures.waitUntil("a home read blank must be read once its watch starts, in case the write came first") {
+            SdkVersionsStore.getInstance().otpVersion(home) == "27.3.7"
+        }
+    }
+
+    /** A candidate home read while choosing an SDK answers nothing either, and no removal ever forgets it. */
+    fun testAHomeThatReadBlankIsNotWatchedOnceNoSdkUsesIt() {
+        val home = erlangHome("27", "27.3.4")
+        File(home, "releases/27/OTP_VERSION").writeText("")
+        SdkVersionWatchService.install(testRootDisposable)
+        runSuspendOnPooledThread { SdkVersionsFiller.fill(home) }
+
+        rewatch()
+
+        assertFalse(
+            "a home no SDK uses must not stay watched",
+            installationKey(home) in SdkVersionWatchService.homesToWatch(),
+        )
+    }
+
+    /**
+     * A home configured through a path that is not its canonical one, such as a symlink, is watched by its canonical
+     * path while it reads blank, and must stop being watched when its SDK goes, which names the configured path.
+     */
+    @RequiresEdt
+    fun testAHomeThatReadBlankIsForgottenByItsConfiguredPath() {
+        val home = File(erlangHome("27", "27.3.4"))
+        File(home, "releases/27/OTP_VERSION").writeText("")
+        File(home.parentFile, "elsewhere").mkdirs()
+        val configured = "${home.parentFile.path}/elsewhere/../${home.name}"
+        SdkVersionWatchService.install(testRootDisposable)
+        val sdk = SdkFixtures.registerAndWaitForFill(SdkFixtures.erlangSdk("Blank Erlang", configured), testRootDisposable)
+        runSuspendOnPooledThread { SdkVersionsFiller.fill(configured) }
+        rewatch()
+        assertTrue(
+            "precondition: the home is watched while it reads blank",
+            installationKey(home.path) in SdkVersionWatchService.homesToWatch(),
+        )
+
+        WriteAction.run<Throwable> { ProjectJdkTable.getInstance().removeJdk(sdk) }
+
+        SdkFixtures.waitUntil("a home no SDK uses any more must not stay watched") {
+            installationKey(home.path) !in SdkVersionWatchService.homesToWatch()
+        }
+    }
+
     /**
      * The SDK is registered before the watch is installed and assigned to the module after, so the table reports
      * nothing and only the module roots say its installation is now in use.
@@ -270,18 +385,24 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     @RequiresEdt
     fun testAnAlreadyRegisteredSdkAssignedToAModuleIsWatched() {
         val home = erlangHome("27", "27.3.4")
+        // Where the watch and the store stood after each step, for a failure that is otherwise only its end state.
+        val timeline = mutableListOf(snapshot("start", home))
         val erlangSdk = SdkFixtures.registerAndWaitForFill(
             SdkFixtures.erlangSdk("Assigned Later Erlang", home),
             testRootDisposable,
         )
+        timeline += snapshot("Erlang SDK registered", home)
         val elixirSdk = SdkFixtures.registerAndWaitForFill(
             SdkFixtures.elixirSdk("Assigned Later Elixir", elixirHome("1.20.5")),
             testRootDisposable,
         )
+        timeline += snapshot("Elixir SDK registered", home)
         SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
         SdkVersionWatchService.install(testRootDisposable)
+        timeline += snapshot("watch installed", home)
 
         ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
+        timeline += snapshot("module SDK set", home)
 
         val otpVersionFile = LocalFileSystem.getInstance()
             .refreshAndFindFileByPath("${FileUtil.toSystemIndependentName(home)}/releases/27/OTP_VERSION")
@@ -290,12 +411,20 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
             "precondition: the asserted version is not already held",
             SdkVersionsStore.getInstance().otpVersion(home) == "27.4.1",
         )
+        timeline += snapshot("version file found", home)
         // Rewritten on each pass: the assignment hands the rewatch to a coroutine there is nothing here to await.
-        SdkFixtures.waitUntil("assigning a registered SDK to a module must put its installation under watch") {
+        SdkFixtures.waitUntil(
+            "assigning a registered SDK to a module must put its installation under watch\n  " +
+                timeline.joinToString("\n  ") + "\nat the deadline"
+        ) {
             WriteAction.run<Throwable> { VfsUtil.saveText(otpVersionFile!!, "27.4.1\n") }
             SdkVersionsStore.getInstance().otpVersion(home) == "27.4.1"
         }
     }
+
+    private fun snapshot(step: String, erlangHome: String): String =
+        "$step: Erlang home's OTP version ${SdkVersionsStore.getInstance().otpVersion(erlangHome)}; " +
+            "fills idle: ${SdkVersionWatchService.isIdleForTests()}; watch: ${SdkVersionWatchService.describeForTests()}"
 
     /**
      * A value re-read changes the store without changing which homes it holds, and each rebuild lists `releases/` and

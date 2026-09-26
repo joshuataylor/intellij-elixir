@@ -1,5 +1,7 @@
 package org.elixir_lang.sdk
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
@@ -7,6 +9,7 @@ import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import org.elixir_lang.PlatformTestCase
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
+import java.util.concurrent.TimeUnit
 
 class SdkVersionFileWatcherTest : PlatformTestCase() {
     private val homeByWatchedPath = mapOf(
@@ -31,7 +34,7 @@ class SdkVersionFileWatcherTest : PlatformTestCase() {
     }
 
     fun testADeletedVersionFileNamesItsHome() {
-        val events = listOf(delete("/opt/elixir/1.20.5/lib/elixir/ebin/elixir.app"))
+        val events = listOf(deleteElixirApp())
 
         assertEquals(
             setOf("/opt/elixir/1.20.5"),
@@ -116,11 +119,24 @@ class SdkVersionFileWatcherTest : PlatformTestCase() {
         )
     }
 
+    /** A later rewatch or installation can dispose the parent while a watch is still being set up off the lock. */
+    fun testWatchingUnderADisposedParentWatchesNothing() {
+        assertEmpty(watchUnderADisposedParent(SdkFixtures.elixirHome("1.20.5")))
+    }
+
+    private fun watchUnderADisposedParent(home: String): Set<String> {
+        val parent = Disposer.newDisposable().also(Disposer::dispose)
+
+        return ApplicationManager.getApplication()
+            .executeOnPooledThread<Set<String>> { SdkVersionFileWatcher.watch(listOf(home), parent) {} }
+            .get(30, TimeUnit.SECONDS)
+    }
+
     private fun contentChange(path: String): VFileContentChangeEvent =
         mock(VFileContentChangeEvent::class.java).also { `when`(it.path).thenReturn(path) }
 
-    private fun delete(path: String): VFileDeleteEvent =
-        mock(VFileDeleteEvent::class.java).also { `when`(it.path).thenReturn(path) }
+    private fun deleteElixirApp(): VFileDeleteEvent =
+        mock(VFileDeleteEvent::class.java).also { `when`(it.path).thenReturn("/opt/elixir/1.20.5/lib/elixir/ebin/elixir.app") }
 
     private fun create(path: String): VFileCreateEvent =
         mock(VFileCreateEvent::class.java).also { `when`(it.path).thenReturn(path) }

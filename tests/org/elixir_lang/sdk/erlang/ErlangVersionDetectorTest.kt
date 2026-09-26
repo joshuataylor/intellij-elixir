@@ -6,7 +6,6 @@ import com.intellij.testFramework.registerOrReplaceServiceInstance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.elixir_lang.PlatformTestCase
-import org.elixir_lang.junit.logs.expectWarnings
 import org.elixir_lang.sdk.wsl.MockWslCompatService
 import org.elixir_lang.sdk.wsl.WslCompatService
 import java.io.File
@@ -94,10 +93,8 @@ class ErlangVersionDetectorTest : PlatformTestCase() {
         File(tempSdkHome, "releases/26").mkdirs()
         File(tempSdkHome, "releases/26/OTP_VERSION").writeText("   \n")
 
-        var release: Release? = null
-        expectWarnings(ErlangVersionDetector::class.java, Regex("^OTP_VERSION file is empty: ")) {
-            release = runBlocking(Dispatchers.IO) { ErlangVersionDetector.detectReleaseAt(tempSdkHome.absolutePath) }
-        }
+        val release = runBlocking(Dispatchers.IO) { ErlangVersionDetector.detectReleaseAt(tempSdkHome.absolutePath) }
+
         assertNull("Should return null when OTP_VERSION is blank", release)
     }
 

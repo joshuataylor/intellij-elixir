@@ -32,6 +32,9 @@ internal object SdkFixtures {
         return home.path
     }
 
+    /** A home that does not exist, absolute on every OS as a real home is: a Unix `/fake` path is relative on Windows. */
+    fun fakeHome(path: String): String = File(FileUtil.getTempDirectory(), "fake/$path").path
+
     fun elixirSdk(name: String, homePath: String): Sdk = ProjectJdkImpl(name, ElixirSdkType.instance, homePath, "")
 
     fun erlangSdk(name: String, homePath: String): Sdk = ProjectJdkImpl(name, ErlangSdkType.instance, homePath, "")

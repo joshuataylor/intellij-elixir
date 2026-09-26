@@ -25,7 +25,8 @@ import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditi
 import java.util.concurrent.TimeUnit
 import kotlin.system.measureTimeMillis
 
-private const val CONFIGURED_HOME = "/fake/erlang/latest"
+// Absolute on every OS: a relative home is never read. It need not exist, as the resolving service stands in for it.
+private val CONFIGURED_HOME = File(FileUtil.getTempDirectory(), "fake/erlang/latest").path
 private const val NOT_INSTALLED_WSL_HOME = "//wsl.localhost/IntellijElixirWSLDistribution/home/user/erlang"
 
 class SdkVersionsFillerTest : PlatformTestCase() {
@@ -513,6 +514,52 @@ class SdkVersionsFillerTest : PlatformTestCase() {
 
         assertTrue("a home in a distribution this machine does not have was read: $millis ms", millis < 5_000)
         assertNull(store.otpVersion(NOT_INSTALLED_WSL_HOME))
+    }
+
+    /** An SDK created without a home has `""`, which resolves to the JVM's working directory. */
+    fun testABlankHomeIsNotRead() {
+        assertEquals(emptyList<String>(), pathsTouchedFilling(""))
+    }
+
+    fun testARelativeHomeIsNotRead() {
+        assertEquals(emptyList<String>(), pathsTouchedFilling("erlang"))
+    }
+
+    fun testAHomeResolvedToABlankPathIsNotRead() {
+        assertEquals(emptyList<String>(), pathsTouchedBy(::fillCanonicalBlankHome))
+    }
+
+    fun testABlockingFillOfABlankHomeReadsNothing() {
+        assertEquals(emptyList<String>(), pathsTouchedBy(::fillBlankHomeBlockingOffTheEdt))
+    }
+
+    // Out of the test methods: JUnit 3 runs a nested lambda's `test...$lambda$0$0` method as a test of its own.
+    private fun fillCanonicalBlankHome() {
+        runSuspendOnPooledThread { SdkVersionsFiller.fillCanonical("") }
+    }
+
+    private fun fillBlankHomeBlockingOffTheEdt() {
+        ApplicationManager.getApplication()
+            .executeOnPooledThread { SdkVersionsFiller.fillIfUnreadBlocking("") }
+            .get(30, TimeUnit.SECONDS)
+    }
+
+    private fun pathsTouchedFilling(homePath: String): List<String> = pathsTouchedBy { fill(homePath) }
+
+    /** Every path [block] resolved or probed for version files. */
+    private fun pathsTouchedBy(block: () -> Unit): List<String> {
+        val touched = CopyOnWriteArrayList<String>()
+        val mock = MockWslCompatService()
+        val spy = object : WslCompatService by mock {
+            override fun canonicalizePath(path: String): String = mock.canonicalizePath(path).also { touched += path }
+
+            override fun exists(file: File): Boolean = mock.exists(file).also { touched += file.path }
+        }
+        ApplicationManager.getApplication().registerOrReplaceServiceInstance(WslCompatService::class.java, spy, testRootDisposable)
+
+        block()
+
+        return touched.toList()
     }
 
     private fun fillTheNotInstalledWslHomeBlockingOffTheEdt() {

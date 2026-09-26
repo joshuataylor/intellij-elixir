@@ -23,6 +23,7 @@ import org.elixir_lang.sdk.erlang.Release
 import org.elixir_lang.sdk.erlang_dependent.elixirAdditionalData
 import org.elixir_lang.sdk.wsl.wslCompat
 import org.jetbrains.annotations.TestOnly
+import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
@@ -45,14 +46,25 @@ internal object SdkVersionsFiller {
      * @return whether anything changed.
      */
     suspend fun fill(homePath: String, clearWhenUnreadable: Boolean = false): Boolean =
-        fillCanonical(withContext(Dispatchers.IO) { wslCompat.canonicalizePath(homePath) }, homePath, clearWhenUnreadable)
+        isInstallationPath(homePath) &&
+            fillCanonical(withContext(Dispatchers.IO) { wslCompat.canonicalizePath(homePath) }, homePath, clearWhenUnreadable)
 
     /** For a caller that has already resolved the home: resolving a WSL home is uncached I/O. */
     suspend fun fillCanonical(
         canonicalHomePath: String,
         homePath: String = canonicalHomePath,
         clearWhenUnreadable: Boolean = false,
-    ): Boolean = record(withContext(Dispatchers.IO) { detect(canonicalHomePath) }, homePath, clearWhenUnreadable)
+    ): Boolean =
+        isInstallationPath(canonicalHomePath) &&
+            record(withContext(Dispatchers.IO) { detect(canonicalHomePath) }, homePath, clearWhenUnreadable)
+
+    /**
+     * An SDK created without a home has `""`, which, like a relative path, resolves against the IDE's working
+     * directory. A WSL home is recognised first: in the IDE `File.isAbsolute` goes through its NIO file system, which
+     * routes a `\\wsl` path to its distribution.
+     */
+    private fun isInstallationPath(homePath: String): Boolean =
+        homePath.isNotBlank() && (wslCompat.isWslUncPath(homePath) || File(homePath).isAbsolute)
 
     private fun record(detected: DetectedVersions, homePath: String, clearWhenUnreadable: Boolean): Boolean {
         val store = SdkVersionsStore.getInstance()
@@ -67,7 +79,10 @@ internal object SdkVersionsFiller {
         if (elixir == null && otpRelease == null) {
             // Recording an empty entry would publish a change that did not happen, and every parsed Elixir file in the
             // affected modules would lose its tree for it.
-            if (!clearWhenUnreadable || (stored == null && storedOtpRelease == null)) return false
+            if (!clearWhenUnreadable || (stored == null && storedOtpRelease == null)) {
+                if (!detected.homeIsGone) SdkVersionWatchService.watchUnanswered(detected.canonicalHomePath, homePath)
+                return false
+            }
 
             // A signal from the files is not proof the installation went: a forced refresh of a path the VFS could
             // not stat, such as a home on a stopped distro, reports a deletion.
@@ -138,7 +153,7 @@ internal object SdkVersionsFiller {
     fun fillIfUnreadBlocking(homePath: String) = fillIfUnreadBlocking(listOf(homePath))
 
     fun fillIfUnreadBlocking(homePaths: Collection<String>) {
-        val unread = homePaths.filterNot(::isRead)
+        val unread = homePaths.filter(::isInstallationPath).filterNot(::isRead)
         if (unread.isEmpty()) return
         val app = ApplicationManager.getApplication()
         // `holdsReadLock` is false under a write lock, so that is asked separately.
