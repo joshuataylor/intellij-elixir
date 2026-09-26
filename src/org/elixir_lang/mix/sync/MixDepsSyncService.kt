@@ -16,11 +16,16 @@ import com.intellij.platform.ide.progress.withBackgroundProgress
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_BASE_NAME
 import org.elixir_lang.util.awaitJpsProjectLoaded
+import org.jetbrains.annotations.TestOnly
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
@@ -61,6 +66,10 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
     // ------------------------------------------------------------------
     private val pendingRequests: AtomicReference<Set<SyncRequest>> = AtomicReference(emptySet())
 
+    /** How many requests have been enqueued, and how many of those a drain has finished with, for [awaitIdle]. */
+    private val requested = AtomicLong()
+    private val completed = MutableStateFlow(0L)
+
     // ------------------------------------------------------------------
     // Flow + debounce
     // replay = 1 ensures the most-recent trigger emission survives until the collector subscribes,
@@ -78,6 +87,9 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
     private val syncMutex = Mutex()
 
     init {
+        // Nothing drains once the scope ends, on project close or plugin unload, so nothing is left to wait for.
+        cs.coroutineContext.job.invokeOnCompletion { completed.value = Long.MAX_VALUE }
+
         @OptIn(FlowPreview::class)
         cs.launch {
             syncFlow
@@ -102,9 +114,16 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
                             _: CancellationException
                         ) {
                             currentCoroutineContext().ensureActive()
-                            LOG.debug("MixDepsSyncService: drain cancelled, will retry on next trigger")
+                            LOG.debug(
+                                "MixDepsSyncService: drain cancelled; its requests are dropped, and a later change " +
+                                    "under them or a full sync redoes a sync, but not a delete"
+                            )
                         } catch (e: Throwable) {
-                            LOG.error("MixDepsSyncService: drain failed, will retry on next trigger", e)
+                            LOG.error(
+                                "MixDepsSyncService: drain failed; its requests are dropped, and a later change " +
+                                    "under them or a full sync redoes a sync, but not a delete",
+                                e,
+                            )
                         }
                     }
                 }
@@ -123,8 +142,24 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
      */
     fun enqueue(request: SyncRequest) {
         pendingRequests.getAndUpdate { it + request }
+        // Numbered only once it is in the pending set, which is what a drain's `covers` relies on.
+        requested.incrementAndGet()
         syncFlow.tryEmit(Unit)
     }
+
+    /**
+     * Returns once every request enqueued before the call has been through a drain, whether it finished, failed or was
+     * cancelled, or the service has stopped.
+     */
+    @TestOnly
+    internal suspend fun awaitIdle() {
+        val target = requested.get()
+        completed.first { it >= target }
+    }
+
+    /** Whether every request enqueued so far has been through a drain, as [awaitIdle] counts it. */
+    @get:TestOnly
+    internal val isIdle: Boolean get() = completed.value >= requested.get()
 
     /** Number of requests currently waiting in the pending set. Exposed for tests only. */
     @VisibleForTesting
@@ -141,7 +176,16 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
     // ------------------------------------------------------------------
     @VisibleForTesting
     internal suspend fun drain() {
-        syncMutex.withLock { drainPending() }
+        syncMutex.withLock {
+            // Read before the pending set is taken: every request numbered up to it is in that set, or was taken or
+            // cleared before it.
+            val covers = requested.get()
+            try {
+                drainPending()
+            } finally {
+                completed.update { maxOf(it, covers) }
+            }
+        }
     }
 
     private suspend fun drainPending() {

@@ -165,6 +165,48 @@ class MixDepsSyncServiceTest : PlatformTestCase() {
     }
 
     // ------------------------------------------------------------------
+    // awaitIdle - queued work is waited for, not dropped
+    // ------------------------------------------------------------------
+
+    /** A request left to the debounced collector has been synced once [MixDepsSyncService.awaitIdle] returns. */
+    fun testAwaitIdle_waitsForTheDebouncedDrain() {
+        val root = MixTestFixtures.createMixRoot(myFixture, "idle_app")
+        val (depRoot) = MixTestFixtures.addDeps(myFixture, "idle_app", "idle_dep")
+        MixTestFixtures.addBuildArtifacts(myFixture, "idle_app", "dev", "idle_dep")
+        val service = project.service<MixDepsSyncService>()
+        service.clearPendingForTesting()
+
+        service.enqueue(SyncRequest.DepRoot(depRoot))
+        MixSyncTestHelpers.runSuspendOnPooledThread { service.awaitIdle() }
+
+        val libraryName = scopedDepLibraryName(contentRootToken(project, root.url), "idle_dep")
+        assertNotNull(
+            "awaitIdle must return only once the queued dep has been synced",
+            LibraryTablesRegistrar.getInstance().getLibraryTable(project).getLibraryByName(libraryName),
+        )
+    }
+
+    /** A drain that finished earlier does not answer for a request queued after it. */
+    fun testAwaitIdle_waitsForARequestQueuedAfterAnEarlierDrain() {
+        val root = MixTestFixtures.createMixRoot(myFixture, "later_app")
+        val (firstDep, secondDep) = MixTestFixtures.addDeps(myFixture, "later_app", "first_dep", "second_dep")
+        MixTestFixtures.addBuildArtifacts(myFixture, "later_app", "dev", "first_dep", "second_dep")
+        val service = project.service<MixDepsSyncService>()
+        service.clearPendingForTesting()
+        service.enqueue(SyncRequest.DepRoot(firstDep))
+        drainDirectly(service)
+
+        service.enqueue(SyncRequest.DepRoot(secondDep))
+        MixSyncTestHelpers.runSuspendOnPooledThread { service.awaitIdle() }
+
+        val libraryName = scopedDepLibraryName(contentRootToken(project, root.url), "second_dep")
+        assertNotNull(
+            "awaitIdle must wait for a request queued after an earlier drain finished",
+            LibraryTablesRegistrar.getInstance().getLibraryTable(project).getLibraryByName(libraryName),
+        )
+    }
+
+    // ------------------------------------------------------------------
     // Test 6b - DeleteAll suppresses DepRoot for the same tree
     // (also covers Test 8 - delete-before-sync ordering for the same tree)
     // ------------------------------------------------------------------
