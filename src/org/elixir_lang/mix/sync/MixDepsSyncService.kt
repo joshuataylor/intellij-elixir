@@ -141,81 +141,83 @@ class MixDepsSyncService(private val project: Project, cs: CoroutineScope) {
     // ------------------------------------------------------------------
     @VisibleForTesting
     internal suspend fun drain() {
-        syncMutex.withLock {
-            if (project.isDisposed) return
+        syncMutex.withLock { drainPending() }
+    }
 
-            val rawRequests: List<SyncRequest> = pendingRequests.getAndSet(emptySet()).toList()
-            if (rawRequests.isEmpty()) return
+    private suspend fun drainPending() {
+        if (project.isDisposed) return
 
-            val requests = resolvePathShapedRequests(project, rawRequests)
-            if (requests.isEmpty()) return
+        val rawRequests: List<SyncRequest> = pendingRequests.getAndSet(emptySet()).toList()
+        if (rawRequests.isEmpty()) return
 
-            val drainStart = TimeSource.Monotonic.markNow()
-            LOG.debug("MixDepsSyncService: draining ${requests.size} request(s)")
+        val requests = resolvePathShapedRequests(project, rawRequests)
+        if (requests.isEmpty()) return
 
-            val coalescedRequests = coalesceRequests(requests)
+        val drainStart = TimeSource.Monotonic.markNow()
+        LOG.debug("MixDepsSyncService: draining ${requests.size} request(s)")
 
-            val (syncPlan, buildSyncPlanTime) = measureTimedValue {
-                withBackgroundProgress(project, "Syncing Elixir dependencies") {
-                    withContext(Dispatchers.Default) {
-                        buildSyncPlan(project, coalescedRequests)
-                    }
+        val coalescedRequests = coalesceRequests(requests)
+
+        val (syncPlan, buildSyncPlanTime) = measureTimedValue {
+            withBackgroundProgress(project, "Syncing Elixir dependencies") {
+                withContext(Dispatchers.Default) {
+                    buildSyncPlan(project, coalescedRequests)
                 }
             }
-
-            val (writePlan, buildWritePlanTime) = measureTimedValue {
-                // A full sync sweeps even with nothing to plan, or the startup check that asked for it would ask again
-                // on every open.
-                if (syncPlan.isEmpty && !coalescedRequests.hasAll) {
-                    null
-                } else {
-                    withBackgroundProgress(project, "Computing Elixir dependency changes") {
-                        withContext(Dispatchers.Default) {
-                            buildWritePlan(project, syncPlan)
-                        }
-                    }
-                }
-            }
-
-            val (applyStats, applyWritePlanTime) = measureTimedValue {
-                writePlan?.takeUnless { it.isEmpty }?.let { plan ->
-                    withBackgroundProgress(project, "Applying Elixir dependency sync") {
-                        applyWritePlan(project, plan)
-                    }
-                } ?: ApplyStats(0, 0)
-            }
-
-            // The platform only flushes project settings at its own save points - frame
-            // deactivation, periodic autosave, project close - so a drain that runs in the
-            // background and is never followed by one leaves the rewritten .iml and
-            // .idea/libraries unwritten, and an IDE killed before the next save point loses them.
-            if (applyStats.librariesChanged > 0 || applyStats.modulesChanged > 0) {
-                // forceSavingAllSettings, because the default saves only components that report
-                // themselves changed and the module/library edits below do not, so the rewritten
-                // .iml and .idea/libraries were left on disk as they were.
-                SaveAndSyncHandler.getInstance().scheduleProjectSave(project, forceSavingAllSettings = true)
-            }
-
-            LOG.debug(
-                "MixDepsSyncService: drain complete - ${requests.size} request(s) in " +
-                    "${drainStart.elapsedNow().inWholeMilliseconds}ms " +
-                    "(buildSyncPlan=${buildSyncPlanTime.inWholeMilliseconds}ms, " +
-                    "buildWritePlan=${buildWritePlanTime.inWholeMilliseconds}ms, " +
-                    "applyWritePlan=${applyWritePlanTime.inWholeMilliseconds}ms [write-lock hold], " +
-                    "deleteAlls=${coalescedRequests.deleteAlls.size}, " +
-                    "deleteOnes=${coalescedRequests.deleteOnes.size}, " +
-                    "hasAll=${coalescedRequests.hasAll}, " +
-                    "syncRoots=${coalescedRequests.syncRoots.size}, " +
-                    "depsRoots=${coalescedRequests.depsRoots.size}, " +
-                    "depRoots=${coalescedRequests.depRoots.size}, " +
-                    "syncModules=${coalescedRequests.syncModuleNames.size}, " +
-                    "libraryPlans=${syncPlan.libraryPlans.size}, " +
-                    "modulePlans=${syncPlan.modulePlans.size}, " +
-                    "consolidatedPlans=${syncPlan.consolidatedPlans.size}, " +
-                    "librariesChanged=${applyStats.librariesChanged}, " +
-                    "modulesChanged=${applyStats.modulesChanged})"
-            )
         }
+
+        val (writePlan, buildWritePlanTime) = measureTimedValue {
+            // A full sync sweeps even with nothing to plan, or the startup check that asked for it would ask again
+            // on every open.
+            if (syncPlan.isEmpty && !coalescedRequests.hasAll) {
+                null
+            } else {
+                withBackgroundProgress(project, "Computing Elixir dependency changes") {
+                    withContext(Dispatchers.Default) {
+                        buildWritePlan(project, syncPlan)
+                    }
+                }
+            }
+        }
+
+        val (applyStats, applyWritePlanTime) = measureTimedValue {
+            writePlan?.takeUnless { it.isEmpty }?.let { plan ->
+                withBackgroundProgress(project, "Applying Elixir dependency sync") {
+                    applyWritePlan(project, plan)
+                }
+            } ?: ApplyStats(0, 0)
+        }
+
+        // The platform only flushes project settings at its own save points - frame
+        // deactivation, periodic autosave, project close - so a drain that runs in the
+        // background and is never followed by one leaves the rewritten .iml and
+        // .idea/libraries unwritten, and an IDE killed before the next save point loses them.
+        if (applyStats.librariesChanged > 0 || applyStats.modulesChanged > 0) {
+            // forceSavingAllSettings, because the default saves only components that report
+            // themselves changed and the module/library edits below do not, so the rewritten
+            // .iml and .idea/libraries were left on disk as they were.
+            SaveAndSyncHandler.getInstance().scheduleProjectSave(project, forceSavingAllSettings = true)
+        }
+
+        LOG.debug(
+            "MixDepsSyncService: drain complete - ${requests.size} request(s) in " +
+                "${drainStart.elapsedNow().inWholeMilliseconds}ms " +
+                "(buildSyncPlan=${buildSyncPlanTime.inWholeMilliseconds}ms, " +
+                "buildWritePlan=${buildWritePlanTime.inWholeMilliseconds}ms, " +
+                "applyWritePlan=${applyWritePlanTime.inWholeMilliseconds}ms [write-lock hold], " +
+                "deleteAlls=${coalescedRequests.deleteAlls.size}, " +
+                "deleteOnes=${coalescedRequests.deleteOnes.size}, " +
+                "hasAll=${coalescedRequests.hasAll}, " +
+                "syncRoots=${coalescedRequests.syncRoots.size}, " +
+                "depsRoots=${coalescedRequests.depsRoots.size}, " +
+                "depRoots=${coalescedRequests.depRoots.size}, " +
+                "syncModules=${coalescedRequests.syncModuleNames.size}, " +
+                "libraryPlans=${syncPlan.libraryPlans.size}, " +
+                "modulePlans=${syncPlan.modulePlans.size}, " +
+                "consolidatedPlans=${syncPlan.consolidatedPlans.size}, " +
+                "librariesChanged=${applyStats.librariesChanged}, " +
+                "modulesChanged=${applyStats.modulesChanged})"
+        )
     }
 
     // ------------------------------------------------------------------
