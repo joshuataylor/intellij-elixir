@@ -24,7 +24,7 @@ object Quoter {
     private const val REMOTE_NAME = "Elixir.IntellijElixir.Quoter"
     /**
      * Budget for one quote round trip. Large because it covers quoting a whole corpus file - the
-     * biggest is ~180KB - on the slowest runner, and because [GenericServer.call] spends it twice:
+     * biggest is ~180KB - on the slowest runner, and because [org.elixir_lang.GenericServer.call] spends it twice:
      * once resolving the daemon's PID, then again on the call itself.
      *
      * Flat rather than scaled by input size: the failure that prompted this was a 61KB file timing
@@ -193,18 +193,18 @@ object Quoter {
             val statusString = status.atomValue()
             val expectedQuoted = quotedMessage.elementAt(1)
 
-            if (statusString == "ok") {
-                val actualQuoted =
-                    ApplicationManager.getApplication().runReadAction(Computable { ElixirPsiImplUtil.quote(file) })
-                assertQuotedCorrectly(expectedQuoted, actualQuoted)
-            } else if (statusString == "error") {
-                throw AssertionError(
+            when (statusString) {
+                "ok" -> {
+                    val actualQuoted =
+                        ApplicationManager.getApplication().runReadAction(Computable { ElixirPsiImplUtil.quote(file) })
+                    assertQuotedCorrectly(expectedQuoted, actualQuoted)
+                }
+                "error" -> throw AssertionError(
                     "quoter returned ${rejection(quotedMessage)}, use assertQuotesAroundError if error is expect in Elixir natively, but not in intellij-elixir plugin"
                 )
-            } else if (statusString == "raise") {
-                throw AssertionError(
+                "raise" -> throw AssertionError(
                     "quoter ${rejection(quotedMessage)}, use " +
-                        "assertParsedAndQuotedAroundErrorOrRaise(languageLevel, exception) if releases below " +
+                        "assertParsedAndQuotedAroundErrorOrRaise(languageLevel, exception, checkResult) if releases below " +
                         "languageLevel reject the construct that way"
                 )
             }
@@ -439,10 +439,10 @@ object Quoter {
 
         if (lines.size <= MAX_PREVIEW_LINES) return rendered
 
-        return (lines.take(MAX_PREVIEW_LINES) +
-                "... ${lines.size - MAX_PREVIEW_LINES} more lines; " +
-                "re-run with -D$FULL_DUMP_PROPERTY=true for the complete terms")
-            .joinToString("\n")
+        return buildList {
+            addAll(lines.take(MAX_PREVIEW_LINES))
+            add("... ${lines.size - MAX_PREVIEW_LINES} more lines; re-run with -D$FULL_DUMP_PROPERTY=true for the complete terms")
+        }.joinToString("\n")
     }
 
     fun quote(code: String): OtpErlangTuple? {

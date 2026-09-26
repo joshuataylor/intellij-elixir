@@ -14,6 +14,7 @@ import org.elixir_lang.beam.chunk.Code
 import org.elixir_lang.beam.chunk.imports.Import
 import org.elixir_lang.beam.chunk.lines.file_names.Indexer
 import org.elixir_lang.beam.psi.BeamFileImpl
+import org.elixir_lang.junit.logs.GuardedLoggedErrorProcessor
 import org.junit.Assert
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
@@ -272,7 +273,7 @@ class CorruptBeamTest : PlatformTestCase() {
         private val inputsByKind = sortedMapOf<String, MutableList<String>>()
 
         fun record(reader: String, input: String, read: () -> Unit) {
-            val processor = object : LoggedErrorProcessor() {
+            val processor = object : GuardedLoggedErrorProcessor() {
                 override fun processError(
                     category: String,
                     message: String,
@@ -393,19 +394,19 @@ class CorruptBeamTest : PlatformTestCase() {
         }
 
         fun mutants(original: ByteArray, random: Random): List<Pair<String, ByteArray>> = buildList {
-            for (chunk in chunks(original)) {
-                if (chunk.size > 0) {
+            for ((id, header, data, size) in chunks(original)) {
+                if (size > 0) {
                     repeat(FLIPS_PER_CHUNK) {
-                        val at = chunk.data + random.nextInt(chunk.size)
+                        val at = data + random.nextInt(size)
                         val flipped = (original[at].toInt() xor (1 + random.nextInt(255))).toByte()
-                        add("${chunk.id} byte ${at - chunk.data} flipped" to original.copyOf().also { it[at] = flipped })
+                        add("$id byte ${at - data} flipped" to original.copyOf().also { it[at] = flipped })
                     }
                 }
-                if (chunk.size >= 4) {
-                    add("${chunk.id} leading int maxed" to original.copyOf().also { writeUnsignedInt(it, chunk.data, -1) })
+                if (size >= 4) {
+                    add("$id leading int maxed" to original.copyOf().also { writeUnsignedInt(it, data, -1) })
                 }
-                val shortened = random.nextInt(chunk.size + 1)
-                add("${chunk.id} size shortened to $shortened" to original.copyOf().also { writeUnsignedInt(it, chunk.header + 4, shortened) })
+                val shortened = random.nextInt(size + 1)
+                add("$id size shortened to $shortened" to original.copyOf().also { writeUnsignedInt(it, header + 4, shortened) })
             }
 
             repeat(TRUNCATIONS) {

@@ -1,6 +1,6 @@
 package org.elixir_lang.mix
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
 /**
  * Pure unit tests for [DepsCheckPlanner].
@@ -8,7 +8,7 @@ import junit.framework.TestCase
  * No IntelliJ platform fixture is required - all inputs/outputs are plain strings and maps.
  * This makes the suite compile fast and run in milliseconds.
  */
-class DepsCheckPlannerTest : TestCase() {
+class DepsCheckPlannerTest : UnitTestCase() {
 
     // ── selectRootsToCheck ────────────────────────────────────────────────────
 
@@ -59,7 +59,7 @@ class DepsCheckPlannerTest : TestCase() {
     }
 
     fun testSelectRootsToCheck_pendingRootsAddUncachedRoots() {
-        // rootA is pending, rootB is also uncached → both should be queried.
+        // rootA is pending, rootB is also uncached -> both should be queried.
         val all = listOf("url://a", "url://b", "url://c")
         val pending = setOf("url://a")
         val cached = setOf("url://c")  // rootB ("url://b") is NOT cached
@@ -100,14 +100,14 @@ class DepsCheckPlannerTest : TestCase() {
     }
 
     fun testSelectRootsToCheck_pendingAndUncachedOverlap_noDuplicates() {
-        // rootA appears both as pending AND is uncached → should appear exactly once.
+        // rootA appears both as pending AND is uncached -> should appear exactly once.
         val all = listOf("url://a", "url://b")
         val pending = setOf("url://a")
         val result = DepsCheckPlanner.selectRootsToCheck(
             allTopLevelRootUrls = all,
             pendingRootUrls = pending,
             cachedOnlyWhenNoPending = false,
-            existingCacheKeys = emptySet(),  // neither is cached → rootA is in both lists
+            existingCacheKeys = emptySet(),  // neither is cached -> rootA is in both lists
         )
         assertEquals(1, result.count { it == "url://a" })
     }
@@ -204,7 +204,7 @@ class DepsCheckPlannerTest : TestCase() {
     fun testComputeSdkDelta_newRootWithNoMatchInPrevious_isReportedAsChanged() {
         // A new root has no entry in the previous snapshot - null (absent) vs current value.
         val allNow = listOf("url://a", "url://new")
-        val previous = mapOf("url://a" to "Elixir 1.18")  // "url://new" absent → treated as null
+        val previous = mapOf("url://a" to "Elixir 1.18")  // "url://new" absent -> treated as null
         val current  = mapOf("url://a" to "Elixir 1.18", "url://new" to "Elixir 1.18")
         val delta = DepsCheckPlanner.computeSdkDelta(allNow, current, previous)
         assertEquals(setOf("url://new"), delta.changedRootUrls)

@@ -13,6 +13,7 @@ import com.intellij.psi.templateLanguages.TemplateDataLanguageMappings
 import com.intellij.psi.templateLanguages.TemplateDataLanguagePatterns
 import com.intellij.psi.xml.StartTagEndTokenProvider
 import com.intellij.testFramework.ParsingTestCase
+import com.intellij.util.ThrowableRunnable
 import com.intellij.xml.testFramework.XmlElementTypeServiceHelper.registerXmlElementTypeServices
 import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.ElixirParserDefinition
@@ -20,6 +21,7 @@ import org.elixir_lang.heex.HeexLanguage
 import org.elixir_lang.heex.ParserDefinition
 import org.elixir_lang.heex.file.view_provider.Factory
 import org.elixir_lang.heex.html.HeexHTMLOuterLanguageRangePatcher
+import org.elixir_lang.junit.logs.UnexpectedLogs
 import org.elixir_lang.psi.EexDataAstFactory
 
 /**
@@ -39,6 +41,8 @@ abstract class HeexParsingTestCase : ParsingTestCase(
     HTMLParserDefinition(),
     ElixirParserDefinition()
 ) {
+    // ParsingTestCase only offers MockApplication, and these platform registrations have no public form.
+    @Suppress("UnstableApiUsage")
     override fun setUp() {
         super.setUp()
         registerXmlElementTypeServices(application, testRootDisposable)
@@ -75,4 +79,8 @@ abstract class HeexParsingTestCase : ParsingTestCase(
     }
 
     override fun getTestDataPath(): String = "testData"
+
+    override fun runBare(testRunnable: ThrowableRunnable<Throwable>) {
+        UnexpectedLogs.failOnUnexpectedLogs { super.runBare(testRunnable) }
+    }
 }

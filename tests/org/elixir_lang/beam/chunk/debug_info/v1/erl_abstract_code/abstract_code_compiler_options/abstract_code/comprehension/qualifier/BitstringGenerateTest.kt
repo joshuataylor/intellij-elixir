@@ -5,10 +5,10 @@ import com.ericsson.otp.erlang.OtpErlangList
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
-import junit.framework.TestCase
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.Scope
+import org.elixir_lang.junit.UnitTestCase
 
-class BitstringGenerateTest : TestCase() {
+class BitstringGenerateTest : UnitTestCase() {
 
     /**
      * Erlang: `<<C:6>> <= <<Bin/binary>>`

@@ -2,6 +2,9 @@ package org.elixir_lang.heex.lexer;
 
 import com.intellij.lexer.Lexer;
 import com.intellij.testFramework.LexerTestCase;
+import com.intellij.util.ThrowableRunnable;
+import org.elixir_lang.junit.logs.UnexpectedLogs;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * {@link LexerTestCase#checkCorrectRestart} re-lexes from every offset where {@link LookAhead}
@@ -10,12 +13,12 @@ import com.intellij.testFramework.LexerTestCase;
  * start. Only this outer lexer is covered; {@link org.elixir_lang.heex.html.HeexHTMLLexerTest}
  * covers the inner HTML lexer's offsets.
  *
- * {@link LexerTestCase#checkCorrectRestartUsingPosition} is stronger and now also runs: it captures a
+ * <p>{@link LexerTestCase#checkCorrectRestartUsingPosition} is stronger and now also runs: it captures a
  * {@code LexerPosition} at every token and asserts the {@code getCurrentPosition()}/{@code restore()}
  * round-trip from each, so it reaches offsets state-based restart never does. Both run via
  * {@link #checkRestarts}.
  *
- * {@code doTest(text, expected)} is deliberately not used - on platform 262 it silently
+ * <p>{@code doTest(text, expected)} is deliberately not used - on platform 262 it silently
  * grows an implicit {@code checkCorrectRestart} call, so relying on it would make this class's
  * effective coverage differ across the CI legs in .github/ci-versions.json. Calling the checks
  * explicitly keeps behaviour identical on every leg.
@@ -55,12 +58,17 @@ public class RestartabilityTest extends LexerTestCase {
     }
 
     @Override
-    protected Lexer createLexer() {
+    protected @NotNull Lexer createLexer() {
         return new LookAhead();
     }
 
     @Override
-    protected String getDirPath() {
+    protected @NotNull String getDirPath() {
         return "testData/org/elixir_lang/heex/lexer";
+    }
+
+    @Override
+    protected void runBare(@NotNull ThrowableRunnable<Throwable> testRunnable) throws Throwable {
+        UnexpectedLogs.failOnUnexpectedLogs(() -> super.runBare(testRunnable));
     }
 }

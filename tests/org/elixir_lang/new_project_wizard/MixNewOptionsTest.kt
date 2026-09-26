@@ -1,13 +1,13 @@
 package org.elixir_lang.new_project_wizard
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 import java.nio.file.Paths
 
 /**
  * Pins the `mix new` arguments and the module layout they imply, in particular the two shapes that
  * differ: a single application, and an umbrella root that has no application of its own.
  */
-class MixNewOptionsTest : TestCase() {
+class MixNewOptionsTest : UnitTestCase() {
     private val projectDirectory = Paths.get("home", "developer", "my_app").toString()
 
     private fun path(vararg more: String): String = Paths.get(projectDirectory, *more).toString()

@@ -20,6 +20,10 @@ data class MixContentRoot(
 )
 
 fun Module.isElixirModule(): Boolean {
+    // Work queued before a module is removed or its project closes can still hold it, and a disposed module's
+    // FacetManager logs an error.
+    if (isDisposed) return false
+
     val isElixirModuleType = ModuleType.get(this).id == ELIXIR_MODULE_TYPE_ID
     val hasElixirFacet = FacetManager.getInstance(this).getFacetByType(Facet.ID) != null
     return isElixirModuleType || hasElixirFacet

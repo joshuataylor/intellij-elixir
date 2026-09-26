@@ -1,12 +1,12 @@
 package org.elixir_lang.beam.chunk.beam_documentation.docs
 
 import com.ericsson.otp.erlang.*
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
+import org.elixir_lang.junit.logs.expectErrors
 
-class DocumentedTest : TestCase() {
+class DocumentedTest : UnitTestCase() {
 
     private fun bin(s: String) = OtpErlangBinary(s.toByteArray())
-    private fun charlist(s: String) = OtpErlangList(s.map { OtpErlangLong(it.code.toLong()) }.toTypedArray())
 
     /**
      * Builds a minimal EEP-48 documented tuple:
@@ -43,7 +43,7 @@ class DocumentedTest : TestCase() {
     fun testParseWithCharlistSignatures() {
         val tuple = documentedTuple(
             "function", "map", 2,
-            OtpErlangList(arrayOf(charlist("map/2")))
+            OtpErlangList(arrayOf(OtpErlangList("map/2".map { OtpErlangLong(it.code.toLong()) }.toTypedArray())))
         )
         val documented = Documented.from(tuple)
         assertNotNull(documented)
@@ -113,18 +113,13 @@ class DocumentedTest : TestCase() {
     }
 
     fun testNonTupleLogsErrorAndReturnsNull() {
-        // DefaultLogger.error() throws AssertionError outside the full IDE test framework.
-        // Catch it and verify the error message mentions the unrecognised input.
-        val error = try {
-            Documented.from(OtpErlangAtom("garbage"))
-            null
-        } catch (e: AssertionError) {
-            e
-        }
-        assertNotNull("Expected Logger.error() to throw AssertionError for non-tuple input", error)
-        assertTrue(
-            "Error message should mention the unrecognised element, got: ${error!!.message}",
-            error.message!!.contains("garbage")
-        )
+        assertNull(fromLoggingItsError(OtpErlangAtom("garbage"), Regex("""element \(:garbage\)""")))
+    }
+
+    // Kept out of the test methods: JUnit 3 would run a Kotlin lambda's `test...$lambda$0` method as a test of its own.
+    private fun fromLoggingItsError(element: OtpErlangObject, message: Regex): Documented? {
+        var documented: Documented? = null
+        expectErrors(Documented::class.java, message) { documented = Documented.from(element) }
+        return documented
     }
 }

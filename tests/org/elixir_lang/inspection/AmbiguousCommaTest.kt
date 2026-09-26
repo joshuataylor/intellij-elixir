@@ -2,16 +2,16 @@ package org.elixir_lang.inspection
 
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.lang.injection.InjectedLanguageManager
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.ElixirFileType
 import org.elixir_lang.ElixirLanguage
+import org.elixir_lang.junit.LightTestCase
 
 /**
  * Which commas Elixir rejects, and with which message, was taken from `Code.string_to_quoted/1` on 1.11.4, 1.12.3,
  * 1.14.5, 1.15.8, 1.19.5 and 1.20.4, which all agree. `^C^` and `^N^` mark a comma reported as inside a container and
  * in a nested call.
  */
-class AmbiguousCommaTest : BasePlatformTestCase() {
+class AmbiguousCommaTest : LightTestCase() {
     fun testInsideContainers() {
         for (source in listOf(
             "[foo 1^C^, 2]",

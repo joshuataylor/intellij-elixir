@@ -1,13 +1,13 @@
 package org.elixir_lang.structure_view.element
 
-import junit.framework.TestCase
 import org.elixir_lang.call.Visibility
+import org.elixir_lang.junit.UnitTestCase
 import org.elixir_lang.structure_view.element.Timed.Time
 
 /**
  * The module-attribute mappings the sorters read, and the boundary that answers an unrecognised name.
  */
-class KindTest : TestCase() {
+class KindTest : UnitTestCase() {
     fun testTypeKindVisibility() {
         assertEquals(Visibility.PUBLIC, Type.Kind.of("@opaque")?.visibility)
         assertEquals(Visibility.PUBLIC, Type.Kind.of("@type")?.visibility)

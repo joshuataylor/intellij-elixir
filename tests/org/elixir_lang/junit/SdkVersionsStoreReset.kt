@@ -32,7 +32,7 @@ class SdkVersionsStoreReset : TestExecutionListener {
         }
     }
 
-    // A listener cannot fail the test, so a store still busy is logged.
+    // A listener cannot fail the test, so a store still busy is logged: the unexpected-log guard fails the build on it.
     private fun awaitIdle(testIdentifier: TestIdentifier) {
         val deadline = System.currentTimeMillis() + IDLE_TIMEOUT_MILLIS
         while (!SdkVersionWatchService.isIdleForTests() || cancelledScopesStillFinishing()) {

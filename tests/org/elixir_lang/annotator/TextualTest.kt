@@ -3,9 +3,9 @@ package org.elixir_lang.annotator
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.colors.TextAttributesKey
 import com.intellij.openapi.editor.markup.TextAttributes
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.ElixirFileType
 import org.elixir_lang.ElixirSyntaxHighlighter
+import org.elixir_lang.junit.LightTestCase
 
 /**
  * The quote delimiters of a string or char list carry the *same* attributes as its body.
@@ -22,7 +22,7 @@ import org.elixir_lang.ElixirSyntaxHighlighter
  * when the annotator does not run, and "delimiter equals body" is satisfied by two ranges that are both
  * uncoloured.
  */
-class TextualTest : BasePlatformTestCase() {
+class TextualTest : LightTestCase() {
     fun testStringDelimitersCarryTheStringAttributes() {
         configure(
             """

@@ -1,7 +1,7 @@
 package org.elixir_lang.sdk.erlang
 
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.elixir_lang.junit.LightTestCase
 import java.io.File
 
 /**
@@ -13,7 +13,7 @@ import java.io.File
  * [Type.sourcePaths] is the whole decision; registering what it returns is the platform's own root
  * bookkeeping. Testing it against a home built on disk keeps this to the mapping and needs no SDK.
  */
-class TypeSourcePathsTest : BasePlatformTestCase() {
+class TypeSourcePathsTest : LightTestCase() {
     fun testTakesTheSiblingSrcOfEveryEbin() {
         val home = erlangHome(
             "stdlib-7.1" to true,

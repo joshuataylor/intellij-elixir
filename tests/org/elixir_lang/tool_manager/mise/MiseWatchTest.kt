@@ -8,7 +8,7 @@ import com.intellij.openapi.vfs.newvfs.BulkFileListener
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
-import com.intellij.testFramework.HeavyPlatformTestCase
+import org.elixir_lang.junit.HeavyTestCase
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
  * The VFS turns what the file watcher reports into events only for files it has loaded, so these run a real refresh
  * over real directories rather than handing [MiseRefreshTrigger.shouldTrigger] an event.
  */
-class MiseWatchTest : HeavyPlatformTestCase() {
+class MiseWatchTest : HeavyTestCase() {
     private val lfs get() = LocalFileSystem.getInstance()
     private val watchRequests: MutableSet<LocalFileSystem.WatchRequest> = ConcurrentHashMap.newKeySet()
     private lateinit var root: Path

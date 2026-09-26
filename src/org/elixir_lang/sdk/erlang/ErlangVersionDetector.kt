@@ -31,7 +31,8 @@ object ErlangVersionDetector {
         val releasesDir = File(canonicalHome, "releases")
 
         val otpMajorDir = if (!releasesDir.exists()) {
-            LOGGER.warn("Can't detect Erlang version: ${releasesDir.path} is missing")
+            // Also every Elixir home: the version filler reads both kinds from each home.
+            LOGGER.debug("Can't detect Erlang version: ${releasesDir.path} is missing")
             return null
         } else {
             releasesDir.listFiles { f -> f.isDirectory && f.name.all { it.isDigit() } }
@@ -61,7 +62,7 @@ object ErlangVersionDetector {
         // `8.2 (OTP 27)` under `releases/27` does, the directory wins.
         val release = Release.parse(otpVersion)
             ?: (Release.of(otpVersion)?.takeIf { it.otpMajor == otpMajor } ?: Release.ofOtpMajor(otpMajor, otpVersion))
-                ?.also { LOGGER.warn("OTP_VERSION file does not hold an OTP version: ${otpVersionFile.path}") }
+                ?.also { LOGGER.info("OTP_VERSION file does not hold an OTP version: ${otpVersionFile.path}") }
             ?: return null
         LOGGER.debug("Detected Erlang release: $release (from ${otpVersionFile.path})")
         return release

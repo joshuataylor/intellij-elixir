@@ -44,7 +44,11 @@ class CyclicAliasTest : PlatformTestCase() {
         lateinit var resolveResults: Array<ResolveResult>
         lateinit var loggedErrors: List<LoggedError>
 
-        PlatformTestUtil.assertTiming("the same name is being resolved more than once", 6_000, 4) {
+        PlatformTestUtil.assertTiming(
+            "${javaClass.simpleName}.${getTestName(false)}: the same name is being resolved more than once",
+            6_000,
+            4
+        ) {
             // Each attempt must do the work: `ResolveCache` would serve the first result to the rest.
             PsiManager.getInstance(project).dropResolveCaches()
             val captured = captureLoggedErrors { reference.multiResolve(false) }

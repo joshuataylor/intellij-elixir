@@ -2,9 +2,9 @@ package org.elixir_lang.annotator
 
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.lang.injection.InjectedLanguageManager
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.ElixirFileType
 import org.elixir_lang.ElixirLanguage
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import org.elixir_lang.language_level.elixir
@@ -13,7 +13,7 @@ import org.elixir_lang.language_level.elixir
  * Syntax that some Elixir releases reject and others accept. Outcomes were taken from `Code.string_to_quoted/1` on every
  * release from 1.11.4 to 1.20.4, and each message from the release it is asserted on.
  */
-class VersionedSyntaxTest : BasePlatformTestCase() {
+class VersionedSyntaxTest : LightTestCase() {
     private var files = 0
 
     override fun tearDown() {

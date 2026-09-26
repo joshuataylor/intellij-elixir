@@ -26,7 +26,7 @@ import java.util.concurrent.Callable
 class ElixirBuildInfoSweepTest : PlatformTestCase() {
 
     fun testResolvedElixirSdkReportsItsOtpMajor() {
-        val elixirHome = requireEnv("ELIXIR_LANG_ELIXIR_PATH")
+        val elixirHome = elixirPath()
 
         // elixirOtpRelease's contract is a canonical home, and every production caller passes one.
         val otpMajor = onBackgroundThread { ElixirBuildInfo.elixirOtpRelease(wslCompat.canonicalizePath(elixirHome)) }
@@ -58,13 +58,13 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
      * nothing read at all.
      */
     fun testDetectOtpMismatch_comparesWhatFillingReadFromTheBeam() {
-        val elixirHome = requireEnv("ELIXIR_LANG_ELIXIR_PATH")
+        val elixirHome = elixirPath()
 
         val erlangHome = FileUtil.createTempDirectory("erlang_home_synthetic", null)
         try {
-            val releaseDir = File(erlangHome, "releases/$IMPOSSIBLE_OTP_MAJOR")
+            val releaseDir = File(erlangHome, "releases/$impossibleOtpMajor")
             assertTrue(releaseDir.mkdirs())
-            File(releaseDir, "OTP_VERSION").writeText("$IMPOSSIBLE_OTP_MAJOR.0\n")
+            File(releaseDir, "OTP_VERSION").writeText("$impossibleOtpMajor.0\n")
 
             val elixirOtpMajor = onBackgroundThread {
                 ElixirBuildInfo.elixirOtpRelease(wslCompat.canonicalizePath(elixirHome))
@@ -73,7 +73,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
 
             assertFalse(
                 "the synthetic Erlang major must not collide with the real Elixir one",
-                elixirOtpMajor == IMPOSSIBLE_OTP_MAJOR,
+                elixirOtpMajor == impossibleOtpMajor,
             )
 
             runSuspendOnPooledThread {
@@ -83,7 +83,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
 
             assertEquals(
                 "the Elixir side must be the major read from its BEAM",
-                elixirOtpMajor to IMPOSSIBLE_OTP_MAJOR,
+                elixirOtpMajor to impossibleOtpMajor,
                 ElixirSdkValidation.detectOtpMismatch(elixirHome, erlangHome.path),
             )
         } finally {
@@ -102,7 +102,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
      * drop the code chunk drops that too, and no BEAM on disk is missing either.
      */
     fun testElixirOtpRelease_declinesOnATruncatedBeam() {
-        val source = File(requireEnv("ELIXIR_LANG_ELIXIR_PATH"), "lib/elixir/ebin/Elixir.System.beam")
+        val source = File(elixirPath(), "lib/elixir/ebin/Elixir.System.beam")
         val home = FileUtil.createTempDirectory("elixir_home_truncated", null)
         try {
             val beam = File(home, "lib/elixir/ebin/Elixir.System.beam")
@@ -110,8 +110,8 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
 
             beam.writeBytes(source.readBytes().copyOf(12))
 
-            // Unwrapped on purpose: LoggedErrorProcessor rethrows by default, so an error
-            // logged on this path fails the test rather than being collected and ignored.
+            // Unwrapped on purpose: an error logged on this path fails the test as an unexpected log
+            // rather than being collected and ignored.
             val truncated = onBackgroundThread { ElixirBuildInfo.elixirOtpRelease(home.path) }
             assertNull("a BEAM with no chunks cannot report a major", truncated)
 
@@ -128,7 +128,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
 
     /** `BeamReader.readResult` returns null for bytes that are not a BEAM rather than throwing. */
     fun testElixirOtpRelease_declinesOnAParseFailure() {
-        val source = File(requireEnv("ELIXIR_LANG_ELIXIR_PATH"), "lib/elixir/ebin/Elixir.System.beam")
+        val source = File(elixirPath(), "lib/elixir/ebin/Elixir.System.beam")
         val home = FileUtil.createTempDirectory("elixir_home_corrupt", null)
         try {
             val beam = File(home, "lib/elixir/ebin/Elixir.System.beam")
@@ -137,8 +137,8 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
             // Readable bytes that are not a BEAM: readBytes succeeds and BeamReader.readResult returns null.
             beam.writeBytes(ByteArray(64))
 
-            // Unwrapped on purpose: LoggedErrorProcessor rethrows by default, so an error
-            // logged on this path fails the test rather than being collected and ignored.
+            // Unwrapped on purpose: an error logged on this path fails the test as an unexpected log
+            // rather than being collected and ignored.
             val corrupt = onBackgroundThread { ElixirBuildInfo.elixirOtpRelease(home.path) }
             assertNull("a BEAM that does not parse cannot report a major", corrupt)
 
@@ -155,7 +155,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
 
     /** Cut inside the literal table, after the atom and code chunks it needs have landed. */
     fun testElixirOtpRelease_declinesOnABeamCutOffInsideItsLiterals() {
-        val source = File(requireEnv("ELIXIR_LANG_ELIXIR_PATH"), "lib/elixir/ebin/Elixir.System.beam")
+        val source = File(elixirPath(), "lib/elixir/ebin/Elixir.System.beam")
         val home = FileUtil.createTempDirectory("elixir_home_cut_literals", null)
         try {
             val beam = File(home, "lib/elixir/ebin/Elixir.System.beam")
@@ -181,7 +181,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
 
     /** Literals that do not decode are corruption, not a module without `otp_release`. */
     fun testElixirOtpRelease_declinesOnACorruptLiteralTable() {
-        val source = File(requireEnv("ELIXIR_LANG_ELIXIR_PATH"), "lib/elixir/ebin/Elixir.System.beam")
+        val source = File(elixirPath(), "lib/elixir/ebin/Elixir.System.beam")
         val home = FileUtil.createTempDirectory("elixir_home_corrupt_literals", null)
         try {
             val beam = File(home, "lib/elixir/ebin/Elixir.System.beam")
@@ -204,7 +204,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
     }
 
     fun testElixirOtpRelease_declinesOnAReadFailure() {
-        val source = File(requireEnv("ELIXIR_LANG_ELIXIR_PATH"), "lib/elixir/ebin/Elixir.System.beam")
+        val source = File(elixirPath(), "lib/elixir/ebin/Elixir.System.beam")
         val home = FileUtil.createTempDirectory("elixir_home_failure", null)
         try {
             val beam = File(home, "lib/elixir/ebin/Elixir.System.beam")
@@ -214,8 +214,8 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
             // than a parsed absence.
             assertTrue(beam.mkdir())
 
-            // Unwrapped on purpose: LoggedErrorProcessor rethrows by default, so an error
-            // logged on this path fails the test rather than being collected and ignored.
+            // Unwrapped on purpose: an error logged on this path fails the test as an unexpected log
+            // rather than being collected and ignored.
             val first = onBackgroundThread { ElixirBuildInfo.elixirOtpRelease(home.path) }
             assertNull("an unreadable BEAM cannot report a major", first)
 
@@ -232,7 +232,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
     }
 
     /** No OTP release will ever carry this major, so a mismatch is guaranteed. */
-    private val IMPOSSIBLE_OTP_MAJOR = "9001"
+    private val impossibleOtpMajor = "9001"
 
     /**
      * A chunk the parsers cannot name must decline, not throw. `Operation.from` throws on any opcode
@@ -240,12 +240,12 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
      * turn every `Elixir.System.beam` into an error report.
      */
     fun testElixirOtpRelease_declinesOnAnOpcodeItCannotName() {
-        val source = File(requireEnv("ELIXIR_LANG_ELIXIR_PATH"), "lib/elixir/ebin/Elixir.System.beam")
+        val source = File(elixirPath(), "lib/elixir/ebin/Elixir.System.beam")
         val home = FileUtil.createTempDirectory("elixir_home_future_opcode", null)
         try {
             val beam = File(home, "lib/elixir/ebin/Elixir.System.beam")
             assertTrue(beam.parentFile.mkdirs())
-            beam.writeBytes(withFirstInstructionOpcode(source.readBytes(), opcode = 200))
+            beam.writeBytes(withUnnamedFirstOpcode(source.readBytes()))
 
             assertNull(
                 "an opcode we cannot name is a BEAM we cannot read, not a crash",
@@ -257,10 +257,10 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
     }
 
     /**
-     * Overwrites the first instruction byte of the `Code` chunk. Its data starts with five unsigned
-     * ints - sub-size, version, max opcode, label count, function count - and the instructions follow.
+     * Overwrites the first instruction byte of the `Code` chunk with opcode 200. Its data starts with five
+     * unsigned ints - sub-size, version, max opcode, label count, function count - and the instructions follow.
      */
-    private fun withFirstInstructionOpcode(content: ByteArray, opcode: Int): ByteArray {
+    private fun withUnnamedFirstOpcode(content: ByteArray): ByteArray {
         val patched = content.copyOf()
         var offset = 12
 
@@ -270,7 +270,7 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
             val data = offset + 8
 
             if (id == "Code") {
-                patched[data + 20] = opcode.toByte()
+                patched[data + 20] = 200.toByte()
                 return patched
             }
 
@@ -280,8 +280,8 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
         throw AssertionError("no Code chunk in the BEAM under test")
     }
 
-    private fun requireEnv(name: String): String =
-        System.getenv(name).also { assertNotNull("$name not set for the test JVM", it) }!!
+    private fun elixirPath(): String =
+        System.getenv("ELIXIR_LANG_ELIXIR_PATH").also { assertNotNull("ELIXIR_LANG_ELIXIR_PATH not set for the test JVM", it) }!!
 
     private fun <T> onBackgroundThread(block: () -> T): T =
         ApplicationManager.getApplication().executeOnPooledThread(Callable { block() }).get()

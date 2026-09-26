@@ -2,10 +2,15 @@ package org.elixir_lang.intellij_elixir
 
 import com.ericsson.otp.erlang.OtpErlangBinary
 import com.ericsson.otp.erlang.OtpErlangTuple
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.junit.Assert.assertEquals
+import org.junit.Rule
 import org.junit.Test
 
 class QuoterTest {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     @Test
     fun `a binary error message is the whole message`() {
         assertEquals(

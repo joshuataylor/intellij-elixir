@@ -23,13 +23,13 @@ object ErlangSdkTableListener {
     }
 
     private fun cleanupProjectReferences(deletedSdk: Sdk) {
-        LOGGER.warn("Erlang SDK removed: ${deletedSdk.name}, cleaning up project references")
+        LOGGER.info("Erlang SDK removed: ${deletedSdk.name}, cleaning up project references")
         com.intellij.openapi.project.ProjectManager.getInstance().openProjects.forEach { project ->
             val projectRootManager = ProjectRootManager.getInstance(project)
             if (projectRootManager.projectSdk == deletedSdk) {
                 WriteActions.runWriteActionLater {
                     projectRootManager.projectSdk = null
-                    LOGGER.warn("Cleared removed Erlang SDK '${deletedSdk.name}' from project '${project.name}'")
+                    LOGGER.info("Cleared removed Erlang SDK '${deletedSdk.name}' from project '${project.name}'")
                 }
             }
         }

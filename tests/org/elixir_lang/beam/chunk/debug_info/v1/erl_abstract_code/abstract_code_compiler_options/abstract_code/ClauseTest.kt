@@ -5,9 +5,9 @@ import com.ericsson.otp.erlang.OtpErlangList
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class ClauseTest : TestCase() {
+class ClauseTest : UnitTestCase() {
 
     /**
      * Erlang: `fun() when N =:= 16 -> ok end`
@@ -37,7 +37,7 @@ class ClauseTest : TestCase() {
             tuple(OtpErlangAtom("atom"), line, OtpErlangAtom("ok"))
         ))
 
-        // Clause: {clause, 1, [], Guard, Body}  — zero patterns, guard present
+        // Clause: {clause, 1, [], Guard, Body}  - zero patterns, guard present
         val clause = tuple(
             OtpErlangAtom("clause"), line,
             OtpErlangList(arrayOf<OtpErlangObject>()),  // empty pattern list
@@ -75,7 +75,7 @@ class ClauseTest : TestCase() {
             tuple(OtpErlangAtom("atom"), line, OtpErlangAtom("ok"))
         ))
 
-        // Clause: {clause, 1, [], [], Body}  — zero patterns, no guard
+        // Clause: {clause, 1, [], [], Body}  - zero patterns, no guard
         val clause = tuple(
             OtpErlangAtom("clause"), line,
             OtpErlangList(arrayOf<OtpErlangObject>()),  // empty pattern list
@@ -96,7 +96,7 @@ class ClauseTest : TestCase() {
      * Erlang: `fun(X) when X > 0 -> ok end`
      * A single-argument clause with a guard.
      *
-     * Expected: patterns present, so no extra `()` wrapping — just `x when x > 0 ->`.
+     * Expected: patterns present, so no extra `()` wrapping - just `x when x > 0 ->`.
      */
     fun testSingleArgClauseWithGuardDoesNotAddExtraParentheses() {
         val line = OtpErlangLong(1)

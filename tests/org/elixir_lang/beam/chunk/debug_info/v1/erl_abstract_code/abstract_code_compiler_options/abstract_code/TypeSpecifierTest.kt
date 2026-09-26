@@ -4,10 +4,10 @@ import com.ericsson.otp.erlang.OtpErlangAtom
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
-import junit.framework.TestCase
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.bin_element.TypeSpecifier
+import org.elixir_lang.junit.UnitTestCase
 
-class TypeSpecifierTest : TestCase() {
+class TypeSpecifierTest : UnitTestCase() {
     fun testRendersVariableWidthAsSizeCall() {
         val typeSpecifier = tuple(
             OtpErlangAtom("size"),

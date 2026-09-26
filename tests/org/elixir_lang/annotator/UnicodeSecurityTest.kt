@@ -7,10 +7,10 @@ import com.intellij.lang.injection.MultiHostRegistrar
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiLanguageInjectionHost
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.ElixirFileType
 import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.injection.ElixirSigilInjector
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.psi.SigilLine
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
@@ -21,7 +21,7 @@ import org.elixir_lang.settings.ElixirExperimentalSettings
  * Expected outcomes were measured by running `Code.string_to_quoted/1` on every release from 1.12 to 1.20; a case whose
  * outcome changed runs on the language levels either side of that release.
  */
-class UnicodeSecurityTest : BasePlatformTestCase() {
+class UnicodeSecurityTest : LightTestCase() {
     override fun tearDown() {
         try {
             ElixirLanguageLevelResolver.overrideLanguageLevel(project, null)

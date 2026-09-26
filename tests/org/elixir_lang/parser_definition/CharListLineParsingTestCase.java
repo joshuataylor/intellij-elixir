@@ -11,7 +11,7 @@ public class CharListLineParsingTestCase extends ParsingTestCase {
     }
 
     public void testEmptyUnicodeEscapeSequence() {
-        assertParsedAndQuotedAroundErrorOrRaise(ElixirLanguageLevel.of("1.12.0"), "Elixir.ArgumentError");
+        assertParsedAndQuotedAroundErrorOrRaise(ElixirLanguageLevel.of("1.12.0"), "Elixir.ArgumentError", true);
     }
 
     public void testEnclosedHexEscapeSequence() {

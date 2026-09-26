@@ -1,9 +1,9 @@
 package org.elixir_lang.beam.chunk.beam_documentation
 
 import com.ericsson.otp.erlang.*
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class ErlangHtmlRendererTest : TestCase() {
+class ErlangHtmlRendererTest : UnitTestCase() {
 
     // Helper to build {Tag, Attrs, Children} tuples
     private fun el(tag: String, children: Array<OtpErlangObject>, attrs: Array<OtpErlangObject> = emptyArray()) =

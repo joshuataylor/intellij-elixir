@@ -5,12 +5,12 @@ import com.ericsson.otp.erlang.OtpErlangList
 import com.ericsson.otp.erlang.OtpErlangLong
 import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangTuple
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class MapTest : TestCase() {
+class MapTest : UnitTestCase() {
 
     /**
-     * Erlang: `#{Var | Key => Value}` — a map update with one association.
+     * Erlang: `#{Var | Key => Value}` - a map update with one association.
      * Expected Elixir: `%{var | key => value}`
      */
     fun testUpdateWithAssociationsRendersMapUpdate() {
@@ -37,7 +37,7 @@ class MapTest : TestCase() {
     }
 
     /**
-     * Erlang: `#{Var | }` — a map update with an empty association list.
+     * Erlang: `#{Var | }` - a map update with an empty association list.
      * This is valid Erlang abstract code but `%{stat | }` is a syntax error in Elixir.
      * Expected: the source expression only (no `%{... | }`).
      */
@@ -54,14 +54,14 @@ class MapTest : TestCase() {
 
         val result = Map.toMacroStringDeclaredScope(mapUpdate, Scope.EMPTY).macroString.string
 
-        // Must NOT contain the pipe operator — that would produce `%{stat | }` which is invalid Elixir
+        // Must NOT contain the pipe operator - that would produce `%{stat | }` which is invalid Elixir
         assertFalse("Should not contain '|' for empty associations, got: $result", result.contains("|"))
         // Must NOT contain `%{` wrapper since there are no associations to update
         assertFalse("Should not contain '%{' for empty associations, got: $result", result.startsWith("%{"))
     }
 
     /**
-     * Erlang: `#{}` — a map construction with no associations.
+     * Erlang: `#{}` - a map construction with no associations.
      * Expected Elixir: `%{}`
      */
     fun testConstructionWithEmptyAssociationsRendersEmptyMap() {

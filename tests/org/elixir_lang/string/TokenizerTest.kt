@@ -1,23 +1,22 @@
 package org.elixir_lang.string
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class TokenizerTest : TestCase() {
+class TokenizerTest : UnitTestCase() {
     fun testStartsWithDigit() {
         assertEquals(Tokenizer.Tokenized.Empty, Tokenizer.tokenize("4k"))
     }
 
     fun testContainsHyphen() {
-        assertEquals(
-                Tokenizer.Tokenized.Kind(
-                        kind = Tokenizer.Kind.IDENTIFIER,
-                        acc = "csrf",
-                        rest = "-params",
-                        allAscii = true,
-                        special = emptySet()
-                ),
-                Tokenizer.tokenize("csrf-params"),
+        val expected = Tokenizer.Tokenized.Kind(
+                kind = Tokenizer.Kind.IDENTIFIER,
+                acc = "csrf",
+                rest = "-params",
+                allAscii = true,
+                special = emptySet()
         )
+
+        assertEquals(expected, Tokenizer.tokenize("csrf-params"))
     }
 
     // https://github.com/elixir-lang/elixir/blob/58518794306c70204de14f9ed214fb7f296769d9/lib/elixir/test/elixir/kernel/string_tokenizer_test.exs#L21-L40

@@ -18,8 +18,8 @@ import java.io.File
 class UnquoteCallbackNamedVariableTest : PlatformTestCase() {
 
     private fun testNoErrorLogged(fixtureDir: String, fixtureFile: String, displayName: String) {
-        // suppress = false keeps the default RETHROW, so any logged error fails the test outright;
-        // the captured list only sharpens the message for the one this is actually about.
+        // suppress = false leaves any logged error failing the test; the captured list only sharpens
+        // the message for the one this is actually about.
         val (_, loggedErrors) = captureLoggedErrors(suppress = false) {
             val testFile = File("testData/org/elixir_lang/reference/callable/$fixtureDir", fixtureFile)
             val content = testFile.readText()

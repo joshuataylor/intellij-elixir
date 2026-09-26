@@ -1,6 +1,6 @@
 package org.elixir_lang.psi.walk
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 import org.elixir_lang.psi.Destructure
 import org.elixir_lang.psi.ElixirAnonymousFunction
 import org.elixir_lang.psi.ElixirBlockItem
@@ -29,7 +29,7 @@ import org.elixir_lang.reference.VariableUseScopeWalk
 import org.elixir_lang.reference.VariableWalk
 
 /** Holds each walk's [Classifier] against the grammar, so a new rule fails here until it is given a bucket. */
-class ShapeCoverageTest : TestCase() {
+class ShapeCoverageTest : UnitTestCase() {
     fun testTheVisitorEnumeratesTheGeneratedSurface() {
         val shapes = GrammarShapes.CONCRETE
 

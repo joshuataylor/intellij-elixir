@@ -1,12 +1,12 @@
 package org.elixir_lang.settings
 
 import com.intellij.openapi.options.Configurable
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.facet.configurable.Project
 import org.elixir_lang.facet.configurable.RichPlatformTopLevelElixirConfigurableFactory
 import org.elixir_lang.facet.configurable.SmallIdeTopLevelElixirConfigurableFactory
+import org.elixir_lang.junit.LightTestCase
 
-class ExperimentalSettingsPageTest : BasePlatformTestCase() {
+class ExperimentalSettingsPageTest : LightTestCase() {
     fun testTheExperimentalSettingsAreAChildPageOfElixirInEveryIde() {
         val page = Configurable.APPLICATION_CONFIGURABLE.extensionList.singleOrNull { it.id == "language.elixir.experimental" }
 

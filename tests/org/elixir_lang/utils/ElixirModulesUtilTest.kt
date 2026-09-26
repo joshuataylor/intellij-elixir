@@ -1,8 +1,8 @@
 package org.elixir_lang.utils
 
-import junit.framework.TestCase
+import org.elixir_lang.junit.UnitTestCase
 
-class ElixirModulesUtilTest : TestCase() {
+class ElixirModulesUtilTest : UnitTestCase() {
     fun testValidElixirModuleName() {
         assertEquals("Benchfella", ElixirModulesUtil.erlangModuleNameToElixir("Elixir.Benchfella"))
     }
@@ -13,7 +13,7 @@ class ElixirModulesUtilTest : TestCase() {
 
     fun testAtomWithColonAfterElixirPrefix() {
         // @bench_tab :"#{__MODULE__}:tests" produces atom 'Elixir.Benchfella:tests'
-        // This is NOT a valid alias — must be rendered as a quoted atom
+        // This is NOT a valid alias - must be rendered as a quoted atom
         assertEquals(":\"Benchfella:tests\"", ElixirModulesUtil.erlangModuleNameToElixir("Elixir.Benchfella:tests"))
     }
 

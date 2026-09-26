@@ -11,9 +11,9 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VfsUtil
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.testFramework.HeavyPlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.common.runAll
+import org.elixir_lang.junit.HeavyTestCase
 import java.io.File
 import java.util.concurrent.Callable
 
@@ -36,7 +36,7 @@ import java.util.concurrent.Callable
  * - Invalid entries without the `name \[url\]` scoped-name shape (e.g. user-created libraries)
  *   are never touched ([testUnscopedInvalidEntryIsPreserved]).
  */
-class MixDepsSyncServicePruneStaleEntriesHeavyTest : HeavyPlatformTestCase() {
+class MixDepsSyncServicePruneStaleEntriesHeavyTest : HeavyTestCase() {
 
     private lateinit var rootVf: VirtualFile
     private lateinit var rootMixExs: VirtualFile

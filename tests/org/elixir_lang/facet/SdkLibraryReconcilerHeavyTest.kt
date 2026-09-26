@@ -13,7 +13,9 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.testFramework.HeavyPlatformTestCase
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.common.runAll
+import com.intellij.util.concurrency.annotations.RequiresEdt
 import org.elixir_lang.Facet
+import org.elixir_lang.junit.HeavyTestCase
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import java.io.File
@@ -34,7 +36,7 @@ import java.io.File
  * [com.intellij.openapi.roots.ModifiableRootModel], passes this too, while completion in a real IDE
  * finds nothing. Nothing in either fixture separates those, so that half rests on the sandbox.
  */
-class SdkLibraryReconcilerHeavyTest : HeavyPlatformTestCase() {
+class SdkLibraryReconcilerHeavyTest : HeavyTestCase() {
 
     private val added = mutableListOf<Sdk>()
 
@@ -52,6 +54,9 @@ class SdkLibraryReconcilerHeavyTest : HeavyPlatformTestCase() {
         )
     }
 
+    // The .iml is what the repair must reach, and only Module.getModuleFilePath names it.
+    @Suppress("UnstableApiUsage")
+    @RequiresEdt
     fun testRepairIsWrittenToTheModuleFile() {
         val sdkHome = createTempDir("elixir_sdk_home")
         val ebin = File(sdkHome, "lib/elixir/ebin").apply { mkdirs() }

@@ -50,7 +50,9 @@ import sdk.quoterReleaseExecutablePath
 import sdk.resolveMixEnv
 import sdk.versionWithoutBuildTag
 import sdk.elixirTestEnvironment
+import testing.CheckUnexpectedLogs
 import testing.recordTimeline
+import testing.reportUnexpectedLogs
 import testing.runInForks
 import testing.TestProgress
 import versioning.ChangelogSettings
@@ -747,6 +749,8 @@ dependencies {
     junit5("org.junit.platform:junit-platform-launcher")
     // Runs the JUnit 3 and 4 tests on the JUnit Platform.
     junit5("org.junit.vintage:junit-vintage-engine")
+    // For Jupiter tests, which `org.elixir_lang.junit.logs` already covers.
+    junit5("org.junit.jupiter:junit-jupiter")
 
 }
 
@@ -1069,6 +1073,17 @@ allprojects {
     }
 }
 
+// `-PunexpectedLogs=report` lists the logs no test was failed for instead of failing the build on them.
+val unexpectedLogsMode: String = providers.gradleProperty("unexpectedLogs").orElse("fail").get()
+val unexpectedLogsDir: File = layout.buildDirectory.dir("unexpected-logs").get().asFile
+
+val checkUnexpectedLogs = tasks.register<CheckUnexpectedLogs>("checkUnexpectedLogs") {
+    description = "Fails on the warnings and errors that the test JVMs could not fail a test for"
+    group = "verification"
+    mode = unexpectedLogsMode
+    reportDir = unexpectedLogsDir
+}
+
 // On Windows the bundled IJent plugin routes every `\\wsl$` and `\\wsl.localhost` path through an agent it deploys
 // into the named distribution. The tests' distributions exist on no machine, so each deploy fails, asynchronously,
 // into whichever test is running. A task for tests that need real WSL can leave it on.
@@ -1152,6 +1167,8 @@ tasks.named<Test>("test") {
     )
     addTestListener(TestProgress(every = 1000))
     providers.gradleProperty("testTimeline").orNull?.let { recordTimeline(layout.projectDirectory.file(it).asFile) }
+
+    reportUnexpectedLogs(unexpectedLogsDir, unexpectedLogsMode, checkUnexpectedLogs)
 
     // Add Mockito as javaagent to avoid dynamic loading warnings (root project only)
     jvmArgs("-javaagent:${mockitoAgent.asPath}")

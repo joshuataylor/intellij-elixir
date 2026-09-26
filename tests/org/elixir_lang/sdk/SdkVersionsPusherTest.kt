@@ -16,11 +16,11 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.testFramework.DumbModeTestUtils
-import com.intellij.testFramework.HeavyPlatformTestCase
 import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.PsiTestUtil
 import com.intellij.testFramework.LightVirtualFile
 import org.elixir_lang.ElixirLanguage
+import org.elixir_lang.junit.HeavyTestCase
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.Facet
 import org.elixir_lang.facet.Type
@@ -33,7 +33,7 @@ import java.io.File
 import java.util.concurrent.Callable
 
 @Suppress("UnstableApiUsage")
-class SdkVersionsPusherTest : HeavyPlatformTestCase() {
+class SdkVersionsPusherTest : HeavyTestCase() {
     private val pusher = SdkVersionsPusher()
 
     override fun setUp() {

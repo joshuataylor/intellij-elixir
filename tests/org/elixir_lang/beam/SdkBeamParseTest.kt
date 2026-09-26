@@ -1,9 +1,11 @@
 package org.elixir_lang.beam
 
 import org.elixir_lang.beam.chunk.CallDefinitions.Companion.macroNameAritySortedSetByMacro
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -24,6 +26,9 @@ class SdkBeamParseTest(
     @Suppress("unused") private val label: String,
     private val beamFile: File,
 ) {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     @Test
     fun parses() {
         val read = BeamReader.readResult(beamFile.readBytes(), beamFile.path) { reader ->

@@ -1,6 +1,6 @@
 package org.elixir_lang.structure_view.element
 
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.structure_view.element.Delegation.Companion.callDefinitionHeadCallList
@@ -8,7 +8,7 @@ import com.intellij.psi.util.PsiTreeUtil
 
 // If Delegation.is accepts a call, reading its head list must not throw - callDefinitionHeadCallList()
 // is also on the variable-resolution path, not just the structure view.
-class DelegationShapeTest : BasePlatformTestCase() {
+class DelegationShapeTest : LightTestCase() {
     private data class Shape(val label: String, val source: String)
 
     private fun failureFor(shape: Shape): String? {

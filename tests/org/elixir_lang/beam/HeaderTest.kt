@@ -37,8 +37,8 @@ class HeaderTest : PlatformTestCase() {
 
     /**
      * [PlatformTestCase.captureLoggedErrors] is what makes "logged nothing" assertable rather than
-     * merely unobserved: its default action set rethrows, so an error logged here would fail the test
-     * on the error itself. Capturing turns that into an assertion that can name what was logged.
+     * merely unobserved: uncaptured, an error logged here would fail the test as an unexpected log.
+     * Capturing turns that into an assertion that can name what was logged.
      */
     private fun assertRejectedSilently(content: ByteArray, path: String) {
         val (read, errors) = captureLoggedErrors { BeamReader.read(content, path) { true } }

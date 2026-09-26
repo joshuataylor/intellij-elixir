@@ -5,7 +5,7 @@ import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.TokenType
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import org.elixir_lang.language_level.elixir
@@ -14,7 +14,7 @@ import org.elixir_lang.language_level.elixir
  * Expected messages were taken from `Code.string_to_quoted/1` on 1.11.4, 1.12.3, 1.19.5 and 1.20.4, and for sigils from
  * `Code.eval_string/1`, since the sigil macros unescape.
  */
-class InvalidEscapeTest : BasePlatformTestCase() {
+class InvalidEscapeTest : LightTestCase() {
     private var files = 0
 
     override fun tearDown() {

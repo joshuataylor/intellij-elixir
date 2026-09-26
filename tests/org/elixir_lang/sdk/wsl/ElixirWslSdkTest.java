@@ -397,11 +397,7 @@ public class ElixirWslSdkTest extends PlatformTestCase {
 
         // Test local path - should NOT include WSL suffix
         String localPath = "/usr/lib/erlang";
-        kotlin.Pair<String, String> localResult = captureLoggedWarning(
-                "org.elixir_lang.sdk.erlang.ErlangVersionDetector",
-                () -> erlangSdkType.suggestSdkName(null, localPath)
-        );
-        String localName = localResult.getFirst();
+        String localName = erlangSdkType.suggestSdkName(null, localPath);
         assertFalse("Erlang SDK name should NOT contain 'WSL:' for local paths",
             localName.contains("WSL:"));
     }
@@ -424,17 +420,6 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         // Both should be formatted as "(WSL: ...)"
         assertTrue("Elixir SDK should use '(WSL:' format", elixirName.contains("(WSL:"));
         assertTrue("Erlang SDK should use '(WSL:' format", erlangName.contains("(WSL:"));
-
-        // A home with no Erlang in it is reported; a local path, so reading it does not reach WSL.
-        String missingHome = new java.io.File(getTestDataPath(), "no-erlang-here").getAbsolutePath();
-        String warning = captureLoggedWarning(
-            "org.elixir_lang.sdk.erlang.ErlangVersionDetector",
-            () -> erlangSdkType.suggestSdkName(null, missingHome)
-        ).getSecond();
-        assertNotNull("Expected warning about missing Erlang executable", warning);
-        assertTrue("Warning should mention 'Can't detect Erlang version'",
-                   warning.contains("Can't detect Erlang version"));
-        assertTrue("Warning should mention 'is missing'", warning.contains("is missing"));
     }
 
     /**

@@ -3,8 +3,8 @@ package org.elixir_lang.cli
 import com.intellij.execution.wsl.WSLUtil
 import com.intellij.execution.wsl.WslPath
 import com.intellij.util.system.OS
-import junit.framework.TestCase
 import org.elixir_lang.jps.shared.cli.CliTool
+import org.elixir_lang.junit.UnitTestCase
 
 /**
  * Pins [getExecutableFilepathWslSafe], the one place SDK home validation is WSL-aware.
@@ -28,7 +28,7 @@ import org.elixir_lang.jps.shared.cli.CliTool
  * Note the production call reaches `WslPath` directly rather than through `WslCompatService`, so the
  * suite's `MockWslCompatService` does not reach it.
  */
-class CliToolWslSafeTest : TestCase() {
+class CliToolWslSafeTest : UnitTestCase() {
     private var systemCompatible = false
 
     override fun setUp() {

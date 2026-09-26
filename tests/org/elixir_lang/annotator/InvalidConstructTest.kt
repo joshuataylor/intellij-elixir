@@ -2,9 +2,9 @@ package org.elixir_lang.annotator
 
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.lang.injection.InjectedLanguageManager
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.ElixirFileType
 import org.elixir_lang.ElixirLanguage
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import org.elixir_lang.language_level.elixir
@@ -12,7 +12,7 @@ import org.elixir_lang.language_level.elixir
 /**
  * Expected messages were taken from `Code.string_to_quoted/1` on 1.11.4, 1.12.3, 1.14.5, 1.15.8, 1.19.5 and 1.20.4.
  */
-class InvalidConstructTest : BasePlatformTestCase() {
+class InvalidConstructTest : LightTestCase() {
     override fun tearDown() {
         try {
             ElixirLanguageLevelResolver.overrideLanguageLevel(project, null)

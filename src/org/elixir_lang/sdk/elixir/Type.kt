@@ -26,7 +26,7 @@ import java.nio.file.Path
 import javax.swing.Icon
 
 
-class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.ELIXIR_SDK_TYPE_ID) {
+internal class Type : org.elixir_lang.sdk.erlang_dependent.Type(ElixirSdkTypeId.ELIXIR_SDK_TYPE_ID) {
     /**
      * @param homePath the path selected in the file chooser.
      * @return the path to be used as the SDK home.
@@ -328,10 +328,10 @@ ELIXIR_SDK_HOME
                 return
             }
 
-            LOG.warn("Erlang SDK '$deletedName' was deleted and is referenced by ${orphanedElixirSdks.size} Elixir SDK(s)")
-            orphanedElixirSdks.forEach {
-                LOG.warn("Elixir SDK '${it.name}' references deleted Erlang SDK '$deletedName'")
-            }
+            LOG.info(
+                "Erlang SDK '$deletedName' was deleted and is referenced by Elixir SDK(s) " +
+                    orphanedElixirSdks.joinToString { "'${it.name}'" }
+            )
 
             // Show warning notification instructing user to reconfigure
             ApplicationManager.getApplication().invokeLater {

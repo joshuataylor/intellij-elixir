@@ -5,12 +5,12 @@ import com.intellij.facet.FacetType
 import com.intellij.facet.impl.FacetUtil
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.roots.ModuleRootManager
-import com.intellij.testFramework.HeavyPlatformTestCase
 import org.elixir_lang.Facet
 import org.elixir_lang.facet.Type
+import org.elixir_lang.junit.HeavyTestCase
 import org.elixir_lang.sdk.SdkFixtures
 
-class ToolManagerSdkAssignmentTest : HeavyPlatformTestCase() {
+class ToolManagerSdkAssignmentTest : HeavyTestCase() {
     private val checker get() = ToolManagerSdkChecker(project, emptyList(), ToolManagerSettings())
 
     private fun sdk(name: String) = SdkFixtures.register(SdkFixtures.elixirSdk(name, "/fake/elixir/$name"), testRootDisposable)

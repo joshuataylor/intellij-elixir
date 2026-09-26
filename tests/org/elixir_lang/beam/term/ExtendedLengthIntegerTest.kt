@@ -1,6 +1,8 @@
 package org.elixir_lang.beam.term
 
+import org.elixir_lang.junit.logs.UnexpectedLogsRule
 import org.junit.Assert.assertEquals
+import org.junit.Rule
 import org.junit.Test
 
 /**
@@ -21,6 +23,9 @@ import org.junit.Test
  * form, bit 4 set leaves the 11-bit form, and bits 7-5 `111` selects the escape.
  */
 class ExtendedLengthIntegerTest {
+    @get:Rule
+    val unexpectedLogs = UnexpectedLogsRule()
+
     private val extendedLengthIntegerTag = 0b1111_1001.toByte()
 
     /** A nested length term of `0x00` is `{u, 0}`, so the integer is 9 bytes, not 0. */

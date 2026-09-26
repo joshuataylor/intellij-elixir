@@ -5,9 +5,11 @@ import com.intellij.lang.ParserDefinition;
 import com.intellij.openapi.util.text.LineColumn;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.*;
+import com.intellij.util.ThrowableRunnable;
 import org.elixir_lang.ElixirLanguage;
 import org.elixir_lang.ElixirParserDefinition;
 import org.elixir_lang.intellij_elixir.Quoter;
+import org.elixir_lang.junit.logs.UnexpectedLogs;
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil;
 import org.elixir_lang.language_level.ElixirLanguageLevel;
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver;
@@ -33,12 +35,12 @@ public abstract class ParsingTestCase extends com.intellij.testFramework.Parsing
      * Quotes in the language level of the Elixir the reference quoter is running, so both sides of
      * {@link #assertQuotedCorrectly()} speak the same version.
      *
-     * These are light fixtures with no Elixir SDK, so production resolution would reach
+     * <p>These are light fixtures with no Elixir SDK, so production resolution would reach
      * {@link ElixirLanguageLevel#getFALLBACK()} on every CI leg and every leg would compare against the same
      * language level however old the Elixir it ran. {@code ELIXIR_VERSION} is exported to the test JVM by
      * the build, from the SDK it resolved - the same SDK the quoter was built against.
      *
-     * Absent - running a test straight from the IDE, outside the build's environment -
+     * <p>Absent - running a test straight from the IDE, outside the build's environment -
      * {@link ElixirLanguageLevel#of} answers {@link ElixirLanguageLevel#getFALLBACK()}, which is what production
      * resolves to when no Elixir SDK is configured.
      *
@@ -144,13 +146,6 @@ public abstract class ParsingTestCase extends com.intellij.testFramework.Parsing
      */
     protected void assertParsedAndQuotedAroundErrorOrRaise(
             ElixirLanguageLevel languageLevel,
-            String expectedException
-    ) {
-        assertParsedAndQuotedAroundErrorOrRaise(languageLevel, expectedException, true);
-    }
-
-    protected void assertParsedAndQuotedAroundErrorOrRaise(
-            ElixirLanguageLevel languageLevel,
             String expectedException,
             boolean checkResult
     ) {
@@ -234,7 +229,7 @@ public abstract class ParsingTestCase extends com.intellij.testFramework.Parsing
         List<PsiElement> errorElementList = localErrors();
 
         if (!errorElementList.isEmpty()) {
-            PsiErrorElement first = (PsiErrorElement) errorElementList.get(0);
+            PsiErrorElement first = (PsiErrorElement) errorElementList.getFirst();
             LineColumn lineColumn = StringUtil.offsetToLineColumn(myFile.getText(), first.getTextOffset());
 
             fail(errorElementList.size() + " PsiErrorElements found in parsed file PSI, the first on line " +
@@ -273,4 +268,8 @@ public abstract class ParsingTestCase extends com.intellij.testFramework.Parsing
         return true;
     }
 
+    @Override
+    protected void runBare(@NotNull ThrowableRunnable<Throwable> testRunnable) throws Throwable {
+        UnexpectedLogs.failOnUnexpectedLogs(() -> super.runBare(testRunnable));
+    }
 }

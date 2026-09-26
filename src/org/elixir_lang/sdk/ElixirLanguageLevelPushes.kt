@@ -82,8 +82,8 @@ internal class ElixirLanguageLevelPushes(private val project: Project, private v
     @Suppress("UnstableApiUsage")
     fun isStale(): Boolean {
         ThreadingAssertions.assertReadAccess()
-
-        return ModuleManager.getInstance(project).modules
+        // A request can be waiting for smart mode while the project closes.
+        return !project.isDisposed && ModuleManager.getInstance(project).modules
             .filter { module -> module.isElixirModule() }
             .any { module ->
                 val versions = PushedVersions.versionsOf(module) ?: return@any false

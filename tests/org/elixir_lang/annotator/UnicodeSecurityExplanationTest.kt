@@ -2,8 +2,8 @@ package org.elixir_lang.annotator
 
 import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.util.text.StringUtil
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.elixir_lang.ElixirFileType
+import org.elixir_lang.junit.LightTestCase
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import org.elixir_lang.language_level.elixir
@@ -12,7 +12,7 @@ import org.elixir_lang.language_level.elixir
  * The hover text follows the rest of Elixir's error, measured by running `Code.string_to_quoted/1` on 1.14, 1.17, 1.18
  * and 1.20. Elixir's confusable hints, such as `admin` for a Cyrillic letter a, need Unicode data the plugin does not ship.
  */
-class UnicodeSecurityExplanationTest : BasePlatformTestCase() {
+class UnicodeSecurityExplanationTest : LightTestCase() {
     override fun tearDown() {
         try {
             ElixirLanguageLevelResolver.overrideLanguageLevel(project, null)
