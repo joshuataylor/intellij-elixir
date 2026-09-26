@@ -30,7 +30,7 @@ object BeamLibraryFixture {
         classesRoots: List<VirtualFile>,
         sourcesRoots: List<VirtualFile> = emptyList(),
     ) {
-        WriteAction.run<Throwable> {
+        WriteAction.runAndWait<Throwable> {
             val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
             val tableModel = libraryTable.modifiableModel
             val library = tableModel.createLibrary(libraryName)
@@ -44,30 +44,6 @@ object BeamLibraryFixture {
             tableModel.commit()
 
             ModuleRootModificationUtil.addDependency(module, library)
-        }
-    }
-
-    /**
-     * Removes [libraryName] and the module's dependency on it.
-     *
-     * The order matters: the order entry has to go before the library, or the module keeps an entry pointing
-     * at a disposed library.
-     */
-    fun removeLibrary(project: Project, module: Module, libraryName: String) {
-        ModuleRootModificationUtil.updateModel(module) { model ->
-            model.orderEntries
-                .filter { it.presentableName == libraryName }
-                .forEach { model.removeOrderEntry(it) }
-        }
-
-        WriteAction.run<Throwable> {
-            val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
-            libraryTable.getLibraryByName(libraryName)?.let { library ->
-                libraryTable.modifiableModel.let { model ->
-                    model.removeLibrary(library)
-                    model.commit()
-                }
-            }
         }
     }
 }

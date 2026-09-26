@@ -4,7 +4,6 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
-import com.intellij.testFramework.common.runAll
 import org.elixir_lang.PlatformTestCase
 
 /**
@@ -19,14 +18,6 @@ import org.elixir_lang.PlatformTestCase
  * test classes without duplicating setup code.
  */
 class ClassifyVfsEventTest : PlatformTestCase() {
-
-    override fun tearDown() {
-        runAll(
-            { project.service<MixDepsSyncService>().clearPendingForTesting() },
-            { MixTestFixtures.removeAllContentRoots(myFixture) },
-            { super.tearDown() },
-        )
-    }
 
     // ------------------------------------------------------------------
     // classifyByPath - _build structural paths -> unresolved SyncRequest.BuildPath

@@ -11,7 +11,6 @@ import com.intellij.openapi.projectRoots.SimpleJavaSdkType
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.testFramework.PlatformTestUtil
-import com.intellij.testFramework.common.runAll
 import org.elixir_lang.mix.sync.MixTestFixtures
 import org.elixir_lang.notification.setup_sdk.Notifier
 import org.elixir_lang.package_manager.*
@@ -31,27 +30,6 @@ import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
  * [DepsCheckerServiceTestBase].
  */
 class DepsCheckerServiceTest : DepsCheckerServiceTestBase() {
-    private val addedSdks = mutableListOf<Sdk>()
-
-    override fun tearDown() {
-        runAll(
-            { MixTestFixtures.removeAllContentRoots(myFixture) },
-            { ModuleRootModificationUtil.setModuleSdk(module, null) },
-            {
-                WriteAction.run<Throwable> {
-                    val jdkTable = ProjectJdkTable.getInstance()
-                    for (sdk in addedSdks) {
-                        if (jdkTable.allJdks.contains(sdk)) {
-                            jdkTable.removeJdk(sdk)
-                        }
-                    }
-                    addedSdks.clear()
-                }
-            },
-            { super.tearDown() },
-        )
-    }
-
     // ── Verdict correctness ───────────────────────────────────────────────────
 
     fun testCheckDepsStatus_pendingOkRootDoesNotHideOutdatedSiblingRoot() {
@@ -571,10 +549,10 @@ class DepsCheckerServiceTest : DepsCheckerServiceTestBase() {
 
     private fun createAndRegisterElixirSdk(): Sdk {
         val sdk = ProjectJdkImpl("Elixir Test SDK", ElixirSdkType.instance)
+        // Removed with testRootDisposable, after the module stops naming it.
         WriteAction.run<Throwable> {
-            ProjectJdkTable.getInstance().addJdk(sdk)
+            ProjectJdkTable.getInstance().addJdk(sdk, testRootDisposable)
         }
-        addedSdks.add(sdk)
         return sdk
     }
 

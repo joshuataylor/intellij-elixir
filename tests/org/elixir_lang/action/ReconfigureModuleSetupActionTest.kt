@@ -9,7 +9,6 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.projectRoots.SimpleJavaSdkType
-import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.util.ThrowableComputable
@@ -29,12 +28,6 @@ import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 
 class ReconfigureModuleSetupActionTest : PlatformTestCase() {
 
-    /** URLs of content entries added during a test, cleaned up in [tearDown]. */
-    private val addedContentRootUrls = mutableListOf<String>()
-
-    /** SDKs registered in the JDK table during a test, cleaned up in [tearDown]. */
-    private val addedSdks = mutableListOf<Sdk>()
-
     override fun setUp() {
         super.setUp()
 
@@ -46,31 +39,8 @@ class ReconfigureModuleSetupActionTest : PlatformTestCase() {
 
     override fun tearDown() {
         try {
-            removeElixirFacetIfPresent()
-
-            if (addedContentRootUrls.isNotEmpty()) {
-                ModuleRootModificationUtil.updateModel(module) { model ->
-                    for (entry in model.contentEntries.toList()) {
-                        if (entry.url in addedContentRootUrls) {
-                            model.removeContentEntry(entry)
-                        }
-                    }
-                }
-                addedContentRootUrls.clear()
-            }
-            // Clear module SDK before removing SDKs from the table
-            ModuleRootModificationUtil.setModuleSdk(module, null)
-            // Clear project SDK
             WriteAction.run<Throwable> {
                 ProjectRootManager.getInstance(project).projectSdk = null
-            }
-            // Remove registered SDKs
-            WriteAction.run<Throwable> {
-                val jdkTable = ProjectJdkTable.getInstance()
-                for (sdk in addedSdks) {
-                    if (jdkTable.allJdks.contains(sdk)) jdkTable.removeJdk(sdk)
-                }
-                addedSdks.clear()
             }
         } finally {
             super.tearDown()
@@ -104,7 +74,6 @@ class ReconfigureModuleSetupActionTest : PlatformTestCase() {
             block(content, appRoot.url)
         }
 
-        addedContentRootUrls.add(appRoot.url)
         return appRoot
     }
 
@@ -318,7 +287,6 @@ class ReconfigureModuleSetupActionTest : PlatformTestCase() {
         ModuleRootModificationUtil.updateModel(module) { model ->
             model.addContentEntry(appRoot)
         }
-        addedContentRootUrls.add(appRoot.url)
 
         runAction()
 
@@ -433,7 +401,7 @@ class ReconfigureModuleSetupActionTest : PlatformTestCase() {
 
     // -------------------------------------------------------------------------
     // Scenario 4: Project SDK = Java, Reconfigure action invoked
-    // → folder marks applied; module SDK left untouched (Step 1 guard)
+    // -> folder marks applied; module SDK left untouched (Step 1 guard)
     // -------------------------------------------------------------------------
 
     /**
@@ -447,10 +415,10 @@ class ReconfigureModuleSetupActionTest : PlatformTestCase() {
         val javaSdk = SimpleJavaSdkType().createJdk("Java Mock", javaHome)
 
         val elixirSdk = ProjectJdkImpl("Elixir Mock", ElixirSdkType.instance)
+        // Removed with testRootDisposable, after the module stops naming it.
         WriteAction.run<Throwable> {
-            ProjectJdkTable.getInstance().addJdk(elixirSdk)
+            ProjectJdkTable.getInstance().addJdk(elixirSdk, testRootDisposable)
         }
-        addedSdks.add(elixirSdk)
 
         // Set project SDK to Java and module SDK to Elixir
         WriteAction.run<Throwable> {

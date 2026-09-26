@@ -3,12 +3,7 @@ package org.elixir_lang.code_insight.completion.contributor
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementPresentation
-import com.intellij.openapi.application.WriteAction
-import com.intellij.openapi.roots.LibraryOrderEntry
-import com.intellij.openapi.roots.ModuleRootModificationUtil
-import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.testFramework.common.runAll
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.beam.BeamLibraryFixture
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
@@ -38,37 +33,6 @@ class BeamCallDefinitionClauseTest : PlatformTestCase() {
 
     override fun getTestDataPath(): String =
         "testData/org/elixir_lang/code_insight/completion/contributor/call_definition_clause/beam_function"
-
-    /**
-     * The shared light project module is reused across test methods (and other test classes).
-     * Library dependencies added by [addBeamLibrary] / [addBeamLibraryWithSource] persist on the
-     * module and leak into later tests (e.g. a lingering SOURCES root changes what `string_to_quoted`
-     * resolves to).  Restore the module and project library table to a pristine state in tearDown.
-     */
-    @Throws(Exception::class)
-    override fun tearDown() {
-        runAll(
-            { removeAddedLibrariesAndDependencies() },
-            { super.tearDown() },
-        )
-    }
-
-    private fun removeAddedLibrariesAndDependencies() {
-        // Drop the library order entries this test added to the shared module.
-        ModuleRootModificationUtil.updateModel(myFixture.module) { model ->
-            model.orderEntries
-                .filterIsInstance<LibraryOrderEntry>()
-                .forEach { model.removeOrderEntry(it) }
-        }
-
-        // Drop the project libraries this test created.
-        val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
-        WriteAction.runAndWait<RuntimeException> {
-            libraryTable.libraries
-                .filter { (it.name ?: "").startsWith("beam-") }
-                .forEach { libraryTable.removeLibrary(it) }
-        }
-    }
 
     /**
      * Adds this suite's own `ebin/Elixir.Code.beam` as a library CLASSES root.

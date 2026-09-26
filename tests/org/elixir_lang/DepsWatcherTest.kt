@@ -6,14 +6,11 @@ import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.testFramework.common.runAll
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import org.elixir_lang.mix.Dep
 import org.elixir_lang.mix.sync.consolidatedLibraryName
 import org.elixir_lang.mix.sync.MixDepsSyncService
-import org.elixir_lang.mix.sync.MixSyncTestHelpers
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.drainDirectly
-import org.elixir_lang.mix.sync.MixTestFixtures
 import org.elixir_lang.mix.sync.SyncRequest
 import org.elixir_lang.mix.sync.contentRootToken
 import org.elixir_lang.mix.sync.scopedDepLibraryName
@@ -22,19 +19,6 @@ import org.elixir_lang.psi.ElixirTuple
 class DepsWatcherTest : PlatformTestCase() {
     private val depName = "my_dep"
     private val secondDepName = "other_dep"
-
-    override fun setUp() {
-        super.setUp()
-        project.service<MixDepsSyncService>().clearPendingForTesting()
-    }
-
-    override fun tearDown() {
-        runAll(
-            { MixTestFixtures.removeAllContentRoots(myFixture) },
-            { MixSyncTestHelpers.removeAllLibraries(project) },
-            { super.tearDown() },
-        )
-    }
 
     @RequiresEdt
     fun testSyncLibrariesRemovesInjectedStaleClassRootForSingleDep() {

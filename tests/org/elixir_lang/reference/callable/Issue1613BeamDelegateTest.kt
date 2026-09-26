@@ -27,14 +27,6 @@ class Issue1613BeamDelegateTest : PlatformTestCase() {
         addBeamLibrary()
     }
 
-    override fun tearDown() {
-        try {
-            removeBeamLibrary()
-        } finally {
-            super.tearDown()
-        }
-    }
-
     /**
      * The gesture must reach `:queue.new`, not merely reach something.
      *
@@ -95,10 +87,6 @@ class Issue1613BeamDelegateTest : PlatformTestCase() {
         assertNotNull("Could not find beam test data directory: $beamDir", beamDirVf)
 
         BeamLibraryFixture.addLibrary(project, myFixture.module, LIBRARY_NAME, listOf(beamDirVf!!))
-    }
-
-    private fun removeBeamLibrary() {
-        BeamLibraryFixture.removeLibrary(project, myFixture.module, LIBRARY_NAME)
     }
 
     companion object {

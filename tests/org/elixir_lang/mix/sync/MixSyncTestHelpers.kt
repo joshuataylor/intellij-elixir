@@ -1,8 +1,14 @@
 package org.elixir_lang.mix.sync
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.WriteAction
+import com.intellij.openapi.module.ModuleManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.LibraryOrderEntry
+import com.intellij.openapi.roots.ModuleRootManager
+import com.intellij.openapi.roots.ModuleRootModificationUtil
+import com.intellij.openapi.roots.OrderEntry
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.testFramework.IndexingTestUtil
 import com.intellij.testFramework.PlatformTestUtil
@@ -71,20 +77,31 @@ internal object MixSyncTestHelpers {
     fun drainDirectly(service: MixDepsSyncService) = runSuspendOnPooledThread { service.drain() }
 
     /**
-     * Removes all project-level libraries, preventing cross-test leakage.
-     *
-     * The Kind guard used in production code (to protect user-created libraries) does not apply
-     * here: in tests every library in the project table was created by the test itself, so all
-     * of them must be removed unconditionally.
+     * Removes every project-level library, whoever created it, unlike a sync, which removes only Mix-Kind ones, and
+     * every module's entries naming a project-level library, so none is left pointing at a library that is gone.
      */
     @RequiresEdt
     fun removeAllLibraries(project: Project) {
         val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
         val toRemove = libraryTable.libraries.toList()
+        var changed = toRemove.isNotEmpty()
+        for (module in ModuleManager.getInstance(project).modules) {
+            val hasEntry = ReadAction.computeBlocking<Boolean, Throwable> {
+                ModuleRootManager.getInstance(module).orderEntries.any(::isProjectLibraryEntry)
+            }
+            if (!hasEntry) continue
+            changed = true
+            ModuleRootModificationUtil.updateModel(module) { model ->
+                model.orderEntries.filter(::isProjectLibraryEntry).forEach(model::removeOrderEntry)
+            }
+        }
         if (toRemove.isNotEmpty()) {
             WriteAction.run<Throwable> { toRemove.forEach { libraryTable.removeLibrary(it) } }
-            // The removal queues a rescan; a tear-down closing the project first leaves it starting on a closed project.
-            IndexingTestUtil.waitUntilIndexesAreReady(project)
         }
+        // The removal queues a rescan, which must neither start on a closed project nor overlap the next snapshot.
+        if (changed) IndexingTestUtil.waitUntilIndexesAreReady(project)
     }
+
+    private fun isProjectLibraryEntry(entry: OrderEntry): Boolean =
+        entry is LibraryOrderEntry && entry.libraryLevel == LibraryTablesRegistrar.PROJECT_LEVEL
 }

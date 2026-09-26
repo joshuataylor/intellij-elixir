@@ -31,14 +31,6 @@ class ErlangAtomQualifierHoverDocumentationOTP23Test : QuickDocumentationTestCas
         addBeamLibrary()
     }
 
-    override fun tearDown() {
-        try {
-            removeBeamLibrary()
-        } finally {
-            super.tearDown()
-        }
-    }
-
     fun testModuleAtomHoverShowsModuleDocsFromDecompilerMirror() {
         myFixture.configureByFiles("module_atom_hover.ex")
 
@@ -86,10 +78,6 @@ class ErlangAtomQualifierHoverDocumentationOTP23Test : QuickDocumentationTestCas
         assertNotNull("Could not find app directory: ${appDir.absolutePath}", appDirVf)
 
         BeamLibraryFixture.addLibrary(project, myFixture.module, LIBRARY_NAME, listOf(appDirVf!!))
-    }
-
-    private fun removeBeamLibrary() {
-        BeamLibraryFixture.removeLibrary(project, myFixture.module, LIBRARY_NAME)
     }
 
     override fun getTestDataPath(): String =

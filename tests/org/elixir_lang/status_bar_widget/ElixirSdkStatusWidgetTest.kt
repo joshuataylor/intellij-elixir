@@ -57,7 +57,6 @@ import org.elixir_lang.tool_manager.SdkVersionTable
  */
 class ElixirSdkStatusWidgetTest : PlatformTestCase() {
 
-    private val addedSdks = mutableListOf<Sdk>()
     private lateinit var testScope: CoroutineScope
 
     override fun setUp() {
@@ -70,20 +69,9 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         try {
             ProcessOutput.isSmallIdeOverride = null
             testScope.cancel("test tearDown")
-            ModuleRootModificationUtil.setModuleSdk(module, null)
             WriteAction.run<Throwable> {
                 ProjectRootManager.getInstance(project).projectSdk = null
             }
-            WriteAction.run<Throwable> {
-                val jdkTable = ProjectJdkTable.getInstance()
-                for (sdk in addedSdks) {
-                    if (jdkTable.allJdks.contains(sdk)) {
-                        jdkTable.removeJdk(sdk)
-                    }
-                }
-                addedSdks.clear()
-            }
-            removeElixirFacetLibraries()
         } finally {
             super.tearDown()
         }
@@ -110,22 +98,12 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         }
     }
 
-    /**
-     * Setting the facet's SDK to null removes only the libraries named after an SDK still in the table, and a test may
-     * have removed that SDK, so every module library goes: a leftover makes the facet resolve in a later test.
-     */
-    private fun removeElixirFacetLibraries() {
-        ModuleRootModificationUtil.updateModel(module) { model ->
-            model.moduleLibraryTable.libraries.forEach(model.moduleLibraryTable::removeLibrary)
-        }
-    }
-
     private fun createAndRegisterElixirSdk(name: String): Sdk {
         val sdk = ProjectJdkImpl(name, ElixirSdkType.instance)
+        // Removed with testRootDisposable, after the module stops naming it.
         WriteAction.run<Throwable> {
-            ProjectJdkTable.getInstance().addJdk(sdk)
+            ProjectJdkTable.getInstance().addJdk(sdk, testRootDisposable)
         }
-        addedSdks.add(sdk)
         return sdk
     }
 
@@ -188,7 +166,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         setModuleSdk(elixirSdk)
 
         val widget = createWidget()
-        val foundSdk = ReadAction.nonBlocking(Callable<Sdk?> { widget.findModuleLevelElixirSdk() }).executeSynchronously()
+        val foundSdk = ReadAction.nonBlocking(Callable { widget.findModuleLevelElixirSdk() }).executeSynchronously()
 
         assertNotNull("Should find Elixir SDK from module even when project SDK is Java", foundSdk)
         assertEquals("Should return the module's Elixir SDK", elixirSdk, foundSdk)
@@ -222,7 +200,7 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         setModuleSdk(elixirSdk)
 
         val widget = createWidget()
-        val foundSdk = ReadAction.nonBlocking(Callable<Sdk?> { widget.findModuleLevelElixirSdk() }).executeSynchronously()
+        val foundSdk = ReadAction.nonBlocking(Callable { widget.findModuleLevelElixirSdk() }).executeSynchronously()
 
         assertNotNull("Should find Elixir SDK from module when project SDK is null", foundSdk)
         assertEquals(elixirSdk, foundSdk)
@@ -275,7 +253,6 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         WriteAction.run<Throwable> {
             ProjectJdkTable.getInstance().removeJdk(staleSdk)
         }
-        addedSdks.remove(staleSdk)
 
         // Register a different SDK so Facet.sdks().isNotEmpty() -> stale (not NotConfigured)
         createAndRegisterElixirSdk("Elixir 1.18")
@@ -322,7 +299,6 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
         WriteAction.run<Throwable> {
             ProjectJdkTable.getInstance().removeJdk(sdk)
         }
-        addedSdks.remove(sdk)
 
         assertTrue("Precondition: no Elixir SDKs in table", Facet.sdks().isEmpty())
 
@@ -571,10 +547,13 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
     }
 
     /** IntelliJ IDEA has no settings for the facet, so one a small IDE left can never be changed there. */
+    @RequiresEdt
     fun testIntelliJIdeaNeverReadsTheFacet() {
         ProcessOutput.isSmallIdeOverride = false
         setFacetSdk(createAndRegisterElixirSdk("Elixir set in RubyMine"))
-        setModuleSdk(createJavaSdk().also { sdk -> WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(sdk) }; addedSdks.add(sdk) })
+        val javaSdk = createJavaSdk()
+        WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(javaSdk, testRootDisposable) }
+        setModuleSdk(javaSdk)
 
         assertNull(resolvedSdk())
     }

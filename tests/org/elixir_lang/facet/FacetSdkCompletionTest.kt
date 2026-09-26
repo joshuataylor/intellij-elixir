@@ -21,9 +21,9 @@ import java.io.File
 
 /**
  * Completion reaches an SDK's own modules when that SDK is assigned the way a small IDE assigns one -
- * through Settings → Languages & Frameworks → Elixir, which writes [Facet.sdk].
+ * through Settings -> Languages & Frameworks -> Elixir, which writes [Facet.sdk].
  *
- * `ErlangModuleCompletionTest` pins the same `:math.s` → `sqrt` gesture against the same `math.beam`,
+ * `ErlangModuleCompletionTest` pins the same `:math.s` -> `sqrt` gesture against the same `math.beam`,
  * but attaches the `ebin` directory as a module library directly. That leaves the interesting half
  * untested: whether *assigning an SDK* gets its roots onto the module at all. On a small IDE there is
  * no `JdkOrderEntry` and no module-SDK UI, so [Facet.sdk] is the only mechanism that can - and
