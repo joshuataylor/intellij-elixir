@@ -8,7 +8,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.runners.Parameterized;
 
-
 // @UseParametersRunnerFactory is @Inherited, so every parameterised subclass gets escaped test names without
 // having to repeat the annotation. Subclasses that aren't parameterised ignore it.
 @Parameterized.UseParametersRunnerFactory(EscapedNameRunnerFactory.class)

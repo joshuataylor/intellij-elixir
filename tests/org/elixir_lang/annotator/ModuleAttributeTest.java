@@ -1,6 +1,5 @@
 package org.elixir_lang.annotator;
 
-
 import com.intellij.codeInsight.daemon.impl.HighlightInfo;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.markup.TextAttributes;
@@ -22,7 +21,7 @@ public class ModuleAttributeTest extends PlatformTestCase {
      */
 
     /**
-     * See https://github.com/intellij-elixir/intellij-elixir/issues/413
+     * See <a href="https://github.com/intellij-elixir/intellij-elixir/issues/413">#413</a>
      */
     public void testIssue413() {
         myFixture.configureByFiles("typespec_test.exs");
@@ -30,7 +29,7 @@ public class ModuleAttributeTest extends PlatformTestCase {
     }
 
     /**
-     * See https://github.com/intellij-elixir/intellij-elixir/issues/438
+     * See <a href="https://github.com/intellij-elixir/intellij-elixir/issues/438">#438</a>
      */
     public void testIssue438() {
         myFixture.configureByFiles("missing_type_operator.ex");
@@ -141,7 +140,7 @@ public class ModuleAttributeTest extends PlatformTestCase {
                 .doHighlighting()
                 .stream()
                 .filter(info -> info.getStartOffset() <= argumentStart && info.getEndOffset() >= argumentEnd)
-                .collect(Collectors.toList());
+                .toList();
 
         assertTrue(
                 "`" + argument + "` inside a dot call in a @callback should carry " +
@@ -161,10 +160,7 @@ public class ModuleAttributeTest extends PlatformTestCase {
     }
 
     /*
-     * Constructs the annotator must be able to classify
-     *
-     * Each fixture holds one construct and reaches one branch, so deleting that branch fails exactly
-     * this test.
+     * Constructs in types the annotator must not report
      */
 
     public void testModuleAttributeInType() {
@@ -195,11 +191,6 @@ public class ModuleAttributeTest extends PlatformTestCase {
         assertNoTypeHighlightingError("map_update_in_type.ex");
     }
 
-    /**
-     * The control for the tests above: they assert an absence, so they would all pass if the annotator
-     * stopped reporting at all. If captures gain a branch, swap the fixture for another unclassifiable
-     * construct rather than deleting this.
-     */
     /**
      * A construct the annotator does not colour keeps its default colour, and that is not an error.
      * A capture is such a construct: it can appear in a type while one is being written, and the

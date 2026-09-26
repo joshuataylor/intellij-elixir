@@ -8,16 +8,15 @@ class TokenizerTest : UnitTestCase() {
     }
 
     fun testContainsHyphen() {
-        assertEquals(
-                Tokenizer.Tokenized.Kind(
-                        kind = Tokenizer.Kind.IDENTIFIER,
-                        acc = "csrf",
-                        rest = "-params",
-                        allAscii = true,
-                        special = emptySet()
-                ),
-                Tokenizer.tokenize("csrf-params"),
+        val expected = Tokenizer.Tokenized.Kind(
+                kind = Tokenizer.Kind.IDENTIFIER,
+                acc = "csrf",
+                rest = "-params",
+                allAscii = true,
+                special = emptySet()
         )
+
+        assertEquals(expected, Tokenizer.tokenize("csrf-params"))
     }
 
     // https://github.com/elixir-lang/elixir/blob/58518794306c70204de14f9ed214fb7f296769d9/lib/elixir/test/elixir/kernel/string_tokenizer_test.exs#L21-L40
