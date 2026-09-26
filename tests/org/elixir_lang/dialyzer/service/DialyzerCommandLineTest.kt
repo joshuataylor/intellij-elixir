@@ -9,6 +9,7 @@ import org.elixir_lang.sdk.wsl.MockWslCompatService
 import org.elixir_lang.sdk.wsl.WslCompatService
 import java.util.concurrent.Callable
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditionalData
+import com.intellij.util.concurrency.annotations.RequiresEdt
 
 /**
  * The Dialyzer inspection runs with `isReadActionNeeded = false`, so the platform holds no read lock while it builds
@@ -24,6 +25,7 @@ class DialyzerCommandLineTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testBuildingTheCommandLineTakesItsOwnReadAction() {
         val erlangSdk = register(SdkFixtures.erlangSdk("Dialyzer Erlang", "/fake/erlang/dialyzer"))
         val elixirSdk = register(SdkFixtures.elixirSdk("Dialyzer Elixir", "/fake/elixir/dialyzer"))

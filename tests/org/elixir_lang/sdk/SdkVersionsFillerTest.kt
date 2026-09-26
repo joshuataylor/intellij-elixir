@@ -22,6 +22,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditionalData
 
+private const val CONFIGURED_HOME = "/fake/erlang/latest"
+
 class SdkVersionsFillerTest : PlatformTestCase() {
     private val store get() = SdkVersionsStore.getInstance()
 
@@ -98,7 +100,7 @@ class SdkVersionsFillerTest : PlatformTestCase() {
 
     fun testFillingStoresTheInstallationTheHomeResolvesTo() {
         val realHome = erlangHome("27", "27.3.4")
-        val configuredHome = "/fake/erlang/latest"
+        val configuredHome = CONFIGURED_HOME
         // What mise does: `latest` is a symlink to the version.
         ApplicationManager.getApplication().registerOrReplaceServiceInstance(
             WslCompatService::class.java,
@@ -119,6 +121,7 @@ class SdkVersionsFillerTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testFillingTheSdksAProjectUsesCoversThePairedErlangSdk() {
         val erlangSdk = register(SdkFixtures.erlangSdk("Filler Erlang", erlangHome("26", "26.2.5.21")))
         val elixirSdk = register(SdkFixtures.elixirSdk("Filler Elixir", elixirHome("1.18.4")))
@@ -135,6 +138,7 @@ class SdkVersionsFillerTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testFillingWhatAProjectUsesSkipsAnInstallationAlreadyRead() {
         val erlangHomePath = erlangHome("27", "27.3.4")
         val elixirHomePath = elixirHome("1.19.5")
@@ -290,8 +294,8 @@ class SdkVersionsFillerTest : PlatformTestCase() {
 
     fun testForgettingAnInstallationNamesTheInstallationItForgot() {
         val realHome = erlangHome("27", "27.3.4")
-        val configuredHome = "/fake/erlang/latest"
-        resolving(configuredHome, to = realHome)
+        val configuredHome = CONFIGURED_HOME
+        resolving(to = realHome)
         fill(configuredHome)
         // Taken from the notification itself: a real listener works off the publishing thread, by when the store's
         // entry is gone.
@@ -316,8 +320,8 @@ class SdkVersionsFillerTest : PlatformTestCase() {
 
     fun testForgettingAnInstallationCarriesEverySpellingItWasHeldUnder() {
         val realHome = erlangHome("27", "27.3.4")
-        val configuredHome = "/fake/erlang/latest"
-        resolving(configuredHome, to = realHome)
+        val configuredHome = CONFIGURED_HOME
+        resolving(to = realHome)
         fill(configuredHome)
         val spellings = mutableListOf<Set<String>>()
         ApplicationManager.getApplication().messageBus.connect(testRootDisposable)
@@ -350,13 +354,13 @@ class SdkVersionsFillerTest : PlatformTestCase() {
 
     fun testFillingPublishesWhenTheInstallationAHomeResolvesToChanges() {
         val realHome = erlangHome("27", "27.3.4")
-        val configuredHome = "/fake/erlang/latest"
-        resolving(configuredHome, to = realHome)
+        val configuredHome = CONFIGURED_HOME
+        resolving(to = realHome)
         fill(configuredHome)
         val published = published()
 
         // What a WSL outage does: resolving falls back to the configured spelling, re-keying the entry to itself.
-        resolving(configuredHome, to = configuredHome)
+        resolving(to = configuredHome)
         fill(configuredHome)
 
         assertFalse(
@@ -378,8 +382,8 @@ class SdkVersionsFillerTest : PlatformTestCase() {
 
     fun testFillingAnInstallationWithTwoSpellingsPublishesOnce() {
         val realHome = erlangHome("27", "27.3.4")
-        val configuredHome = "/fake/erlang/latest"
-        resolving(configuredHome, to = realHome)
+        val configuredHome = CONFIGURED_HOME
+        resolving(to = realHome)
         val published = published()
 
         fill(configuredHome)
@@ -391,15 +395,15 @@ class SdkVersionsFillerTest : PlatformTestCase() {
         )
     }
 
-    /** Registers a [WslCompatService] that resolves [configuredHome] to [to], as mise's `latest` symlink does. */
-    private fun resolving(configuredHome: String, to: String) {
+    /** Registers a [WslCompatService] that resolves [CONFIGURED_HOME] to [to], as mise's `latest` symlink does. */
+    private fun resolving(to: String) {
         ApplicationManager.getApplication().registerOrReplaceServiceInstance(
             WslCompatService::class.java,
             object : WslCompatService by MockWslCompatService() {
-                override fun canonicalizePath(path: String): String = if (path == configuredHome) to else path
+                override fun canonicalizePath(path: String): String = if (path == CONFIGURED_HOME) to else path
 
                 override fun canonicalizePathNullable(path: String?): String? =
-                    if (path == configuredHome) to else path
+                    if (path == CONFIGURED_HOME) to else path
             },
             testRootDisposable,
         )

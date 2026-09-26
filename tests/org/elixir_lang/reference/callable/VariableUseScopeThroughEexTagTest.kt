@@ -1,6 +1,6 @@
 package org.elixir_lang.reference.callable
 
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.PsiSearchScopeUtil
 import com.intellij.psi.util.PsiTreeUtil
@@ -23,9 +23,9 @@ class VariableUseScopeThroughEexTagTest : PlatformTestCase() {
 
     fun testUseInATagIsScopedToHoldItselfAndItsBinding() {
         val use = variableAtCaret("<% x = 1 %>\n<p><%= <caret>x %></p>\n")
-        val binding = variablesNamed("x").first { it.textOffset < use.textOffset }
+        val binding = variablesNamedX().first { it.textOffset < use.textOffset }
 
-        val scope = runReadAction { Callable.variableUseScope(use) }
+        val scope = runReadActionBlocking { Callable.variableUseScope(use) }
 
         assertTrue("the use is outside its own scope", PsiSearchScopeUtil.isInScope(scope, use))
         assertTrue("the binding is outside the use's scope", PsiSearchScopeUtil.isInScope(scope, binding))
@@ -42,9 +42,9 @@ class VariableUseScopeThroughEexTagTest : PlatformTestCase() {
 
     private fun assertScopeReachesLaterUse(text: String) {
         val declaration = variableAtCaret(text)
-        val use = variablesNamed("x").first { it.textOffset > declaration.textOffset }
+        val use = variablesNamedX().first { it.textOffset > declaration.textOffset }
 
-        val scope = runReadAction { Callable.variableUseScope(declaration) }
+        val scope = runReadActionBlocking { Callable.variableUseScope(declaration) }
 
         assertTrue("the later tag's use is outside the binding's scope", PsiSearchScopeUtil.isInScope(scope, use))
     }
@@ -58,8 +58,8 @@ class VariableUseScopeThroughEexTagTest : PlatformTestCase() {
         )!!
     }
 
-    private fun variablesNamed(name: String): List<UnqualifiedNoArgumentsCall<*>> =
-        PsiTreeUtil.findChildrenOfType(elixirRoot(), UnqualifiedNoArgumentsCall::class.java).filter { it.text == name }
+    private fun variablesNamedX(): List<UnqualifiedNoArgumentsCall<*>> =
+        PsiTreeUtil.findChildrenOfType(elixirRoot(), UnqualifiedNoArgumentsCall::class.java).filter { it.text == "x" }
 
     private fun elixirRoot(): PsiElement =
         checkNotNull(myFixture.file.viewProvider.getPsi(ElixirLanguage)) { "no Elixir root" }

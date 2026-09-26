@@ -20,9 +20,10 @@ import java.awt.Component
 import java.awt.Container
 import javax.swing.JComboBox
 import javax.swing.JLabel
+import com.intellij.util.concurrency.annotations.RequiresEdt
 
 /**
- * Tests the Settings → Elixir per-module SDK panel ([org.elixir_lang.facet.Configurable]): the SDK
+ * Tests the Settings -> Elixir per-module SDK panel ([org.elixir_lang.facet.Configurable]): the SDK
  * chooser is populated, the status line under it renders the shared [ModuleSdkStatus] text, and
  * applying a selection writes the module's Facet SDK.
  */
@@ -120,6 +121,7 @@ class ModuleSdkConfigurableTest : PlatformTestCase() {
         }
     }
 
+    @RequiresEdt
     fun testPickingAnSdkNoOpenProjectUsesReadsItsInstallation() {
         val homePath = SdkFixtures.elixirHome("1.20.5")
         // Installed here rather than relied on: registering an SDK reads it only while the watch service is
@@ -193,7 +195,7 @@ class ModuleSdkConfigurableTest : PlatformTestCase() {
     }
 
     fun testApplyWritesFacetSdk() {
-        val sdk = registerElixirSdk("Elixir Module Test C")
+        registerElixirSdk("Elixir Module Test C")
 
         val configurable = moduleConfigurable()
         val component = configurable.createComponent()

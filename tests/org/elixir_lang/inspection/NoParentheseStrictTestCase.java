@@ -11,31 +11,31 @@ import java.util.List;
 public class NoParentheseStrictTestCase extends PlatformTestCase {
     public void testFunctionSpaceEmptyParentheses() {
         myFixture.configureByFiles("FunctionSpaceEmptyParentheses.ex");
-        myFixture.enableInspections(NoParenthesesStrict.class);
+        myFixture.enableInspections(new NoParenthesesStrict());
         myFixture.checkHighlighting();
     }
 
     public void testFunctionSpaceKeywordsInParentheses() {
         myFixture.configureByFiles("FunctionSpaceKeywordsInParentheses.ex");
-        myFixture.enableInspections(NoParenthesesStrict.class);
+        myFixture.enableInspections(new NoParenthesesStrict());
         myFixture.checkHighlighting();
     }
 
     public void testFunctionSpacePositinalsAndKeywordsInParentheses() {
         myFixture.configureByFiles("FunctionSpacePositionalsAndKeywordsInParentheses.ex");
-        myFixture.enableInspections(NoParenthesesStrict.class);
+        myFixture.enableInspections(new NoParenthesesStrict());
         myFixture.checkHighlighting();
     }
 
     public void testFunctionSpacePositinalsInParentheses() {
         myFixture.configureByFiles("FunctionSpacePositionalsInParentheses.ex");
-        myFixture.enableInspections(NoParenthesesStrict.class);
+        myFixture.enableInspections(new NoParenthesesStrict());
         myFixture.checkHighlighting();
     }
 
     public void testQualifierDotQuoteParentheses() {
         myFixture.configureByFile("QualifierDotQuoteParentheses.ex");
-        myFixture.enableInspections(NoParenthesesStrict.class);
+        myFixture.enableInspections(new NoParenthesesStrict());
         myFixture.checkHighlighting();
     }
 
@@ -53,7 +53,7 @@ public class NoParentheseStrictTestCase extends PlatformTestCase {
 
     private void assertQuickFixRewrites(String before, String after) {
         myFixture.configureByText("remove_space.ex", before);
-        myFixture.enableInspections(NoParenthesesStrict.class);
+        myFixture.enableInspections(new NoParenthesesStrict());
 
         List<IntentionAction> quickFixes = myFixture.getAllQuickFixes();
 

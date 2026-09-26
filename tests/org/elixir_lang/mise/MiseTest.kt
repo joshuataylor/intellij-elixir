@@ -101,7 +101,7 @@ class MiseTest : PlatformTestCase() {
         assertNotNull(result)
         assertNotNull("a pinned version that is not installed is what the user must be told about", result!!.elixir)
         assertEquals("1.15.7", result.elixir!!.version)
-        assertFalse(result.elixir!!.installed)
+        assertFalse(result.elixir.installed)
     }
 
     fun testParseOutput_installedActiveEntryPreferredOverUninstalled() {

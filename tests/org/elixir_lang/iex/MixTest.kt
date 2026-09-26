@@ -2,7 +2,7 @@ package org.elixir_lang.iex
 
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.projectRoots.SdkModel
 import com.intellij.openapi.projectRoots.SdkType
@@ -14,7 +14,6 @@ import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.sdk.erlang_dependent.ErlangSdkResolver
 import org.elixir_lang.sdk.erlang_dependent.ErlangSdkResult
 import org.elixir_lang.sdk.erlang_dependent.MissingErlangSdkReason
-import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.absolutePathString
@@ -54,7 +53,6 @@ class MixTest : PlatformTestCase() {
         }
     }
 
-    @Test
     fun testMixPathIsAbsoluteAndDerivedFromTheElixirSdkHome() {
         val elixirHome = createElixirHome()
         val parameters = commandLine(elixirHome).parametersList.parameters
@@ -66,7 +64,6 @@ class MixTest : PlatformTestCase() {
         assertTrue("mix path is not absolute", Path.of(parameters[sIndex + 1]).isAbsolute)
     }
 
-    @Test
     fun testMixIsNotLeftForThePathToResolve() {
         val parameters = commandLine(createElixirHome()).parametersList.parameters
 
@@ -77,7 +74,7 @@ class MixTest : PlatformTestCase() {
     }
 
     private fun commandLine(elixirHome: Path): GeneralCommandLine =
-        runReadAction {
+        runReadActionBlocking {
             Mix.commandLine(
                 environment = emptyMap(),
                 workingDirectory = null,

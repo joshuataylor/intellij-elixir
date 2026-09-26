@@ -5,6 +5,8 @@ import com.intellij.psi.tree.IStubFileElementType;
 import org.elixir_lang.heex.file.ElementType;
 import org.elixir_lang.heex.File;
 import org.jetbrains.annotations.NotNull;
+import com.intellij.psi.stubs.IStubElementType;
+import org.jetbrains.annotations.Nullable;
 
 public class Stub extends PsiFileStubImpl<File> {
     public Stub(File file) {
@@ -13,7 +15,13 @@ public class Stub extends PsiFileStubImpl<File> {
 
     @NotNull
     @Override
-    public IStubFileElementType getType() {
+    public IStubFileElementType<?> getType() {
         return ElementType.INSTANCE;
+    }
+
+    // Narrows the platform's raw return type, which javac reports as an unchecked override.
+    @Override
+    public @Nullable IStubElementType<?, ?> getStubType() {
+        return null;
     }
 }

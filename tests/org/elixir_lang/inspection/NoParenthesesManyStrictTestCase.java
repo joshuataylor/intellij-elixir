@@ -8,37 +8,37 @@ import org.elixir_lang.PlatformTestCase;
 public class NoParenthesesManyStrictTestCase extends PlatformTestCase {
     public void testSingleNestedKeywordValue() {
         myFixture.configureByFiles("SingleNestedKeywordValue.ex");
-        myFixture.enableInspections(NoParenthesesManyStrict.class);
+        myFixture.enableInspections(new NoParenthesesManyStrict());
         myFixture.checkHighlighting();
     }
 
     public void testMatchedCallOperationAtEnd() {
         myFixture.configureByFiles("MatchedCallOperationAtEnd.ex");
-        myFixture.enableInspections(NoParenthesesManyStrict.class);
+        myFixture.enableInspections(new NoParenthesesManyStrict());
         myFixture.checkHighlighting();
     }
 
     public void testMatchedCallOperationKeywordValue() {
         myFixture.configureByFiles("MatchedCallOperationKeywordValue.ex");
-        myFixture.enableInspections(NoParenthesesManyStrict.class);
+        myFixture.enableInspections(new NoParenthesesManyStrict());
         myFixture.checkHighlighting();
     }
 
     public void testMatchedDotMatchedCallOperationAtEnd() {
         myFixture.configureByFiles("MatchedDotMatchedCallOperationAtEnd.ex");
-        myFixture.enableInspections(NoParenthesesManyStrict.class);
+        myFixture.enableInspections(new NoParenthesesManyStrict());
         myFixture.checkHighlighting();
     }
 
     public void testMatchedDotMatchedCallOperationKeywordValue() {
         myFixture.configureByFiles("MatchedDotMatchedCallOperationKeywordValue.ex");
-        myFixture.enableInspections(NoParenthesesManyStrict.class);
+        myFixture.enableInspections(new NoParenthesesManyStrict());
         myFixture.checkHighlighting();
     }
 
     public void testSingleNestedPositional() {
         myFixture.configureByFiles("SingleNestedPositional.ex");
-        myFixture.enableInspections(NoParenthesesManyStrict.class);
+        myFixture.enableInspections(new NoParenthesesManyStrict());
         myFixture.checkHighlighting();
     }
 

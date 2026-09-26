@@ -22,7 +22,7 @@ import com.intellij.refactoring.rename.impl.buildQuery
 import com.intellij.refactoring.rename.impl.prepareRename
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.project.Project
@@ -162,7 +162,7 @@ private fun invokeGtd(targetFile: PsiFile, offset: Int): Any? =
 
 /**
  * Reflectively invokes the internal `GtdProvidersKt.fromGTDProviders(project, editor, offset)` - the
- * `GotoDeclarationHandler` EP-provider stage both real handlers ([GotoDeclarationOrUsageHandler2] and the
+ * `GotoDeclarationHandler` EP-provider stage both real handlers (`GotoDeclarationOrUsageHandler2` and the
  * Ctrl+B [com.intellij.codeInsight.navigation.actions.GotoDeclarationOnlyHandler2]) run before the Symbol
  * path. Returns a `GTDActionData?` (whose `result()` is a `NavigationActionResult?`), or `null` when no EP
  * provider contributes a target at the offset (the common case for Elixir, which registers none).
@@ -185,7 +185,7 @@ private fun fromGtdProviders(project: Project, editor: Editor, offset: Int): Any
  * destination assertions - "Go To Declaration lands on X" - use this.
  *
  * Shares the EP-provider front-run and internal-result unwrapping (and hence the reflection rationale) of
- * [gtduNavigationAtCaret]; a `GTDActionData.result()` is the [NavigationActionResult] directly (no GTD/SU
+ * [gtduNavigationAtCaret]; a `GTDActionData.result()` is the `NavigationActionResult` directly (no GTD/SU
  * branch wrapper).
  */
 fun CodeInsightTestFixture.gotoDeclarationTargetsAtCaret(): List<GtduTarget>? {
@@ -387,7 +387,7 @@ private fun CodeInsightTestFixture.acceptCompletionCandidate(lookupString: Strin
  * The [PsiUsage]s the Find Usages tool window would display for the search target resolved at the
  * caret (including the declaration usage; empty when the caret resolves to no unambiguous target).
  *
- * Drives the real Find Usages pipeline - `caret → searchTargets → buildQuery → PsiUsage`. The symbol
+ * Drives the real Find Usages pipeline - `caret -> searchTargets -> buildQuery -> PsiUsage`. The symbol
  * search runs off the EDT under a read action because it executes a name-anchored word/index search
  * (`SearchService.searchWord`) that the platform runs on a background thread; driving it there mirrors
  * the real action and, unlike a direct EDT `findAll()`, actually visits the indexed files.
@@ -416,7 +416,7 @@ private fun CodeInsightTestFixture.psiUsagesAtCaret(
     )
     return ApplicationManager.getApplication().executeOnPooledThread(Callable {
         ReadAction.nonBlocking(Callable {
-            val target = selectTarget(searchTargets(targetFile, offset)) ?: return@Callable emptyList<PsiUsage>()
+            val target = selectTarget(searchTargets(targetFile, offset)) ?: return@Callable emptyList()
             buildQuery(project, target, allOptions).findAll().filterIsInstance<PsiUsage>()
         }).executeSynchronously()
     }).get()
@@ -440,7 +440,7 @@ fun CodeInsightTestFixture.searchTargetCountAtCaret(): Int =
  * [com.intellij.refactoring.rename.api.RenameTarget] directly. The target is then handed to
  * [CodeInsightTestFixture.renameTarget] - the platform's test entry point for the
  * `RenameTarget`-based rename pipeline (the same drive JetBrains' own new-rename-API tests use),
- * which runs the production search (the registered `RenameUsageSearcher` → queries → file updates
+ * which runs the production search (the registered `RenameUsageSearcher` -> queries -> file updates
  * in a write command) headlessly and unmocked. Callers assert on the resulting document text.
  */
 @Suppress("UnstableApiUsage")
@@ -465,7 +465,7 @@ fun CodeInsightTestFixture.renameTargetDirectly(target: RenameTarget, newName: S
     val application = ApplicationManager.getApplication()
     val options = RenameOptions(
         TextOptions(commentStringOccurrences = true, textOccurrences = true),
-        runReadAction { target.maximalSearchScope } ?: GlobalSearchScope.projectScope(project)
+        runReadActionBlocking { target.maximalSearchScope } ?: GlobalSearchScope.projectScope(project)
     )
     // prepareRename insists on running outside a read action, and its inner read actions need a pooled thread
     val (fileUpdates, modelUpdate) = application.executeOnPooledThread(Callable {
@@ -588,7 +588,7 @@ fun CodeInsightTestFixture.parameterInfoPopupAfter(gesture: CodeInsightTestFixtu
 
         try {
             PlatformTestUtil.waitWithEventsDispatching("", { reported[0] }, POPUP_TIMEOUT_SECONDS)
-        } catch (ignored: AssertionError) {
+        } catch (_: AssertionError) {
             // a gesture that asks for no popup never reports, which is an outcome rather than a failure
         }
 

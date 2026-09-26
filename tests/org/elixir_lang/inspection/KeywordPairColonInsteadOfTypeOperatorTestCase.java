@@ -5,7 +5,7 @@ import org.elixir_lang.PlatformTestCase;
 public class KeywordPairColonInsteadOfTypeOperatorTestCase extends PlatformTestCase {
     public void testIssue525() {
         myFixture.configureByFiles("issue_525.ex");
-        myFixture.enableInspections(KeywordPairColonInsteadOfTypeOperator.class);
+        myFixture.enableInspections(new KeywordPairColonInsteadOfTypeOperator());
         myFixture.checkHighlighting();
     }
 

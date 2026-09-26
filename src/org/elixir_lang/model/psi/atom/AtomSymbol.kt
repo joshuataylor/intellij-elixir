@@ -136,7 +136,7 @@ class AtomSymbol(
                 } else {
                     null
                 }
-            val moduleName = (callDefinition.parent as? org.elixir_lang.beam.psi.Module)?.name ?: return emptyList()
+            val moduleName = callDefinition.parent.name
             val nameArity = callDefinition.nameArityInterval
             return nameArity.arityInterval.closed().map { arity ->
                 AtomSymbol(

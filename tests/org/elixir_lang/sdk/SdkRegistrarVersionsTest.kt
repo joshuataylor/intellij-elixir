@@ -20,6 +20,7 @@ import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Callable
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditionalData
+import com.intellij.util.concurrency.annotations.RequiresEdt
 
 class SdkRegistrarVersionsTest : PlatformTestCase() {
     private val registered = mutableListOf<Sdk>()
@@ -151,6 +152,7 @@ class SdkRegistrarVersionsTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testRegisteringAgainFillsAnSdkSavedWithoutVersions() {
         val erlangSdk = registerErlang(erlangHome("26", "26.2.5.21"))
         val elixirHome = elixirHome("1.19.5")

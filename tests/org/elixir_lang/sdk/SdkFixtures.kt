@@ -4,10 +4,12 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.projectRoots.Sdk
+import com.intellij.openapi.projectRoots.SdkAdditionalData
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.diagnostic.ThreadDumper
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.util.concurrency.annotations.RequiresEdt
 import java.io.File
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
@@ -34,6 +36,7 @@ internal object SdkFixtures {
 
     fun erlangSdk(name: String, homePath: String): Sdk = ProjectJdkImpl(name, ErlangSdkType.instance, homePath, "")
 
+    @RequiresEdt
     fun register(sdk: Sdk, parentDisposable: Disposable): Sdk {
         WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(sdk, parentDisposable) }
         return sdk
@@ -43,12 +46,14 @@ internal object SdkFixtures {
      * [register], then wait for the read the registration starts once a project's startup has installed the SDK table
      * listeners, so that read cannot land between a test's own store writes and its assertion.
      */
+    @RequiresEdt
     fun registerAndWaitForFill(sdk: Sdk, parentDisposable: Disposable): Sdk =
         register(sdk, parentDisposable).also {
             waitUntil("the registration fill finishes") { SdkVersionWatchService.isIdleForTests() }
         }
 
-    fun commit(sdk: Sdk, data: com.intellij.openapi.projectRoots.SdkAdditionalData?) {
+    @RequiresEdt
+    fun commit(sdk: Sdk, data: SdkAdditionalData?) {
         WriteAction.run<Throwable> {
             sdk.sdkModificator.apply {
                 sdkAdditionalData = data

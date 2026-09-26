@@ -61,6 +61,7 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         }
     }
 
+    @RequiresEdt
     fun testRemovingOneOfTwoSdksOnAHomeKeepsIt() {
         val home = elixirHome("1.20.5")
         val removed = SdkFixtures.registerAndWaitForFill(
@@ -85,7 +86,9 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
 
         val refusal: Throwable? = runSuspendOnPooledThread {
             runCatching {
-                ReadAction.run<Throwable> { SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) {} }
+                ReadAction.computeBlocking<Unit, Throwable> {
+                    SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) {}
+                }
             }.exceptionOrNull()
         }
 
@@ -105,6 +108,7 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testAnSdkAddedAfterInstallIsWatchedOffTheWriteAction() {
         val home = erlangHome("27", "27.3.4")
         val erlangSdk = SdkFixtures.erlangSdk("Watched After Add", home)
@@ -222,7 +226,9 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         otpVersionFile.writeText("27.3.9\n")
 
         val revalidated = CopyOnWriteArrayList<String>()
-        runSuspendOnPooledThread { SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) { revalidated.add(it) } }
+        runSuspendOnPooledThread {
+            SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) { revalidated.add(it) }
+        }
 
         SdkFixtures.waitUntil("a home replaced while nothing watched it must be read again once it is watched") {
             revalidated.isNotEmpty()
@@ -234,7 +240,9 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     fun testAReleaseAddedBesideTheWatchedOneIsReadAgain() {
         val home = erlangHome("27", "27.3.4")
         val revalidated = CopyOnWriteArrayList<String>()
-        runSuspendOnPooledThread { SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) { revalidated.add(it) } }
+        runSuspendOnPooledThread {
+            SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) { revalidated.add(it) }
+        }
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         revalidated.clear()
 

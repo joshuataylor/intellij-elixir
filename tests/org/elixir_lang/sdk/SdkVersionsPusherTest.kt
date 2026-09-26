@@ -33,6 +33,7 @@ import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import java.io.File
 import java.util.concurrent.Callable
 
+@Suppress("UnstableApiUsage")
 class SdkVersionsPusherTest : HeavyPlatformTestCase() {
     private val pusher = SdkVersionsPusher()
 
@@ -453,7 +454,7 @@ class SdkVersionsPusherTest : HeavyPlatformTestCase() {
     }
 
     fun testANestedModulesContentRootWhoseElixirHomeIsUnreadDoesNotTakeTheOuterModulesVersions() {
-        val inner = nestedModuleRoot("unread-home-inner", "1.12.3")
+        val inner = nestedModuleRoot("unread-home-inner")
         ModuleRootModificationUtil.setModuleSdk(
             inner.first,
             pairedElixirSdk("unread-home-inner", "/fake/elixir/unread-home-inner", "/fake/erlang/unread-home-inner"),
@@ -469,7 +470,7 @@ class SdkVersionsPusherTest : HeavyPlatformTestCase() {
 
     /** A directory created later is pushed with no module value, so the directory itself must answer its module's. */
     fun testANestedModulesNewContentRootGetsItsOwnModulesVersions() {
-        val inner = nestedModuleRoot("read-home-inner", "1.12.3")
+        val inner = nestedModuleRoot("read-home-inner")
         val home = "/fake/elixir/read-home-inner"
         ModuleRootModificationUtil.setModuleSdk(inner.first, register(SdkFixtures.elixirSdk("read-home-inner", home)))
         SdkVersionsStore.getInstance().setElixirVersions(home, ElixirVersions("1.18.4", OtpMajor.Known("27")))
@@ -493,8 +494,9 @@ class SdkVersionsPusherTest : HeavyPlatformTestCase() {
         assertEquals("1.13.4|24", PushedVersions.KEY.getPersistentValue(inner))
     }
 
-    /** A module whose content root sits in the content of [module], whose SDK is Elixir [outerVersion]. */
-    private fun nestedModuleRoot(name: String, outerVersion: String): Pair<Module, VirtualFile> {
+    /** A module whose content root sits in the content of [module], whose SDK is Elixir 1.12.3. */
+    private fun nestedModuleRoot(name: String): Pair<Module, VirtualFile> {
+        val outerVersion = "1.12.3"
         val outerHome = "/fake/elixir/$name-outer"
         ModuleRootModificationUtil.setModuleSdk(module, register(SdkFixtures.elixirSdk("$name outer", outerHome)))
         SdkVersionsStore.getInstance().setElixirVersions(outerHome, ElixirVersions(outerVersion, OtpMajor.None))
