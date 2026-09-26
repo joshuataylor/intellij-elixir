@@ -11,12 +11,15 @@ import com.intellij.openapi.util.Disposer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import org.jetbrains.annotations.TestOnly
 import org.elixir_lang.util.ElixirAppCoroutineService
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
@@ -136,6 +139,28 @@ internal object SdkVersionWatchService {
 
     @Volatile
     private var installed: Installation? = null
+
+    /** Whether every fill and rewatch launched so far has finished, for a test that must see the store settled. */
+    @TestOnly
+    fun isIdleForTests(): Boolean = installed?.scope?.coroutineContext?.job?.children?.none() ?: true
+
+    /** Stops watching what [SdkVersionsStore.clearForTests] emptied, which it does without telling anyone. */
+    @TestOnly
+    fun stopWatchingForTests() {
+        val installation = installed ?: return
+        installation.watching.getAndSet(null)?.let(Disposer::dispose)
+        installation.lastWatched.set(emptySet())
+    }
+
+    /** Where the watch stands, for a test that timed out waiting on it. */
+    @TestOnly
+    fun describeForTests(): String {
+        val installation = installed ?: return "not installed"
+
+        return "installed, scope active: ${installation.scope.isActive}; watching: ${installation.lastWatched.get()}; " +
+            "rewatch pending: ${installation.rewatchPending.get()}, running: ${installation.rewatches.isLocked}; " +
+            "store homes: ${homesToWatch()}"
+    }
 
     /**
      * [rewatches] serialises rewatches: each disposes the previous [watching] registration and builds the next, and two

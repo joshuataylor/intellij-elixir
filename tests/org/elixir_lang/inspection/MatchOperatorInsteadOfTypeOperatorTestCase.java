@@ -5,7 +5,7 @@ import org.elixir_lang.PlatformTestCase;
 public class MatchOperatorInsteadOfTypeOperatorTestCase extends PlatformTestCase {
     public void testMatchOperator() {
         myFixture.configureByFiles("match_operator.ex");
-        myFixture.enableInspections(MatchOperatorInsteadOfTypeOperator.class);
+        myFixture.enableInspections(new MatchOperatorInsteadOfTypeOperator());
         myFixture.checkHighlighting();
     }
 

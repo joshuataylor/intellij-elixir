@@ -20,7 +20,7 @@ import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
  * Assigning a module's Elixir SDK must put that SDK's `CLASSES` roots into the module's own order
  * entries.
  *
- * On a small IDE there is no `JdkOrderEntry` - Settings → Languages & Frameworks → Elixir writes
+ * On a small IDE there is no `JdkOrderEntry` - Settings -> Languages & Frameworks -> Elixir writes
  * through [Facet.sdk], and the module-level library it creates is the only thing that carries an
  * SDK's `ebin` directories into the project's index. Stub-indexed files under those directories are
  * what module-name completion reads, so a module library without them leaves the whole Elixir
@@ -102,7 +102,7 @@ class FacetSdkRootsTest : PlatformTestCase() {
             .firstOrNull { it.libraryName == name }
 
     /** Every `CLASSES` root the module's order entries expose - what the index actually scans. */
-    private fun moduleClassesRoots(): kotlin.collections.List<VirtualFile> =
+    private fun moduleClassesRoots(): List<VirtualFile> =
         ModuleRootManager.getInstance(module).orderEntries().classes().roots.toList()
 
     fun testAssignmentPutsSdkClassesRootsOnTheModule() {
@@ -122,7 +122,7 @@ class FacetSdkRootsTest : PlatformTestCase() {
         assertEquals(
             "The module library named after the SDK carries none of its CLASSES roots",
             listOf(ebin),
-            entry!!.getFiles(OrderRootType.CLASSES).toList()
+            entry!!.getRootFiles(OrderRootType.CLASSES).toList()
         )
         assertTrue(
             "The SDK's ebin directory never reaches the module's CLASSES roots, so nothing under " +

@@ -85,7 +85,7 @@ class CallDefinitionSpecification(
 
         fun specificationType(specification: Call): Call? =
                 when (specification) {
-                    is Type -> type(specification as Type)
+                    is Type -> type(specification)
                     is ElixirMatchedWhenOperation -> type(specification)
                     else -> null
                 }

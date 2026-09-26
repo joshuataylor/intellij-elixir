@@ -16,6 +16,7 @@ import org.elixir_lang.sdk.wsl.WslCompatService
 import org.jdom.Element
 import java.util.concurrent.Callable
 import java.util.concurrent.atomic.AtomicInteger
+import com.intellij.util.concurrency.annotations.RequiresEdt
 
 /**
  * The resolver runs under a read lock, so a pairing it repairs has to be committed later through a
@@ -31,6 +32,7 @@ class ErlangSdkResolverHealTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testHomePathFoundByNameIsCommitted() {
         val erlangSdk = register(SdkFixtures.erlangSdk("Heal by name Erlang", "/fake/erlang/heal-by-name"))
         val elixirSdk = register(SdkFixtures.elixirSdk("Heal by name Elixir", "/fake/elixir/heal-by-name"))
@@ -48,6 +50,7 @@ class ErlangSdkResolverHealTest : PlatformTestCase() {
         assertEquals("/fake/erlang/heal-by-name", persistedElixirData(elixirSdk)?.getErlangSdkHomePath())
     }
 
+    @RequiresEdt
     fun testRenamedErlangSdkNameIsCommitted() {
         val erlangSdk = register(SdkFixtures.erlangSdk("Heal renamed Erlang", "/fake/erlang/heal-renamed"))
         val elixirSdk = register(SdkFixtures.elixirSdk("Heal renamed Elixir", "/fake/elixir/heal-renamed"))
@@ -71,6 +74,7 @@ class ErlangSdkResolverHealTest : PlatformTestCase() {
         assertEquals("Heal renamed Erlang", persistedElixirData(elixirSdk)?.getErlangSdkName())
     }
 
+    @RequiresEdt
     fun testAChangedErlangHomeIsCommitted() {
         val erlangSdk = register(SdkFixtures.erlangSdk("Heal moved Erlang", "/fake/erlang/heal-moved-new"))
         val elixirSdk = register(SdkFixtures.elixirSdk("Heal moved Elixir", "/fake/elixir/heal-moved"))
@@ -88,6 +92,7 @@ class ErlangSdkResolverHealTest : PlatformTestCase() {
         assertEquals("/fake/erlang/heal-moved-new", persistedElixirData(elixirSdk)?.getErlangSdkHomePath())
     }
 
+    @RequiresEdt
     fun testARepairQueuedBeforeTheUserRepairsIsDropped() {
         val erlangSdk = register(SdkFixtures.erlangSdk("Heal superseded Erlang", "/fake/erlang/heal-superseded"))
         val chosenErlangSdk = register(SdkFixtures.erlangSdk("Heal chosen Erlang", "/fake/erlang/heal-chosen"))
@@ -102,6 +107,7 @@ class ErlangSdkResolverHealTest : PlatformTestCase() {
         assertEquals("Heal chosen Erlang", persistedElixirData(elixirSdk)?.getErlangSdkName())
     }
 
+    @RequiresEdt
     fun testARepairAlreadyMadeCommitsNothing() {
         val erlangSdk = register(SdkFixtures.erlangSdk("Heal already Erlang", "/fake/erlang/heal-already"))
         val elixirSdk = register(SdkFixtures.elixirSdk("Heal already Elixir", "/fake/elixir/heal-already"))
@@ -117,6 +123,7 @@ class ErlangSdkResolverHealTest : PlatformTestCase() {
         assertEquals("a pairing that already names the SDK is not committed again", 0, commits.get())
     }
 
+    @RequiresEdt
     fun testAPairingWithAHomelessErlangSdkIsNotCommitted() {
         val erlangSdk = register(SdkFixtures.erlangSdk("Heal homeless Erlang", ""))
         val elixirSdk = register(SdkFixtures.elixirSdk("Heal homeless Elixir", "/fake/elixir/heal-homeless"))
@@ -131,6 +138,7 @@ class ErlangSdkResolverHealTest : PlatformTestCase() {
         assertEquals("an Erlang SDK with no home has nothing to repair", 0, commits.get())
     }
 
+    @RequiresEdt
     fun testSdkOutsideTheTableIsNotHealed() {
         // A settings dialog's editable copy: never in the table, so a commit to it would not persist.
         val erlangSdk = SdkFixtures.erlangSdk("Heal copy Erlang", "/fake/erlang/heal-copy")

@@ -14,7 +14,7 @@ class ItemPresentationTest : PlatformTestCase() {
      * [org.elixir_lang.psi.QualifiedMultipleAliases] expression (e.g. `alias Prefix.{SubModule}`).
      *
      * The qualifier `Prefix` has parent chain:
-     *   `ElixirAlias` → `ElixirAccessExpression` → `QualifiedMultipleAliases` → `alias` Call
+     *   `ElixirAlias` -> `ElixirAccessExpression` -> `QualifiedMultipleAliases` -> `alias` Call
      *
      * Before the fix, `UnaliasedName.up(QualifiedMultipleAliases, entrance)` called itself with the same
      * `QualifiedMultipleAliases`, causing an infinite tail-recursive loop that froze IntelliJ.
@@ -45,7 +45,7 @@ class ItemPresentationTest : PlatformTestCase() {
         myFixture.configureByText("string_alias.ex", "alias \"Foo\", as: A<caret>s\n")
         val elixirAlias = myFixture.file.findElementAt(myFixture.caretOffset)!!.parent as ElixirAlias
 
-        val (presentableText, errors) = captureLoggedErrors { elixirAlias.presentation!!.presentableText }
+        val (presentableText, errors) = captureLoggedErrors { elixirAlias.presentation.presentableText }
 
         assertEmpty("presenting an alias of a non-module is not an error", errors)
         assertEquals("As", presentableText)

@@ -5,6 +5,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.util.system.OS
 import org.jetbrains.annotations.TestOnly
 import org.mockito.Mockito
+import java.nio.file.NoSuchFileException
 
 /**
  * Mock implementation of WslCompatService for testing purposes.
@@ -27,8 +28,8 @@ class MockWslCompatService(
         }
 
         // In mock mode, check for WSL-like patterns (both old and new formats)
-        // Old format: \\wsl$\Ubuntu\... or //wsl$/Ubuntu/...
-        // New format: \\wsl.localhost\Ubuntu-24.04\... or //wsl.localhost/Ubuntu-24.04/...
+        // Old format: \\wsl$\IntellijElixirWSLDistribution\... or //wsl$/IntellijElixirWSLDistribution/...
+        // New format: \\wsl.localhost\IntellijElixirWSLDistribution\... or //wsl.localhost/IntellijElixirWSLDistribution/...
         // Case-insensitive matching
         return path.startsWith("\\\\wsl$\\", ignoreCase = true) ||
                path.startsWith("//wsl$/", ignoreCase = true) ||
@@ -43,13 +44,8 @@ class MockWslCompatService(
             return null
         }
 
-        // Return a mock distribution for testing
-        // Extract distribution name from path if possible
-        val distroName = when {
-            path?.contains("Ubuntu-24.04") == true -> "Ubuntu-24.04"
-            path?.contains("Ubuntu") == true -> "Ubuntu"
-            else -> "WSL"
-        }
+        // The distribution is the path segment after the `wsl$` or `wsl.localhost` host.
+        val distroName = path!!.replace('\\', '/').trimStart('/').split('/').getOrNull(1)?.takeIf { it.isNotEmpty() } ?: "WSL"
 
         return Mockito.mock(WSLDistribution::class.java).also {
             Mockito.`when`(it.msId).thenReturn(distroName)
@@ -71,7 +67,7 @@ class MockWslCompatService(
         // Normalize to forward slashes first
         result = result.replace('\\', '/')
 
-        // Handle //wsl$/Ubuntu/... format
+        // Handle //wsl$/IntellijElixirWSLDistribution/... format
         if (result.startsWith("//wsl$/", ignoreCase = true)) {
             // Find the second slash after //wsl$/
             val distroStart = 7 // Length of "//wsl$/"
@@ -82,7 +78,7 @@ class MockWslCompatService(
                 result = "/"
             }
         }
-        // Handle //wsl.localhost/Ubuntu/... format
+        // Handle //wsl.localhost/IntellijElixirWSLDistribution/... format
         else if (result.startsWith("//wsl.localhost/", ignoreCase = true)) {
             // Find the second slash after //wsl.localhost/
             val distroStart = 16 // Length of "//wsl.localhost/"
@@ -140,7 +136,15 @@ class MockWslCompatService(
     }
 
     /**
-     * Returns [prefixConversionOverride] (default: legacy→modern) instead of consulting the host OS,
+     * Never resolves a WSL path through the filesystem: the IDE routes `\\wsl.localhost` and `\\wsl$` paths to IJent,
+     * which starts a shell in any installed distribution the path names. Failing the way a non-Windows host does leaves
+     * [canonicalizePath] with its lexical fallback.
+     */
+    override fun toRealPath(myPath: String): String =
+        if (isWslUncPath(myPath)) throw NoSuchFileException(myPath) else super.toRealPath(myPath)
+
+    /**
+     * Returns [prefixConversionOverride] (default: legacy->modern) instead of consulting the host OS,
      * so tests are deterministic across the CI matrix (Windows 11, older Windows, and Linux runners).
      * Only the OS-version policy is stubbed; the real prefix rewrite in [canonicalizeWslPrefix] still runs.
      * Pass `prefixConversionOverride = null` to simulate the "no conversion" (non-Windows) case.

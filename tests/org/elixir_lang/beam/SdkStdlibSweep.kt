@@ -22,13 +22,12 @@ import org.elixir_lang.structure_view.element.CallDefinitionHead
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * One decompile pass per resolved SDK, answering the three questions [SdkDecompileParseableTest],
- * [SdkMirrorCoverageTest] and [SdkStubSignatureTest] each used to ask in their own sweep. Whichever of
- * those six test methods runs first for a given (root, tag) pays the decompile cost and caches the
+ * One decompile pass per resolved SDK, answering the three questions [SdkStdlibSweepTest] asks.
+ * Whichever of its test methods runs first for a given (root, tag) pays the decompile cost and caches the
  * plain-data [Result]; the rest read it back, the way `CodeIntelligenceMatrixTest.Group` shares one
- * fixture across many independently-passing/failing cells. Safe to share across the different
- * `Project` instances those test classes each stand up, because the cached [Result] holds only
- * strings and counts, never PSI.
+ * fixture across many independently-passing/failing cells. Safe to share across the `Project` instances
+ * the test methods each stand up, because the cached [Result] holds only strings and counts, never PSI.
+ * The cache is per JVM, so only tests in one class, which Gradle keeps on one fork, are sure to share it.
  */
 object SdkStdlibSweep {
     data class Result(
@@ -214,7 +213,7 @@ object SdkStdlibSweep {
             "${callDefinition.exportedName()}/${callDefinition.exportedArity(state)}"
         } catch (t: ProcessCanceledException) {
             throw t
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             callDefinition.exportedName()
         }
 

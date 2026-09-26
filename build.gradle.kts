@@ -50,6 +50,9 @@ import sdk.quoterReleaseExecutablePath
 import sdk.resolveMixEnv
 import sdk.versionWithoutBuildTag
 import sdk.elixirTestEnvironment
+import testing.recordTimeline
+import testing.runInForks
+import testing.TestProgress
 import versioning.ChangelogSettings
 import versioning.GitSourceIdValueSource
 import versioning.PluginVersion
@@ -441,6 +444,8 @@ allprojects {
             showStackTraces = true
             showFullStackTraces = false
             slowThreshold = 2000
+            // A full run lists too many to read; `-Dtestlogger.showPassed=true` lists them again.
+            showPassed = false
             showSummary = true
             showStandardStreams = false
             showFailedStandardStreams = true
@@ -493,6 +498,7 @@ sourceSets {
     }
     test {
         java.srcDir("tests")
+        resources.srcDir("testResources")
     }
     create("testUI", Action<SourceSet> {
         kotlin.srcDir("testUI/kotlin")
@@ -685,6 +691,15 @@ tasks.withType<KotlinJvmCompile>().configureEach {
     }
 }
 
+// JUnit 5 for the `test` source set only. `testUI` extends `testImplementation` and `testRuntimeOnly`, and takes its
+// JUnit version from ide-starter, so a pinned version there would override that.
+val junit5: Configuration = configurations.create("junit5") {
+    isCanBeConsumed = false
+    isCanBeResolved = false
+}
+configurations.testCompileClasspath { extendsFrom(junit5) }
+configurations.testRuntimeClasspath { extendsFrom(junit5) }
+
 // --- Mockito Agent Configuration (Root project only) ---
 val mockitoAgent: Configuration = configurations.create("mockitoAgent")
 
@@ -712,9 +727,7 @@ dependencies {
     implementation(files("lib/OtpErlang.jar"))
     implementation(libCommonsIo)
 
-    @Suppress("AvoidDuplicateDependencies")
     testImplementation(libMockitoCore)
-    @Suppress("AvoidDuplicateDependencies")
     mockitoAgent(libMockitoCore) { isTransitive = false }
 
     // Explicit here (not pulled in via ide-starter) because the IntelliJ Platform Gradle Plugin
@@ -729,6 +742,11 @@ dependencies {
     // JetBrains compiled the Starter framework against.
     testUIImplementation(libs.junit.jupiter)
     testUIRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
+    junit5(platform(libs.junit5.bom))
+    junit5("org.junit.platform:junit-platform-launcher")
+    // Runs the JUnit 3 and 4 tests on the JUnit Platform.
+    junit5("org.junit.vintage:junit-vintage-engine")
 
 }
 
@@ -1051,6 +1069,13 @@ allprojects {
     }
 }
 
+// On Windows the bundled IJent plugin routes every `\\wsl$` and `\\wsl.localhost` path through an agent it deploys
+// into the named distribution. The tests' distributions exist on no machine, so each deploy fails, asynchronously,
+// into whichever test is running. A task for tests that need real WSL can leave it on.
+tasks.named<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>("prepareTestSandbox") {
+    disabledPlugins.add("intellij.platform.ijent.impl")
+}
+
 // The whole JUnit suite. The parser tests (org.elixir_lang.parser_definition) quote source through
 // the external Elixir quoter daemon and compare it against the plugin's own quoting, so this task
 // owns the daemon's lifecycle - hence startQuoter and usesService below.
@@ -1061,6 +1086,8 @@ tasks.named<Test>("test") {
     // output.
     dependsOn("prepareTestSandbox", resolveElixirErlangSdks, startQuoter)
     usesService(quoterService)
+    // Every fork starting the ~150 other bundled plugins cost each one seconds before its first test.
+    systemProperty("idea.load.plugins.id", providers.gradleProperty("testLoadedPlugins").get())
 
     val sdkProps = sdkPropertiesFile
     val quoterAvailability = quoterAvailabilityFile.asFile
@@ -1113,9 +1140,18 @@ tasks.named<Test>("test") {
     // different run, or the task reports the previous subset's results as this one's.
     inputs.property("elixirOracleCases", System.getenv("ELIXIR_ORACLE_CASES") ?: "")
 
-    // The parsing tests are JUnit 3 (com.intellij.testFramework.ParsingTestCase -> TestCase),
-    // discovered by the JUnit 4 runner.
-    useJUnit()
+    // JUnit 3 and 4 tests run through the Vintage engine.
+    useJUnitPlatform()
+    // A Kotlin `companion object` holding `@JvmStatic fun suite()` keeps an instance `suite()`, which Vintage
+    // rejects as a test class of its own.
+    exclude($$"**/*$Companion.class")
+
+    runInForks(
+        explicitForks = providers.gradleProperty("testForks").map(String::toInt),
+        stepSummary = providers.environmentVariable("GITHUB_STEP_SUMMARY"),
+    )
+    addTestListener(TestProgress(every = 1000))
+    providers.gradleProperty("testTimeline").orNull?.let { recordTimeline(layout.projectDirectory.file(it).asFile) }
 
     // Add Mockito as javaagent to avoid dynamic loading warnings (root project only)
     jvmArgs("-javaagent:${mockitoAgent.asPath}")
@@ -1175,7 +1211,7 @@ tasks.register<Test>("testUI") {
     maxHeapSize = "4g"
 
     systemProperty("path.to.build.plugin", tasks.buildPlugin.get().archiveFile.get().asFile.absolutePath)
-    systemProperty("idea.home.path", tasks.prepareTestSandbox.get().getDestinationDir().parentFile.absolutePath)
+    systemProperty("idea.home.path", tasks.prepareTestSandbox.get().destinationDir.parentFile.absolutePath)
     systemProperty("uiPlatformBuildVersion", actualPlatformVersion)
     systemProperty("projectPath", unzipQuoter.get().destinationDir.absolutePath)
     // Keep Allure outputs under build/ instead of the repo root.

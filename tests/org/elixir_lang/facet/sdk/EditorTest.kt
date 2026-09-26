@@ -25,6 +25,7 @@ import org.elixir_lang.sdk.wsl.WslCompatService
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditionalData
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The Elixir SDKs settings page builds an [Editor] from a list-selection listener and shows it through
@@ -114,6 +115,7 @@ class EditorTest : PlatformTestCase() {
 
     private fun register(sdk: Sdk): Sdk = SdkFixtures.register(sdk, testRootDisposable)
 
+    @Suppress("ObsoleteDispatchersEdt") // The model access `Dispatchers.UI` refuses is what the block needs.
     private fun <T> onEdt(block: () -> T): T =
         runBlocking { withTimeout(TIMEOUT) { withContext(Dispatchers.EDT) { block() } } }
 
@@ -125,6 +127,6 @@ class EditorTest : PlatformTestCase() {
         generateSequence(failure) { it.cause }.joinToString(" <- ") { "${it.javaClass.simpleName}: ${it.message}" }
 
     private companion object {
-        const val TIMEOUT = 30_000L
+        val TIMEOUT = 30.seconds
     }
 }

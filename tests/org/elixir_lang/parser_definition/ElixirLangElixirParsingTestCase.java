@@ -2,9 +2,9 @@ package org.elixir_lang.parser_definition;
 
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.io.FileUtilRt;
-import com.intellij.util.ThrowableRunnable;
 import junit.framework.Test;
 import junit.framework.TestSuite;
+import org.elixir_lang.junit.SharedFixture;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -20,7 +20,8 @@ import java.util.stream.Stream;
  * One test per {@code .ex} and {@code .exs} file under {@code ELIXIR_PARSING_CORPUS}, each parsed and quoted
  * against the reference quoter of the Elixir the leg runs.
  */
-public class ElixirLangElixirParsingTestCase extends ParsingTestCase {
+@SuppressWarnings("JUnitMalformedDeclaration") // Built only by suite().
+public class ElixirLangElixirParsingTestCase extends SharedFixtureParsingTestCase<ElixirLangElixirParsingTestCase> {
     static final String CORPUS_ENVIRONMENT_VARIABLE = "ELIXIR_PARSING_CORPUS";
     private static final Path KNOWN_FAILURES =
             Path.of("testData", "org", "elixir_lang", "parser_definition", "corpus_known_failures.tsv");
@@ -28,18 +29,25 @@ public class ElixirLangElixirParsingTestCase extends ParsingTestCase {
     private final Path corpusRoot;
     private final KnownFailures knownFailures;
 
+    private ElixirLangElixirParsingTestCase() {
+        corpusRoot = null;
+        knownFailures = null;
+    }
+
     private ElixirLangElixirParsingTestCase(
+            @NotNull SharedFixture<ElixirLangElixirParsingTestCase> fixture,
             @NotNull Path corpusRoot,
             @NotNull String relativePath,
             @NotNull KnownFailures knownFailures
     ) {
+        super(fixture, relativePath);
         this.corpusRoot = corpusRoot;
         this.knownFailures = knownFailures;
-        setName(relativePath);
     }
 
     public static Test suite() {
-        TestSuite suite = new TestSuite(ElixirLangElixirParsingTestCase.class.getName());
+        SharedFixture<ElixirLangElixirParsingTestCase> fixture = new SharedFixture<>(ElixirLangElixirParsingTestCase::new);
+        TestSuite suite = fixture.suite(ElixirLangElixirParsingTestCase.class.getName());
         String corpus = System.getenv(CORPUS_ENVIRONMENT_VARIABLE);
 
         if (corpus == null || corpus.isEmpty()) {
@@ -60,7 +68,7 @@ public class ElixirLangElixirParsingTestCase extends ParsingTestCase {
         KnownFailures knownFailures = KnownFailures.forElixirUnderTest(KNOWN_FAILURES);
 
         for (String relativePath : relativePaths) {
-            suite.addTest(new ElixirLangElixirParsingTestCase(corpusRoot, relativePath, knownFailures));
+            suite.addTest(new ElixirLangElixirParsingTestCase(fixture, corpusRoot, relativePath, knownFailures));
         }
 
         knownFailures.checkStale(suite, relativePaths);
@@ -85,16 +93,18 @@ public class ElixirLangElixirParsingTestCase extends ParsingTestCase {
     }
 
     @Override
-    protected void runBare(@NotNull ThrowableRunnable<Throwable> testRunnable) throws Throwable {
-        if (knownFailures.contains(getName())) {
-            super.runBare(() -> knownFailures.expectFailure(getName(), this::assertParsed));
+    public void check(@NotNull ElixirLangElixirParsingTestCase testCase) throws IOException {
+        String name = testCase.getName();
+        File file = testCase.corpusRoot.resolve(name).toFile();
+
+        if (testCase.knownFailures.contains(name)) {
+            testCase.knownFailures.expectFailure(name, () -> assertParsed(file));
         } else {
-            super.runBare(this::assertParsed);
+            assertParsed(file);
         }
     }
 
-    private void assertParsed() throws IOException {
-        File file = corpusRoot.resolve(getName()).toFile();
+    private void assertParsed(@NotNull File file) throws IOException {
         String text = FileUtil.loadFile(file, StandardCharsets.UTF_8.name(), true).trim();
 
         myFile = createPsiFile(FileUtilRt.getNameWithoutExtension(file.getName()), text);

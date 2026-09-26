@@ -1,6 +1,6 @@
 package org.elixir_lang.reference.callable
 
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.search.PsiSearchScopeUtil
 import com.intellij.psi.util.PsiTreeUtil
@@ -32,7 +32,7 @@ class VariableUseScopeWithAModuleScopedDeclarationTest : PlatformTestCase() {
             .first { it.text == "p" && it !== use }
         assertTrue("the query binding is not module-scoped", UseScopeImpl.get(declaration) is GlobalSearchScope)
 
-        val scope = runReadAction { Callable.variableUseScope(use) }
+        val scope = runReadActionBlocking { Callable.variableUseScope(use) }
 
         assertTrue("the use is outside its own scope", PsiSearchScopeUtil.isInScope(scope, use))
         assertTrue("the use's own walk is not kept", scope.contains(myFixture.file.virtualFile))

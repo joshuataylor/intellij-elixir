@@ -4,9 +4,12 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.projectRoots.Sdk
+import com.intellij.openapi.projectRoots.SdkAdditionalData
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.diagnostic.ThreadDumper
 import com.intellij.testFramework.PlatformTestUtil
+import com.intellij.util.concurrency.annotations.RequiresEdt
 import java.io.File
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
@@ -33,12 +36,26 @@ internal object SdkFixtures {
 
     fun erlangSdk(name: String, homePath: String): Sdk = ProjectJdkImpl(name, ErlangSdkType.instance, homePath, "")
 
+    @RequiresEdt
     fun register(sdk: Sdk, parentDisposable: Disposable): Sdk {
         WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(sdk, parentDisposable) }
         return sdk
     }
 
-    fun commit(sdk: Sdk, data: com.intellij.openapi.projectRoots.SdkAdditionalData?) {
+    /** [register], then [waitForRegistrationFills]. */
+    @RequiresEdt
+    fun registerAndWaitForFill(sdk: Sdk, parentDisposable: Disposable): Sdk =
+        register(sdk, parentDisposable).also { waitForRegistrationFills() }
+
+    /**
+     * Waits for the reads registering SDKs starts once a project's startup has installed the SDK table listeners, so
+     * one cannot land between a test's own store writes and its assertion.
+     */
+    fun waitForRegistrationFills() =
+        waitUntil("the registration fill finishes") { SdkVersionWatchService.isIdleForTests() }
+
+    @RequiresEdt
+    fun commit(sdk: Sdk, data: SdkAdditionalData?) {
         WriteAction.run<Throwable> {
             sdk.sdkModificator.apply {
                 sdkAdditionalData = data
@@ -54,7 +71,14 @@ internal object SdkFixtures {
     fun waitUntil(message: String, timeoutMillis: Long = 10_000, condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMillis
         while (!condition()) {
-            if (System.currentTimeMillis() > deadline) throw AssertionError(message)
+            if (System.currentTimeMillis() > deadline) {
+                // Lands in the JUnit XML's system-err, beside the failure.
+                System.err.println(ThreadDumper.dumpThreadsToString())
+                throw AssertionError(
+                    "$message (watch: ${SdkVersionWatchService.describeForTests()}; " +
+                        "${SdkVersionsFiller.describeForTests()})"
+                )
+            }
             PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
             Thread.sleep(10)
         }

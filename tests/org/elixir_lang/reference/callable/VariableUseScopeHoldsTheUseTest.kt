@@ -1,6 +1,6 @@
 package org.elixir_lang.reference.callable
 
-import com.intellij.openapi.application.runReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.psi.search.PsiSearchScopeUtil
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.PlatformTestCase
@@ -27,7 +27,7 @@ class VariableUseScopeHoldsTheUseTest : PlatformTestCase() {
         myFixture.configureByText("user.ex", "defmodule User do\n  use Injector\n  y = <caret>x\nend\n")
         val use = variableAtCaret()
 
-        val scope = runReadAction { Callable.variableUseScope(use) }
+        val scope = runReadActionBlocking { Callable.variableUseScope(use) }
 
         assertTrue("the use is outside its own scope", PsiSearchScopeUtil.isInScope(scope, use))
         assertTrue("the use's file is not in its scope", scope.contains(myFixture.file.virtualFile))
@@ -38,7 +38,7 @@ class VariableUseScopeHoldsTheUseTest : PlatformTestCase() {
         myFixture.configureByText("held.ex", text)
         val use = variableAtCaret()
 
-        val scope = runReadAction { Callable.variableUseScope(use) }
+        val scope = runReadActionBlocking { Callable.variableUseScope(use) }
 
         assertTrue("the use is outside its own scope", PsiSearchScopeUtil.isInScope(scope, use))
         val bound = PsiTreeUtil.findChildrenOfAnyType(myFixture.file, UnqualifiedNoArgumentsCall::class.java)

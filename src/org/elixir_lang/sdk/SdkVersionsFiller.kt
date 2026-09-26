@@ -22,12 +22,14 @@ import org.elixir_lang.sdk.erlang.ErlangVersionDetector
 import org.elixir_lang.sdk.erlang.Release
 import org.elixir_lang.sdk.erlang_dependent.elixirAdditionalData
 import org.elixir_lang.sdk.wsl.wslCompat
+import org.jetbrains.annotations.TestOnly
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.NoSuchFileException
 import java.nio.file.Paths
 import java.nio.file.attribute.BasicFileAttributes
+import java.time.LocalTime
 
 private val LOG = logger<SdkVersionsFiller>()
 
@@ -99,10 +101,20 @@ internal object SdkVersionsFiller {
         }
 
     suspend fun fillUsedBy(project: Project) {
-        for (homePath in readAction { homePathsUsedBy(project) }) {
+        val homePaths = readAction { homePathsUsedBy(project) }
+        if (ApplicationManager.getApplication().isUnitTestMode) lastFillUsedBy = "${LocalTime.now()}: $homePaths"
+        for (homePath in homePaths) {
             fillIfUnread(homePath)
         }
     }
+
+    // Exists only to track down a flaky SDK-watch test; remove it if that flake has not shown up in a while.
+    @Volatile
+    private var lastFillUsedBy = "never"
+
+    /** When [fillUsedBy] last ran and the homes it found, for a test that timed out waiting on a fill. */
+    @TestOnly
+    fun describeForTests(): String = "last fillUsedBy: $lastFillUsedBy"
 
     /**
      * For a caller that cannot suspend, such as the platform's pre-scan dumb task, which may run inside a write action
@@ -133,7 +145,7 @@ internal object SdkVersionsFiller {
         if (app.isWriteAccessAllowed || app.holdsReadLock()) return
 
         if (app.isDispatchThread) {
-            runWithModalProgressBlocking(ModalTaskOwner.guess(), "Reading SDK version…") {
+            runWithModalProgressBlocking(ModalTaskOwner.guess(), "Reading SDK version...") {
                 if (!app.holdsReadLock()) unread.forEach { fill(it) }
             }
         } else {

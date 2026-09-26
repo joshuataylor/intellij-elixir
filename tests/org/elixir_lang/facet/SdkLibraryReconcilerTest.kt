@@ -18,6 +18,7 @@ import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.Facet
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
+import com.intellij.util.concurrency.annotations.RequiresEdt
 
 /**
  * A project configured by a version that created the Facet's module library empty gets its roots
@@ -125,7 +126,7 @@ class SdkLibraryReconcilerTest : PlatformTestCase() {
         assertEquals(
             "Precondition: the module library starts with no roots, as an older version left it",
             emptyList<VirtualFile>(),
-            facetLibraryEntry(sdk.name)!!.getFiles(OrderRootType.CLASSES).toList()
+            facetLibraryEntry(sdk.name)!!.getRootFiles(OrderRootType.CLASSES).toList()
         )
         assertEquals(
             "Precondition: the Facet SDK still resolves, so the repair has something to re-assign",
@@ -138,7 +139,7 @@ class SdkLibraryReconcilerTest : PlatformTestCase() {
         assertEquals(
             "The empty module library was not repopulated from its SDK",
             listOf(ebin),
-            facetLibraryEntry(sdk.name)!!.getFiles(OrderRootType.CLASSES).toList()
+            facetLibraryEntry(sdk.name)!!.getRootFiles(OrderRootType.CLASSES).toList()
         )
     }
 
@@ -146,6 +147,7 @@ class SdkLibraryReconcilerTest : PlatformTestCase() {
      * A module whose library already carries the SDK's roots is left alone, so the repair does not
      * rewrite the project model on every open.
      */
+    @RequiresEdt
     fun testPopulatedFacetLibraryIsLeftAlone() {
         val ebin = myFixture.tempDirFixture.findOrCreateDir("healthy_elixir/lib/elixir/ebin")
         val sdk = registerElixirSdk("Elixir Reconciler Test B", ebin)
@@ -165,7 +167,7 @@ class SdkLibraryReconcilerTest : PlatformTestCase() {
         )
         assertEquals(
             listOf(ebin),
-            facetLibraryEntry(sdk.name)!!.getFiles(OrderRootType.CLASSES).toList()
+            facetLibraryEntry(sdk.name)!!.getRootFiles(OrderRootType.CLASSES).toList()
         )
     }
 

@@ -2,6 +2,7 @@ package org.elixir_lang.sdk.elixir
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.projectRoots.ProjectJdkTable
 import com.intellij.openapi.projectRoots.Sdk
@@ -18,7 +19,6 @@ import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import java.io.File
 import java.util.concurrent.Callable
 import org.elixir_lang.sdk.SdkVersionsStore
-import org.elixir_lang.sdk.elixir.ElixirVersions
 import org.elixir_lang.sdk.SdkHomePaths
 import org.elixir_lang.sdk.erlang_dependent.ErlangSdkResolver
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
@@ -48,8 +48,15 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val elixirHome = SdkFixtures.elixirHome("1.20.5")
         File(elixirHome, "lib/elixir/ebin/Elixir.System.beam").writeBytes(BeamBytes.elixirSystemBeam())
         val major = runSuspendOnPooledThread { ElixirBuildInfo.elixirOtpRelease(elixirHome) }!!.toInt()
-        val lower = register(SdkFixtures.erlangSdk("Pairing Erlang ${major - 1}", SdkFixtures.erlangHome("${major - 1}", "${major - 1}.0")))
-        val matching = register(SdkFixtures.erlangSdk("Pairing Erlang $major", SdkFixtures.erlangHome("$major", "$major.0")))
+        val lower = register(
+            SdkFixtures.erlangSdk(
+                "Pairing Erlang ${major - 1}",
+                SdkFixtures.erlangHome("${major - 1}", "${major - 1}.0"),
+            ),
+        )
+        val matching = register(
+            SdkFixtures.erlangSdk("Pairing Erlang $major", SdkFixtures.erlangHome("$major", "$major.0")),
+        )
         val elixirSdk = ProjectJdkImpl("Pairing Elixir", Type.instance, elixirHome, "")
         // As a fresh session holds it: nothing read yet, the Elixir home included.
         SdkVersionsStore.getInstance().clearForTests()
@@ -72,7 +79,12 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val elixirHome = SdkFixtures.elixirHome("1.20.5")
         File(elixirHome, "lib/elixir/ebin/Elixir.System.beam").writeBytes(BeamBytes.elixirSystemBeam())
         val major = runSuspendOnPooledThread { ElixirBuildInfo.elixirOtpRelease(elixirHome) }!!.toInt()
-        register(SdkFixtures.erlangSdk("Saved Erlang ${major - 1}", SdkFixtures.erlangHome("${major - 1}", "${major - 1}.0")))
+        register(
+            SdkFixtures.erlangSdk(
+                "Saved Erlang ${major - 1}",
+                SdkFixtures.erlangHome("${major - 1}", "${major - 1}.0"),
+            ),
+        )
         val pendingHome = SdkFixtures.erlangHome("$major", "$major.0")
         val sdkModel = dialogModel(ProjectJdkImpl("Pending Erlang $major", ErlangSdkType.instance, pendingHome, ""))
         val elixirSdk = ProjectJdkImpl("Dialog Elixir", Type.instance, elixirHome, "")
@@ -94,7 +106,9 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         SdkVersionsStore.getInstance().setOtpVersion("/fake/erlang/27.3.4", "27.3.4")
         val sdkModel = dialogModel(pending)
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdkCompiledAgainst("26"), sdkModel)
+        val result = runReadActionBlocking {
+            ErlangSdkResolver.bestRegisteredFor(elixirSdkCompiledAgainst("26"), sdkModel)
+        }
 
         assertEquals("added in the open dialog, and nearer than any saved one", pending.name, result?.name)
     }
@@ -104,9 +118,15 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val sdkModel = dialogModel()
         sdkModel.removeSdk(sdkModel.findSdk(candidates.getValue("26.2.5").name)!!)
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdkCompiledAgainst("26"), sdkModel)
+        val result = runReadActionBlocking {
+            ErlangSdkResolver.bestRegisteredFor(elixirSdkCompiledAgainst("26"), sdkModel)
+        }
 
-        assertEquals("removed in the open dialog, so Apply will delete it", candidates.getValue("28.1").name, result?.name)
+        assertEquals(
+            "removed in the open dialog, so Apply will delete it",
+            candidates.getValue("28.1").name,
+            result?.name,
+        )
     }
 
     /** The dialog's model: a copy of every saved SDK, and [pending] added but not yet saved. */
@@ -120,6 +140,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
     private fun register(sdk: Sdk): Sdk {
         WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(sdk) }
         registeredSdks.add(sdk)
+        SdkFixtures.waitForRegistrationFills()
         return sdk
     }
 
@@ -127,7 +148,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val candidates = erlangSdks("24.3.4.6", "25.3.2.21", "26.2.5.21")
         val elixirSdk = elixirSdkCompiledAgainst("25")
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdk)
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(elixirSdk) }
 
         assertEquals("the exact major the build was compiled against", candidates["25.3.2.21"], result)
     }
@@ -136,16 +157,20 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val candidates = erlangSdks("24.3.4.6", "27.3.4", "28.1")
         val elixirSdk = elixirSdkCompiledAgainst("25")
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdk)
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(elixirSdk) }
 
-        assertEquals("a newer OTP runs an older build, so higher majors come before lower", candidates["27.3.4"], result)
+        assertEquals(
+            "a newer OTP runs an older build, so higher majors come before lower",
+            candidates["27.3.4"],
+            result,
+        )
     }
 
     fun testFindRegisteredErlangSdk_fallsBackToTheHighestLowerOtp() {
         val candidates = erlangSdks("23.3.4.20", "24.3.4.6")
         val elixirSdk = elixirSdkCompiledAgainst("27")
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdk)
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(elixirSdk) }
 
         assertEquals("with nothing at or above, the closest below", candidates["24.3.4.6"], result)
     }
@@ -155,7 +180,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val candidates = erlangSdks("26.2.5.21", "2026.9.1")
         val elixirSdk = elixirSdkCompiledAgainst("27")
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdk)
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(elixirSdk) }
 
         assertEquals("a higher major beats a lower one at any distance", candidates["2026.9.1"], result)
     }
@@ -164,7 +189,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val candidates = erlangSdks("27.0", "27.3.4", "27.1.2")
         val elixirSdk = elixirSdkCompiledAgainst("27")
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdk)
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(elixirSdk) }
 
         assertEquals("the newest build of that major", candidates["27.3.4"], result)
     }
@@ -175,6 +200,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
             val sdk = ProjectJdkImpl("Erlang $otpVersion", ErlangSdkType.instance, homePath, "")
             WriteAction.run<Throwable> { ProjectJdkTable.getInstance().addJdk(sdk) }
             registeredSdks.add(sdk)
+            SdkFixtures.waitForRegistrationFills()
             SdkVersionsStore.getInstance().setOtpVersion(homePath, otpVersion)
             sdk
         }
@@ -201,8 +227,9 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
             ProjectJdkTable.getInstance().addJdk(erlangSdk)
         }
         registeredSdks.add(erlangSdk)
+        SdkFixtures.waitForRegistrationFills()
 
-        val result = ErlangSdkResolver.bestRegisteredFor(anElixirSdk())
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(anElixirSdk()) }
         assertNotNull("Should find the registered Erlang SDK", result)
         assertEquals("Test Erlang SDK", result!!.name)
     }
@@ -216,7 +243,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
             existing.forEach { table.removeJdk(it) }
         }
 
-        val result = ErlangSdkResolver.bestRegisteredFor(anElixirSdk())
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(anElixirSdk()) }
         assertNull("Should return null when no Erlang SDK is registered", result)
     }
 
@@ -230,17 +257,19 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         }
         registeredSdks.add(unread)
         registeredSdks.add(known)
+        SdkFixtures.waitForRegistrationFills()
         SdkVersionsStore.getInstance().setOtpVersion("/fake/erlang/25.3.2.21", "25.3.2.21")
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdkCompiledAgainst("25"))
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(elixirSdkCompiledAgainst("25")) }
 
         assertEquals("an installation whose version has not been read sorts last", known, result)
     }
 
-    /** The real [SdkEnvironment.visibleFor] cannot reject a candidate without a second Eel machine, so a stub does. */
+    /** The real `SdkEnvironment.visibleFor` cannot reject a candidate without a second Eel machine, so a stub does. */
     @RequiresEdt
     fun testFindRegisteredErlangSdk_putsEveryCandidateToTheEnvironmentFirst() {
-        val otherMachine = ProjectJdkImpl("Erlang Other Machine", ErlangSdkType.instance, "/fake/other-machine/erlang", "")
+        val otherMachine =
+            ProjectJdkImpl("Erlang Other Machine", ErlangSdkType.instance, "/fake/other-machine/erlang", "")
         val sameMachine = ProjectJdkImpl("Erlang Same Machine", ErlangSdkType.instance, "/fake/same-machine/erlang", "")
         WriteAction.run<Throwable> {
             ProjectJdkTable.getInstance().addJdk(otherMachine)
@@ -248,10 +277,13 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         }
         registeredSdks.add(otherMachine)
         registeredSdks.add(sameMachine)
+        SdkFixtures.waitForRegistrationFills()
         val elixirSdk = ProjectJdkImpl("Elixir Same Machine", Type.instance, "/fake/same-machine/elixir", "")
 
-        val result = ErlangSdkResolver.bestRegisteredFor(elixirSdk) { _ ->
-            { erlangSdk -> erlangSdk.homePath!!.contains("same-machine") }
+        val result = runReadActionBlocking {
+            ErlangSdkResolver.bestRegisteredFor(elixirSdk) { _ ->
+                { erlangSdk -> erlangSdk.homePath!!.contains("same-machine") }
+            }
         }
 
         assertEquals(
@@ -268,12 +300,15 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         }
         WriteAction.run<Throwable> { candidates.forEach { ProjectJdkTable.getInstance().addJdk(it) } }
         candidates.forEach(registeredSdks::add)
+        SdkFixtures.waitForRegistrationFills()
         val elixirSdk = ProjectJdkImpl("Elixir Resolved Once", Type.instance, "/fake/same/elixir", "")
         var resolutions = 0
 
-        ErlangSdkResolver.bestRegisteredFor(elixirSdk) { _ ->
-            resolutions++
-            { true }
+        runReadActionBlocking {
+            ErlangSdkResolver.bestRegisteredFor(elixirSdk) { _ ->
+                resolutions++
+                { true }
+            }
         }
 
         assertEquals(
@@ -320,8 +355,9 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
             ProjectJdkTable.getInstance().addJdk(elixirSdk)
         }
         registeredSdks.add(elixirSdk)
+        SdkFixtures.waitForRegistrationFills()
 
-        val result = ErlangSdkResolver.bestRegisteredFor(anElixirSdk())
+        val result = runReadActionBlocking { ErlangSdkResolver.bestRegisteredFor(anElixirSdk()) }
         assertNull("Should not return non-Erlang SDK", result)
     }
 
@@ -346,6 +382,7 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
         val sdk = ElixirInternalErlangSdkSetup.registerErlangSdk(validHome)
         assertNotNull("registerErlangSdk should return non-null for valid home", sdk)
         registeredSdks.add(sdk!!)
+        SdkFixtures.waitForRegistrationFills()
 
         val table = ProjectJdkTable.getInstance()
         val found = table.allJdks.any { it.name == sdk.name }

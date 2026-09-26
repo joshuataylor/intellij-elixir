@@ -16,7 +16,7 @@ class ScopedLibraryNameTest : TestCase() {
     }
 
     fun testRoundTripsWslUrl() {
-        val url = "file:////wsl.localhost/Ubuntu-24.04/home/dev/workspace/my_project"
+        val url = "file:////wsl.localhost/IntellijElixirWSLDistribution/home/dev/workspace/my_project"
         assertEquals(url, scopedLibraryNameToken(scopedDepLibraryName(url, "ecto")))
     }
 

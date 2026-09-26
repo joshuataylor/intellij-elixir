@@ -1,12 +1,14 @@
 package org.elixir_lang;
 
+import com.intellij.application.options.CodeStyle;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.psi.codeStyle.CodeStyleManager;
 import com.intellij.psi.codeStyle.CodeStyleSettingsManager;
-import com.intellij.util.containers.ContainerUtil;
 import org.elixir_lang.code_style.CodeStyleSettings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public class FormattingTest extends PlatformTestCase {
     private com.intellij.psi.codeStyle.CodeStyleSettings temporaryCodeStyleSettings;
@@ -22,9 +24,7 @@ public class FormattingTest extends PlatformTestCase {
 
     private void setTestStyleSettings() {
         CodeStyleSettingsManager settingsManager = CodeStyleSettingsManager.getInstance(getProject());
-        com.intellij.psi.codeStyle.CodeStyleSettings codeStyleSettings = settingsManager.getCurrentSettings();
-        assertNotNull(codeStyleSettings);
-        temporaryCodeStyleSettings = codeStyleSettings.clone();
+        temporaryCodeStyleSettings = settingsManager.cloneSettings(CodeStyle.getSettings(getProject()));
         com.intellij.psi.codeStyle.CodeStyleSettings.IndentOptions indentOptions =
                 temporaryCodeStyleSettings.getIndentOptions(ElixirFileType.INSTANCE);
         assertNotNull(indentOptions);
@@ -276,22 +276,18 @@ public class FormattingTest extends PlatformTestCase {
     public void testCaptureNameArityWithSpaceAroundMultiplication() {
         assertFormatted(
                 "capture_name_arity_with_space_around_multiplication.ex",
-                () -> {
-                    temporaryCodeStyleSettings
+                () -> temporaryCodeStyleSettings
                             .getCommonSettings(ElixirLanguage.INSTANCE)
-                            .SPACE_AROUND_MULTIPLICATIVE_OPERATORS = true;
-                }
+                            .SPACE_AROUND_MULTIPLICATIVE_OPERATORS = true
         );
     }
 
     public void testCaptureQualifierDotNameArityWithSpaceAroundMultiplication() {
         assertFormatted(
                 "capture_qualifier_dot_name_arity_with_space_around_multiplication.ex",
-                () -> {
-                    temporaryCodeStyleSettings
+                () -> temporaryCodeStyleSettings
                             .getCommonSettings(ElixirLanguage.INSTANCE)
-                            .SPACE_AROUND_MULTIPLICATIVE_OPERATORS = true;
-                }
+                            .SPACE_AROUND_MULTIPLICATIVE_OPERATORS = true
         );
     }
 
@@ -1236,6 +1232,6 @@ public class FormattingTest extends PlatformTestCase {
     private void reformatFixture() {
         WriteCommandAction.runWriteCommandAction(getProject(), () ->
                 CodeStyleManager.getInstance(getProject()).reformatText(myFixture.getFile(),
-                        ContainerUtil.newArrayList(myFixture.getFile().getTextRange())));
+                        List.of(myFixture.getFile().getTextRange())));
     }
 }

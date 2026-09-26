@@ -49,12 +49,12 @@ class SdkHomeChooserTest : HeavyPlatformTestCase() {
 
     fun testTheNewestHomeNotAlreadyAnSdkIsChosen() {
         val homes = listOf(
-            "\\\\wsl.localhost\\Ubuntu\\home\\u\\.local\\share\\mise\\installs\\erlang\\29.0",
-            "\\\\wsl.localhost\\Ubuntu\\home\\u\\.local\\share\\mise\\installs\\erlang\\28.1.1",
-            "\\\\wsl.localhost\\Ubuntu\\home\\u\\.local\\share\\mise\\installs\\erlang\\28.1",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\u\\.local\\share\\mise\\installs\\erlang\\29.0",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\u\\.local\\share\\mise\\installs\\erlang\\28.1.1",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\u\\.local\\share\\mise\\installs\\erlang\\28.1",
         )
 
-        val registered = listOf("//wsl.localhost/Ubuntu/home/u/.local/share/mise/installs/erlang/29.0")
+        val registered = listOf("//wsl.localhost/IntellijElixirWSLDistribution/home/u/.local/share/mise/installs/erlang/29.0")
 
         val chosen = SdkHomeChooser.firstUnregistered(homes, registered)
 

@@ -20,6 +20,7 @@ import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Callable
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditionalData
+import com.intellij.util.concurrency.annotations.RequiresEdt
 
 class SdkRegistrarVersionsTest : PlatformTestCase() {
     private val registered = mutableListOf<Sdk>()
@@ -77,6 +78,7 @@ class SdkRegistrarVersionsTest : PlatformTestCase() {
 
         assertNotNull("an OTP_VERSION a distribution wrote must still register", erlangSdk)
         erlangSdk!!.also(registered::add)
+        SdkFixtures.waitForRegistrationFills()
         assertEquals("25.3.2.7-1", store.otpVersion(erlangSdk.homePath))
     }
 
@@ -141,7 +143,9 @@ class SdkRegistrarVersionsTest : PlatformTestCase() {
         // A transient failure to read the home, as a WSL distro that is not responding gives.
         assertTrue(File(home, "releases/27/OTP_VERSION").delete())
 
-        val again = runSuspendOnPooledThread(60_000) { SdkRegistrar.registerOrUpdateErlangSdk(home, resolvedVersion = "27.3.4") }
+        val again = runSuspendOnPooledThread(60_000) {
+            SdkRegistrar.registerOrUpdateErlangSdk(home, resolvedVersion = "27.3.4")
+        }
 
         assertSame(erlangSdk, again)
         assertEquals(
@@ -151,6 +155,7 @@ class SdkRegistrarVersionsTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testRegisteringAgainFillsAnSdkSavedWithoutVersions() {
         val erlangSdk = registerErlang(erlangHome("26", "26.2.5.21"))
         val elixirHome = elixirHome("1.19.5")
@@ -171,9 +176,9 @@ class SdkRegistrarVersionsTest : PlatformTestCase() {
 
     private fun registerErlang(homePath: String): Sdk =
         runSuspendOnPooledThread(60_000) { SdkRegistrar.registerOrUpdateErlangSdk(homePath) }!!
-            .also(registered::add)
+            .also { registered.add(it); SdkFixtures.waitForRegistrationFills() }
 
     private fun registerElixir(homePath: String, erlangSdk: Sdk): Sdk =
         runSuspendOnPooledThread(60_000) { SdkRegistrar.registerOrUpdateElixirSdk(homePath, erlangSdk) }!!
-            .also(registered::add)
+            .also { registered.add(it); SdkFixtures.waitForRegistrationFills() }
 }

@@ -83,8 +83,8 @@ class CliToolWslSafeTest : TestCase() {
          * regardless of which the host prefers. The first is the asdf home #2499 quotes verbatim.
          */
         private val WSL_HOMES = listOf(
-            "\\\\wsl$\\Ubuntu-22.04\\home\\joey\\.asdf\\installs\\erlang\\25.3.2.7",
-            "\\\\wsl.localhost\\Ubuntu-24.04\\usr\\lib\\erlang"
+            "\\\\wsl$\\IntellijElixirWSLDistribution\\home\\joey\\.asdf\\installs\\erlang\\25.3.2.7",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\usr\\lib\\erlang"
         )
     }
 }

@@ -111,7 +111,7 @@ class Type(
 
         private fun specificationType(specification: Call): Call? =
             when (specification) {
-                is org.elixir_lang.psi.operation.Type -> CallDefinitionSpecification.type(specification as org.elixir_lang.psi.operation.Type)
+                is org.elixir_lang.psi.operation.Type -> CallDefinitionSpecification.type(specification)
                 is ElixirMatchedWhenOperation -> CallDefinitionSpecification.type(specification)
                 else -> null
             }

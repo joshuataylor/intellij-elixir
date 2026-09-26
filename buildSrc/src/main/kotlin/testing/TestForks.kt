@@ -1,0 +1,83 @@
+package testing
+
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.testing.Test
+import oshi.SystemInfo
+import java.io.File
+import java.util.Locale
+import kotlin.math.max
+import kotlin.math.min
+
+/**
+ * How many test JVMs this machine can run at once: two cores stay free for Gradle, the quoter and the forks' own
+ * threads, and each fork is budgeted [GIB_PER_FORK] of the memory available when `test` starts, after the Gradle and
+ * Kotlin daemons hold theirs, not the machine's total, which on a workstation is mostly spoken for.
+ */
+object TestForks {
+    /**
+     * Six forks peaked between 1.5 and 3.2 GiB (a 2 GiB heap plus native memory), and not at the same time, so the
+     * budget sits below the largest peak.
+     */
+    private const val GIB_PER_FORK = 2.5
+    private const val GIB = 1024L * 1024 * 1024
+
+    class Choice(val forks: Int, private val cores: Int, private val availableBytes: Long) {
+        /** The measurements [forks] was computed from. */
+        val basis: String get() = "$cores cores, ${"%.1f".format(Locale.ROOT, availableBytes.toDouble() / GIB)} GiB available"
+    }
+
+    fun choose(): Choice {
+        val cores = Runtime.getRuntime().availableProcessors()
+        val available = availableMemoryBytes()
+        val byMemory = (available / (GIB_PER_FORK * GIB)).toInt()
+
+        return Choice(max(1, min(cores - 2, byMemory)), cores, available)
+    }
+
+    /** The host's available memory, or what the container's memory limit leaves, whichever is less. */
+    private fun availableMemoryBytes(): Long =
+        listOfNotNull(hostAvailableBytes(), cgroupRemainingBytes()).minOrNull() ?: 0
+
+    /**
+     * OSHI's available memory: `MemAvailable` on Linux, which counts reclaimable cache, the available pages on Windows,
+     * and free plus inactive pages on macOS, where the JDK's free figure counts only free pages.
+     */
+    private fun hostAvailableBytes(): Long? = runCatching { SystemInfo().hardware.memory.available }.getOrNull()
+
+    /** `MemAvailable` describes the host; a container's limit is in its cgroup (v2, then v1). */
+    private fun cgroupRemainingBytes(): Long? =
+        remaining("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory.current")
+            ?: remaining("/sys/fs/cgroup/memory/memory.limit_in_bytes", "/sys/fs/cgroup/memory/memory.usage_in_bytes")
+
+    private fun remaining(limitPath: String, usagePath: String): Long? {
+        val limit = File(limitPath).takeIf(File::isFile)?.readText()?.trim()?.toLongOrNull() ?: return null
+        val usage = File(usagePath).takeIf(File::isFile)?.readText()?.trim()?.toLongOrNull() ?: return null
+
+        return max(0, limit - usage)
+    }
+}
+
+/**
+ * Sizes the forks when the task runs, as available memory differs build to build; [explicitForks] (`-PtestForks=N`)
+ * overrides. Each fork is its own IDE: `org.elixir_lang.junit.ForkIsolation` gives it its own sandbox directories and
+ * quoter client node when there is more than one. The count moves a leg's wall time by a whole fork's share, so it is
+ * also appended to [stepSummary], where CI compares the timings.
+ */
+fun Test.runInForks(explicitForks: Provider<Int>, stepSummary: Provider<String>) {
+    doFirst {
+        val choice = TestForks.choose()
+        val forks = explicitForks.orNull ?: choice.forks
+        maxParallelForks = forks
+        systemProperty("elixir.test.forks", forks)
+        val line = "Running tests in $forks fork(s) (${if (explicitForks.isPresent) "-PtestForks" else choice.basis})"
+        logger.lifecycle(line)
+        stepSummary.orNull?.let { File(it).appendText("$line\n") }
+    }
+}
+
+/** Records which fork ran each class in [timeline], which every fork appends to, so it is emptied once per run. */
+fun Test.recordTimeline(timeline: File) {
+    // Absolute, so the forks append to the file this run empties and not one relative to another directory.
+    systemProperty("elixir.test.timeline", timeline.absoluteFile.absolutePath)
+    doFirst { timeline.delete() }
+}

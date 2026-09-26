@@ -1,8 +1,6 @@
 package org.elixir_lang.sdk.wsl;
 
-import com.intellij.execution.wsl.DummyWslIjentAvailabilityService;
 import com.intellij.execution.wsl.WSLDistribution;
-import com.intellij.execution.wsl.WslIjentAvailabilityService;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.testFramework.ServiceContainerUtil;
@@ -34,19 +32,19 @@ public class ElixirWslSdkTest extends PlatformTestCase {
             mockService,
             getTestRootDisposable()
         );
+    }
 
-        // The Windows IDE distribution bundles intellij.platform.ijent.impl, which (on the test
-        // classpath since IntelliJ Platform Gradle Plugin 2.18) overrides this service so that
-        // VFS/path operations on \\wsl.localhost\ paths route through a real IJent session. This
-        // suite uses fictional distribution names and must never contact real WSL, so restore the
-        // platform's own no-IJent implementation.
-        //noinspection UnstableApiUsage
-        ServiceContainerUtil.registerOrReplaceServiceInstance(
-            ApplicationManager.getApplication(),
-            WslIjentAvailabilityService.class,
-            new DummyWslIjentAvailabilityService(),
-            getTestRootDisposable()
-        );
+    /**
+     * The store is application-wide, and every home left in it is watched by the next project to open, reading a
+     * {@code \\wsl} home through the file redirector long after this suite has finished.
+     */
+    @Override
+    protected void tearDown() throws Exception {
+        try {
+            org.elixir_lang.sdk.SdkVersionsStore.Companion.getInstance().clearForTests();
+        } finally {
+            super.tearDown();
+        }
     }
 
     /**
@@ -56,10 +54,10 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
 
         // When: Checking old WSL format with backslashes
-        boolean oldFormatBackslash = service.isWslUncPath("\\\\wsl$\\Ubuntu\\usr\\lib\\elixir");
+        boolean oldFormatBackslash = service.isWslUncPath("\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\lib\\elixir");
 
         // When: Checking old WSL format with forward slashes
-        boolean oldFormatForwardSlash = service.isWslUncPath("//wsl$/Ubuntu/usr/lib/elixir");
+        boolean oldFormatForwardSlash = service.isWslUncPath("//wsl$/IntellijElixirWSLDistribution/usr/lib/elixir");
 
         // Then: Both old format variants should be detected as WSL
         assertTrue("Old WSL format with backslashes should be detected", oldFormatBackslash);
@@ -73,10 +71,10 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
 
         // When: Checking new WSL format with backslashes
-        boolean newFormatBackslash = service.isWslUncPath("\\\\wsl.localhost\\Ubuntu-24.04\\home\\user\\.local");
+        boolean newFormatBackslash = service.isWslUncPath("\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\user\\.local");
 
         // When: Checking new WSL format with forward slashes
-        boolean newFormatForwardSlash = service.isWslUncPath("//wsl.localhost/Ubuntu-24.04/home/user/.local");
+        boolean newFormatForwardSlash = service.isWslUncPath("//wsl.localhost/IntellijElixirWSLDistribution/home/user/.local");
 
         // Then: Both new format variants should be detected as WSL
         assertTrue("New WSL format with backslashes should be detected", newFormatBackslash);
@@ -110,7 +108,7 @@ public class ElixirWslSdkTest extends PlatformTestCase {
      */
     public void testMockService_CanSimulateWslBehavior() {
         WslCompatService mockService = Mockito.mock(WslCompatService.class);
-        String testPath = "\\\\wsl$\\Ubuntu\\usr\\lib\\elixir";
+        String testPath = "\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\lib\\elixir";
 
         // When: Configuring mock behavior
         Mockito.when(mockService.isWslUncPath(testPath)).thenReturn(true);
@@ -130,7 +128,7 @@ public class ElixirWslSdkTest extends PlatformTestCase {
     public void testGetDistribution_CanBeMocked() {
         WslCompatService mockService = Mockito.mock(WslCompatService.class);
         WSLDistribution mockDistribution = Mockito.mock(WSLDistribution.class);
-        String wslPath = "\\\\wsl$\\Ubuntu\\usr\\lib\\elixir";
+        String wslPath = "\\\\wsl$\\IntellijElixirWSLDistribution\\usr\\lib\\elixir";
 
         // When: Configuring mock to return distribution
         Mockito.when(mockService.getDistributionByWindowsUncPath(wslPath)).thenReturn(mockDistribution);
@@ -201,10 +199,10 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
 
         // When: Checking both forward and backslash variants
-        boolean forwardSlashNew = service.isWslUncPath("//wsl.localhost/Ubuntu-24.04/path");
-        boolean backslashNew = service.isWslUncPath("\\\\wsl.localhost\\Ubuntu-24.04\\path");
-        boolean forwardSlashOld = service.isWslUncPath("//wsl$/Ubuntu/path");
-        boolean backslashOld = service.isWslUncPath("\\\\wsl$\\Ubuntu\\path");
+        boolean forwardSlashNew = service.isWslUncPath("//wsl.localhost/IntellijElixirWSLDistribution/path");
+        boolean backslashNew = service.isWslUncPath("\\\\wsl.localhost\\IntellijElixirWSLDistribution\\path");
+        boolean forwardSlashOld = service.isWslUncPath("//wsl$/IntellijElixirWSLDistribution/path");
+        boolean backslashOld = service.isWslUncPath("\\\\wsl$\\IntellijElixirWSLDistribution\\path");
 
         // Then: All should be recognized as WSL paths
         assertTrue("Forward slash new format should be WSL", forwardSlashNew);
@@ -222,7 +220,7 @@ public class ElixirWslSdkTest extends PlatformTestCase {
      */
     public void testEbinPathChainVirtualFile_ReceivesWslPathNotRegularLinuxPath() {
         // Given: A WSL UNC path (as returned by SdkEbinPaths.maybeTranslateToUnc after DirectoryStream translation)
-        String wslUncPath = "//wsl.localhost/Ubuntu-24.04/usr/lib/erlang/lib/kernel-9.2/ebin";
+        String wslUncPath = "//wsl.localhost/IntellijElixirWSLDistribution/usr/lib/erlang/lib/kernel-9.2/ebin";
         java.nio.file.Path ebinPath = java.nio.file.Paths.get(wslUncPath);
 
         // Then: The Path should be a WSL path (starting with /wsl), not a regular Linux path
@@ -267,10 +265,10 @@ public class ElixirWslSdkTest extends PlatformTestCase {
     public void testWslPath_AllFormatsAreEquivalent() {
         // Given: Multiple representations of WSL paths
         String[] wslPaths = {
-            "//wsl.localhost/Ubuntu-24.04/path",
-            "\\\\wsl.localhost\\Ubuntu-24.04\\path",
-            "//wsl$/Ubuntu/path",
-            "\\\\wsl$\\Ubuntu\\path"
+            "//wsl.localhost/IntellijElixirWSLDistribution/path",
+            "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\path",
+            "//wsl$/IntellijElixirWSLDistribution/path",
+            "\\\\wsl$\\IntellijElixirWSLDistribution\\path"
         };
 
         WslCompatService service = getWslCompat();
@@ -292,12 +290,12 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         assertFalse("Empty string should not be WSL", service.isWslUncPath(""));
 
         // Test partial matches (should not be WSL)
-        assertFalse("Partial match should not be WSL", service.isWslUncPath("wsl$/Ubuntu"));
-        assertFalse("Partial match should not be WSL", service.isWslUncPath("/wsl.localhost/Ubuntu"));
+        assertFalse("Partial match should not be WSL", service.isWslUncPath("wsl$/IntellijElixirWSLDistribution"));
+        assertFalse("Partial match should not be WSL", service.isWslUncPath("/wsl.localhost/IntellijElixirWSLDistribution"));
 
         // Test correct WSL paths
-        assertTrue("Correct WSL path should be detected", service.isWslUncPath("\\\\wsl$\\Ubuntu\\path"));
-        assertTrue("Correct WSL path should be detected", service.isWslUncPath("//wsl.localhost/Ubuntu/path"));
+        assertTrue("Correct WSL path should be detected", service.isWslUncPath("\\\\wsl$\\IntellijElixirWSLDistribution\\path"));
+        assertTrue("Correct WSL path should be detected", service.isWslUncPath("//wsl.localhost/IntellijElixirWSLDistribution/path"));
     }
 
     /**
@@ -307,7 +305,7 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         WslCompatService service = getWslCompat();
 
         // When: Getting distribution for WSL path
-        String wslPath = "\\\\wsl.localhost\\Ubuntu-24.04\\home\\user\\test";
+        String wslPath = "\\\\wsl.localhost\\IntellijElixirWSLDistribution\\home\\user\\test";
 
         try {
             service.getDistributionByWindowsUncPath(wslPath);
@@ -358,7 +356,8 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         org.elixir_lang.sdk.elixir.Type elixirSdkType = org.elixir_lang.sdk.elixir.Type.Companion.getInstance();
 
         // Test WSL path - use forward slashes which work cross-platform
-        String wslPath = "//wsl.localhost/Ubuntu-24.04/home/user/.asdf/installs/elixir/1.18.4-otp-28";
+        String wslPath = "//wsl.localhost/IntellijElixirWSLDistribution/home/user/.asdf/installs/elixir/1.18.4-otp-28";
+        seedElixirVersion(wslPath);
         String suggestedName = elixirSdkType.suggestSdkName(null, wslPath);
 
         // Should contain "WSL:" indicating it's a WSL SDK
@@ -367,7 +366,7 @@ public class ElixirWslSdkTest extends PlatformTestCase {
 
         // Should contain the distribution name
         assertTrue("Elixir SDK name should contain distribution name",
-            suggestedName.contains("Ubuntu-24.04"));
+            suggestedName.contains("IntellijElixirWSLDistribution"));
 
         // Test local path - should NOT include WSL suffix
         String localPath = "/usr/local/lib/elixir";
@@ -384,12 +383,9 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         org.elixir_lang.sdk.erlang.Type erlangSdkType = new org.elixir_lang.sdk.erlang.Type();
 
         // Test WSL path - use forward slashes which work cross-platform
-        String wslPath = "//wsl$/Ubuntu/usr/lib/erlang";
-        kotlin.Pair<String, String> result = captureLoggedWarning(
-                "org.elixir_lang.sdk.erlang.ErlangVersionDetector",
-                () -> erlangSdkType.suggestSdkName(null, wslPath)
-        );
-        String suggestedName = result.getFirst();
+        String wslPath = "//wsl$/IntellijElixirWSLDistribution/usr/lib/erlang";
+        seedOtpVersion(wslPath);
+        String suggestedName = erlangSdkType.suggestSdkName(null, wslPath);
 
         // Should contain "WSL:" indicating it's a WSL SDK (even if distribution can't be resolved)
         assertTrue("Erlang SDK name should contain 'WSL:' for WSL paths",
@@ -418,26 +414,41 @@ public class ElixirWslSdkTest extends PlatformTestCase {
         org.elixir_lang.sdk.erlang.Type erlangSdkType = new org.elixir_lang.sdk.erlang.Type();
 
         // Use forward slash format which works cross-platform
-        String wslPath = "//wsl$/Ubuntu/home/user/sdk";
+        String wslPath = "//wsl$/IntellijElixirWSLDistribution/home/user/sdk";
+        seedElixirVersion(wslPath);
+        seedOtpVersion(wslPath);
 
         String elixirName = elixirSdkType.suggestSdkName(null, wslPath);
-
-        // This line emits a warning - capture it
-        kotlin.Pair<String, String> result = captureLoggedWarning(
-            "org.elixir_lang.sdk.erlang.ErlangVersionDetector",
-            () -> erlangSdkType.suggestSdkName(null, wslPath)
-        );
-        String erlangName = result.getFirst();
-        String warning = result.getSecond();
+        String erlangName = erlangSdkType.suggestSdkName(null, wslPath);
 
         // Both should be formatted as "(WSL: ...)"
         assertTrue("Elixir SDK should use '(WSL:' format", elixirName.contains("(WSL:"));
         assertTrue("Erlang SDK should use '(WSL:' format", erlangName.contains("(WSL:"));
 
-        // Assert the expected warning was logged
+        // A home with no Erlang in it is reported; a local path, so reading it does not reach WSL.
+        String missingHome = new java.io.File(getTestDataPath(), "no-erlang-here").getAbsolutePath();
+        String warning = captureLoggedWarning(
+            "org.elixir_lang.sdk.erlang.ErlangVersionDetector",
+            () -> erlangSdkType.suggestSdkName(null, missingHome)
+        ).getSecond();
         assertNotNull("Expected warning about missing Erlang executable", warning);
         assertTrue("Warning should mention 'Can't detect Erlang version'",
                    warning.contains("Can't detect Erlang version"));
         assertTrue("Warning should mention 'is missing'", warning.contains("is missing"));
+    }
+
+    /**
+     * Records a version for [homePath] so naming it reads nothing: on Windows, reading a `\\wsl` home goes through the
+     * WSL file redirector, which waits tens of seconds to report that a distribution does not exist.
+     */
+    private static void seedElixirVersion(String homePath) {
+        org.elixir_lang.sdk.SdkVersionsStore.Companion.getInstance().setElixirVersions(
+            homePath,
+            new org.elixir_lang.sdk.elixir.ElixirVersions("1.18.4", new org.elixir_lang.sdk.elixir.OtpMajor.Known("28"))
+        );
+    }
+
+    private static void seedOtpVersion(String homePath) {
+        org.elixir_lang.sdk.SdkVersionsStore.Companion.getInstance().setOtpVersion(homePath, "28.0");
     }
 }

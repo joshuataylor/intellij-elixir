@@ -29,7 +29,7 @@ tasks.test {
     // execution, so set env in a doFirst reading the resolver's output.
     dependsOn(":resolveElixirErlangSdks")
 
-    useJUnit()
+    useJUnitPlatform()
     jvmArgs(
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
         "--add-opens=java.desktop/java.awt=ALL-UNNAMED",
@@ -85,4 +85,7 @@ dependencies {
     }
     implementation(project(":jps-shared"))
     testImplementation(libs.junit)
+    testRuntimeOnly(platform(libs.junit5.bom))
+    testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

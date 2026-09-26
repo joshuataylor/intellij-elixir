@@ -3,7 +3,6 @@ package org.elixir_lang.sdk
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.projectRoots.ProjectJdkTable
-import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.util.io.FileUtil
@@ -47,7 +46,10 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     fun testRemovingTheOnlySdkOnAHomeForgetsIt() {
         SdkVersionWatchService.install(testRootDisposable)
         val home = erlangHome("27", "27.3.4")
-        val erlangSdk = register(SdkFixtures.erlangSdk("Removed Erlang", home))
+        val erlangSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.erlangSdk("Removed Erlang", home),
+            testRootDisposable,
+        )
         SdkFixtures.waitUntil("precondition: adding the SDK reads its home") {
             SdkVersionsStore.getInstance().otpVersion(home) != null
         }
@@ -59,10 +61,14 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         }
     }
 
+    @RequiresEdt
     fun testRemovingOneOfTwoSdksOnAHomeKeepsIt() {
         val home = elixirHome("1.20.5")
-        val removed = register(SdkFixtures.elixirSdk("Removed Elixir", home))
-        register(SdkFixtures.elixirSdk("Kept Elixir", home))
+        val removed = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Removed Elixir", home),
+            testRootDisposable,
+        )
+        SdkFixtures.registerAndWaitForFill(SdkFixtures.elixirSdk("Kept Elixir", home), testRootDisposable)
         runSuspendOnPooledThread { SdkVersionsFiller.fill(home) }
         WriteAction.run<Throwable> { ProjectJdkTable.getInstance().removeJdk(removed) }
 
@@ -80,7 +86,9 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
 
         val refusal: Throwable? = runSuspendOnPooledThread {
             runCatching {
-                ReadAction.run<Throwable> { SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) {} }
+                ReadAction.computeBlocking<Unit, Throwable> {
+                    SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) {}
+                }
             }.exceptionOrNull()
         }
 
@@ -100,17 +108,21 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         )
     }
 
+    @RequiresEdt
     fun testAnSdkAddedAfterInstallIsWatchedOffTheWriteAction() {
         val home = erlangHome("27", "27.3.4")
         val erlangSdk = SdkFixtures.erlangSdk("Watched After Add", home)
-        val elixirSdk = register(SdkFixtures.elixirSdk("Watching Elixir", elixirHome("1.20.5")))
+        val elixirSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Watching Elixir", elixirHome("1.20.5")),
+            testRootDisposable,
+        )
         SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
         ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
         SdkVersionWatchService.install(testRootDisposable)
 
         // The table publishes its add inside its own write action. Watching there trips the refusal inside
         // SdkVersionFileWatcher.watch on the publishing thread, which surfaces as a logged error, not an exception.
-        val (_, errors) = captureLoggedErrors { register(erlangSdk) }
+        val (_, errors) = captureLoggedErrors { SdkFixtures.registerAndWaitForFill(erlangSdk, testRootDisposable) }
 
         assertEmpty("adding an SDK must not watch inside the table's write action; got $errors", errors)
         val otpVersionFile = LocalFileSystem.getInstance()
@@ -126,8 +138,14 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     @RequiresEdt
     fun testAVersionFileThatChangesIsReadAgain() {
         val home = erlangHome("27", "27.3.4")
-        val erlangSdk = register(SdkFixtures.erlangSdk("Watched For Changes", home))
-        val elixirSdk = register(SdkFixtures.elixirSdk("Watching Elixir", elixirHome("1.20.5")))
+        val erlangSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.erlangSdk("Watched For Changes", home),
+            testRootDisposable,
+        )
+        val elixirSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Watching Elixir", elixirHome("1.20.5")),
+            testRootDisposable,
+        )
         SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
         ModuleRootModificationUtil.setModuleSdk(module, elixirSdk)
         SdkVersionWatchService.install(testRootDisposable)
@@ -153,11 +171,17 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     @RequiresEdt
     fun testAnInstallationStillWatchesAfterAnEarlierInstallIsDisposed() {
         val home = erlangHome("27", "27.3.4")
-        val erlangSdk = register(SdkFixtures.erlangSdk("Reinstalled Erlang", home))
-        val elixirSdk = register(SdkFixtures.elixirSdk("Reinstalling Elixir", elixirHome("1.20.5")))
+        val erlangSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.erlangSdk("Reinstalled Erlang", home),
+            testRootDisposable,
+        )
+        val elixirSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Reinstalling Elixir", elixirHome("1.20.5")),
+            testRootDisposable,
+        )
         SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
-        // The home is read only after the disposal below. Until then there is nothing to watch, so neither install
-        // registers a watch and the one this asserts can only come from the rewatch that follows.
+        // Registering may already have read the home, when startup installed the SDK table listeners; either way the
+        // watch this asserts is the one the installation still live after `first` is disposed holds.
         val first = Disposer.newDisposable(testRootDisposable, "first install")
         SdkVersionWatchService.install(first)
         SdkVersionWatchService.install(testRootDisposable)
@@ -202,7 +226,9 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
         otpVersionFile.writeText("27.3.9\n")
 
         val revalidated = CopyOnWriteArrayList<String>()
-        runSuspendOnPooledThread { SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) { revalidated.add(it) } }
+        runSuspendOnPooledThread {
+            SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) { revalidated.add(it) }
+        }
 
         SdkFixtures.waitUntil("a home replaced while nothing watched it must be read again once it is watched") {
             revalidated.isNotEmpty()
@@ -214,7 +240,9 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     fun testAReleaseAddedBesideTheWatchedOneIsReadAgain() {
         val home = erlangHome("27", "27.3.4")
         val revalidated = CopyOnWriteArrayList<String>()
-        runSuspendOnPooledThread { SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) { revalidated.add(it) } }
+        runSuspendOnPooledThread {
+            SdkVersionFileWatcher.watch(setOf(home), testRootDisposable) { revalidated.add(it) }
+        }
         PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
         revalidated.clear()
 
@@ -238,8 +266,14 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
     @RequiresEdt
     fun testAnAlreadyRegisteredSdkAssignedToAModuleIsWatched() {
         val home = erlangHome("27", "27.3.4")
-        val erlangSdk = register(SdkFixtures.erlangSdk("Assigned Later Erlang", home))
-        val elixirSdk = register(SdkFixtures.elixirSdk("Assigned Later Elixir", elixirHome("1.20.5")))
+        val erlangSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.erlangSdk("Assigned Later Erlang", home),
+            testRootDisposable,
+        )
+        val elixirSdk = SdkFixtures.registerAndWaitForFill(
+            SdkFixtures.elixirSdk("Assigned Later Elixir", elixirHome("1.20.5")),
+            testRootDisposable,
+        )
         SdkFixtures.commit(elixirSdk, SdkAdditionalData(erlangSdk, elixirSdk))
         SdkVersionWatchService.install(testRootDisposable)
 
@@ -277,5 +311,4 @@ class SdkVersionWatchServiceTest : PlatformTestCase() {
 
     private fun rewatch(): Boolean = runSuspendOnPooledThread { SdkVersionWatchService.rewatch() }
 
-    private fun register(sdk: Sdk): Sdk = SdkFixtures.register(sdk, testRootDisposable)
 }

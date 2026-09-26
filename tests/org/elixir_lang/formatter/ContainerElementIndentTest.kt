@@ -1,6 +1,6 @@
 package org.elixir_lang.formatter
 
-import com.intellij.psi.codeStyle.CodeStyleSettingsManager
+import com.intellij.application.options.CodeStyle
 import org.elixir_lang.ElixirFileType
 import org.elixir_lang.PlatformTestCase
 
@@ -140,22 +140,14 @@ class ContainerElementIndentTest : PlatformTestCase() {
     }
 
     private fun withTabIndents(body: () -> Unit) {
-        val settingsManager = CodeStyleSettingsManager.getInstance(project)
-        val settings = settingsManager.currentSettings.clone()
-
-        settings.getIndentOptions(ElixirFileType.INSTANCE).apply {
-            USE_TAB_CHARACTER = true
-            SMART_TABS = false
-            TAB_SIZE = 2
-            INDENT_SIZE = 2
-        }
-
-        settingsManager.setTemporarySettings(settings)
-
-        try {
+        CodeStyle.doWithTemporarySettings(project, CodeStyle.getSettings(project)) { settings ->
+            settings.getIndentOptions(ElixirFileType.INSTANCE).apply {
+                USE_TAB_CHARACTER = true
+                SMART_TABS = false
+                TAB_SIZE = 2
+                INDENT_SIZE = 2
+            }
             body()
-        } finally {
-            settingsManager.dropTemporarySettings()
         }
     }
 }
