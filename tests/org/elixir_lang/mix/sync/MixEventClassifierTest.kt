@@ -1,7 +1,6 @@
 package org.elixir_lang.mix.sync
 
 import com.intellij.openapi.util.io.FileUtil
-import com.intellij.testFramework.common.runAll
 import org.elixir_lang.PlatformTestCase
 
 /**
@@ -23,13 +22,6 @@ import org.elixir_lang.PlatformTestCase
  *   and is tested here directly using fixture-created VirtualFiles.
  */
 class MixEventClassifierTest : PlatformTestCase() {
-
-    override fun tearDown() {
-        runAll(
-            { MixTestFixtures.removeAllContentRoots(myFixture) },
-            { super.tearDown() },
-        )
-    }
 
     // ------------------------------------------------------------------
     // isDepsPathForRoot

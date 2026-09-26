@@ -2,12 +2,7 @@ package org.elixir_lang.psi.scope.call_definition_clause
 
 import com.intellij.codeInsight.completion.CompletionType
 import com.intellij.codeInsight.lookup.LookupElement
-import com.intellij.openapi.application.WriteAction
-import com.intellij.openapi.roots.LibraryOrderEntry
-import com.intellij.openapi.roots.ModuleRootModificationUtil
-import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.openapi.vfs.LocalFileSystem
-import com.intellij.testFramework.common.runAll
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.beam.BeamLibraryFixture
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
@@ -35,33 +30,6 @@ class SpecialFormSourceOverBeamTest : PlatformTestCase() {
 
     override fun getTestDataPath(): String =
         "testData/org/elixir_lang/psi/scope/call_definition_clause/special_forms"
-
-    /**
-     * The shared light project module is reused across test methods, so library dependencies added here
-     * leak into later tests.  Restore the module and project library table to a pristine state.
-     */
-    @Throws(Exception::class)
-    override fun tearDown() {
-        runAll(
-            { removeAddedLibrariesAndDependencies() },
-            { super.tearDown() },
-        )
-    }
-
-    private fun removeAddedLibrariesAndDependencies() {
-        ModuleRootModificationUtil.updateModel(myFixture.module) { model ->
-            model.orderEntries
-                .filterIsInstance<LibraryOrderEntry>()
-                .forEach { model.removeOrderEntry(it) }
-        }
-
-        val libraryTable = LibraryTablesRegistrar.getInstance().getLibraryTable(project)
-        WriteAction.runAndWait<RuntimeException> {
-            libraryTable.libraries
-                .filter { (it.name ?: "").startsWith("special-forms-") }
-                .forEach { libraryTable.removeLibrary(it) }
-        }
-    }
 
     /** Attaches `ebin/` (the decompiled `Kernel.SpecialForms` BEAM) as a CLASSES root only. */
     private fun addBeamLibrary() {

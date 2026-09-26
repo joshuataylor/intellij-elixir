@@ -4,7 +4,6 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.components.service
 import com.intellij.openapi.roots.LibraryOrderEntry
-import com.intellij.openapi.roots.ModuleOrderEntry
 import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.roots.OrderEntry
@@ -16,7 +15,6 @@ import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.testFramework.PsiTestUtil
-import com.intellij.testFramework.common.runAll
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_BASE_NAME
@@ -65,22 +63,6 @@ import java.io.File
  * avoid VFS-event interference from directories created during fixture setup.
  */
 class MixDepsSyncServiceTest : PlatformTestCase() {
-
-    override fun setUp() {
-        super.setUp()
-        // The light project and its services are reused across test methods in the same class.
-        // Clear any pending requests from previous tests so that the pendingCount assertions
-        // and `waitUntil` conditions start from a clean slate.
-        project.service<MixDepsSyncService>().clearPendingForTesting()
-    }
-
-    override fun tearDown() {
-        runAll(
-            { MixTestFixtures.removeAllContentRoots(myFixture) },
-            { MixSyncTestHelpers.removeAllLibraries(project) },
-            { super.tearDown() }
-        )
-    }
 
     // ------------------------------------------------------------------
     // Test 6a - duplicate enqueues are deduplicated by the Set accumulator
@@ -1966,35 +1948,6 @@ class MixDepsSyncServiceTest : PlatformTestCase() {
         drainDirectly(service)
 
         assertNotNull("an external dep's library must survive", libraryTable().getLibraryByName(externalName!!))
-    }
-
-    /** The module is shared with every later light test in the fork, so what a test adds must not outlive it. */
-    @RequiresEdt
-    fun testRemoveAllContentRootsLeavesOnlyTheFixturesOwnRoot() {
-        val sourceRootUrl = myFixture.tempDirFixture.findOrCreateDir("").url
-        MixTestFixtures.createMixRoot(myFixture, "cleanup_app")
-        ModuleRootModificationUtil.updateModel(myFixture.module) { it.addContentEntry("$sourceRootUrl/no_directory_app") }
-        ModuleRootModificationUtil.addDependency(myFixture.module, createMixLibrary("phoenix [cleanup_app]"))
-        ModuleRootModificationUtil.updateModel(myFixture.module) { model ->
-            model.contentEntries.single { it.url == sourceRootUrl }.addExcludeFolder("$sourceRootUrl/excluded")
-            model.addInvalidModuleEntry("cleanup_dep_module")
-        }
-
-        MixTestFixtures.removeAllContentRoots(myFixture)
-
-        val (contentEntryUrls, excludeFolderUrls, moduleEntryNames) =
-            ReadAction.computeBlocking<Triple<List<String>, List<String>, List<String>>, Throwable> {
-                val rootManager = ModuleRootManager.getInstance(myFixture.module)
-                Triple(
-                    rootManager.contentEntries.map { it.url },
-                    rootManager.contentEntries.flatMap { it.excludeFolderUrls },
-                    rootManager.orderEntries.filterIsInstance<ModuleOrderEntry>().map { it.moduleName },
-                )
-            }
-        assertEquals(listOf(sourceRootUrl), contentEntryUrls)
-        assertEquals(emptyList<String>(), excludeFolderUrls)
-        assertEquals(emptyList<String?>(), moduleLibraryEntryNames())
-        assertEquals(emptyList<String>(), moduleEntryNames)
     }
 
     /** Mix resolves a dep's relative `path:` against the `mix.exs` that declares it, not the project that reached it. */

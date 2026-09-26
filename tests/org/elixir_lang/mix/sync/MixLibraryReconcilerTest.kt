@@ -4,7 +4,6 @@ import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.roots.OrderRootType
 import com.intellij.openapi.roots.libraries.LibraryTablesRegistrar
 import com.intellij.testFramework.PsiTestUtil
-import com.intellij.testFramework.common.runAll
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.mix.library.CONSOLIDATED_LIBRARY_BASE_NAME
 import org.elixir_lang.mix.library.Kind as MixLibraryKind
@@ -18,20 +17,11 @@ import org.elixir_lang.mix.library.Kind as MixLibraryKind
 class MixLibraryReconcilerTest : PlatformTestCase() {
 
     /**
-     * Each case asserts on the whole library table, so it must start empty. Cleaning only in
-     * tearDown leaves the result depending on method order, which JUnit 3 does not fix.
+     * Each case asserts on the whole library table, so it must start empty: the restore after each light test removes
+     * only what that test added, not libraries an earlier class in the fork left.
      */
-    override fun setUp() {
-        super.setUp()
+    override fun resetSharedState() {
         MixSyncTestHelpers.removeAllLibraries(project)
-    }
-
-    override fun tearDown() {
-        runAll(
-            { MixTestFixtures.removeAllContentRoots(myFixture) },
-            { MixSyncTestHelpers.removeAllLibraries(project) },
-            { super.tearDown() }
-        )
     }
 
     private fun reconcilerNeedsResync(): Boolean =

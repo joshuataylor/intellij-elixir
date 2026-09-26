@@ -12,9 +12,6 @@ import org.elixir_lang.mix.project.ProjectModuleSetupValidator.detectFolderMarkI
 
 class ProjectModuleSetupValidatorTest : PlatformTestCase() {
 
-    /** URLs of content entries added during a test, cleaned up in [tearDown]. */
-    private val addedContentRootUrls = mutableListOf<String>()
-
     override fun setUp() {
         super.setUp()
 
@@ -23,23 +20,6 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
         val facetManager = FacetManager.getInstance(module)
         if (facetManager.getFacetByType(Facet.ID) == null) {
             FacetUtil.addFacet(module, FacetType.findInstance(Type::class.java))
-        }
-    }
-
-    override fun tearDown() {
-        try {
-            if (addedContentRootUrls.isNotEmpty()) {
-                ModuleRootModificationUtil.updateModel(module) { model ->
-                    for (entry in model.contentEntries.toList()) {
-                        if (entry.url in addedContentRootUrls) {
-                            model.removeContentEntry(entry)
-                        }
-                    }
-                }
-                addedContentRootUrls.clear()
-            }
-        } finally {
-            super.tearDown()
         }
     }
 
@@ -67,7 +47,6 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
             block(content, appRoot.url)
         }
 
-        addedContentRootUrls.add(appRoot.url)
         return appRoot
     }
 
@@ -95,7 +74,6 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
         ModuleRootModificationUtil.updateModel(module) { model ->
             model.addContentEntry(nonMixRoot)
         }
-        addedContentRootUrls.add(nonMixRoot.url)
 
         val issues = detectFolderMarkIssuesOnBackgroundThread()
 
@@ -399,8 +377,6 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
             contentB.addExcludeFolder("${appBRoot.url}/doc")
             contentB.addExcludeFolder("${appBRoot.url}/logs")
         }
-        addedContentRootUrls.add(appARoot.url)
-        addedContentRootUrls.add(appBRoot.url)
 
         val issues = detectFolderMarkIssuesOnBackgroundThread()
         val moduleIssues = issues.filter { it.moduleName == module.name }
@@ -410,7 +386,7 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
         val testIssues = moduleIssues.filter { it.folderRelativePath == "test" }
         val depsIssues = moduleIssues.filter { it.folderRelativePath == "deps" }
 
-        // Only app_b is missing test/ mark → exactly 1 test issue
+        // Only app_b is missing test/ mark -> exactly 1 test issue
         assertEquals(
             "Only one sub-app (app_b) should report a test/ issue",
             1,
@@ -418,7 +394,7 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
         )
         assertEquals(FolderMark.TEST_SOURCES, testIssues.single().folderMark)
 
-        // Only app_b is missing deps/ exclusion → exactly 1 deps issue
+        // Only app_b is missing deps/ exclusion -> exactly 1 deps issue
         assertEquals(
             "Only one sub-app (app_b) should report a deps/ issue",
             1,
@@ -472,8 +448,8 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
      */
     fun testUmbrellaSubAppAlreadyCoveredByContentEntryIsSkipped() {
         // Umbrella root with mix.exs.
-        // app_a: has its own content entry → umbrella scan must skip it.
-        // app_b: only a plain directory under apps/ → umbrella scan must report it.
+        // app_a: has its own content entry -> umbrella scan must skip it.
+        // app_b: only a plain directory under apps/ -> umbrella scan must report it.
         myFixture.tempDirFixture.findOrCreateDir("umbrella_mixed/apps/app_a/lib")
         myFixture.tempDirFixture.findOrCreateDir("umbrella_mixed/apps/app_a/test")
         myFixture.tempDirFixture.createFile("umbrella_mixed/apps/app_a/mix.exs", "")
@@ -492,19 +468,18 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
             contentA.addSourceFolder("${appARoot.url}/lib", false)
             contentA.addSourceFolder("${appARoot.url}/test", true)
         }
-        addedContentRootUrls.add(appARoot.url)
 
         val issues = detectFolderMarkIssuesOnBackgroundThread()
         val moduleIssues = issues.filter { it.moduleName == module.name }
 
-        // app_a is covered by its own content entry and fully configured → no umbrella issues.
+        // app_a is covered by its own content entry and fully configured -> no umbrella issues.
         val appAIssues = moduleIssues.filter { it.folderRelativePath.startsWith("apps/app_a/") }
         assertTrue(
             "app_a is covered by its own content entry and must produce no umbrella issues, got: $appAIssues",
             appAIssues.isEmpty(),
         )
 
-        // app_b has no content entry → umbrella scan must report lib/ and test/.
+        // app_b has no content entry -> umbrella scan must report lib/ and test/.
         val appBLibIssues = moduleIssues.filter { it.folderRelativePath == "apps/app_b/lib" }
         val appBTestIssues = moduleIssues.filter { it.folderRelativePath == "apps/app_b/test" }
 

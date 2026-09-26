@@ -6,7 +6,6 @@ import com.intellij.facet.impl.FacetUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
 import com.intellij.testFramework.PlatformTestUtil
-import com.intellij.testFramework.common.runAll
 import org.elixir_lang.Facet
 import org.elixir_lang.mix.sync.MixTestFixtures
 import org.elixir_lang.notification.setup_sdk.Notifier
@@ -16,8 +15,8 @@ import org.elixir_lang.facet.Type as ElixirFacetType
 /**
  * End-to-end integration tests for [DepsCheckerService] that exercise the real VFS event path:
  *
- * `VFS_CHANGES` publish → `BulkFileListener.after` → `pendingRoots` update +
- * `checkFlow.tryEmit` → debounce(1500 ms) → `runCheck` → `rootStatusCache` update + `Notifier` call.
+ * `VFS_CHANGES` publish -> `BulkFileListener.after` -> `pendingRoots` update +
+ * `checkFlow.tryEmit` -> debounce(1500 ms) -> `runCheck` -> `rootStatusCache` update + `Notifier` call.
  *
  * Assertions are outcome-based: `pendingRootUrls`, cached status, notification state.
  * No assertion couples to internal coroutine scheduling order or exact timing.
@@ -37,14 +36,6 @@ class DepsCheckerServiceVfsIntegrationTest : DepsCheckerServiceTestBase() {
     override fun setUp() {
         super.setUp()
         ensureElixirFacet()
-    }
-
-    override fun tearDown() {
-        runAll(
-            { MixTestFixtures.removeAllContentRoots(myFixture) },
-            { removeElixirFacet() },
-            { super.tearDown() },
-        )
     }
 
     // ── Tests ─────────────────────────────────────────────────────────────────
@@ -196,16 +187,6 @@ class DepsCheckerServiceVfsIntegrationTest : DepsCheckerServiceTestBase() {
         val facetManager = FacetManager.getInstance(module)
         if (facetManager.getFacetByType(Facet.ID) == null) {
             FacetUtil.addFacet(module, FacetType.findInstance(ElixirFacetType::class.java))
-        }
-    }
-
-    private fun removeElixirFacet() {
-        val facetManager = FacetManager.getInstance(module)
-        val facet = facetManager.getFacetByType(Facet.ID) ?: return
-        ApplicationManager.getApplication().runWriteAction {
-            val model = facetManager.createModifiableModel()
-            model.removeFacet(facet)
-            model.commit()
         }
     }
 }

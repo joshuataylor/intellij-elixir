@@ -1,13 +1,13 @@
 package org.elixir_lang.code_insight
 
-import com.intellij.testFramework.utils.parameterInfo.MockCreateParameterInfoContext
-import com.intellij.testFramework.utils.parameterInfo.MockParameterInfoUIContext
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
+import com.intellij.testFramework.utils.parameterInfo.MockCreateParameterInfoContext
+import com.intellij.testFramework.utils.parameterInfo.MockParameterInfoUIContext
 import org.elixir_lang.beam.BeamLibraryFixture
 import org.elixir_lang.beam.BeamLibraryTestCase
 import org.elixir_lang.beam.psi.BeamFileImpl
-import org.elixir_lang.psi.Arguments
 import java.io.File
 
 /**
@@ -63,7 +63,9 @@ class BeamParameterInfoTest : BeamLibraryTestCase() {
     /** The hint is built on the EDT, where decompiling a large module takes hundreds of milliseconds. */
     fun testHintDoesNotDecompileTheModule() {
         val math = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(File(ebinDirectory, "math.beam"))!!
-        val beamFile = myFixture.psiManager.findFile(math) as BeamFileImpl
+        val beamFile = ReadAction.computeBlocking<BeamFileImpl, Throwable> {
+            myFixture.psiManager.findFile(math) as BeamFileImpl
+        }
         assertNull("math.beam was decompiled before the hint was asked for", beamFile.cachedMirror)
 
         assertNotEmpty(signaturesAtCaret("undecompiled.ex"))
@@ -77,11 +79,7 @@ class BeamParameterInfoTest : BeamLibraryTestCase() {
         val copyRoot = LocalFileSystem.getInstance().refreshAndFindFileByIoFile(copy)!!
         BeamLibraryFixture.addLibrary(project, myFixture.module, "beam-copy", listOf(copyRoot))
 
-        try {
-            assertEquals(1, signaturesAtCaret("undecompiled.ex").size)
-        } finally {
-            BeamLibraryFixture.removeLibrary(project, myFixture.module, "beam-copy")
-        }
+        assertEquals(1, signaturesAtCaret("undecompiled.ex").size)
     }
 
     fun testOpeningParenthesisPopsUpTheHint() {
@@ -121,7 +119,7 @@ class BeamParameterInfoTest : BeamLibraryTestCase() {
         assertFalse("No parameter hint for the call in $path", items.isNullOrEmpty())
 
         return items!!.map { item ->
-            val uiContext = MockParameterInfoUIContext<Arguments>(arguments)
+            val uiContext = MockParameterInfoUIContext(arguments)
             uiContext.currentParameterIndex = 0
             handler.updateUI(item as Signature, uiContext)
             uiContext.text

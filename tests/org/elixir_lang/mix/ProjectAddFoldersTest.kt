@@ -10,26 +10,6 @@ import org.elixir_lang.PlatformTestCase
  */
 class ProjectAddFoldersTest : PlatformTestCase() {
 
-    /** URLs of content entries added during a test, cleaned up in [tearDown]. */
-    private val addedContentRootUrls = mutableListOf<String>()
-
-    override fun tearDown() {
-        try {
-            if (addedContentRootUrls.isNotEmpty()) {
-                ModuleRootModificationUtil.updateModel(module) { model ->
-                    for (entry in model.contentEntries.toList()) {
-                        if (entry.url in addedContentRootUrls) {
-                            model.removeContentEntry(entry)
-                        }
-                    }
-                }
-                addedContentRootUrls.clear()
-            }
-        } finally {
-            super.tearDown()
-        }
-    }
-
     /**
      * An Elixir module must not exclude IntelliJ's compiler output: Elixir compiles to `_build`, and
      * the plugin's own project converter exists to strip `<exclude-output/>` from `ELIXIR_MODULE`s -
@@ -45,11 +25,10 @@ class ProjectAddFoldersTest : PlatformTestCase() {
         ModuleRootModificationUtil.updateModel(module) { model ->
             // Mirrors JavaModuleBuilder.setupRootModel, which turns this on before
             // ElixirModuleBuilder gets to call addFolders.
-            model.getModuleExtension(CompilerModuleExtension::class.java).setExcludeOutput(true)
+            model.getModuleExtension(CompilerModuleExtension::class.java).isExcludeOutput = true
 
             Project.addFolders(model, root)
         }
-        addedContentRootUrls.add(root.url)
 
         assertFalse(
             "addFolders must clear exclude-output, or every project the plugin creates is offered" +

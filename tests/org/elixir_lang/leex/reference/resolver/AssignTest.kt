@@ -3,7 +3,6 @@ package org.elixir_lang.leex.reference.resolver
 import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.ResolveResult
 import com.intellij.psi.util.PsiTreeUtil
-import com.intellij.testFramework.common.runAll
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.beam.BeamLibraryFixture
 import org.elixir_lang.psi.AtOperation
@@ -20,13 +19,6 @@ import org.elixir_lang.psi.AtOperation
  * the assignment or replaces it.
  */
 class AssignTest : PlatformTestCase() {
-    override fun tearDown() {
-        runAll(
-            { BeamLibraryFixture.removeLibrary(project, myFixture.module, LIBRARY) },
-            { super.tearDown() },
-        )
-    }
-
     fun testLiveActionResolvesToTheAtomAssignedByAssignAction() {
         addPhoenixFunction(
             """

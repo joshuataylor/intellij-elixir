@@ -25,14 +25,6 @@ class ErlangAtomQualifierHoverDocumentationTest : QuickDocumentationTestCase() {
         addBeamLibrary()
     }
 
-    override fun tearDown() {
-        try {
-            removeBeamLibrary()
-        } finally {
-            super.tearDown()
-        }
-    }
-
     fun testModuleAtomHoverShowsModuleDocs() {
         myFixture.configureByFiles("module_atom_hover.ex")
 
@@ -90,10 +82,6 @@ class ErlangAtomQualifierHoverDocumentationTest : QuickDocumentationTestCase() {
         assertNotNull("Could not find beam test data directory: $beamDir", beamDirVf)
 
         BeamLibraryFixture.addLibrary(project, myFixture.module, LIBRARY_NAME, listOf(beamDirVf!!))
-    }
-
-    private fun removeBeamLibrary() {
-        BeamLibraryFixture.removeLibrary(project, myFixture.module, LIBRARY_NAME)
     }
 
     override fun getTestDataPath(): String =

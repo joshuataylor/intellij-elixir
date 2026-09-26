@@ -19,14 +19,6 @@ class Issue1613BeamDelegateQuickDocumentationTest : QuickDocumentationTestCase()
         addBeamLibrary()
     }
 
-    override fun tearDown() {
-        try {
-            removeBeamLibrary()
-        } finally {
-            super.tearDown()
-        }
-    }
-
     fun testQuickDocOnCallDelegatedToBeamModule() {
         myFixture.configureByFiles("defdelegate_to_beam_hover.ex")
 
@@ -90,10 +82,6 @@ class Issue1613BeamDelegateQuickDocumentationTest : QuickDocumentationTestCase()
         assertNotNull("Could not find beam test data directory: $beamDir", beamDirVf)
 
         BeamLibraryFixture.addLibrary(project, myFixture.module, LIBRARY_NAME, listOf(beamDirVf!!))
-    }
-
-    private fun removeBeamLibrary() {
-        BeamLibraryFixture.removeLibrary(project, myFixture.module, LIBRARY_NAME)
     }
 
     override fun getTestDataPath(): String =
