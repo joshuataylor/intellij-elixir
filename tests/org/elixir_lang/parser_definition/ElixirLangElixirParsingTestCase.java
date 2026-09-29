@@ -22,7 +22,7 @@ import java.util.stream.Stream;
  */
 @SuppressWarnings("JUnitMalformedDeclaration") // Built only by suite().
 public class ElixirLangElixirParsingTestCase extends SharedFixtureParsingTestCase<ElixirLangElixirParsingTestCase> {
-    static final String CORPUS_ENVIRONMENT_VARIABLE = "ELIXIR_PARSING_CORPUS";
+    public static final String CORPUS_ENVIRONMENT_VARIABLE = "ELIXIR_PARSING_CORPUS";
     private static final Path KNOWN_FAILURES =
             Path.of("testData", "org", "elixir_lang", "parser_definition", "corpus_known_failures.tsv");
 
@@ -76,7 +76,7 @@ public class ElixirLangElixirParsingTestCase extends SharedFixtureParsingTestCas
         return suite;
     }
 
-    static List<String> sourcePaths(@NotNull Path corpusRoot) {
+    public static List<String> sourcePaths(@NotNull Path corpusRoot) {
         try (Stream<Path> paths = Files.walk(corpusRoot)) {
             return paths
                     .filter(Files::isRegularFile)
