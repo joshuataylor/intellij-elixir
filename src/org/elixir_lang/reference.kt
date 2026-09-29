@@ -59,7 +59,7 @@ fun resolvesToMacro(call: Call): Boolean {
             ?.any { resolveResult ->
                 resolveResult.isValidResult &&
                         (resolveResult.element as? Call)?.let { resolved ->
-                            CallDefinitionClause.isMacro(resolved) &&
+                            CallDefinitionClause.capabilities(resolved)?.quotesArguments == true &&
                                     // don't treat the signature as a call of the macro
                                     !resolved.isAncestor(call)
                         } == true
@@ -77,7 +77,7 @@ fun resolvesToModularName(call: Call, state: ResolveState, modularName: String):
                 safeMultiResolve(reference, false).any { resolveResult ->
                     if (resolveResult.isValidResult) {
                         resolveResult.element?.let { it as? Call }?.let { resolved ->
-                            CallDefinitionClause.isMacro(resolved) &&
+                            CallDefinitionClause.capabilities(resolved)?.quotesArguments == true &&
                                     // don't treat the signature as a call of the function
                                     !resolved.isAncestor(call) &&
                                     enclosingModularMacroCall(resolved)?.name == modularName

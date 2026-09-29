@@ -119,7 +119,7 @@ class ProtocolFunction(
                 ?: return emptyList()
             val nameArity = CallDefinitionClause.nameArityInterval(clause, ResolveState.initial()) ?: return emptyList()
             val nameId = CallDefinitionClause.nameIdentifier(clause) ?: return emptyList()
-            val macro = CallDefinitionClause.isMacro(clause)
+            val macro = CallDefinitionClause.capabilities(clause)?.quotesArguments == true
             return nameArity.arityInterval.closed().map { arity ->
                 ProtocolFunction(clause.containingFile, nameId.textRange, protocolName, nameArity.name, arity, macro)
             }

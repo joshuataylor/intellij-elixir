@@ -20,7 +20,6 @@ import org.elixir_lang.model.psi.ElixirSymbolWithUsages
 import org.elixir_lang.navigation.ElixirClausePresentation
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.call.Call
-import org.elixir_lang.structure_view.element.Timed
 import java.util.*
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 
@@ -117,7 +116,7 @@ class AtomSymbol(
                 ?: return emptyList()
             val nameArity = CallDefinitionClause.nameArityInterval(clause, ResolveState.initial()) ?: return emptyList()
             val nameId = CallDefinitionClause.nameIdentifier(clause) ?: return emptyList()
-            val macro = CallDefinitionClause.isMacro(clause)
+            val macro = CallDefinitionClause.capabilities(clause)?.quotesArguments == true
             return nameArity.arityInterval.closed().map { arity ->
                 AtomSymbol(clause.containingFile, nameId.textRange, moduleName, nameArity.name, arity, macro)
             }
@@ -127,8 +126,8 @@ class AtomSymbol(
         fun fromBeamCallDefinition(callDefinition: BeamCallDefinition): List<AtomSymbol> {
             val navigationClause = callDefinition.navigationElement as? Call
 
-            if (navigationClause != null && CallDefinitionClause.isMacro(navigationClause)) return emptyList()
-            if (navigationClause == null && callDefinition.time == Timed.Time.COMPILE) return emptyList()
+            if (navigationClause != null && CallDefinitionClause.capabilities(navigationClause)?.quotesArguments == true) return emptyList()
+            if (navigationClause == null && callDefinition.capabilities.compileTime) return emptyList()
 
             val presentationText =
                 if (navigationClause != null && CallDefinitionClause.`is`(navigationClause)) {

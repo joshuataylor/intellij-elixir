@@ -3,6 +3,7 @@ package org.elixir_lang.annotator;
 import com.intellij.psi.NavigatablePsiElement;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.util.PsiTreeUtil;
+import org.elixir_lang.declaration.Capabilities;
 import org.elixir_lang.psi.*;
 import org.elixir_lang.psi.call.Call;
 import org.elixir_lang.structure_view.element.Delegation;
@@ -56,24 +57,33 @@ public class Parameter {
         return notNull;
     }
 
+    @Nullable
+    private static Type nameType(@NotNull Call ancestor) {
+        Capabilities capabilities = CallDefinitionClause.capabilities(ancestor);
+
+        if (capabilities == null) {
+            return Delegation.is(ancestor) ? Type.FUNCTION_NAME : null;
+        }
+
+        return switch (capabilities.getPresentation()) {
+            case FUNCTION -> Type.FUNCTION_NAME;
+            case MACRO -> Type.MACRO_NAME;
+            case GUARD -> null;
+        };
+    }
+
     @Contract(pure = true)
     @NotNull
     private static Parameter putParameterized(@NotNull final Parameter parameter, final @NotNull Call ancestor) {
         Parameter parameterizedParameter;
+        Type nameType = nameType(ancestor);
 
-        if (CallDefinitionClause.isFunction(ancestor) || Delegation.is(ancestor)) {
+        if (nameType != null) {
             parameterizedParameter = new Parameter(
                     parameter.defaultValue,
                     parameter.entrance,
                     notNullize(parameter.parameterized, ancestor),
-                    notNullize(parameter.type, Type.FUNCTION_NAME)
-            );
-        } else if (CallDefinitionClause.isMacro(ancestor)) {
-            parameterizedParameter = new Parameter(
-                    parameter.defaultValue,
-                    parameter.entrance,
-                    notNullize(parameter.parameterized, ancestor),
-                    notNullize(parameter.type, Type.MACRO_NAME)
+                    notNullize(parameter.type, nameType)
             );
         } else if (ancestor.hasDoBlockOrKeyword()) {
             parameterizedParameter = new Parameter(

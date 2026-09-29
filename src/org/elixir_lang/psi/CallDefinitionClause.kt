@@ -14,6 +14,7 @@ import org.elixir_lang.declaration.Declaration
 import org.elixir_lang.declaration.Declared
 import org.elixir_lang.declaration.Definer
 import org.elixir_lang.declaration.Form
+import org.elixir_lang.declaration.Presentation
 import org.elixir_lang.declaration.SourceOrigin
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.name.Function.*
@@ -60,10 +61,10 @@ object CallDefinitionClause {
      */
     @RequiresReadLock
     fun elementDescription(call: Call, location: ElementDescriptionLocation): String? =
-            when {
-                isFunction(call) -> functionElementDescription(call, location)
-                isMacro(call) -> macroElementDescription(location)
-                else -> null
+            when (capabilities(call)?.presentation) {
+                Presentation.FUNCTION -> functionElementDescription(call, location)
+                Presentation.MACRO -> macroElementDescription(location)
+                Presentation.GUARD, null -> null
             }
 
     /**

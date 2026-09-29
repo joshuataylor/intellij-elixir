@@ -10,6 +10,7 @@ import org.elixir_lang.annotator.Parameter
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.beam.psi.Module as BeamModule
 import org.elixir_lang.beam.psi.TypeDefinition as BeamTypeDefinition
+import org.elixir_lang.declaration.Presentation
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.name.Function.ALIAS
 import org.elixir_lang.psi.call.name.Module.KERNEL
@@ -169,13 +170,14 @@ internal class ElementDescriptionProvider : com.intellij.psi.ElementDescriptionP
     ): String? =
         when (location) {
             UsageViewNodeTextLocation.INSTANCE -> {
-                val macro = when (callDefinitionImpl.time) {
-                    Timed.Time.COMPILE -> if (callDefinitionImpl.isExported) {
+                val capabilities = callDefinitionImpl.capabilities
+                val macro = when (capabilities.presentation) {
+                    Presentation.MACRO, Presentation.GUARD -> if (capabilities.public) {
                         "defmacro"
                     } else {
                         "defmacrop"
                     }
-                    Timed.Time.RUN -> if (callDefinitionImpl.isExported) {
+                    Presentation.FUNCTION -> if (capabilities.public) {
                         "def"
                     } else {
                         "defp"
@@ -189,9 +191,9 @@ internal class ElementDescriptionProvider : com.intellij.psi.ElementDescriptionP
             }
             UsageViewLongNameLocation.INSTANCE, UsageViewShortNameLocation.INSTANCE ->
                 callDefinitionImpl.nameArityInterval.toString()
-            UsageViewTypeLocation.INSTANCE -> when (callDefinitionImpl.time) {
-                Timed.Time.COMPILE -> "macro"
-                Timed.Time.RUN -> "function"
+            UsageViewTypeLocation.INSTANCE -> when (callDefinitionImpl.capabilities.presentation) {
+                Presentation.MACRO, Presentation.GUARD -> "macro"
+                Presentation.FUNCTION -> "function"
             }
             else -> null
         }

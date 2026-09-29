@@ -67,7 +67,7 @@ private fun callDefinitionClauseLookupElements(scope: Call, appendParentheses: B
 
     val publicClauses = childCalls
         .filter { CallDefinitionClausePsi.`is`(it) }
-        .filter { CallDefinitionClausePsi.isPublic(it) }
+        .filter { CallDefinitionClausePsi.capabilities(it)?.public == true }
 
     val clauseLookupElements = preferFunctionHeads(publicClauses).map { (name, bestClause) ->
         name to lookupElement(name, bestClause, appendParentheses)

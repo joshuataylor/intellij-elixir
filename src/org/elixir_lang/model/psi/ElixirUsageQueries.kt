@@ -265,10 +265,8 @@ internal object ElixirUsageQueries {
             if (nameArity.name != callback.name || callback.arity !in nameArity.arityInterval) return emptyList()
 
             // `@callback` is implemented by `def`, `@macrocallback` by `defmacro`.
-            val kindMatches =
-                    if (callback.macro) CallDefinitionClause.isMacro(defClause) else CallDefinitionClause.isFunction(
-                        defClause
-                    )
+            val capabilities = CallDefinitionClause.capabilities(defClause) ?: return emptyList()
+            val kindMatches = if (callback.macro) capabilities.quotesArguments else capabilities.runtimeFunction
             if (!kindMatches) return emptyList()
 
             val implements =
@@ -400,9 +398,9 @@ internal object ElixirUsageQueries {
             }
 
             // `def` implements a function protocol member; `defmacro` a macro member.
+            val capabilities = CallDefinitionClause.capabilities(defClause) ?: return emptyList()
             val kindMatches =
-                    if (protocolFunction.macro) CallDefinitionClause.isMacro(defClause)
-                    else CallDefinitionClause.isFunction(defClause)
+                    if (protocolFunction.macro) capabilities.quotesArguments else capabilities.runtimeFunction
             if (!kindMatches) return emptyList()
 
             // The clause must live directly inside a `defimpl` for this protocol.
@@ -1169,7 +1167,7 @@ private fun Call.matchesFunctionFamily(symbol: FunctionSymbol): Boolean {
     val nameArity = CallDefinitionClause.nameArityInterval(this, ResolveState.initial()) ?: return false
     if (nameArity.name != symbol.name || symbol.arity !in nameArity.arityInterval) return false
 
-    val clauseIsMacro = CallDefinitionClause.isMacro(this)
+    val clauseIsMacro = CallDefinitionClause.capabilities(this)?.quotesArguments == true
     return clauseIsMacro == symbol.macro
 }
 
