@@ -2,12 +2,19 @@ package org.elixir_lang.psi
 
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.ElementDescriptionLocation
+import com.intellij.psi.PsiCompiledFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.usageView.UsageViewTypeLocation
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.NameArityInterval
+import org.elixir_lang.declaration.Capabilities
+import org.elixir_lang.declaration.Declaration
+import org.elixir_lang.declaration.Declared
+import org.elixir_lang.declaration.Definer
+import org.elixir_lang.declaration.Form
+import org.elixir_lang.declaration.SourceOrigin
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.name.Function.*
 import org.elixir_lang.psi.call.name.Module.KERNEL
@@ -71,7 +78,37 @@ object CallDefinitionClause {
 
     @RequiresReadLock
     @JvmStatic
-    fun `is`(call: Call): Boolean = isFunction(call) || isMacro(call) || isGuard(call)
+    fun `is`(call: Call): Boolean = definer(call) != null
+
+    /** The `def*` [call] is written with, `null` when it is no clause. */
+    @RequiresReadLock
+    @JvmStatic
+    fun definer(call: Call): Definer? =
+        call.functionName()?.let { Definer.of(it) }?.takeIf { isCallingKernelMacroOrHead(call, it.keyword) }
+
+    @RequiresReadLock
+    @JvmStatic
+    fun capabilities(call: Call): Capabilities? = definer(call)?.capabilities
+
+    @RequiresReadLock
+    fun declaration(call: Call, state: ResolveState): Declaration? {
+        val capabilities = capabilities(call) ?: return null
+        val (name, arityInterval) = nameArityInterval(call, state) ?: return null
+        val file = call.containingFile
+        val viewProvider =
+            (file.originalFile as? PsiCompiledFile)?.takeIf { it.decompiledPsiFile == file }?.viewProvider
+                ?: file.viewProvider
+
+        return Declaration(
+            name,
+            arityInterval.arityKnowledge(),
+            capabilities,
+            Declared.Source(
+                Form.CLAUSE,
+                SourceOrigin(viewProvider.virtualFile, viewProvider.modificationStamp, call.textRange)
+            )
+        )
+    }
 
     /**
      * Returns `true` if [element] is at or within the name/head of any call-definition clause -
