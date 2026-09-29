@@ -21,6 +21,7 @@ import org.elixir_lang.psi.ElixirUnmatchedLessThanOnePointSixCaptureNonNumericOp
 import org.elixir_lang.psi.impl.ElixirTupleImpl
 import org.elixir_lang.psi.ElixirVariable
 import org.elixir_lang.annotator.ParameterWalk
+import org.elixir_lang.lowering.Lowering
 import org.elixir_lang.psi.UnquotedVariableWalk
 import org.elixir_lang.psi.scope.TypeAscent
 import org.elixir_lang.psi.scope.TypeDescent
@@ -85,6 +86,8 @@ class ShapeCoverageTest : UnitTestCase() {
     )
 
     fun testTypeAscentNamesEveryShape() = assertCovers(TypeAscent.classifier)
+
+    fun testLoweringNamesEveryShape() = assertCovers(Lowering.classifier)
 
     /** What the type descent reads through, the type ascent must climb, or a type variable inside loses its spec. */
     fun testTypeAscentClimbsWhatTheTypeDescentReads() {
