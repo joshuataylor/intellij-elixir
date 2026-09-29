@@ -28,8 +28,8 @@ import java.util.Objects
  */
 @Suppress("UnstableApiUsage")
 class GenServerHandlerTarget(
-    private val file: PsiFile,
-    private val range: TextRange,
+    internal val file: PsiFile,
+    internal val range: TextRange,
     private val presentationText: String
 ) : Symbol, NavigationTarget {
 

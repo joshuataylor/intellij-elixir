@@ -348,6 +348,13 @@ nothing in the plugin can prevent goes in `IgnoredLogs`, marked `silent` if it s
 `idea.log` either, for noise a test provokes on purpose. A test that installs its own
 `LoggedErrorProcessor` extends `GuardedLoggedErrorProcessor`, or it switches the check off while installed.
 
+A test that compares its output with a committed file through `assertSameLinesWithFile` rewrites that file from
+its output instead when run with `-PoverwriteTestData=true`; review the diff before committing it:
+
+```sh
+./gradlew test --tests "<class>" -PoverwriteTestData=true
+```
+
 `test` builds and starts the Elixir quoter daemon, because the parser tests
 (`org.elixir_lang.parser_definition.*`) quote source through it and compare the result against the
 plugin's own quoting. Gradle stops the daemon at the end of the build. On a warm cache this costs
