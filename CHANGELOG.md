@@ -495,6 +495,8 @@
 
 ### Build / CI
 
+- [#4220](https://github.com/intellij-elixir/intellij-elixir/pull/4220) [@sh41](https://github.com/sh41)
+  - **A committed snapshot records what every reference in a set of fixtures resolves to, so a change to resolution shows up in review as a diff; `-PoverwriteTestData=true` regenerates it.** Fixes [#4213](https://github.com/intellij-elixir/intellij-elixir/issues/4213).
 - [#4200](https://github.com/intellij-elixir/intellij-elixir/pull/4200) [@sh41](https://github.com/sh41)
   - **On Linux and macOS the quoter build runs the resolved Elixir rather than whichever `elixir` is first on `PATH`.** Fixes [#4199](https://github.com/intellij-elixir/intellij-elixir/issues/4199).
 - [#4189](https://github.com/intellij-elixir/intellij-elixir/pull/4189) [@sh41](https://github.com/sh41)
