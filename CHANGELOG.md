@@ -497,6 +497,8 @@
 
 ### Build / CI
 
+- [#4229](https://github.com/intellij-elixir/intellij-elixir/pull/4229) [@sh41](https://github.com/sh41)
+  - **When a committed golden such as the resolution snapshot differs on CI, the job summary shows the diff and how many lines moved.** Fixes [#4215](https://github.com/intellij-elixir/intellij-elixir/issues/4215).
 - [#4220](https://github.com/intellij-elixir/intellij-elixir/pull/4220) [@sh41](https://github.com/sh41)
   - **A committed snapshot records what every reference in a set of fixtures resolves to, so a change to resolution shows up in review as a diff; `-PoverwriteTestData=true` regenerates it.** Fixes [#4213](https://github.com/intellij-elixir/intellij-elixir/issues/4213).
 - [#4200](https://github.com/intellij-elixir/intellij-elixir/pull/4200) [@sh41](https://github.com/sh41)

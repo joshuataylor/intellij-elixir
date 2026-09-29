@@ -2,6 +2,7 @@ package testing
 
 import org.gradle.api.GradleException
 import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.Internal
 import org.gradle.api.tasks.OutputFile
 import org.gradle.api.tasks.testing.Test
 import org.gradle.process.CommandLineArgumentProvider
@@ -86,6 +87,17 @@ fun Test.runInForks(explicitForks: Provider<Int>, forkLimit: Provider<Int>, step
         logger.lifecycle(line)
         stepSummary.orNull?.let { File(it).appendText("$line\n") }
     }
+}
+
+/** Tells the test JVMs where [stepSummary] is, so a failing golden comparison can append its diff there. */
+fun Test.shareStepSummary(stepSummary: Provider<String>) {
+    jvmArgumentProviders.add(StepSummaryArgument(stepSummary))
+}
+
+/** Internal, as every CI step has its own summary file, so its path in the key would make every run a cache miss. */
+class StepSummaryArgument(@get:Internal val stepSummary: Provider<String>) : CommandLineArgumentProvider {
+    override fun asArguments(): List<String> =
+        listOfNotNull(stepSummary.orNull?.let { "-Delixir.test.stepSummary=$it" })
 }
 
 /** Records which fork ran each class in [timeline], which every fork appends to, so it is emptied once per run. */
