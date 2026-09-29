@@ -120,7 +120,7 @@ val expectedVersionSource: String =
 val elixirVersion: String = versionWithoutBuildTag(expectedElixirVersion.getOrElse("unresolved"))
 
 val quoterRepo: String = providers.gradleProperty("quoterRepo").getOrElse("intellij-elixir/intellij-elixir-quoter")
-val quoterRef: String = providers.gradleProperty("quoterRef").getOrElse("v3.0.0")
+val quoterRef: String = providers.gradleProperty("quoterRef").getOrElse("v3.2.0")
 // Cache namespace for the quoter, derived from the ref ('/' is illegal in a path segment). Keeps
 // each repo/ref's downloaded zip, build dir, and daemon tmp dir separate, so switching source
 // never reuses another's artifacts.
@@ -1156,6 +1156,8 @@ tasks.named<Test>("test") {
     systemProperty("elixir.quoter.localNode", quoterClientNodeName)
     inputs.property("quoterNodeName", quoterNodeName)
     inputs.property("quoterClientNodeName", quoterClientNodeName)
+
+    systemProperty("elixir.quoter.ref", quoterRef)
 
     // The variable oracle corpus narrows itself to the fixtures matching this regex; a different subset is a
     // different run, or the task reports the previous subset's results as this one's.
