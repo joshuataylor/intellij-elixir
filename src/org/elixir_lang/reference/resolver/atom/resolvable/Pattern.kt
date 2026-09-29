@@ -19,26 +19,22 @@ class Pattern(private val predicate: Predicate<String>) : Resolvable() {
         val project = element.project
         val stubIndex = StubIndex.getInstance()
         val scope = narrowedScope(element, project)
+        val names = mutableListOf<String>()
+        stubIndex.processAllKeys(AllName.KEY, project) { name ->
+            if (predicate.test(name)) names.add(name)
+
+            true
+        }
+
         val resolveResults = mutableListOf<ResolveResult>()
 
-        stubIndex
-            .processAllKeys(AllName.KEY, project) { name ->
-                if (predicate.test(name)) {
-                    stubIndex.processElements(
-                        AllName.KEY,
-                        name,
-                        project,
-                        scope,
-                        NamedElement::class.java
-                    ) {
-                        resolveResults.add(PsiElementResolveResult(it, false))
+        for (name in names) {
+            stubIndex.processElements(AllName.KEY, name, project, scope, NamedElement::class.java) {
+                resolveResults.add(PsiElementResolveResult(it, false))
 
-                        true
-                    }
-                } else {
-                    true
-                }
+                true
             }
+        }
 
         return resolveResults.toTypedArray()
     }
