@@ -270,7 +270,7 @@ class ElixirErlangSdkResolver(
         val privDirResult = execAndCapture(
             listOf("elixir", "-e", "IO.puts(:code.priv_dir(:elixir))"),
             projectDir,
-            elixirExecutionEnvironment(erlangHome)
+            elixirExecutionEnvironment(null, erlangHome)
         ) ?: return null
         if (privDirResult.exitCode != 0 || privDirResult.output.isBlank()) {
             return null
@@ -323,7 +323,7 @@ class ElixirErlangSdkResolver(
         val binDir = File(home, "bin")
         val elixirExec = File(binDir, elixirExecutableName())
         val command = listOf(elixirExec.absolutePath, "-e", "IO.puts System.version")
-        val environment = elixirExecutionEnvironment(erlangHome)
+        val environment = elixirExecutionEnvironment(home, erlangHome)
         val result = execAndCapture(
             command,
             projectDir,
@@ -336,10 +336,10 @@ class ElixirErlangSdkResolver(
         return lastNonEmptyLine(result.output)
     }
 
-    private fun elixirExecutionEnvironment(erlangHome: File?): Map<String, String> {
+    private fun elixirExecutionEnvironment(elixirHome: File?, erlangHome: File?): Map<String, String> {
         val home = erlangHome?.takeIf { isValidErlangHome(it) } ?: return emptyMap()
         // Shared with the quoter build tasks (see MixEnvironment.kt).
-        return erlangRuntimeEnvironment(home)
+        return sdkRuntimeEnvironment(elixirHome, home)
     }
 
     private data class SdkCandidate(

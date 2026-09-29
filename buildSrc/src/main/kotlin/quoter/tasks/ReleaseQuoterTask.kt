@@ -103,7 +103,7 @@ abstract class ReleaseQuoterTask : DefaultTask() {
         val erlangHome = File(props["erlang.sdk.path"] ?: throw GradleException("Missing erlang.sdk.path"))
         val mixExe = mixExecutable(elixirHome)
         val archives = mixArchives.get().asFile
-        val environment = mixEnvironment(erlangHome, mixHome.get().asFile, archives, mixEnv.get())
+        val environment = mixEnvironment(elixirHome, erlangHome, mixHome.get().asFile, archives, mixEnv.get())
 
         // Captured rather than streamed, because the reason has to outlive this task - the tests that
         // need the daemon fail later, in another JVM. One buffer for both streams keeps the failure in
