@@ -102,7 +102,7 @@ abstract class GetQuoterDepsTask : DefaultTask() {
         // has an empty prod set - and mix then does not create `deps` at all. It is a declared output
         // here and a declared input of `releaseQuoter`, so create it rather than leave that to mix.
         depsDir.get().asFile.mkdirs()
-        val environment = mixEnvironment(erlangHome, home, archives, mixEnv.get())
+        val environment = mixEnvironment(elixirHome, erlangHome, home, archives, mixEnv.get())
         val dir = quoterDir.get().asFile
 
         fun mix(vararg args: String) {

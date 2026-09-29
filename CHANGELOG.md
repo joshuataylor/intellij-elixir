@@ -493,6 +493,8 @@
 
 ### Build / CI
 
+- [#4200](https://github.com/intellij-elixir/intellij-elixir/pull/4200) [@sh41](https://github.com/sh41)
+  - **On Linux and macOS the quoter build runs the resolved Elixir rather than whichever `elixir` is first on `PATH`.** Fixes [#4199](https://github.com/intellij-elixir/intellij-elixir/issues/4199).
 - [#4189](https://github.com/intellij-elixir/intellij-elixir/pull/4189) [@sh41](https://github.com/sh41)
   - **`testMaxForks` caps the number of test forks, to leave room for other work, and `-PtestForks` is validated before `test` runs; a test run taken from the build cache also restores its `-PtestTimeline` file.**
 - [#4183](https://github.com/intellij-elixir/intellij-elixir/pull/4183) [@sh41](https://github.com/sh41)

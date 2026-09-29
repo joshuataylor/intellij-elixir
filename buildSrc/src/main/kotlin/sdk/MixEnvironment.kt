@@ -18,18 +18,17 @@ fun mixExecutable(elixirHome: File): String =
     File(File(elixirHome, "bin"), mixExecutableName()).absolutePath
 
 /**
- * PATH/ERTS environment so `elixir`/`mix` locate the given Erlang SDK regardless of ambient PATH.
- * Prepends `<erlangHome>/bin` to PATH (and `Path` on Windows) and sets `ERTS_BIN`/`ERLANG_SDK_HOME`.
- * This is what makes the build independent of shell PATH / mise shims / Git Bash truncation.
+ * PATH/ERTS environment so `elixir`/`mix` run from the given SDKs regardless of ambient PATH.
+ * Prepends `<elixirHome>/bin` (when given), then `<erlangHome>/bin`, to PATH (and `Path` on Windows)
+ * and sets `ERTS_BIN`/`ERLANG_SDK_HOME`. Elixir's `bin` matters because POSIX `mix` starts with
+ * `#!/usr/bin/env elixir`, which otherwise runs whatever `elixir` the ambient PATH holds.
  */
-fun erlangRuntimeEnvironment(erlangHome: File): Map<String, String> {
+fun sdkRuntimeEnvironment(elixirHome: File?, erlangHome: File): Map<String, String> {
     val binDir = File(erlangHome, "bin")
     val existingPath = System.getenv("PATH") ?: System.getenv("Path") ?: ""
-    val newPath = if (existingPath.isBlank()) {
-        binDir.absolutePath
-    } else {
-        "${binDir.absolutePath}${File.pathSeparator}$existingPath"
-    }
+    val newPath = listOfNotNull(elixirHome?.let { File(it, "bin").absolutePath }, binDir.absolutePath, existingPath)
+        .filter { it.isNotBlank() }
+        .joinToString(File.pathSeparator)
     return buildMap {
         put("ERTS_BIN", binDir.absolutePath + File.separator)
         put("PATH", newPath)
@@ -72,7 +71,7 @@ fun quoterReleaseExecutablePath(mixEnv: String): String =
     "_build/$mixEnv/rel/quoter/bin/quoter"
 
 /**
- * Full environment for `mix` commands: the Erlang runtime environment, MIX_HOME/MIX_ARCHIVES so
+ * Full environment for `mix` commands: the SDK runtime environment, MIX_HOME/MIX_ARCHIVES so
  * hex/rebar and fetched dependencies are cached under the project rather than the user's home, and
  * MIX_ENV so neither the environment the build inherits nor mix's own default decides it.
  *
@@ -80,12 +79,13 @@ fun quoterReleaseExecutablePath(mixEnv: String): String =
  * [mixEnv] from [resolveMixEnv].
  */
 fun mixEnvironment(
+    elixirHome: File,
     erlangHome: File,
     mixHome: File,
     mixArchives: File,
     mixEnv: String
 ): Map<String, String> =
-    erlangRuntimeEnvironment(erlangHome) + mapOf(
+    sdkRuntimeEnvironment(elixirHome, erlangHome) + mapOf(
         "MIX_HOME" to mixHome.absolutePath,
         "MIX_ARCHIVES" to mixArchives.absolutePath,
         "MIX_ENV" to mixEnv,
@@ -130,7 +130,7 @@ private fun pathToken(version: String?): String =
 
 /**
  * Environment for the JVM test tasks (`test`, jps-builder `test`) that read the Elixir
- * stdlib source/ebin: the resolved Erlang runtime env (so `erl` is on PATH) plus the
+ * stdlib source/ebin: the resolved SDK runtime env (so `elixir` and `erl` are on PATH) plus the
  * ELIXIR_LANG_ELIXIR_PATH / ELIXIR_EBIN_DIRECTORY / ELIXIR_VERSION vars pointed at the resolved SDK.
  * Read the properties file produced by `resolveElixirErlangSdks`.
  *
@@ -158,7 +158,7 @@ fun elixirTestEnvironment(
         }
     }.orEmpty()
 
-    return erlangRuntimeEnvironment(erlangHome) + mapOf(
+    return sdkRuntimeEnvironment(elixirHome, erlangHome) + mapOf(
         "ELIXIR_LANG_ELIXIR_PATH" to elixirHome.absolutePath,
         "ELIXIR_EBIN_DIRECTORY" to ebin.absolutePath + File.separator,
         "ELIXIR_VERSION" to version,
