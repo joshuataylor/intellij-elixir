@@ -78,7 +78,7 @@ object BeamDocsHelper {
      *
      * The `signature` metadata contains a list of Erlang abstract form attribute tuples like
      * `{attribute, Line, spec, {{Name, Arity}, [Definition, ...]}}`. These are parsed using
-     * the existing [Attribute] → [Spec] pipeline and rendered via [Spec.toMacroString].
+     * the existing [Attribute] -> [Spec] pipeline and rendered via [Spec.toMacroString].
      */
     private fun specsFromMetadata(metadata: Map<String, OtpErlangObject>): List<String> {
         val signatureTerms = metadata["signature"] as? OtpErlangList ?: return emptyList()
