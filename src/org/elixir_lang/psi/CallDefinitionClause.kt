@@ -130,36 +130,6 @@ object CallDefinitionClause {
                PsiTreeUtil.isAncestor(element, nameIdentifier, false)
     }
 
-    @RequiresReadLock
-    @JvmStatic
-    fun isFunction(call: Call): Boolean = isPrivateFunction(call) || isPublicFunction(call)
-    @RequiresReadLock
-    @JvmStatic
-    fun isPublicFunction(call: Call): Boolean =
-            isCallingKernelMacroOrHead(call, DEF) || isCallingKernelMacroOrHead(call, DEFMEMO)
-    @RequiresReadLock
-    fun isPrivateFunction(call: Call): Boolean =
-            isCallingKernelMacroOrHead(call, DEFP) || isCallingKernelMacroOrHead(call, DEFMEMOP)
-
-    @RequiresReadLock
-    @JvmStatic
-    fun isMacro(call: Call): Boolean = isPrivateMacro(call) || isPublicMacro(call)
-    @RequiresReadLock
-    @JvmStatic
-    fun isPublicMacro(call: Call): Boolean = isCallingKernelMacroOrHead(call, DEFMACRO)
-    @RequiresReadLock
-    fun isPrivateMacro(call: Call): Boolean = isCallingKernelMacroOrHead(call, DEFMACROP)
-
-    @RequiresReadLock
-    fun isGuard(call: Call): Boolean = isPrivateGuard(call) || isPublicGuard(call)
-    @RequiresReadLock
-    fun isPublicGuard(call: Call): Boolean = isCallingKernelMacroOrHead(call, DEFGUARD)
-    @RequiresReadLock
-    fun isPrivateGuard(call: Call): Boolean = isCallingKernelMacroOrHead(call, DEFGUARDP)
-
-    @RequiresReadLock
-    fun isPublic(call: Call): Boolean = isPublicFunction(call) || isPublicMacro(call) || isPublicGuard(call)
-
     /**
      * The name and arity range of the call definition this clause belongs to.
      *

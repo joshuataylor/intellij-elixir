@@ -470,6 +470,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4228](https://github.com/intellij-elixir/intellij-elixir/pull/4228) [@sh41](https://github.com/sh41)
+  - **Source and compiled definitions share one model of whether a definition is a function, a macro or a guard, and whether it is public.** Refs [#4216](https://github.com/intellij-elixir/intellij-elixir/issues/4216).
 - [#4222](https://github.com/intellij-elixir/intellij-elixir/pull/4222) [@sh41](https://github.com/sh41)
   - **A typed Elixir AST that PSI lowers to, each node keeping its source range, is added; nothing uses it yet.** Refs [#4218](https://github.com/intellij-elixir/intellij-elixir/issues/4218).
 - [#4180](https://github.com/intellij-elixir/intellij-elixir/pull/4180) [@sh41](https://github.com/sh41)
