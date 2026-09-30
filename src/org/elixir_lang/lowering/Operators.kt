@@ -4,6 +4,7 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiWhiteSpace
 import org.elixir_lang.language_level.ElixirLanguageFeature.AMBIGUOUS_DUAL_OPERATOR_CALL
+import org.elixir_lang.language_level.ElixirLanguageFeature.ELLIPSIS_NULLARY_CALL
 import org.elixir_lang.language_level.ElixirLanguageFeature.ESCAPED_NEWLINE_AS_SPACE
 import org.elixir_lang.language_level.ElixirLanguageFeature.IN_OF_NOT_IN_ON_ITS_OWN_LINE
 import org.elixir_lang.language_level.ElixirLanguageFeature.NEWLINES_AFTER_MATCH_OPERATOR
@@ -87,22 +88,13 @@ private fun Lowering.ambiguousDualOperatorCall(infix: Infix, left: PsiElement, r
     val name = call.functionNameElement()
     val signToken = operator.operatorTokenNode()
 
-    return ElixirAst.Call(
-        meta(
-            infix,
-            // Elixir's `meta_with_ambiguous_op` prepends it, whatever the options.
-            Meta.Key.Entry("ambiguous_op", Meta.Value.Atom("nil")),
-            location(name)
-        ),
-        atom(name, identifier(name.text)),
-        listOf(
-            ElixirAst.Call(
-                meta(TextRange(signToken.startOffset, infix.textRange.endOffset), location(signToken)),
-                atom(operator, sign.toString()),
-                listOf(lower(right))
-            )
-        )
+    val argument = ElixirAst.Call(
+        meta(TextRange(signToken.startOffset, infix.textRange.endOffset), location(signToken)),
+        atom(operator, sign.toString()),
+        listOf(lower(right))
     )
+
+    return noParenthesesCall(infix, name, listOf(argument), opensOnSign = true, doBlock = null)
 }
 
 /** `a..b//c` is `..//` with the range's metadata; a step after anything else is left as `//`, which Elixir rejects. */
@@ -182,15 +174,18 @@ private fun Lowering.prefix(prefix: Prefix): ElixirAst {
     val operator = prefix.operator()
     val token = operator.operatorTokenNode()
 
-    return if (token.elementType == ElixirTypes.TERNARY_OPERATOR) {
-        // Elixir's `build_unary_op` reads a prefix `//` as `(/)/operand`.
-        ElixirAst.Call(
-            meta(prefix, location(token.startOffset + 1)),
-            atom(operator, "/"),
-            listOf(ElixirAst.Call(meta(operator, location(token)), atom(operator, "/"), null), lower(operand))
-        )
-    } else {
-        ElixirAst.Call(meta(prefix, location(token)), atom(operator, token.text), listOf(lower(operand)))
+    return when {
+        token.elementType == ElixirTypes.TERNARY_OPERATOR ->
+            // Elixir's `build_unary_op` reads a prefix `//` as `(/)/operand`.
+            ElixirAst.Call(
+                meta(prefix, location(token.startOffset + 1)),
+                atom(operator, "/"),
+                listOf(ElixirAst.Call(meta(operator, location(token)), atom(operator, "/"), null), lower(operand))
+            )
+        // In a map, where the grammar reads `...` as a prefix, it was a call before 1.17.
+        token.text == "..." && !isAvailable(ELLIPSIS_NULLARY_CALL) ->
+            noParenthesesCall(prefix, operator, listOf(lower(operand)), opensOnSign(operand), doBlock = null)
+        else -> ElixirAst.Call(meta(prefix, location(token)), atom(operator, token.text), listOf(lower(operand)))
     }
 }
 

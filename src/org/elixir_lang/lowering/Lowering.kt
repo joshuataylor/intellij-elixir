@@ -106,8 +106,9 @@ class Lowering private constructor(
         }
     }
 
-    internal fun unlowered(element: PsiElement): ElixirAst =
-        ElixirAst.Placeholder(meta(element, location(element)), ElixirAst.Placeholder.Reason.Unlowered(element.javaClass))
+    /** A placeholder for [element], which [shape] leaves without a lowering. */
+    internal fun unlowered(element: PsiElement, shape: PsiElement = element): ElixirAst =
+        ElixirAst.Placeholder(meta(element, location(element)), ElixirAst.Placeholder.Reason.Unlowered(shape.javaClass))
 
     internal fun isAvailable(feature: ElixirLanguageFeature): Boolean = feature.isSufficient(languageLevel)
 

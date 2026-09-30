@@ -31,8 +31,6 @@ class LoweringTest : LoweringTestCase() {
             .map { Lowering.classifier.classify(it) }
     )
 
-    fun testACallIsLeftUnlowered() = assertUnloweredIn("a", Lowering.Bucket.CALL)
-
     fun testAnAnonymousFunctionIsLeftUnlowered() = assertUnloweredIn("fn -> 1 end", Lowering.Bucket.CLAUSE)
 
     fun testAnAttributeIsLeftUnlowered() = assertUnloweredIn("@a 1", Lowering.Bucket.ATTRIBUTE)

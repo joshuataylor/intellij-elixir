@@ -101,10 +101,10 @@ private fun Lowering.expressions(parent: PsiElement): List<ElixirAst> {
         .toList()
 
     return children.mapIndexed { index, child ->
-        val lowered = lower(child.psi)
+        val lowered = unaryEllipsis(child.psi)?.let { unlowered(child.psi, it) } ?: lower(child.psi)
         val endOfExpression =
             if (index < children.lastIndex || isAvailable(END_OF_EXPRESSION_ON_LAST_EXPRESSION)) {
-                endOfExpression(child.textRange.endOffset)
+                endOfExpression(contentEnd(child))
             } else {
                 null
             }

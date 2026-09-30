@@ -185,4 +185,23 @@ class BlocksTest : LoweringTestCase() {
             }
         )
     }
+
+    fun testASigilEndingParenthesesHasItsEndOfExpressionFrom117() = assertLowers(
+        "(\n~S(a)\n)",
+        "1.16.3" to "{:sigil_S, [delimiter: \"(\", line: 2, column: 1], [{:<<>>, [line: 2, column: 1], [\"a\"]}, []]}",
+        "1.17.3" to "{:sigil_S, [end_of_expression: [newlines: 1, line: 2, column: 6], delimiter: \"(\", line: 2, column: 1], [{:<<>>, [line: 2, column: 1], [\"a\"]}, []]}",
+        "1.18.4" to "{:sigil_S, [parens: [line: 1, column: 1, closing: [line: 3, column: 1]], end_of_expression: [newlines: 1, line: 2, column: 6], delimiter: \"(\", line: 2, column: 1], [{:<<>>, [line: 2, column: 1], [\"a\"]}, []]}",
+        "1.20.4" to "{:sigil_S, [parens: [closing: [line: 3, column: 1], line: 1, column: 1], end_of_expression: [newlines: 1, line: 2, column: 6], delimiter: \"(\", line: 2, column: 1], [{:<<>>, [line: 2, column: 1], [\"a\"]}, []]}",
+    )
+
+    fun testASigilBeforeACommentEndingParenthesesHasItsEndOfExpressionAtTheComment() = assertLowers(
+        "(\n~S(a) # c\n)",
+        "1.16.3" to "{:sigil_S, [delimiter: \"(\", line: 2, column: 1], [{:<<>>, [line: 2, column: 1], [\"a\"]}, []]}",
+        "1.17.3" to "{:sigil_S, [end_of_expression: [newlines: 1, line: 2, column: 7], delimiter: \"(\", line: 2, column: 1], [{:<<>>, [line: 2, column: 1], [\"a\"]}, []]}",
+    )
+
+    fun testASigilBeforeACommentBeforeAnotherExpressionHasItsEndOfExpressionAtTheComment() = assertLowers(
+        "~c\"a\" # c\n2",
+        "{:__block__, [], [{:sigil_c, [end_of_expression: [newlines: 1, line: 1, column: 7], delimiter: \"\\\"\", line: 1, column: 1], [{:<<>>, [line: 1, column: 1], [\"a\"]}, []]}, 2]}",
+    )
 }
