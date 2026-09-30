@@ -9,6 +9,7 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveResult
+import org.elixir_lang.declaration.DelegationPrecedence
 import org.elixir_lang.navigation.isDecompiled
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.structure_view.element.Delegation
@@ -76,12 +77,8 @@ object Resolver {
         preferFiltered(list, listElementToPsiElement) { filterSource(it, listElementToPsiElement) }
 
     /**
-     * Narrows [list] with [filter], keeping the whole list when the narrowed one is empty *or* holds
-     * nothing but `defdelegate` heads.
-     *
-     * A head names a function without defining one, so it must not stand in for the target it points
-     * at - which is what both preferences would otherwise keep when the target is decompiled or lives
-     * outside the calling module.
+     * Narrows [list] with [filter], keeping the whole list when the narrowed one cannot stand in for it: `defdelegate`
+     * heads alone are what both preferences would keep when the target is decompiled or outside the calling module.
      */
     private fun <T, U : PsiElement> preferFiltered(
         list: List<T>,
@@ -90,7 +87,7 @@ object Resolver {
     ): List<T> =
         filter(list)
             .takeIf { filtered ->
-                filtered.isNotEmpty() && !filtered.all { isDelegation(listElementToPsiElement(it)) }
+                DelegationPrecedence.standsIn(filtered) { isDelegation(listElementToPsiElement(it)) }
             }
             ?: list
 
