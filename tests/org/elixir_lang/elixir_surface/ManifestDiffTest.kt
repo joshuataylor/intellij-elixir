@@ -1,45 +1,66 @@
 package org.elixir_lang.elixir_surface
 
 import com.intellij.openapi.util.io.FileUtil
+import com.intellij.platform.testFramework.core.FileComparisonFailedError
+import com.intellij.testFramework.UsefulTestCase
+import org.elixir_lang.golden.CommittedGolden
 import org.elixir_lang.junit.UnitTestCase
 import java.io.File
 
 class ManifestDiffTest : UnitTestCase() {
-    fun testNamesRemovedAndAddedLines() {
-        val description = ManifestDiff.describe(expected = "a 1\nb 1\nc 1\n", actual = "a 1\nc 1\nd 1\n")
+    private lateinit var directory: File
+    private var savedSummary: String? = null
 
-        assertTrue(description, description.lines().contains("- b 1"))
-        assertTrue(description, description.lines().contains("+ d 1"))
-        assertFalse(description, description.lines().any { it.endsWith("a 1") || it.endsWith("c 1") })
+    override fun setUp() {
+        super.setUp()
+        directory = FileUtil.createTempDirectory("manifest", null)
+        savedSummary = System.getProperty(CommittedGolden.STEP_SUMMARY_PROPERTY)
     }
 
-    fun testChangedCountIsARemovalAndAnAddition() {
-        val description = ManifestDiff.describe(expected = "a 1\n", actual = "a 2\n")
-
-        assertTrue(description, description.lines().containsAll(listOf("- a 1", "+ a 2")))
+    override fun tearDown() {
+        try {
+            savedSummary
+                ?.let { System.setProperty(CommittedGolden.STEP_SUMMARY_PROPERTY, it) }
+                ?: System.clearProperty(CommittedGolden.STEP_SUMMARY_PROPERTY)
+            directory.deleteRecursively()
+        } finally {
+            super.tearDown()
+        }
     }
 
-    fun testNamesADuplicatedLine() {
-        assertTrue(ManifestDiff.describe("a 1\n", "a 1\na 1\n").lines().contains("+ a 1"))
-    }
+    fun testMismatchIsReportedToTheStepSummary() {
+        // Under -PoverwriteTestData=true the platform rewrites the manifest before comparing, so nothing can mismatch.
+        if (UsefulTestCase.OVERWRITE_TESTDATA) return
 
-    fun testCarriageReturnsDoNotCount() {
-        assertEquals(ManifestDiff.describe("a 1\n", "a 1\n"), ManifestDiff.describe("a 1\r\n", "a 1\n"))
+        val manifest = File(directory, "manifest.txt").apply { writeText("a 1\nb 1\n") }
+        val summary = File(directory, "summary.md")
+        System.setProperty(CommittedGolden.STEP_SUMMARY_PROPERTY, summary.path)
+
+        val error = try {
+            ManifestDiff.assertMatchesFile(manifest.path, "a 1\nc 1\n", regenerate = "regenerate-command")
+            null
+        } catch (e: FileComparisonFailedError) {
+            e
+        }
+
+        assertNotNull("a differing manifest must fail", error)
+        assertTrue(error!!.message, error.message!!.contains("regenerate-command"))
+        val lines = summary.readLines()
+        assertTrue(summary.readText(), lines.containsAll(listOf("-b 1", "+c 1")))
     }
 
     fun testMissingManifestNamesTheLinesAndTheRegeneration() {
-        val directory = FileUtil.createTempDirectory("manifest", null)
         val path = File(directory, "missing.txt").path
 
         val error = try {
-            ManifestDiff.assertMatchesFile(path, "a 1\n", regenerate = "regenerate-command", overwrite = false)
+            ManifestDiff.assertMatchesFile(path, "a 1\n", regenerate = "regenerate-command", writeMissing = false)
             null
         } catch (e: AssertionError) {
             e
         }
 
         assertNotNull("a missing manifest must fail", error)
-        assertTrue(error!!.message, error.message!!.lines().contains("+ a 1"))
+        assertTrue(error!!.message, error.message!!.lines().contains("a 1"))
         assertTrue(error.message, error.message!!.contains("regenerate-command"))
         assertFalse("only regeneration writes a manifest", File(path).exists())
     }
