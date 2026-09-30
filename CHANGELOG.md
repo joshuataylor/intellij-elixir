@@ -537,6 +537,8 @@
 
 - [#4268](https://github.com/intellij-elixir/intellij-elixir/pull/4268) [@sh41](https://github.com/sh41)
   - **Each test leg checks that the committed record of what its Elixir's compiler resolves every reference in the resolution snapshot's fixtures to, what each module defines and which fixtures fail to compile is unchanged; `-PoverwriteTestData=true` regenerates it.** Fixes [#4223](https://github.com/intellij-elixir/intellij-elixir/issues/4223).
+- [#4266](https://github.com/intellij-elixir/intellij-elixir/pull/4266) [@sh41](https://github.com/sh41)
+  - **A committed file beside the resolution snapshot lists every reference where Find Usages or Rename disagrees with what the reference resolves to, so a change that fixes or breaks one shows up in review.** Fixes [#4224](https://github.com/intellij-elixir/intellij-elixir/issues/4224).
 - [#4250](https://github.com/intellij-elixir/intellij-elixir/pull/4250) [@sh41](https://github.com/sh41)
   - **Every Linux job runs on GitHub's `ubuntu-24.04-arm` runners, where the tests use fewer runner minutes, ahead of the `ubuntu-22.04` image's retirement.**
   - **Plugin verification runs from a standalone Gradle build instead of a container action, so it runs on arm64 and can verify EAP builds.**
