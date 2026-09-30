@@ -113,6 +113,8 @@
   - **Go to Class, the Structure view and Go to Implementation name a `defimpl` without `for:`, or with
     `for: __MODULE__`, after the module it is written in, and Go to Implementation shows a nested module's full
     name.** Refs [#4257](https://github.com/intellij-elixir/intellij-elixir/issues/4257).
+- [#4262](https://github.com/intellij-elixir/intellij-elixir/pull/4262) [@sh41](https://github.com/sh41)
+  - **On Elixir 1.13 to 1.17, the "not a list of characters" error on a quoted call name is now reported exactly when the module's Erlang/OTP release raises it.** Refs [#4255](https://github.com/intellij-elixir/intellij-elixir/issues/4255).
 - [#4254](https://github.com/intellij-elixir/intellij-elixir/pull/4254) [@sh41](https://github.com/sh41)
   - **A definition, `@spec`, `@type`, `@callback` or `@behaviour` inside `if`, `case`, `try`, ExUnit's `describe` or a
     library's DSL block now belongs to the module the block is in, for navigation, completion, docs, protocols,
