@@ -80,6 +80,6 @@ object LegManifest {
     private fun regenerate(test: KClass<*>): String =
         "./gradlew test --tests ${test.qualifiedName} -PoverwriteTestData=true"
 
-    private fun environment(name: String): String =
+    fun environment(name: String): String =
         System.getenv(name).takeUnless { it.isNullOrEmpty() } ?: throw AssertionError("$name not set for the test JVM")
 }
