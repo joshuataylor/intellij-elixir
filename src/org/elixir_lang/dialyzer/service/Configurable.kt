@@ -2,6 +2,7 @@ package org.elixir_lang.dialyzer.service
 
 import com.intellij.openapi.options.SearchableConfigurable
 import com.intellij.openapi.project.Project
+import org.elixir_lang.settings.SettingsPageId
 import org.jetbrains.annotations.Nls
 import javax.swing.JComponent
 import javax.swing.JPanel
@@ -9,7 +10,7 @@ import javax.swing.JTextField
 
 class Configurable(project: Project) : SearchableConfigurable {
     companion object {
-        private const val ID = "language.elixir.dialyzer"
+        private val ID = SettingsPageId.DIALYZER.id
         private const val DISPLAY_NAME = "Dialyzer"
     }
 

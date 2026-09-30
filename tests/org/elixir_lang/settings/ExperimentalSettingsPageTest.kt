@@ -8,10 +8,10 @@ import org.elixir_lang.junit.LightTestCase
 
 class ExperimentalSettingsPageTest : LightTestCase() {
     fun testTheExperimentalSettingsAreAChildPageOfElixirInEveryIde() {
-        val page = Configurable.APPLICATION_CONFIGURABLE.extensionList.singleOrNull { it.id == "language.elixir.experimental" }
+        val page = Configurable.APPLICATION_CONFIGURABLE.extensionList.singleOrNull { it.id == SettingsPageId.EXPERIMENTAL.id }
 
         assertNotNull("registered in plugin.xml, which every IDE loads", page)
-        assertEquals("language.elixir", page!!.parentId)
+        assertEquals(SettingsPageId.ELIXIR.id, page!!.parentId)
         assertEquals(ElixirExperimentalSettingsConfigurable::class.java.name, page.instanceClass)
         assertEquals("Experimental Settings", ElixirExperimentalSettingsConfigurable().displayName)
     }

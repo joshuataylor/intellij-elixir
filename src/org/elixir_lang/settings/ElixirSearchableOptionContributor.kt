@@ -10,7 +10,7 @@ internal class ElixirSearchableOptionContributor : SearchableOptionContributor()
     override fun processOptions(processor: SearchableOptionProcessor) {
         addAliases(
             processor = processor,
-            configurableId = "language.elixir",
+            configurableId = SettingsPageId.ELIXIR.id,
             configurableDisplayName = "Elixir",
             hit = "Elixir",
             text = "elixir language framework settings"
@@ -18,7 +18,7 @@ internal class ElixirSearchableOptionContributor : SearchableOptionContributor()
 
         addAliases(
             processor = processor,
-            configurableId = "language.elixir.credo",
+            configurableId = SettingsPageId.CREDO.id,
             configurableDisplayName = "Credo",
             hit = "Credo",
             text = "elixir credo lint linter"
@@ -26,7 +26,7 @@ internal class ElixirSearchableOptionContributor : SearchableOptionContributor()
 
         addAliases(
             processor = processor,
-            configurableId = "language.elixir.dialyzer",
+            configurableId = SettingsPageId.DIALYZER.id,
             configurableDisplayName = "Dialyzer",
             hit = "Dialyzer",
             text = "elixir dialyzer typespec static analysis"
@@ -34,7 +34,7 @@ internal class ElixirSearchableOptionContributor : SearchableOptionContributor()
 
         addAliases(
             processor = processor,
-            configurableId = "language.elixir.experimental",
+            configurableId = SettingsPageId.EXPERIMENTAL.id,
             configurableDisplayName = "Experimental Settings",
             hit = "Experimental Settings",
             text = "elixir experimental settings liveview heex sigil injection mix deps status bar widget"
@@ -42,7 +42,7 @@ internal class ElixirSearchableOptionContributor : SearchableOptionContributor()
 
         addAliases(
             processor = processor,
-            configurableId = "language.elixir.sdks.elixir",
+            configurableId = SettingsPageId.ELIXIR_SDKS.id,
             configurableDisplayName = "SDKs",
             hit = "SDKs",
             text = "elixir sdk interpreter"
@@ -50,7 +50,7 @@ internal class ElixirSearchableOptionContributor : SearchableOptionContributor()
 
         addAliases(
             processor = processor,
-            configurableId = "language.elixir.sdks.erlang",
+            configurableId = SettingsPageId.ERLANG_SDKS.id,
             configurableDisplayName = "Internal Erlang SDKs",
             hit = "Internal Erlang SDKs",
             text = "elixir erlang sdk otp"
@@ -58,7 +58,7 @@ internal class ElixirSearchableOptionContributor : SearchableOptionContributor()
 
         addAliases(
             processor = processor,
-            configurableId = "language.elixir.tool_managers",
+            configurableId = SettingsPageId.TOOL_MANAGERS.id,
             configurableDisplayName = "Tool Managers",
             hit = "Tool Managers",
             text = "elixir tool manager mise asdf sdk version automatic configure experimental"

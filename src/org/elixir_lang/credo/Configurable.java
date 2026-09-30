@@ -3,13 +3,14 @@ package org.elixir_lang.credo;
 import com.intellij.execution.configuration.EnvironmentVariablesComponent;
 import com.intellij.openapi.options.SearchableConfigurable;
 import com.intellij.openapi.project.Project;
+import org.elixir_lang.settings.SettingsPageId;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import javax.swing.*;
 
 public class Configurable implements SearchableConfigurable {
-    private static final String ID = "language.elixir.credo";
+    private static final String ID = SettingsPageId.CREDO.getId();
     private static final String DISPLAY_NAME = "Credo";
     private JPanel panel;
     private JTextField elixirArguments;

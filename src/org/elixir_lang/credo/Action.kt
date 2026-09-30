@@ -5,6 +5,7 @@ import com.intellij.notification.Notification
 import com.intellij.notification.NotificationAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.project.Project
+import org.elixir_lang.settings.SettingsPageId
 
 /**
  * Created by zyuyou on 15/7/8.
@@ -15,6 +16,6 @@ class Action(private val project: Project) : NotificationAction("Configure credo
         if (project.isDisposed) return
 
         // By id: a lookup by class builds every page ahead of it, some of which do slow work when built.
-        ShowSettingsUtilImpl.showSettingsDialog(project, "language.elixir.credo", null)
+        ShowSettingsUtilImpl.showSettingsDialog(project, SettingsPageId.CREDO.id, null)
     }
 }

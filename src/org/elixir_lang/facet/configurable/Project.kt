@@ -18,6 +18,7 @@ import org.elixir_lang.facet.Configurable
 import org.elixir_lang.facet.Type
 import org.elixir_lang.jps.shared.ElixirModuleTypeId.ELIXIR_MODULE_TYPE_ID
 import org.elixir_lang.sdk.ProcessOutput
+import org.elixir_lang.settings.SettingsPageId
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.FlowLayout
@@ -59,8 +60,8 @@ class Project(project: Project) : ModuleAwareProjectConfigurable<Configurable>(p
 
         val linksRow = JPanel(FlowLayout(FlowLayout.LEFT, 12, 0)).apply {
             alignmentX = Component.LEFT_ALIGNMENT
-            add(settingsLink("Manage Elixir SDKs", "language.elixir.sdks.elixir"))
-            add(settingsLink("Manage Internal Erlang SDKs", "language.elixir.sdks.erlang"))
+            add(settingsLink("Manage Elixir SDKs", SettingsPageId.ELIXIR_SDKS.id))
+            add(settingsLink("Manage Internal Erlang SDKs", SettingsPageId.ERLANG_SDKS.id))
         }
 
         return JPanel().apply {
