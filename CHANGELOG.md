@@ -503,6 +503,8 @@
 
 ### Build / CI
 
+- [#4241](https://github.com/intellij-elixir/intellij-elixir/pull/4241) [@sh41](https://github.com/sh41)
+  - **`CHANGELOG.md` merges with git's default driver again: GitHub ignores `merge=union`, so the rule hid locally the conflicts pull requests showed anyway.**
 - [#4238](https://github.com/intellij-elixir/intellij-elixir/pull/4238) [@sh41](https://github.com/sh41)
   - **Each test leg fails when its Elixir documents a `Kernel` or `Kernel.SpecialForms` macro that version's committed list lacks, or drops one it has, until the list is regenerated with `-PoverwriteTestData=true`.** Fixes [#4212](https://github.com/intellij-elixir/intellij-elixir/issues/4212).
 - [#4239](https://github.com/intellij-elixir/intellij-elixir/pull/4239) [@sh41](https://github.com/sh41)
