@@ -115,12 +115,60 @@ class ModuleBodyThroughBlocksTest : PlatformTestCase() {
 
     fun testModuledocInIf() = assertModuledoc("if true do\n    @moduledoc \"doc\"\n  end")
 
-    private fun assertModuledoc(body: String) {
-        myFixture.configureByText("m.ex", "defmodule <caret>M do\n  $body\nend\n")
+    /** Elixir keeps the last `@moduledoc`, warning that it redefines the first. */
+    fun testModuledocLastOfTwoWins() = assertModuledoc("@moduledoc \"first\"\n  @moduledoc \"doc\"")
 
-        val docs = SourceFileDocsHelper.fetchDocs(myFixture.enclosingCallAtCaret { Module.`is`(it) }!!)
+    fun testModuledocLastWrittenWinsAcrossBranches() =
+        assertModuledoc("if Mix.env() == :prod do\n    @moduledoc \"prod\"\n  else\n    @moduledoc \"doc\"\n  end")
+
+    /** Metadata, as in `@moduledoc since: "1.0.0"`, merges into the doc rather than replacing it. */
+    fun testModuledocMetadataAfterDocKeepsDoc() = assertModuledoc("@moduledoc \"doc\"\n  @moduledoc since: \"1.0.0\"")
+
+    fun testModuledocMetadataListAfterDocKeepsDoc() =
+        assertModuledoc("@moduledoc \"doc\"\n  @moduledoc [since: \"1.0.0\"]")
+
+    /** Elixir takes any list as metadata. */
+    fun testModuledocEmptyListAfterDocKeepsDoc() = assertModuledoc("@moduledoc \"doc\"\n  @moduledoc []")
+
+    fun testModuledocTupleListAfterDocKeepsDoc() =
+        assertModuledoc("@moduledoc \"doc\"\n  @moduledoc [{:since, \"1.0.0\"}]")
+
+    fun testModuledocMetadataBeforeDocKeepsDoc() = assertModuledoc("@moduledoc since: \"1.0.0\"\n  @moduledoc \"doc\"")
+
+    fun testModuledocOnlyMetadataHasNoDoc() = assertNull(fetchModuleDocs("@moduledoc since: \"1.0.0\""))
+
+    fun testModuledocFalseLastHidesDoc() = assertNull(fetchModuleDocs("@moduledoc \"doc\"\n  @moduledoc false"))
+
+    fun testModuledocNilLastHidesDoc() = assertNull(fetchModuleDocs("@moduledoc \"doc\"\n  @moduledoc nil"))
+
+    fun testModuledocFalseThenMetadataHidesDoc() =
+        assertNull(fetchModuleDocs("@moduledoc \"doc\"\n  @moduledoc false\n  @moduledoc since: \"1.0.0\""))
+
+    fun testModuledocFalseThenOneItCannotRenderHidesDoc() =
+        assertNull(fetchModuleDocs("@moduledoc \"doc\"\n  @moduledoc false\n  @moduledoc File.read!(\"README.md\")"))
+
+    fun testModuledocSigilHeredoc() =
+        assertEquals(
+            "doc\n",
+            (fetchModuleDocs("@moduledoc ~S\"\"\"\n  doc\n  \"\"\"") as FetchedDocs.ModuleDocumentation).moduledoc
+        )
+
+    /**
+     * Elixir would show the file; the plugin cannot read it, so it keeps the doc it can show rather than none.
+     */
+    fun testModuledocKeepsEarlierDocOverOneItCannotRender() =
+        assertModuledoc("@moduledoc \"doc\"\n  @moduledoc File.read!(\"README.md\")")
+
+    private fun assertModuledoc(body: String) {
+        val docs = fetchModuleDocs(body)
 
         assertEquals("doc", assertInstanceOf(docs, FetchedDocs.ModuleDocumentation::class.java).moduledoc)
+    }
+
+    private fun fetchModuleDocs(body: String): FetchedDocs? {
+        myFixture.configureByText("m.ex", "defmodule <caret>M do\n  $body\nend\n")
+
+        return SourceFileDocsHelper.fetchDocs(myFixture.enclosingCallAtCaret { Module.`is`(it) }!!)
     }
 
     fun testSpecFindsDefTypedIntoIfAfterAsking() {
