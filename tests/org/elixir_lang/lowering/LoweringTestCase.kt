@@ -7,17 +7,20 @@ import org.elixir_lang.psi.ElixirFile
 
 /** Lowers snippets at chosen language levels, so each leg's metadata is checked whichever Elixir runs the tests. */
 abstract class LoweringTestCase : ParsingTestCase() {
-    protected fun lower(code: String, elixirVersion: String = NEWEST): ElixirAst {
+    /** [code]'s lowering at [version], an Elixir version or `<elixir>/<otp>`. */
+    protected fun lower(code: String, version: String = NEWEST): ElixirAst {
         val file = createPsiFile(getTestName(false), code) as ElixirFile
+        val elixirVersion = version.substringBefore('/')
+        val otpVersion = version.substringAfter('/', "").ifEmpty { null }
 
         return ReadAction.computeBlocking<ElixirAst, Throwable> {
-            Lowering.lower(file, ElixirLanguageLevel.of(elixirVersion))
+            Lowering.lower(file, ElixirLanguageLevel.of(elixirVersion, otpVersion))
         }
     }
 
     /**
      * [code] lowers, at each version in [expected], to the paired term, printed by [inspect] with columns and token
-     * metadata.
+     * metadata. A version is an Elixir version or `<elixir>/<otp>`.
      */
     protected fun assertLowers(code: String, vararg expected: Pair<String, String>) =
         assertEquals(

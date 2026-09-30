@@ -694,6 +694,19 @@ class VersionedSyntaxTest : LightTestCase() {
         }
     }
 
+    fun testGraphemeClusterInAQuotedCallNameIsTheProjectOtps() {
+        assertNoErrors(elixir("1.15.8", "24.3.4.6"), ":foo.\"a\u0898\"()")
+        assertErrors(elixir("1.15.8", "25.3.2.21"), ":foo.\"a\u0898\"()", "\"a\u0898\"" to NOT_A_LIST_OF_CHARACTERS)
+
+        for (otp in listOf("24.3.4.6", "26.2.5.21")) {
+            assertErrors(
+                elixir("1.15.8", otp),
+                ":foo.\"\u0378\u200D\"()",
+                "\"\u0378\u200D\"" to NOT_A_LIST_OF_CHARACTERS
+            )
+        }
+    }
+
     fun testStepOperatorNotAfterARangeFrom1_12() {
         for (source in listOf(
             "foo..(bar//bat)",

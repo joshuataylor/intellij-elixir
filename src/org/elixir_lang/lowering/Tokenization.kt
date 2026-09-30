@@ -18,6 +18,7 @@ import org.elixir_lang.psi.ElixirTypes
 import org.elixir_lang.psi.HeredocLiteral
 import org.elixir_lang.psi.Interpolated
 import org.elixir_lang.psi.SigilLine
+import org.elixir_lang.unicode_util.Graphemes
 
 /** Where one Elixir release's tokenizer counts lines and columns differently from the text's own lines and code points. */
 internal object Tokenization {
@@ -120,6 +121,6 @@ internal object Tokenization {
 
         visit(file.node)
 
-        return Lines(text, uncountedNewlines, quotedTexts, zeroWidthRanges)
+        return Lines(text, Graphemes.of(languageLevel), uncountedNewlines, quotedTexts, zeroWidthRanges)
     }
 }

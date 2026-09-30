@@ -65,7 +65,7 @@ import org.elixir_lang.psi.UnqualifiedParenthesesCall
 import org.elixir_lang.language_level.ElixirLanguageFeature.*
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
-import java.text.BreakIterator
+import org.elixir_lang.unicode_util.Graphemes
 import java.text.Normalizer
 
 /**
@@ -523,24 +523,16 @@ internal class VersionedSyntax : Annotator, DumbAware {
         val body = line.lineBody?.text ?: return null
         if (body.all { it.code < 128 }) return null
 
-        val clusters = BreakIterator.getCharacterInstance().apply { setText(body) }
-        var start = clusters.first()
-        var end = clusters.next()
+        val level = languageLevel()
+        if (!GRAPHEME_CLUSTER_CRASH_IN_QUOTED_CALL_NAME.isSufficient(level)) return null
 
-        while (end != BreakIterator.DONE) {
-            if (Character.codePointCount(body, start, end) > 1) {
-                return if (GRAPHEME_CLUSTER_CRASH_IN_QUOTED_CALL_NAME.isSufficient(languageLevel())) {
-                    Problem(line.textRange, NOT_A_LIST_OF_CHARACTERS)
-                } else {
-                    null
-                }
-            }
+        val clusters = Graphemes.of(level).clusters(body)
 
-            start = end
-            end = clusters.next()
+        return if (clusters.any { Character.codePointCount(body, it.first, it.last + 1) > 1 }) {
+            Problem(line.textRange, NOT_A_LIST_OF_CHARACTERS)
+        } else {
+            null
         }
-
-        return null
     }
 
     /** Elixir unescapes a quoted call name from 1.18, so `\x` or `\u` without digits there is then an error. */

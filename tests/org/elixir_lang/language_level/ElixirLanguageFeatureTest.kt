@@ -108,6 +108,10 @@ class ElixirLanguageFeatureTest : LightTestCase() {
     fun testEachOtpFeatureAppliesFromTheOtpReleaseThatShippedIt() {
         val boundaries = mapOf(
             MAYBE_RESERVED to ("26.2.5.21" to "27.0-rc1"),
+            UNICODE_14_GRAPHEME_CLUSTERS to ("24.3.4.17" to "25.0-rc1"),
+            UNICODE_15_GRAPHEME_CLUSTERS to ("26.0-rc1" to "26.0-rc2"),
+            INDIC_CONJUNCT_GRAPHEME_CLUSTERS to ("28.0-rc1" to "28.0-rc2"),
+            WIDER_INDIC_CONJUNCT_GRAPHEME_CLUSTERS to ("28.5.0.7" to "29.0-rc1"),
         )
 
         assertEquals(entries.filter { it.sinceOtp != null }.toSet(), boundaries.keys)
