@@ -474,6 +474,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4249](https://github.com/intellij-elixir/intellij-elixir/pull/4249) [@sh41](https://github.com/sh41)
+  - **Literals, containers and blocks lower to the typed Elixir AST with each Elixir release's metadata; nothing uses it yet.** Refs [#4243](https://github.com/intellij-elixir/intellij-elixir/issues/4243).
 - [#4244](https://github.com/intellij-elixir/intellij-elixir/pull/4244) [@sh41](https://github.com/sh41)
   - **Resolution records how it reached each definition a call could mean; nothing uses it yet.** Fixes [#4233](https://github.com/intellij-elixir/intellij-elixir/issues/4233).
 - [#4228](https://github.com/intellij-elixir/intellij-elixir/pull/4228) [@sh41](https://github.com/sh41)
