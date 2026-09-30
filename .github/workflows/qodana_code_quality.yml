@@ -93,6 +93,26 @@ jobs:
           # saves them under this job's own key.
           cache-read-only: ${{ github.event_name != 'push' }}
 
+      # Qodana's cache holds its project model, which names absolute paths in the Gradle home, and
+      # Qodana reuses it without re-importing. So the cache key carries the architecture and everything
+      # that decides those paths: a model restored against a different Gradle home leaves the platform
+      # libraries unresolved, and the scan floods with false positives.
+      - name: Qodana cache key
+        if: ${{ needs.changes.outputs.code == 'true' || steps.restore.outputs.restored != 'true' }}
+        id: cache-key
+        env:
+          FINGERPRINT: >-
+            ${{ hashFiles(
+              'gradle/wrapper/gradle-wrapper.properties',
+              'gradle/libs.versions.toml',
+              'gradle.properties',
+              '**/*.gradle.kts',
+              'buildSrc/src/**',
+              '.github/ci-versions.json',
+              '.github/actions/setup-env/action.yml'
+            ) }}
+        run: echo "prefix=qodana-2026.2-$RUNNER_ARCH-$FINGERPRINT" >> "$GITHUB_OUTPUT"
+
       - name: Qodana Scan
         if: ${{ needs.changes.outputs.code == 'true' || steps.restore.outputs.restored != 'true' }}
         id: qodana
@@ -105,10 +125,12 @@ jobs:
           # elsewhere: on main's merge commits it only produces a merge-commit checkout warning.
           pr-mode: ${{ github.event_name == 'pull_request' }}
           # The default keys are per ref, so a pull request would never find main's entry; restore
-          # the latest main-branch cache instead, and save only from main.
+          # the latest main-branch cache instead, and save only from main. The restore key is a prefix
+          # of main's save key, and both start with the `Qodana cache key` step's prefix.
           use-caches: true
           cache-default-branch-only: true
-          additional-cache-key: qodana-2026.2-refs/heads/main
+          primary-cache-key: ${{ steps.cache-key.outputs.prefix }}-${{ github.ref }}-${{ github.sha }}
+          additional-cache-key: ${{ steps.cache-key.outputs.prefix }}-refs/heads/main
           upload-result: true
           artifact-name: qodana-report
           post-pr-comment: true
