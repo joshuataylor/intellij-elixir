@@ -52,7 +52,7 @@ object ShapeTable {
             typeDescent = TypeDescent.Bucket.STAB_NO_PARENTHESES_SIGNATURE,
             typeAscent = TypeAscent.Bucket.PARENT,
             destructure = Destructure.Bucket.OPAQUE,
-            lowering = Lowering.Bucket.CLAUSE,
+            lowering = Lowering.Bucket.BY_PARENT,
         ),
         Row(
             ElixirStabOperation::class.java,
@@ -76,7 +76,7 @@ object ShapeTable {
             typeDescent = TypeDescent.Bucket.STAB_PARENTHESES_SIGNATURE,
             typeAscent = TypeAscent.Bucket.PARENT,
             destructure = Destructure.Bucket.OPAQUE,
-            lowering = Lowering.Bucket.CLAUSE,
+            lowering = Lowering.Bucket.BY_PARENT,
         ),
         Row(
             InMatch::class.java,

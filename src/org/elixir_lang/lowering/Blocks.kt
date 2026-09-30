@@ -96,9 +96,7 @@ internal fun Lowering.emptyParentheses(emptyParentheses: ElixirEmptyParentheses)
  * last, and the last too from 1.17.
  */
 private fun Lowering.expressions(parent: PsiElement): List<ElixirAst> {
-    val children = generateSequence(parent.node.firstChildNode, ASTNode::getTreeNext)
-        .filter { it !is LeafElement && it.psi !is ElixirEndOfExpression }
-        .toList()
+    val children = expressionNodes(parent)
 
     return children.mapIndexed { index, child ->
         val lowered = unaryEllipsis(child.psi)?.let { unlowered(child.psi, it) } ?: lower(child.psi)
@@ -109,25 +107,27 @@ private fun Lowering.expressions(parent: PsiElement): List<ElixirAst> {
                 null
             }
 
-        if (endOfExpression != null) {
-            decorate(
-                lowered,
-                Meta.Key.Entry(
-                    "end_of_expression",
-                    Meta.Value.Keywords(
-                        listOf(
-                            Meta.Key.Entry("newlines", Meta.Value.Integer(endOfExpression.newlines.toLong())),
-                            location(endOfExpression.offset)
-                        )
-                    ),
-                    tokenMetadata = true
-                )
-            )
-        } else {
-            lowered
-        }
+        if (endOfExpression != null) decorate(lowered, endOfExpressionKey(endOfExpression)) else lowered
     }
 }
+
+internal fun expressionNodes(parent: PsiElement): List<ASTNode> =
+    generateSequence(parent.node.firstChildNode, ASTNode::getTreeNext)
+        .filter { it !is LeafElement && it.psi !is ElixirEndOfExpression }
+        .toList()
+
+/** `end_of_expression:`, as the parser adds it to the expression [endOfExpression] follows. */
+internal fun Lowering.endOfExpressionKey(endOfExpression: Lowering.EndOfExpression): Meta.Key =
+    Meta.Key.Entry(
+        "end_of_expression",
+        Meta.Value.Keywords(
+            listOf(
+                Meta.Key.Entry("newlines", Meta.Value.Integer(endOfExpression.newlines.toLong())),
+                location(endOfExpression.offset)
+            )
+        ),
+        tokenMetadata = true
+    )
 
 /**
  * [expressions] as one expression, as Elixir's `build_block` and `build_paren_stab` make it: a lone expression is
@@ -163,7 +163,7 @@ private fun Lowering.blockKeys(enclosing: Blocks.Enclosing?): List<Meta.Key> =
         null -> emptyList()
     }
 
-private fun Lowering.parens(enclosing: Blocks.Enclosing): Meta.Key {
+internal fun Lowering.parens(enclosing: Blocks.Enclosing): Meta.Key {
     val keys = when (enclosing) {
         is Blocks.Enclosing.Parentheses ->
             if (isAvailable(CLOSING_FIRST_IN_PARENS)) {

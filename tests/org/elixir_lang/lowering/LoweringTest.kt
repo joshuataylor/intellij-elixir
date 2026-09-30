@@ -10,6 +10,8 @@ import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.psi.ElixirEndOfExpression
 import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.psi.ElixirInterpolation
+import org.elixir_lang.psi.ElixirStabNoParenthesesSignature
+import org.elixir_lang.psi.ElixirStabParenthesesSignature
 import org.elixir_lang.psi.impl.ElixirMatchedQualifiedMultipleAliasesImpl
 import org.elixir_lang.psi.impl.ElixirMultipleAliasesImpl
 import org.elixir_lang.psi.impl.ElixirParentheticalStabImpl
@@ -35,8 +37,6 @@ class LoweringTest : LoweringTestCase() {
             .map { Lowering.classifier.classify(it) }
     )
 
-    fun testAnAnonymousFunctionIsLeftUnlowered() = assertUnloweredIn("fn -> 1 end", Lowering.Bucket.CLAUSE)
-
     fun testAnAttributeIsLeftUnlowered() = assertUnloweredIn("@a 1", Lowering.Bucket.ATTRIBUTE)
 
     fun testAShapeNoRowNamesIsUnlowered() {
@@ -56,6 +56,11 @@ class LoweringTest : LoweringTestCase() {
 
     fun testAShapeItsParentReadsFailsOnItsOwn() =
         assertFailsOnItsOwn("\"#{1}\"", ElixirInterpolation::class.java)
+
+    fun testASignatureFailsOnItsOwn() {
+        assertFailsOnItsOwn("fn 1 -> 2 end", ElixirStabNoParenthesesSignature::class.java)
+        assertFailsOnItsOwn("fn (1) -> 2 end", ElixirStabParenthesesSignature::class.java)
+    }
 
     fun testAShapeWithNoNodeFailsOnItsOwn() = assertFailsOnItsOwn("1\n2", ElixirEndOfExpression::class.java)
 

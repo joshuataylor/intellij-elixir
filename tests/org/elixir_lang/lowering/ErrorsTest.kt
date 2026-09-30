@@ -11,6 +11,13 @@ class ErrorsTest : LoweringTestCase() {
 
     fun testAnUnfinishedClauseIsAnErrorPlaceholder() = assertEquals(ERROR, placeholderReasons(lower("fn ->")))
 
+    fun testFnWithoutAClauseIsAnErrorPlaceholder() {
+        val lowered = lower("fn 1 end")
+
+        assertEquals(ERROR, placeholderReasons(lowered))
+        assertEquals("{:__cursor__, [line: 1, column: 1], []}", inspect(lowered.toOtp(COLUMNS_AND_TOKEN_METADATA)))
+    }
+
     fun testAnOperatorMissingAnOperandIsBroken() {
         assertBroken("1 +")
         assertBroken("1 in")

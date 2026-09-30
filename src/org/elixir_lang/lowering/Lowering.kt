@@ -24,7 +24,8 @@ class Lowering private constructor(
 ) {
     /**
      * A shape with its own `quote()` belongs to a family, even when only its parent reaches it, as a digit or an
-     * operator token does; [BY_PARENT] is for shapes without one.
+     * operator token does; [BY_PARENT] is for a shape its parent's lowering consumes whole, whether or not it has a
+     * `quote()` of its own.
      */
     enum class Bucket {
         /**
@@ -45,15 +46,15 @@ class Lowering private constructor(
         /** Stabs, their bodies, and parentheses: what the one block builder builds. A stab's `->` is a [CLAUSE]. */
         BLOCK,
 
-        /** `fn`, `->` and its signatures. */
+        /** `fn` and `->`. */
         CLAUSE,
 
         /** Module attributes: `@name`, `@name value`, `@name[key]`. */
         ATTRIBUTE,
 
         /**
-         * No `quote()` of its own; the shape above it reads it as it lowers: most argument lists, the parts of strings,
-         * heredocs and sigils, escape sequences, interpolation, `do` blocks.
+         * The shape above it reads it as it lowers: most argument lists, the parts of strings,
+         * heredocs and sigils, escape sequences, interpolation, `do` blocks, a `->`'s signature.
          */
         BY_PARENT,
 
