@@ -20,7 +20,8 @@ object CanonicallyNamedImpl {
     fun canonicalName(call: SyntacticCall): String? =
         if (isModular(call)) {
             if (Implementation.`is`(call)) {
-                Implementation.name(call) ?: "${Implementation.protocolName(call) ?: '?'}.${call.forText() ?: '?'}"
+                Implementation.name(call)
+                    ?: "${Implementation.protocolName(call) ?: '?'}.${Implementation.forText(call) ?: '?'}"
             } else {
                 val canonicalNameSuffix = when {
                     Module.`is`(call) -> Module.name(call)

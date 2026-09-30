@@ -59,7 +59,6 @@ interface SyntacticCall {
 
     /** The names in the `for:` option, `null` without one. */
     fun forNames(): Collection<String>?
-    fun forText(): String?
 
     fun nameIdentifierName(): String?
 
@@ -159,8 +158,6 @@ private class PsiBacked(val call: Call) : SyntacticCall {
 
     override fun forNames(): Collection<String>? =
         Implementation.forNameElement(call)?.let { Implementation.forNameCollection(it) }
-
-    override fun forText(): String? = Implementation.forNameElement(call)?.text
 
     override fun nameIdentifierName(): String? =
         (call as? NamedElement)

@@ -69,6 +69,15 @@ class GotoSymbolContributorTest : PlatformTestCase() {
         assertEmpty("a definition quoted in a headless macro has nowhere to be listed", items)
     }
 
+    /** An implementation is listed under the name Elixir gives it, which without `for:` is `P.Outer`. */
+    fun testImplementationWithoutForInAModule() {
+        myFixture.configureByText("scratch.ex", "defmodule Outer do\n  defimpl P do\n  end\nend\n")
+
+        val items = gotoSymbolContributor().getItemsByName("P.Outer", "P.Outer", myFixture.project, false)
+
+        assertEquals("P.Outer", items.single().name)
+    }
+
     fun testIssue472() {
         myFixture.configureByFile("issue_472.ex")
         val gotoSymbolContributor = gotoSymbolContributor()

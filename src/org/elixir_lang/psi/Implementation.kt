@@ -16,7 +16,6 @@ import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.keywordValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.stub.index.ModularName
-import org.elixir_lang.structure_view.element.modular.Modular
 
 object Implementation {
     @RequiresReadLock
@@ -39,19 +38,41 @@ object Implementation {
     @RequiresReadLock
     fun name(call: SyntacticCall): String? = nameCollection(call)?.singleOrNull()
 
-    /** A `PROTOCOL.FOR` name for each module `for:` names. */
+    /** A `PROTOCOL.FOR` name for each module the implementation is for, `null` if there are none. */
     @RequiresReadLock
     fun nameCollection(call: SyntacticCall): Collection<String>? {
         val protocolName = protocolName(call) ?: return null
 
-        return forNames(call)?.map { forName -> "$protocolName.$forName" }
+        return forNames(call)?.takeIf { it.isNotEmpty() }?.map { forName -> "$protocolName.$forName" }
     }
 
-    /** Without `for:`, Elixir implements the protocol for `__MODULE__`. */
-    private fun forNames(call: SyntacticCall): Collection<String>? =
-        (call.forNames() ?: listOf(Function.__MODULE__))
-            .mapNotNull { forName -> CanonicallyNamedImpl.expandModule(forName, call) }
-            .takeIf { it.isNotEmpty() }
+    @RequiresReadLock
+    fun forNames(call: Call): Collection<String>? = forNames(SyntacticCall.of(call))
+
+    /**
+     * The modules the implementation is for: empty for `for: []`, but `null` when there is no module to name, as for
+     * a top-level `defimpl` without `for:`. Without `for:`, Elixir implements the protocol for `__MODULE__`.
+     */
+    @RequiresReadLock
+    fun forNames(call: SyntacticCall): Collection<String>? {
+        val written = call.forNames() ?: listOf(Function.__MODULE__)
+
+        return if (written.isEmpty()) {
+            written
+        } else {
+            written
+                .mapNotNull { forName -> CanonicallyNamedImpl.expandModule(forName, call) }
+                .takeIf { it.isNotEmpty() }
+        }
+    }
+
+    @RequiresReadLock
+    fun forText(call: Call): String? = forText(SyntacticCall.of(call))
+
+    /** [forNames] as one module, or as a list when there are more or fewer. */
+    @RequiresReadLock
+    fun forText(call: SyntacticCall): String? =
+        forNames(call)?.let { forNames -> forNames.singleOrNull() ?: forNames.joinToString(", ", "[", "]") }
 
     fun elementDescription(location: ElementDescriptionLocation): String? =
         if (location === UsageViewTypeLocation.INSTANCE) {
@@ -83,22 +104,6 @@ object Implementation {
 
     private fun forNameCollection(forNameElement: QualifiableAlias): Collection<String>? =
         forNameElement.name?.let { listOf(it) }
-
-    @RequiresReadLock
-    fun forNameCollection(enclosingModular: Modular?, call: Call): Collection<String>? {
-        val forNameElement = forNameElement(call)
-        return when {
-            forNameElement != null -> forNameCollection(forNameElement)
-            enclosingModular != null -> {
-                enclosingModular
-                    .presentation
-                    .let { it as org.elixir_lang.navigation.item_presentation.Parent }
-                    .locatedPresentableText
-                    .let { listOf(it) }
-            }
-            else -> null
-        }
-    }
 
     @RequiresReadLock
     fun forNameElement(call: Call): PsiElement? =

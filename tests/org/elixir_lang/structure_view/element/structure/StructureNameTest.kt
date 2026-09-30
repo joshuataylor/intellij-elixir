@@ -200,4 +200,33 @@ class StructureNameTest : PlatformTestCase() {
         assertEquals("%Bar{}", presentation.presentableText)
         assertEquals("Enumerable", presentation.locationString)
     }
+
+    /** `for: __MODULE__` is the module the `defimpl` is written in, as an omitted `for:` is. */
+    fun testInsideAnImplementationForModule() {
+        val presentation =
+            structure("defmodule Foo do\n  defimpl Enumerable, for: __MODULE__ do\n    defstruct [:a]\n  end\nend\n")
+                .presentation
+
+        assertEquals("%Foo{}", presentation.presentableText)
+        assertEquals("Enumerable", presentation.locationString)
+    }
+
+    fun testInsideAnImplementationWithoutAForInAModuleOfModuleAlias() {
+        val presentation = structure(
+            "defmodule Foo do\n  defmodule __MODULE__.Bar do\n    defimpl Enumerable do\n      defstruct [:a]\n    end\n  end\nend\n"
+        ).presentation
+
+        assertEquals("%Bar{}", presentation.presentableText)
+        assertEquals("Enumerable.Foo", presentation.locationString)
+    }
+
+    /** Inside a `quote`, the module is the one the quote is injected into, which is not known here. */
+    fun testInsideAnImplementationWithoutAForInAQuote() {
+        val presentation = structure(
+            "defmodule Foo do\n  defmacro m do\n    quote do\n      defimpl Enumerable do\n        defstruct [:a]\n      end\n    end\n  end\nend\n"
+        ).presentation
+
+        assertEquals("%?{}", presentation.presentableText)
+        assertEquals("Enumerable", presentation.locationString)
+    }
 }

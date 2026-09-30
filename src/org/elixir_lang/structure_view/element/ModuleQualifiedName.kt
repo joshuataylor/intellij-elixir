@@ -39,18 +39,15 @@ data class ModuleQualifiedName(val location: String?, val name: String) {
         /** `defimpl P, for: T` compiles onto `P.T`, whatever module it is written in. */
         private fun Call.implementationQualifiedName(): ModuleQualifiedName? {
             val protocolName = Implementation.protocolName(this) ?: return null
-            val forNames = Implementation.forNameCollection(null, this)
+            val forNames = Implementation.forNames(this) ?: return null
 
             // A `for:` list compiles to one module per entry and the tree builds a single node for all
             // of them, so it is named after the whole list.
-            if (forNames != null && forNames.size != 1) {
-                return ModuleQualifiedName(protocolName, forNames.joinToString(", ", "[", "]"))
+            return if (forNames.size == 1) {
+                split("$protocolName.${forNames.single()}")
+            } else {
+                ModuleQualifiedName(protocolName, forNames.joinToString(", ", "[", "]"))
             }
-
-            // `defimpl P do` with no `for:` means the module it is written in.
-            val forName = forNames?.singleOrNull() ?: enclosingMacroCall()?.qualifiedName()?.full ?: return null
-
-            return split("$protocolName.$forName")
         }
 
         private fun split(moduleName: String): ModuleQualifiedName {
