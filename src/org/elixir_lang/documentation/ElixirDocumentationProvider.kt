@@ -17,6 +17,7 @@ import org.elixir_lang.beam.chunk.beam_documentation.docs.documented.MarkdownByL
 import org.elixir_lang.beam.chunk.beam_documentation.docs.documented.None
 import org.elixir_lang.beam.psi.BeamFileImpl
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
+import org.elixir_lang.declaration.DelegationPrecedence
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.ModuleAttribute.isDocumentationName
@@ -273,17 +274,17 @@ internal class ElixirDocumentationProvider : DocumentationProvider {
                         .filter(ResolveResult::isValidResult)
                         .mapNotNull(ResolveResult::getElement)
 
-                    // A defdelegate carrying its own @doc outranks what it delegates to: the delegating
-                    // module is saying what the function means here, which is why the @doc was written.
-                    // One without its own @doc is skipped so the to: target's documentation shows.
-                    // Otherwise prefer source Call elements (CallDefinitionClause), falling back to BEAM
-                    // stubs (CallDefinitionImpl).
+                    // Past a delegation's own @doc, prefer source Call elements (CallDefinitionClause), falling
+                    // back to BEAM stubs (CallDefinitionImpl).
                     fun bestMatch(elements: List<PsiElement>): PsiElement? =
-                        elements
-                            .filterIsInstance<Call>()
-                            .firstOrNull { Delegation.`is`(it) && SourceFileDocsHelper.fetchDocs(it) != null }
-                            ?: elements.filterIsInstance<Call>().firstOrNull { CallDefinitionClause.`is`(it) }
-                            ?: elements.filterIsInstance<BeamCallDefinition>().firstOrNull()
+                        DelegationPrecedence.documented(
+                            elements,
+                            { it is Call && Delegation.`is`(it) },
+                            { SourceFileDocsHelper.fetchDocs(it) != null }
+                        ) {
+                            elements.filterIsInstance<Call>().firstOrNull { CallDefinitionClause.`is`(it) }
+                                ?: elements.filterIsInstance<BeamCallDefinition>().firstOrNull()
+                        }
 
                     // If no exact arity match (validResult), fall back to results with an exact name match
                     // from the same module (e.g., Enum.map/2 when call site has wrong arity).
