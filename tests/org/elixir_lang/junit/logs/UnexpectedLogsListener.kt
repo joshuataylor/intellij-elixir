@@ -24,8 +24,9 @@ class UnexpectedLogsListener : TestExecutionListener {
 
     override fun executionStarted(testIdentifier: TestIdentifier) {
         if (!testIdentifier.isTest) return
-        // Checked per test: the application installs its own default handler when it starts.
-        recordUncaughtExceptions()
+        // Checked per test: the application installs its own default handler when it starts. Not for Jupiter: the
+        // platform's UncaughtExceptionExtension owns the handler there, and from 2026.3 fails a test that displaces it.
+        if (testIdentifier.uniqueIdObject.engineId.orElse(null) != "junit-jupiter") recordUncaughtExceptions()
         UnexpectedLogs.testStarted(testIdentifier.uniqueId, nameOf(testIdentifier))
     }
 
