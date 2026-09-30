@@ -109,6 +109,8 @@
 
 ### Bug Fixes
 
+- [#4242](https://github.com/intellij-elixir/intellij-elixir/pull/4242) [@sh41](https://github.com/sh41)
+  - **A module written as `Kernel.defmodule Foo do ... end` is recognised as a module in a file that is not open.**
 - [#4230](https://github.com/intellij-elixir/intellij-elixir/pull/4230) [@sh41](https://github.com/sh41)
   - **An atom with interpolation, such as `:"a(#{x}"` or `:"#{x}_target"`, no longer reports an internal error while resolving or resolves to modules it cannot name, such as `:x_target_extra`.**
 - [#4220](https://github.com/intellij-elixir/intellij-elixir/pull/4220) [@sh41](https://github.com/sh41)
