@@ -7,6 +7,7 @@ import org.elixir_lang.psi.CallDefinitionClause.head
 import org.elixir_lang.psi.Implementation
 import org.elixir_lang.psi.Module
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 
 /**
  * Concise presentation of an Elixir `def`/`defmacro` clause for navigation popups.
@@ -19,8 +20,8 @@ import org.elixir_lang.psi.call.Call
  * ```
  * - [elementText] is the clause head (definer + name + argument patterns), so sibling clauses that
  *   share a name/arity are told apart by their patterns.
- * - [containerText] is the implementing type: the `defimpl … for:` target, defaulting to the enclosing
- *   `defmodule` when `for:` is implicit (as in `defimpl String.Chars do` nested in a module).
+ * - [containerText] is the implementing type: the module the `defimpl` is for, which without `for:` is the
+ *   module it is written in (as in `defimpl String.Chars do` nested in a module).
  */
 object ElixirClausePresentation {
     @RequiresReadLock
@@ -34,35 +35,18 @@ object ElixirClausePresentation {
         }
     }
 
-    /** The type that implements the protocol: the `defimpl … for:` target, else the enclosing `defmodule`. */
     @RequiresReadLock
     fun containerText(call: Call): String? {
         val enclosingModular = enclosingModularMacroCall(call) ?: return null
 
         return if (Implementation.`is`(enclosingModular)) {
-            val forNames = Implementation.forNameElement(enclosingModular)
-                ?.let { Implementation.forNameCollection(it) }
-                ?.takeIf { it.isNotEmpty() }
-
-            forNames?.joinToString(", ")
-                ?: enclosingModuleName(enclosingModular)
-                ?: Implementation.protocolName(enclosingModular)
+            Implementation.forText(enclosingModular) ?: Implementation.protocolName(enclosingModular)
         } else if (Module.`is`(enclosingModular)) {
-            moduleName(enclosingModular)
+            SyntacticCall.of(enclosingModular).canonicalName()
         } else {
             null
         }
     }
-
-    /** The name of the `defmodule` enclosing [defimpl], which is the implicit `for:` target. */
-    @RequiresReadLock
-    private fun enclosingModuleName(defimpl: Call): String? =
-        enclosingModularMacroCall(defimpl)
-            ?.takeIf { Module.`is`(it) }
-            ?.let { moduleName(it) }
-
-    @RequiresReadLock
-    private fun moduleName(module: Call): String? = runCatching { Module.name(module) }.getOrNull()
 
     /** Collapse whitespace and tighten bracket spacing, mirroring the structure-view head presentation. */
     private fun normalizeSignature(text: String): String =

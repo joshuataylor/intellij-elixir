@@ -13,7 +13,7 @@ import org.elixir_lang.beam.psi.BeamSymbol
 import org.elixir_lang.call.Visibility
 import org.elixir_lang.errorreport.Logger
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
-import org.elixir_lang.psi.Implementation.forNameCollection
+import org.elixir_lang.psi.Implementation.forNames
 import org.elixir_lang.psi.NamedElement
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.structure_view.element.*
@@ -223,14 +223,13 @@ open class ChooseByNameContributor(private val stubIndexKey: StubIndexKey<String
     ) {
         val modular = enclosingModularByCall.putNew(call)
 
-        val forNameCollection = forNameCollection(modular, call)
+        val forNames = forNames(call)
 
-        if (forNameCollection != null) {
-            for (forName in forNameCollection) {
+        if (forNames != null) {
+            for (forName in forNames) {
                 val forNameOverriddenImplementation = Implementation(modular, call, forName)
-                val implementationName = forNameOverriddenImplementation.name
 
-                if (implementationName != null && implementationName.contains(name)) {
+                if (forNameOverriddenImplementation.name == name) {
                     items.add(forNameOverriddenImplementation)
                 }
             }
