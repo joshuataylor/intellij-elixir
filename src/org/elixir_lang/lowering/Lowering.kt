@@ -34,11 +34,14 @@ class Lowering private constructor(
 
         /**
          * Calls, qualified or not, with or without parentheses and their keywords, `A.{B, C}`, bracket access, and the
-         * clauses of `do` and keyword blocks.
+         * `do` and keyword blocks of a call, whose bodies are [BLOCK]s.
          */
         CALL,
 
-        /** `fn`, stab clauses and their signatures. */
+        /** Stabs, their bodies, and parentheses: what the one block builder builds. A stab's `->` is a [CLAUSE]. */
+        BLOCK,
+
+        /** `fn`, `->` and its signatures. */
         CLAUSE,
 
         /** Module attributes: `@name`, `@name value`, `@name[key]`. */
@@ -46,7 +49,7 @@ class Lowering private constructor(
 
         /**
          * No `quote()` of its own; the shape above it reads it as it lowers: most argument lists, the parts of strings,
-         * heredocs and sigils, escape sequences, `do` blocks.
+         * heredocs and sigils, escape sequences, interpolation, `do` blocks.
          */
         BY_PARENT,
 
@@ -86,6 +89,7 @@ class Lowering private constructor(
 
         return when (classifier.classify(element.javaClass)) {
             Bucket.LITERAL -> literal(element)
+            Bucket.BLOCK -> block(element)
             Bucket.OPERATOR -> operator(element)
             Bucket.CALL -> call(element)
             Bucket.CLAUSE -> clause(element)
@@ -128,12 +132,27 @@ class Lowering private constructor(
             ?.takeIf { it.isNewline && it.newlines > 0 }
             ?.let { Meta.Key.Entry("newlines", Meta.Value.Integer(it.newlines.toLong()), tokenMetadata = true) }
 
-    /**
-     * [node] with [key] added as a parent adds `end_of_expression`, `parens` or `assoc` to a child: first, and only to a
-     * node that has metadata.
-     */
-    internal fun decorate(node: ElixirAst, key: Meta.Key): ElixirAst =
-        if (node.hasMetadata()) node.withMeta(listOf(key) + node.meta.keys) else node
+    /** Where [decorate] puts a parent's keys among a child's own. */
+    internal enum class Placement {
+        /** Before them, as a parent adds `end_of_expression`, `parens` or `assoc`. */
+        FIRST,
+
+        /** After them, as parentheses merge their metadata into the block they enclose. */
+        LAST,
+    }
+
+    /** [node] with [keys] added as a parent adds them to a child, and only to a node that has metadata. */
+    internal fun decorate(node: ElixirAst, vararg keys: Meta.Key, placement: Placement = Placement.FIRST): ElixirAst =
+        if (node.hasMetadata()) {
+            node.withMeta(
+                when (placement) {
+                    Placement.FIRST -> keys.toList() + node.meta.keys
+                    Placement.LAST -> node.meta.keys + keys
+                }
+            )
+        } else {
+            node
+        }
 
     /** An end of expression, `;` or newlines, as the tokenizer merges them. */
     internal class EndOfExpression(val offset: Int, val newlines: Int, val isNewline: Boolean)

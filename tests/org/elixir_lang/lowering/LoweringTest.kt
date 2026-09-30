@@ -11,6 +11,9 @@ import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.psi.ElixirInterpolation
 import org.elixir_lang.psi.impl.ElixirMatchedQualifiedMultipleAliasesImpl
 import org.elixir_lang.psi.impl.ElixirMultipleAliasesImpl
+import org.elixir_lang.psi.impl.ElixirParentheticalStabImpl
+import org.elixir_lang.psi.impl.ElixirStabBodyImpl
+import org.elixir_lang.psi.impl.ElixirStabImpl
 
 class LoweringTest : LoweringTestCase() {
     fun testAShapeNoRowNamesIsUnknownNotNoNode() =
@@ -19,6 +22,12 @@ class LoweringTest : LoweringTestCase() {
     fun testQualifiedMultipleAliasesAndTheirAliasListAreCalls() = assertEquals(
         listOf(Lowering.Bucket.CALL, Lowering.Bucket.CALL),
         listOf(ElixirMatchedQualifiedMultipleAliasesImpl::class.java, ElixirMultipleAliasesImpl::class.java)
+            .map { Lowering.classifier.classify(it) }
+    )
+
+    fun testStabsTheirBodiesAndParenthesesAreBlocks() = assertEquals(
+        listOf(Lowering.Bucket.BLOCK, Lowering.Bucket.BLOCK, Lowering.Bucket.BLOCK),
+        listOf(ElixirStabImpl::class.java, ElixirStabBodyImpl::class.java, ElixirParentheticalStabImpl::class.java)
             .map { Lowering.classifier.classify(it) }
     )
 

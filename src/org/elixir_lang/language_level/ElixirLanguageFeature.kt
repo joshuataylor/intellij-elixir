@@ -227,10 +227,34 @@ enum class ElixirLanguageFeature(
      */
     ESCAPED_INTERPOLATION_COLUMNS(sinceElixir = "1.14.4"),
 
+    /**
+     * With `token_metadata: true`, the last expression of a block - the file, a stab body, parentheses, an
+     * interpolation - carries `end_of_expression:` when an end of expression follows it, as every earlier one does.
+     *
+     * `elixir-lang/elixir@514615d03` ("Apply end of expression more consistently", #13355), first released in
+     * v1.17.0-rc.0.
+     */
+    END_OF_EXPRESSION_ON_LAST_EXPRESSION(sinceElixir = "1.17.0-rc.0"),
+
+    /**
+     * With `token_metadata: true`, parentheses around one expression that has metadata add `parens:` to it, and empty
+     * parentheses add it to their empty `__block__`.
+     *
+     * `elixir-lang/elixir@bd7d428ca` (#13940), `elixir-lang/elixir@7d421b197` (#13973) and
+     * `elixir-lang/elixir@3b01b2a63` (#13996), first released in v1.18.0-rc.0.
+     */
+    PARENS_ON_PARENTHESIZED_EXPRESSION(sinceElixir = "1.18.0-rc.0"),
 
 
 
-
+    /**
+     * `parens:` lists `closing:` before the opening's `line` and `column`, as a parenthesised block's own metadata
+     * always has, where it listed it after them.
+     *
+     * `elixir-lang/elixir@90e1826c7` ("Include meta information in blocks from do-end blocks"), first released in
+     * v1.20.0-rc.0.
+     */
+    CLOSING_FIRST_IN_PARENS(sinceElixir = "1.20.0-rc.0"),
 
     /**
      * A character literal that is a newline, `?` + newline or `?\` + newline, advances the line of what follows, where
@@ -251,10 +275,11 @@ enum class ElixirLanguageFeature(
     IN_OF_NOT_IN_ON_ITS_OWN_LINE(sinceElixir = "1.19.0-rc.1"),
 
     /**
-     * A `do:` block's `__block__` carries the line of its own `do` token (`elixir-lang/elixir@90e1826c7`), and a 0-byte
-     * file's implicit top-level block carries `line: 1` (`elixir-lang/elixir@7da1b76b6`), where both carried none. Only
-     * `line` is added, not `column`: the rest of each commit is gated behind `?columns()`/`?token_metadata()`. First
-     * released in v1.20.0-rc.0.
+     * A `do`-`end` block's `__block__`, which carried no metadata, carries the position of its own `do` token, and an
+     * empty file or interpolation's block is at line 1, column 1 rather than at its first end of expression, if any;
+     * either carries `column` only with `columns: true`. With token metadata, a lone expression that has metadata
+     * carries its `do`'s position as `parens:`. `elixir-lang/elixir@90e1826c7` and `elixir-lang/elixir@7da1b76b6`,
+     * first released in v1.20.0-rc.0.
      */
     LINE_METADATA_ON_BLOCK(sinceElixir = "1.20.0-rc.0"),
 
