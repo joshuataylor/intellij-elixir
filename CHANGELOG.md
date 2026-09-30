@@ -111,7 +111,7 @@
 
 - [#4269](https://github.com/intellij-elixir/intellij-elixir/pull/4269) [@sh41](https://github.com/sh41)
   - **A module attribute set inside a module-level `if`, `case` or DSL block is found by Go to Definition,
-    completion, rename and Find Usages.**
+    completion, rename and Find Usages, and an `import` inside an `if` no longer reaches code after the block.**
     Refs [#4265](https://github.com/intellij-elixir/intellij-elixir/issues/4265).
 - [#4264](https://github.com/intellij-elixir/intellij-elixir/pull/4264) [@sh41](https://github.com/sh41)
   - **Go to Class, the Structure view and Go to Implementation name a `defimpl` without `for:`, or with

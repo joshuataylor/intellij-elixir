@@ -20,6 +20,7 @@ import org.elixir_lang.declaration.Reach
 import org.elixir_lang.ecto.query.WindowAPI
 import org.elixir_lang.errorreport.Logger
 import org.elixir_lang.psi.*
+import org.elixir_lang.psi.CallDefinitionClause.blockChildCalls
 import org.elixir_lang.psi.CallDefinitionClause.macroRole
 import org.elixir_lang.psi.CallDefinitionClause.modularChildCalls
 import org.elixir_lang.psi.call.Call
@@ -129,7 +130,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             Exception.`is`(element) -> executeOnException(element, state)
             For.`is`(element) -> For.treeWalkDown(element, state, ::execute)
             If.`is`(element) || Unless.`is`(element) -> {
-                // If the entrance os at compile time level of `childCalls`, then only previous siblings could
+                // If the entrance is at compile time level of a branch, then only previous siblings could
                 // possibly define this call and those will be handled by ElixirStabBody's processDeclarations
                 val branches = Branches(element)
 
@@ -140,9 +141,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
                 val walkAlternative = !containsCompileTimeEntranceAncestorOrSelf(alternativeChildCalls, state)
 
                 if (walkPrimary && walkAlternative) {
-                    val childCalls = primaryChildCalls + alternativeChildCalls
-
-                    for (childCall in childCalls) {
+                    for (childCall in blockChildCalls(element, ::modularCallsToExecute)) {
                         execute(childCall, state)
                     }
                 }
