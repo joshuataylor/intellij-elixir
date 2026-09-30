@@ -53,9 +53,9 @@ class CallDefinitionClause : CompletionProvider<CompletionParameters>() {
     ): Boolean = PsiTreeUtil.isAncestor(structOperation.mapArguments, qualifiedAlias, false)
 
     /**
-     * `defmodule` needs listing even though `QualifiableAliasImpl.isDefmoduleDeclarationName` nulls the
-     * reference for one: that recognises a `defmodule` by its `do` block, which a name still being typed
-     * has not got yet.
+     * `defmodule` and `defprotocol` need listing even though `QualifiableAliasImpl.computeReference` nulls
+     * their names' references: `declaringModuleCall` recognises them by their `do` block, which a name still
+     * being typed has not got yet.
      */
     private fun namesModuleDirective(call: Call, qualifiedAlias: PsiElement): Boolean =
         call.functionName() in MODULE_NAMING_FUNCTION_NAMES &&

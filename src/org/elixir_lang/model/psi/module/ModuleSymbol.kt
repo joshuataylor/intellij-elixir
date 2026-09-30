@@ -15,6 +15,7 @@ import com.intellij.psi.search.SearchScope
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.model.psi.ElixirRenameTarget
 import org.elixir_lang.psi.Module
+import org.elixir_lang.psi.Protocol
 import org.elixir_lang.psi.QualifiableAlias
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.finalArguments
@@ -22,7 +23,7 @@ import org.elixir_lang.psi.impl.stripAccessExpression
 import java.util.*
 
 /**
- * Symbol representing a `defmodule` declaration.
+ * Symbol representing a module declaration: see [isDeclaration].
  */
 @Suppress("UnstableApiUsage")
 class ModuleSymbol(
@@ -35,15 +36,15 @@ class ModuleSymbol(
 
     override fun createPointer(): Pointer<out ModuleSymbol> {
         val moduleName = this.moduleName
-        // Anchor to the enclosing `defmodule` call (a stable ancestor) rather than to the
+        // Anchor to the enclosing declaring call (a stable ancestor) rather than to the
         // name-identifier element or a bare file range: an in-place (Shift+F6) rename fully replaces
         // the identifier's text, which swaps out the identifier leaf (collapsing a pointer anchored to
         // it) and collapses a plain range marker to an empty range - either way the subsequent
-        // programmatic commit edits the wrong range and applies nothing. The `defmodule` call survives
+        // programmatic commit edits the wrong range and applies nothing. The declaring call survives
         // the identifier replacement, so its name-element range is recomputed correctly on restore.
         val modular = generateSequence(file.findElementAt(range.startOffset)) { it.parent }
             .filterIsInstance<Call>()
-            .firstOrNull { Module.`is`(it) && moduleNameElement(it)?.textRange == range }
+            .firstOrNull { isDeclaration(it) && moduleNameElement(it)?.textRange == range }
         if (modular != null) {
             val modularPointer = SmartPointerManager.getInstance(file.project)
                 .createSmartPsiElementPointer(modular, file)
@@ -82,9 +83,16 @@ class ModuleSymbol(
     override fun toString(): String = "ModuleSymbol($moduleName)"
 
     companion object {
+        /**
+         * Whether [call]'s first argument names the module it declares. A `defimpl` is not one: its first
+         * argument refers to the protocol.
+         */
+        @RequiresReadLock
+        fun isDeclaration(call: Call): Boolean = Module.`is`(call) || Protocol.`is`(call)
+
         @RequiresReadLock
         fun fromModular(call: Call): ModuleSymbol? {
-            if (!Module.`is`(call)) return null
+            if (!isDeclaration(call)) return null
             val nameElement = moduleNameElement(call) ?: return null
             val moduleName = moduleNameText(call)?.removeElixirPrefix() ?: return null
 

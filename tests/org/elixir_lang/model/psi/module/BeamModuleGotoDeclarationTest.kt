@@ -39,6 +39,16 @@ class BeamModuleGotoDeclarationTest : BeamLibraryTestCase() {
         assertNavigatesToDecompiledCode()
     }
 
+    fun testGoToDeclarationFromProtocolAttributeOfBeamProtocolNavigatesToDecompiledProtocol() {
+        myFixture.configureByFiles("beam_protocol_attribute_goto.ex")
+        val target = myFixture.gotoDeclarationDestinationAtCaret()
+        assertNotNull("Go To Declaration should navigate into the decompiled Inspect protocol", target)
+        assertTrue(
+            "Should land in the decompiled Elixir.Inspect.beam (was ${target!!.containingFile.name})",
+            target.containingFile.name.startsWith("Elixir.Inspect.beam")
+        )
+    }
+
     private fun assertNavigatesToDecompiledCode() {
         val target = myFixture.gotoDeclarationDestinationAtCaret()
         assertNotNull("Go To Declaration should navigate into the decompiled Code module", target)

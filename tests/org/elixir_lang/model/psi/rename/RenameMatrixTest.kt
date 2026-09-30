@@ -29,6 +29,9 @@ class RenameMatrixTest : PlatformTestCase() {
     /** `defmodule`, `alias`, `require`, `import`, `use`, qualified call. */
     fun testModuleDirect() = doTestFromEveryOccurrence("module_direct", "Renamee", "Fresh", expectedCarets = 6)
 
+    /** `defprotocol`, `defimpl`, `alias ... as:` and a call through the protocol. */
+    fun testModuleProtocol() = doTestFromEveryOccurrence("module_protocol", "Renamee", "Fresh", expectedCarets = 4)
+
     /** Nested name `Outer.Renamee`; a bare aliased reference follows the rename. */
     fun testModuleNested() = doTestFromEveryOccurrence("module_nested", "Renamee", "Outer.Fresh", expectedCarets = 3)
 
@@ -222,11 +225,11 @@ class RenameMatrixTest : PlatformTestCase() {
     fun testVariableComprehensionTestName() =
         doTestFromEveryOccurrence("variable_comprehension_test_name", "renamee", "fresh", expectedCarets = 3)
 
-    /** A case pattern binding inside `result = case … do … end`: a pattern, although right of a match. */
+    /** A case pattern binding inside `result = case ... do ... end`: a pattern, although right of a match. */
     fun testVariableCasePatternInMatch() =
         doTestFromEveryOccurrence("variable_case_pattern_in_match", "renamee", "fresh", expectedCarets = 2)
 
-    /** An `fn` parameter inside `f = fn renamee -> … end`. */
+    /** An `fn` parameter inside `f = fn renamee -> ... end`. */
     fun testVariableFnParameterInMatch() =
         doTestFromEveryOccurrence("variable_fn_parameter_in_match", "renamee", "fresh", expectedCarets = 2)
 

@@ -512,7 +512,7 @@ internal object ElixirUsageQueries {
                 .lastOrNull()
                 ?: return emptyList()
 
-            // Skip defmodule declaration names - null reference by convention.
+            // Skip module declaration names - null reference by convention.
             // The declaration is already contributed by ElixirDirectUsageQuery.
             if (alias.reference == null) return emptyList()
 

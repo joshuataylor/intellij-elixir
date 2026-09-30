@@ -15,6 +15,10 @@
 
 ### Enhancements
 
+- [#4277](https://github.com/intellij-elixir/intellij-elixir/pull/4277) [@sh41](https://github.com/sh41)
+  - **Quick Documentation on a `defmodule`'s own name shows its `@moduledoc`.** Refs
+    [#4260](https://github.com/intellij-elixir/intellij-elixir/issues/4260).
+
 - [#4169](https://github.com/intellij-elixir/intellij-elixir/pull/4169) [@sh41](https://github.com/sh41)
   - **Completion now inserts a call's parameters as editable, tabbable placeholders instead of an empty
     `()`.** Refs [#4150](https://github.com/intellij-elixir/intellij-elixir/issues/4150).
@@ -109,6 +113,9 @@
 
 ### Bug Fixes
 
+- [#4277](https://github.com/intellij-elixir/intellij-elixir/pull/4277) [@sh41](https://github.com/sh41)
+  - **Go to Declaration on a protocol's name, or on `@protocol` in a `defimpl`, reaches its `defprotocol`, and
+    Rename and Find Usages work on a protocol.** Refs [#4260](https://github.com/intellij-elixir/intellij-elixir/issues/4260).
 - [#4276](https://github.com/intellij-elixir/intellij-elixir/pull/4276) [@sh41](https://github.com/sh41)
   - **Go to Declaration on `@for` in a `defimpl` goes to the module it is for, completion offers `@for` and
     `@protocol` there, and the "Elixir module attributes" folding shows attribute values again.** Refs

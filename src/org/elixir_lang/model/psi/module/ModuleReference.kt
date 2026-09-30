@@ -7,7 +7,6 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveResult
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.psi.Module
 import org.elixir_lang.psi.QualifiableAlias
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.reference.resolver.Module as ModuleResolver
@@ -47,7 +46,6 @@ class ModuleReference(
                         else -> null
                     }
                 }
-                .filter { Module.`is`(it) }
                 .mapNotNull(ModuleSymbol::fromModular)
                 .distinct()
         }

@@ -225,14 +225,12 @@ module_macro.ex:2:3  definition  ModuleMacro  me/0  clause  public function runt
 module_macro.ex:2:15  psi  Reference  `__MODULE__`  ->  module_macro.ex:1:1 `defmodule ModuleMacro do`
 protocol_impl.ex:1:1  module  ProtocolImpl
 protocol_impl.ex:1:1  psi  Callable  `defprotocol`  ->  nothing
-protocol_impl.ex:1:13  psi  Module  `ProtocolImpl`  ->  protocol_impl.ex:1:1 `defprotocol ProtocolImpl do`
-protocol_impl.ex:1:13  symbol  ModuleReference  `ProtocolImpl`  ->  nothing
 protocol_impl.ex:2:3  definition  ProtocolImpl  convert/1  clause  public function runtime
 protocol_impl.ex:2:15  psi  Callable  `x`  ->  protocol_impl.ex:2:15 `x`
 protocol_impl.ex:5:1  module  ProtocolImpl.Atom
 protocol_impl.ex:5:1  psi  Callable  `defimpl`  ->  nothing
 protocol_impl.ex:5:9  psi  Module  `ProtocolImpl`  ->  protocol_impl.ex:1:1 `defprotocol ProtocolImpl do`
-protocol_impl.ex:5:9  symbol  ModuleReference  `ProtocolImpl`  ->  nothing
+protocol_impl.ex:5:9  symbol  ModuleReference  `ProtocolImpl`  ->  protocol_impl.ex:1:13 ModuleSymbol(ProtocolImpl)
 protocol_impl.ex:5:28  psi  Module  `Atom`  ->  nothing
 protocol_impl.ex:5:28  symbol  ModuleReference  `Atom`  ->  nothing
 protocol_impl.ex:6:3  definition  ProtocolImpl.Atom  convert/1  clause  public function runtime

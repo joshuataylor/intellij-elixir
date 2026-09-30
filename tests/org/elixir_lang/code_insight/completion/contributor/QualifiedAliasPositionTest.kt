@@ -42,7 +42,7 @@ class QualifiedAliasPositionTest : PlatformTestCase() {
     }
 
     /**
-     * `isDefmoduleDeclarationName` recognises a `defmodule` by its `do` block, which a name still being
+     * `declaringModuleCall` recognises a `defmodule` by its `do` block, which a name still being
      * typed has not got yet.
      */
     fun testFunctionsNotOfferedInADefmoduleName() {
@@ -50,7 +50,7 @@ class QualifiedAliasPositionTest : PlatformTestCase() {
     }
 
     /**
-     * With the `do` block written, `isDefmoduleDeclarationName` nulls the reference, so resolution finds
+     * With the `do` block written, `computeReference` nulls the reference, so resolution finds
      * nothing even with the guard removed. The refusal is over-determined and this cannot distinguish the
      * two; [testFunctionsNotOfferedInADefmoduleName] is what pins the guard.
      */
@@ -92,7 +92,7 @@ class QualifiedAliasPositionTest : PlatformTestCase() {
         assertFunctionsOfferedIn("use_do_block_usage.ex")
     }
 
-    /** `primaryArguments()` is `null` for the `None`-arity call `use do … end`, so nothing is refused. */
+    /** `primaryArguments()` is `null` for the `None`-arity call `use do ... end`, so nothing is refused. */
     fun testFunctionsOfferedInsideAnArgumentlessUseDoBlock() {
         assertFunctionsOfferedIn("use_no_arguments_do_block_usage.ex")
     }
