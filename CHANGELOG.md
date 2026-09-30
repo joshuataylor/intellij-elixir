@@ -113,6 +113,9 @@
   - **Go to Class, the Structure view and Go to Implementation name a `defimpl` without `for:`, or with
     `for: __MODULE__`, after the module it is written in, and Go to Implementation shows a nested module's full
     name.** Refs [#4257](https://github.com/intellij-elixir/intellij-elixir/issues/4257).
+- [#4263](https://github.com/intellij-elixir/intellij-elixir/pull/4263) [@sh41](https://github.com/sh41)
+  - **`__MODULE__` in the arguments of `defmodule`, `defprotocol`, `defimpl`, `Module.create` or `quote`, such as
+    `defimpl __MODULE__.P, for: X`, now resolves to the enclosing module, as Elixir evaluates it.** Refs [#4258](https://github.com/intellij-elixir/intellij-elixir/issues/4258).
 - [#4262](https://github.com/intellij-elixir/intellij-elixir/pull/4262) [@sh41](https://github.com/sh41)
   - **On Elixir 1.13 to 1.17, the "not a list of characters" error on a quoted call name is now reported exactly when the module's Erlang/OTP release raises it.** Refs [#4255](https://github.com/intellij-elixir/intellij-elixir/issues/4255).
 - [#4254](https://github.com/intellij-elixir/intellij-elixir/pull/4254) [@sh41](https://github.com/sh41)

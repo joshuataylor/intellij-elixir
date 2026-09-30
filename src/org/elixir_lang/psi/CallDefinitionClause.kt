@@ -24,7 +24,8 @@ import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.call.name.Module.KERNEL_SPECIAL_FORMS
-import org.elixir_lang.psi.impl.hasKeywordKey
+import org.elixir_lang.psi.impl.call.body
+import org.elixir_lang.psi.impl.enclosingMacroCall
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 
 object CallDefinitionClause {
@@ -109,8 +110,8 @@ object CallDefinitionClause {
         return when (parent) {
             is ElixirStabBody -> true
             is ElixirList -> isStatement(parent)
-            // `keywordValue` is already stripped of the access expression.
-            is QuotableKeywordPair -> parent.keywordValue == element && parent.hasKeywordKey("do")
+            // `body` is the `do:` value stripped of its access expression, as `element` is.
+            is QuotableKeywordPair -> element.enclosingMacroCall()?.body() == element
             else -> false
         }
     }
