@@ -140,6 +140,50 @@ class StoredStubTest : PlatformTestCase() {
         "MODULE __MODULE__.Top Kernel.defmodule/2 do [Top] -",
     )
 
+    fun testModuleNamedWithAQuotedAtom() = assertStored(
+        "defmodule :\"a.b\" do\nend\n",
+        "MODULE :\"a.b\" Kernel.defmodule/2 do [:a.b] -",
+    )
+
+    fun testModuleNamedWithAnAtom() = assertStored(
+        "defmodule :plain do\nend\n",
+        "MODULE :plain Kernel.defmodule/2 do [:plain] -",
+    )
+
+    fun testModuleNamedWithAnAtomInAModule() = assertStored(
+        "defmodule Outer do\n  defmodule :inner_target do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "MODULE :inner_target Kernel.defmodule/2 do [:inner_target] -",
+    )
+
+    fun testModuleNamedWithAnElixirPrefixedAtomInAModule() = assertStored(
+        "defmodule Outer do\n  defmodule :\"Elixir.Foo\" do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "MODULE :\"Elixir.Foo\" Kernel.defmodule/2 do [Foo] -",
+    )
+
+    fun testModuleNamedWithACharListQuotedAtom() = assertStored(
+        "defmodule :'a.b' do\nend\n",
+        "MODULE :'a.b' Kernel.defmodule/2 do [:a.b] -",
+    )
+
+    fun testModuleNamedWithAnInterpolatedAtomInAModule() = assertStored(
+        "defmodule Outer do\n  defmodule :\"#{x}\" do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "MODULE :\"#{x}\" Kernel.defmodule/2 do [?] -",
+    )
+
+    fun testModuleNamedWithAnAtomLongerThanAnAtomCanBe() = "a".repeat(256).let { name ->
+        assertStored(
+            "defmodule :\"$name\" do\nend\n",
+            "MODULE :\"$name\" Kernel.defmodule/2 do [?] -",
+        )
+    }
+
+    fun testModuleNamedWithAnUnterminatedQuotedAtom() = assertStored("defmodule :\"a")
+
+    fun testModuleNamedWithAnUnterminatedInterpolation() = assertStored("defmodule :\"#{a do\nend\n")
+
     fun testDefprotocol() = assertStored(
         "defprotocol P do\n  def f(t)\nend\n",
         "PROTOCOL P Kernel.defprotocol/2 do [P] -",

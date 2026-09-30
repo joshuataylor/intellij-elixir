@@ -45,7 +45,7 @@ class CallbackImplGotoDeclarationTest : PlatformTestCase() {
 
     /**
      * Ctrl-Click decision: on an implementing `def`, "Go To Declaration or Usages" (the very handler
-     * Ctrl-Click uses - `GotoDeclarationAction implements CtrlMouseAction` → `GotoDeclarationOrUsageHandler2`)
+     * Ctrl-Click uses - `GotoDeclarationAction implements CtrlMouseAction` -> `GotoDeclarationOrUsageHandler2`)
      * chooses **Go To Declaration** (navigate to the `@callback`), not Show Usages.
      */
     fun testCtrlClickOnImplementingDefChoosesGoToDeclaration() {
@@ -66,6 +66,22 @@ class CallbackImplGotoDeclarationTest : PlatformTestCase() {
         assertTrue(
             "Expected the impl to resolve to GotoLiteralBehaviour.perform, got $callbacks",
             callbacks.any { it.name == "perform" && it.moduleName == "GotoLiteralBehaviour" }
+        )
+    }
+
+    fun testResolvesToCallbackViaQuotedAtomBehaviour() {
+        val callbacks = resolvedCallbacksAtCaretDef("goto_quoted_atom_behaviour.ex", "kernel.ex")
+        assertTrue(
+            "Expected the impl to resolve to :\"goto.quoted\".perform, got $callbacks",
+            callbacks.any { it.name == "perform" }
+        )
+    }
+
+    fun testResolvesToCallbackViaAtomBehaviourWrittenUnquoted() {
+        val callbacks = resolvedCallbacksAtCaretDef("goto_requoted_atom_behaviour.ex", "kernel.ex")
+        assertTrue(
+            "Expected the impl to resolve to :goto_requoted.perform, got $callbacks",
+            callbacks.any { it.name == "perform" }
         )
     }
 

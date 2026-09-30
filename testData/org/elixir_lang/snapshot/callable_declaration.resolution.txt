@@ -360,7 +360,7 @@ quoted_names.ex:8:15  symbol  FunctionCallReference  `dynamic_count`  ->  quoted
 quoted_names.ex:8:29  psi  Callable  `x`  ->  quoted_names.ex:8:29 `x`
 quoted_names.ex:8:37  psi  Module  `QuotedNamesTarget`  ->  quoted_names.ex:20:1 `defmodule QuotedNamesTarget do`
 quoted_names.ex:8:37  symbol  ModuleReference  `QuotedNamesTarget`  ->  quoted_names.ex:20:11 ModuleSymbol(QuotedNamesTarget)
-quoted_names.ex:8:60  psi  GeneralAtomReference  `:"#{:size}"`  ->  nothing
+quoted_names.ex:8:60  psi  GeneralAtomReference  `:"#{:size}"`  ->  eex.ex:1:1 `defmodule EEx do` (invalid) | forms.ex:1:1 `defmodule Forms do` (invalid) | import_only.ex:1:1 `defmodule Errors do` (invalid) | import_only.ex:6:1 `defmodule OnlyUser do` (invalid) | in_def.ex:1:1 `defmodule InDef do` (invalid) | mix_generator.ex:1:1 `defmodule Mix.Generator do` (invalid) | nameless_query.ex:1:1 `defmodule NamelessQuery do` (invalid) | quoted_names.ex:1:1 `defmodule QuotedNames do` (invalid) | quoted_names.ex:20:1 `defmodule QuotedNamesTarget do` (invalid) | spec_targets.ex:1:1 `defmodule SpecTargets do` (invalid) | through_import.ex:14:1 `defmodule User do` (invalid) | through_import.ex:1:1 `defmodule Views do` (invalid) | through_use.ex:17:1 `defmodule ThroughUse do` (invalid) | through_use.ex:1:1 `defmodule Using do` (invalid) | unknown_arity.ex:1:1 `defmodule UnknownArity do` (invalid)
 quoted_names.ex:8:64  psi  GeneralAtomReference  `:size`  ->  nothing
 quoted_names.ex:10:3  definition  QuotedNames  usage/0  clause  public function runtime
 quoted_names.ex:12:7  psi  Callable  `quoted_from_string`  ->  nothing

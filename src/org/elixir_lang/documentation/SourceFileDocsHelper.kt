@@ -59,7 +59,7 @@ object SourceFileDocsHelper {
 
         return if (!typeDoc.isNullOrEmpty()) {
             enclosingModularMacroCall(moduleAttribute)?.let { modular ->
-                val module = (modular as? CanonicallyNamed)?.canonicalName().orEmpty()
+                val module = moduleName(modular)
 
                 FetchedDocs.TypeDocumentation(module, moduleAttribute.text, typeDoc)
             }
@@ -80,7 +80,7 @@ object SourceFileDocsHelper {
 
         return if (!typeDoc.isNullOrEmpty()) {
             enclosingModularMacroCall(moduleAttribute)?.let { modular ->
-                val module = (modular as? CanonicallyNamed)?.canonicalName().orEmpty()
+                val module = moduleName(modular)
 
                 FetchedDocs.CallbackDocumentation(module, moduleAttribute.text, typeDoc)
             }
@@ -104,7 +104,7 @@ object SourceFileDocsHelper {
                 ?.documentationMarkdownText()
 
             if (!moduleDoc.isNullOrEmpty()) {
-                FetchedDocs.ModuleDocumentation((call as? CanonicallyNamed)?.canonicalName().orEmpty(), moduleDoc)
+                FetchedDocs.ModuleDocumentation(moduleName(call), moduleDoc)
             } else {
                 null
             }
@@ -114,7 +114,7 @@ object SourceFileDocsHelper {
 
             CallDefinitionClause.nameArityInterval(call, state)?.let { nameArityRange ->
                 enclosingModularMacroCall(call)?.let { modular ->
-                    val module = (modular as? CanonicallyNamed)?.canonicalName().orEmpty()
+                    val module = moduleName(modular)
 
                     CallDefinitionClause.modularChildCalls(modular)
                         .mapNotNull { sibling ->
@@ -164,11 +164,15 @@ object SourceFileDocsHelper {
             ?.takeIf { it.size == 2 }
             ?.let { arguments ->
                 enclosingModularMacroCall(call)?.let { modular ->
-                    val module = (modular as? CanonicallyNamed)?.canonicalName().orEmpty()
+                    val module = moduleName(modular)
 
                     FetchedDocs.FunctionOrMacroDocumentation
                         .fromCallDefinitionClauseCall(module, call, arguments[0])
                         .takeIf { it.doc != null }
                 }
             }
+
+    @RequiresReadLock
+    private fun moduleName(modular: PsiElement): String =
+        (modular as? CanonicallyNamed)?.canonicalName()?.let { org.elixir_lang.Module.inspect(it) }.orEmpty()
 }

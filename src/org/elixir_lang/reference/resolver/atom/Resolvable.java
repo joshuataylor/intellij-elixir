@@ -3,7 +3,9 @@ package org.elixir_lang.reference.resolver.atom;
 import com.intellij.lang.ASTNode;
 import com.intellij.psi.ResolveResult;
 import com.intellij.psi.tree.IElementType;
+import com.intellij.util.concurrency.annotations.RequiresReadLock;
 import org.elixir_lang.psi.*;
+import org.elixir_lang.psi.impl.ElixirAtomImplKt;
 import org.elixir_lang.reference.resolver.atom.resolvable.Exact;
 import org.elixir_lang.reference.resolver.atom.resolvable.Pattern;
 import org.jetbrains.annotations.Contract;
@@ -22,20 +24,27 @@ import static org.elixir_lang.psi.impl.QuotableImpl.childNodes;
  * interpolation, then it cannot be resolved exactly.
  */
 public abstract class Resolvable {
+    /** An unquoted atom has no value only when it is longer than an atom can be, so it names no module. */
+    private static final Resolvable NOTHING = new Resolvable() {
+        @Override
+        public ResolveResult[] resolve(@NotNull ElixirAtom element) {
+            return ResolveResult.EMPTY_ARRAY;
+        }
+    };
+
     @NotNull
+    @RequiresReadLock
     public static Resolvable resolvable(@NotNull ElixirAtom atom) {
+        String indexName = ElixirAtomImplKt.indexName(atom);
         ElixirLine line = atom.getLine();
         Resolvable resolvable;
 
-        if (line != null) {
+        if (indexName != null) {
+            resolvable = new Exact(indexName);
+        } else if (line != null) {
             resolvable = resolvable(line);
         } else {
-            ASTNode atomNode = atom.getNode();
-            ASTNode atomFragmentNode = atomNode.getLastChildNode();
-
-            assert atomFragmentNode.getElementType() == ElixirTypes.ATOM_FRAGMENT;
-
-            resolvable = new Exact(":" + atomFragmentNode.getText());
+            resolvable = NOTHING;
         }
 
         return resolvable;
@@ -50,52 +59,40 @@ public abstract class Resolvable {
 
     @NotNull
     private static Resolvable resolvable(@NotNull Parent parent, @NotNull ASTNode[] children) {
-        Resolvable resolvable;
+        List<String> regexList = new LinkedList<>();
+        List<Integer> codePointList = null;
 
-        if (children.length == 0) {
-            resolvable = new Exact(":\"\"");
-        } else {
-            List<String> regexList = new LinkedList<>();
-            List<Integer> codePointList = null;
+        for (ASTNode child : children) {
+            IElementType elementType = child.getElementType();
 
-            for (ASTNode child : children) {
-                IElementType elementType = child.getElementType();
-
-                if (elementType == ElixirTypes.FRAGMENT) {
-                    codePointList = parent.addFragmentCodePoints(codePointList, child);
-                } else if (elementType == ElixirTypes.ESCAPED_CHARACTER) {
-                    codePointList = parent.addEscapedCharacterCodePoints(codePointList, child);
-                } else if (elementType == ElixirTypes.ESCAPED_EOL) {
-                    codePointList = parent.addEscapedEOL(codePointList, child);
-                } else if (elementType == ElixirTypes.HEXADECIMAL_ESCAPE_PREFIX) {
-                    codePointList = addChildTextCodePoints(codePointList, child);
-                } else if (elementType == ElixirTypes.INTERPOLATION) {
-                    if (codePointList != null) {
-                        regexList.add(codePointListToRegex(codePointList));
-                        codePointList = null;
-                    }
-
-                    regexList.add(interpolation());
-                } else if (elementType == ElixirTypes.QUOTE_HEXADECIMAL_ESCAPE_SEQUENCE ||
-                        elementType == ElixirTypes.SIGIL_HEXADECIMAL_ESCAPE_SEQUENCE) {
-                    codePointList = parent.addHexadecimalEscapeSequenceCodePoints(codePointList, child);
-                } else {
-                    throw new UnsupportedOperationException("Can't convert to Resolvable " + child);
-                }
-            }
-
-            if (codePointList != null && regexList.isEmpty()) {
-                resolvable = resolvableLiteral(codePointList);
-            } else {
+            if (elementType == ElixirTypes.FRAGMENT) {
+                codePointList = parent.addFragmentCodePoints(codePointList, child);
+            } else if (elementType == ElixirTypes.ESCAPED_CHARACTER) {
+                codePointList = parent.addEscapedCharacterCodePoints(codePointList, child);
+            } else if (elementType == ElixirTypes.ESCAPED_EOL) {
+                codePointList = parent.addEscapedEOL(codePointList, child);
+            } else if (elementType == ElixirTypes.HEXADECIMAL_ESCAPE_PREFIX) {
+                codePointList = addChildTextCodePoints(codePointList, child);
+            } else if (elementType == ElixirTypes.INTERPOLATION) {
                 if (codePointList != null) {
                     regexList.add(codePointListToRegex(codePointList));
+                    codePointList = null;
                 }
 
-                resolvable = new Pattern(join(regexList));
+                regexList.add(interpolation());
+            } else if (elementType == ElixirTypes.QUOTE_HEXADECIMAL_ESCAPE_SEQUENCE ||
+                    elementType == ElixirTypes.SIGIL_HEXADECIMAL_ESCAPE_SEQUENCE) {
+                codePointList = parent.addHexadecimalEscapeSequenceCodePoints(codePointList, child);
+            } else {
+                throw new UnsupportedOperationException("Can't convert to Resolvable " + child);
             }
         }
 
-        return resolvable;
+        if (codePointList != null) {
+            regexList.add(codePointListToRegex(codePointList));
+        }
+
+        return new Pattern(join(regexList));
     }
 
     @NotNull
@@ -124,17 +121,6 @@ public abstract class Resolvable {
         }
 
         return stringAccumulator.toString();
-    }
-
-    @NotNull
-    private static Resolvable resolvableLiteral(List<Integer> codePointList) {
-        StringBuilder stringAccumulator = new StringBuilder();
-
-        for (int codePoint : codePointList) {
-            stringAccumulator.appendCodePoint(codePoint);
-        }
-
-        return new Exact(":" + stringAccumulator);
     }
 
     public abstract ResolveResult[] resolve(@NotNull ElixirAtom element);

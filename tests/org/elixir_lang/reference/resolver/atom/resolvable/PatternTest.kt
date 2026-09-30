@@ -25,9 +25,9 @@ class PatternTest : PlatformTestCase() {
         )
     }
 
-    fun testInterpolationOnlyResolvesToEveryAtomName() {
+    fun testInterpolationOnlyResolvesToEveryModule() {
         assertEquals(
-            setOf("defmodule :one do\nend", "defmodule :two do\nend"),
+            setOf("defmodule :one do\nend", "defmodule :two do\nend", "defmodule User do\n  def f(x), do: :\"#{x}\"\nend"),
             resolve(
                 """
                 defmodule :one do
@@ -46,10 +46,13 @@ class PatternTest : PlatformTestCase() {
 
     fun testLeadingLiteralParenthesisIsNotAGroup() {
         assertEquals(
-            emptySet<String>(),
+            setOf("defmodule :\"a(b\" do\nend"),
             resolve(
                 """
                 defmodule :a_b do
+                end
+
+                defmodule :"a(b" do
                 end
 
                 defmodule User do
@@ -81,10 +84,13 @@ class PatternTest : PlatformTestCase() {
 
     fun testLeadingLiteralDotIsNotAWildcard() {
         assertEquals(
-            emptySet<String>(),
+            setOf("defmodule :\"a.b\" do\nend"),
             resolve(
                 """
                 defmodule :aXb do
+                end
+
+                defmodule :"a.b" do
                 end
 
                 defmodule User do
@@ -97,10 +103,13 @@ class PatternTest : PlatformTestCase() {
 
     fun testLiteralBetweenInterpolationsParenthesisIsNotAGroup() {
         assertEquals(
-            emptySet<String>(),
+            setOf("defmodule :\"a(b\" do\nend"),
             resolve(
                 """
                 defmodule :a_b do
+                end
+
+                defmodule :"a(b" do
                 end
 
                 defmodule User do
@@ -162,6 +171,83 @@ class PatternTest : PlatformTestCase() {
 
                 defmodule User do
                   def f(x), do: :"a_#{x}"
+                end
+                """
+            )
+        )
+    }
+
+    fun testInterpolatedAtomResolvesToModuleNamedWithAQuotedAtom() {
+        assertEquals(
+            setOf("defmodule :\"a.b\" do\nend"),
+            resolve(
+                """
+                defmodule :"a.b" do
+                end
+
+                defmodule User do
+                  def f(x), do: :"#{x}.b"
+                end
+                """
+            )
+        )
+    }
+
+    fun testInterpolatedAtomResolvesToAtomNamedModuleNestedInAnotherModule() {
+        assertEquals(
+            setOf("defmodule :inner_target do\n  end"),
+            resolve(
+                """
+                defmodule Outer do
+                  defmodule :inner_target do
+                  end
+                end
+
+                defmodule User do
+                  def f(x), do: :"#{x}_target"
+                end
+                """
+            )
+        )
+    }
+
+    fun testInterpolatedElixirPrefixedAtomResolvesToAliasNamedModule() {
+        assertEquals(
+            setOf("defmodule Foo do\nend"),
+            resolve(
+                """
+                defmodule Foo do
+                end
+
+                defmodule Bar do
+                end
+
+                defmodule User do
+                  def f(x), do: :"Elixir.Fo#{x}"
+                end
+                """
+            )
+        )
+    }
+
+    fun testInterpolationOnlyResolvesToNoModuleWhoseNameHasNoValue() {
+        val name = "a".repeat(256)
+
+        assertEquals(
+            setOf("defprotocol P do\nend", "defmodule User do\n  def f(x), do: :\"#{x}\"\nend"),
+            resolve(
+                """
+                defmodule :$name do
+                end
+
+                defprotocol P do
+                end
+
+                defimpl P do
+                end
+
+                defmodule User do
+                  def f(x), do: :"#{x}"
                 end
                 """
             )

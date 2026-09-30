@@ -5,14 +5,15 @@ import com.intellij.psi.ResolveResult
 import com.intellij.psi.stubs.StubIndex
 import org.elixir_lang.psi.ElixirAtom
 import org.elixir_lang.psi.NamedElement
-import org.elixir_lang.psi.stub.index.AllName
+import org.elixir_lang.Module
+import org.elixir_lang.psi.stub.index.ModularName
 import org.elixir_lang.reference.resolver.atom.Resolvable
 import org.elixir_lang.reference.resolver.narrowedScope
 import java.util.function.Predicate
 import java.util.regex.Pattern
 
 class Pattern(private val predicate: Predicate<String>) : Resolvable() {
-    constructor(regex: String) : this(Pattern.compile(":$regex")) {}
+    constructor(regex: String) : this(Pattern.compile(regex)) {}
     constructor(pattern: Pattern) : this(pattern.asMatchPredicate()) {}
 
     override fun resolve(element: ElixirAtom): Array<ResolveResult> {
@@ -20,8 +21,8 @@ class Pattern(private val predicate: Predicate<String>) : Resolvable() {
         val stubIndex = StubIndex.getInstance()
         val scope = narrowedScope(element, project)
         val names = mutableListOf<String>()
-        stubIndex.processAllKeys(AllName.KEY, project) { name ->
-            if (predicate.test(name)) names.add(name)
+        stubIndex.processAllKeys(ModularName.KEY, project) { name ->
+            if (Module.atom(name)?.let(predicate::test) == true) names.add(name)
 
             true
         }
@@ -29,7 +30,7 @@ class Pattern(private val predicate: Predicate<String>) : Resolvable() {
         val resolveResults = mutableListOf<ResolveResult>()
 
         for (name in names) {
-            stubIndex.processElements(AllName.KEY, name, project, scope, NamedElement::class.java) {
+            stubIndex.processElements(ModularName.KEY, name, project, scope, NamedElement::class.java) {
                 resolveResults.add(PsiElementResolveResult(it, false))
 
                 true

@@ -11,8 +11,6 @@ import org.elixir_lang.psi.stub.call.Deserialized;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Set;
-
 import static org.elixir_lang.psi.call.name.Function.DEFMODULE;
 import static org.elixir_lang.psi.call.name.Module.KERNEL;
 
@@ -25,13 +23,19 @@ public class ModuleStubImpl<T extends Module> extends StubbicBase<T> implements 
     private static final String RESOLVED_MODULE_NAME = KERNEL;
 
     public ModuleStubImpl(@NotNull StubElement parentStub,
-                          @NotNull String name) {
-        super(parentStub, ModuleStubElementTypes.MODULE, name);
+                          @NotNull String name,
+                          @NotNull String canonicalName) {
+        super(parentStub, ModuleStubElementTypes.MODULE, name, canonicalName);
     }
 
     public ModuleStubImpl(@NotNull StubElement parentStub,
                           @NotNull Deserialized deserialized) {
-        super(parentStub, ModuleStubElementTypes.MODULE, deserialized.name.toString());
+        super(
+                parentStub,
+                ModuleStubElementTypes.MODULE,
+                deserialized.name.toString(),
+                deserialized.canonicalNameSet.iterator().next().toString()
+        );
 
         StringRef resolvedModuleName = deserialized.resolvedModuleName;
         assert resolvedModuleName != null;
@@ -45,9 +49,7 @@ public class ModuleStubImpl<T extends Module> extends StubbicBase<T> implements 
 
         assert  deserialized.hasDoBlockOrKeyword == HAS_DO_BLOCK_OR_KEYWORD;
 
-        Set<StringRef> canonicalNameSet = deserialized.canonicalNameSet;
-        assert canonicalNameSet.size() == 1;
-        assert canonicalNameSet.iterator().next().toString().equals(this.getName());
+        assert deserialized.canonicalNameSet.size() == 1;
     }
 
     /**

@@ -1,6 +1,8 @@
 package org.elixir_lang
 
 import com.intellij.openapi.util.Condition
+import org.elixir_lang.psi.call.name.Module.ELIXIR_PREFIX
+import org.elixir_lang.utils.ElixirModulesUtil
 import org.jetbrains.annotations.Contract
 import kotlin.collections.List
 
@@ -29,6 +31,33 @@ object Module {
             return isNestedUnder
         }
     }
+
+    /**
+     * The name Elixir gives the module [atom] names, which is the name it is indexed by: the alias of an `Elixir.` atom,
+     * otherwise `:` and the atom.
+     */
+    @Contract(pure = true)
+    @JvmStatic
+    fun indexName(atom: String): String =
+        if (atom.startsWith(ELIXIR_PREFIX)) atom.substring(ELIXIR_PREFIX.length) else ":$atom"
+
+    /** Stands in an index name for a name, or an alias in it, that has no value. */
+    const val NO_VALUE = "?"
+
+    /** The atom [indexName] encodes, the inverse of [indexName]; `null` when it stands for a name with no value. */
+    @Contract(pure = true)
+    @JvmStatic
+    fun atom(indexName: String): String? =
+        nonElixirAtom(indexName) ?: indexName.takeUnless { NO_VALUE in split(it) }?.let { ELIXIR_PREFIX + it }
+
+    /** The module [indexName] names, as Elixir writes it; an alias, or a name that is not an atom, as it is. */
+    @Contract(pure = true)
+    @JvmStatic
+    fun inspect(indexName: String): String =
+        nonElixirAtom(indexName)?.let(ElixirModulesUtil::erlangModuleNameToElixir) ?: indexName
+
+    /** The atom [indexName] encodes when it is not an `Elixir.` atom. */
+    private fun nonElixirAtom(indexName: String): String? = indexName.takeIf { it.startsWith(":") }?.substring(1)
 
     /**
      * Emulates Module.concat/1

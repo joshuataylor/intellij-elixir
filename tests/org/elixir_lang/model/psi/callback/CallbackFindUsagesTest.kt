@@ -18,7 +18,7 @@ import org.elixir_lang.psi.call.Call
  * `FindUsagesAction` and then polls for a `UsageView`, which is unreliable headless (the view is never
  * surfaced even though target arbitration is correct - verified separately: exactly one `SEARCH_TARGET`
  * = `perform/0`, no ambiguity popup). Asserting on the query's usages is deterministic and still
- * behavior-level: real caret → real symbol → real searcher → real usages. Assertions never touch
+ * behavior-level: real caret -> real symbol -> real searcher -> real usages. Assertions never touch
  * internal resolver classes, so they survive refactoring.
  */
 class CallbackFindUsagesTest : PlatformTestCase() {
@@ -45,10 +45,17 @@ class CallbackFindUsagesTest : PlatformTestCase() {
         )
     }
 
+    fun testAtomBehaviourWrittenUnquotedImplementationIsFound() {
+        assertTrue(
+            "Expected the implementing def (via @behaviour :usages_requoted) among the callback's usages",
+            implementationDefUsageCount("usages_requoted_atom_behaviour.ex", "kernel.ex") >= 1
+        )
+    }
+
     /**
      * Ctrl-Click decision (the original thrust): on a `@callback` - a declaration/`SearchTarget` - the
      * "Go To Declaration or Usages" handler that Ctrl-Click uses
-     * (`GotoDeclarationAction implements CtrlMouseAction` → `GotoDeclarationOrUsageHandler2`) chooses
+     * (`GotoDeclarationAction implements CtrlMouseAction` -> `GotoDeclarationOrUsageHandler2`) chooses
      * **Show Usages** rather than doing nothing or navigating to itself.
      */
     fun testCtrlClickOnCallbackChoosesShowUsages() {

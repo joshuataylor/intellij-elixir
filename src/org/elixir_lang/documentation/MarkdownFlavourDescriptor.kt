@@ -5,7 +5,11 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
+import org.elixir_lang.psi.ElementFactory
+import org.elixir_lang.psi.ElixirAtom
 import org.elixir_lang.psi.NamedElement
+import org.elixir_lang.psi.impl.indexName
+import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.stub.index.ModularName
 import org.intellij.markdown.IElementType
 import org.intellij.markdown.MarkdownElementTypes
@@ -155,16 +159,31 @@ class MarkdownFlavourDescriptor(private val project: Project) : GFMFlavourDescri
 
         fun modulars(project: Project, name: String): Collection<PsiElement> {
             val globalSearchScope = GlobalSearchScope.allScope(project)
+            val indexName = indexName(project, name) ?: return emptyList()
 
             return StubIndex
                 .getElements(
                     ModularName.KEY,
-                    name,
+                    indexName,
                     project,
                     globalSearchScope,
                     null,
                     NamedElement::class.java
                 )
         }
+
+        /**
+         * A module named with an atom is indexed by the atom's value, however the link quotes it; `null` when the atom
+         * has no value.
+         */
+        private fun indexName(project: Project, name: String): String? =
+            if (name.startsWith(":")) {
+                when (val atom = ElementFactory.createFile(project, name).firstChild?.stripAccessExpression()) {
+                    is ElixirAtom -> atom.indexName()
+                    else -> name
+                }
+            } else {
+                name
+            }
     }
 }

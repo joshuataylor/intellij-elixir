@@ -109,6 +109,10 @@
 
 ### Bug Fixes
 
+- [#4273](https://github.com/intellij-elixir/intellij-elixir/pull/4273) [@sh41](https://github.com/sh41)
+  - **A module named with an atom, such as `defmodule :"a.b"` or one nested inside another module, is now found from
+    that atom however it is quoted, including by completion, `@behaviour` and documentation links.** Refs
+    [#4227](https://github.com/intellij-elixir/intellij-elixir/issues/4227).
 - [#4269](https://github.com/intellij-elixir/intellij-elixir/pull/4269) [@sh41](https://github.com/sh41)
   - **A module attribute set inside a module-level `if`, `case` or DSL block is found by Go to Definition,
     completion, rename and Find Usages, and an `import` inside an `if` no longer reaches code after the block.**

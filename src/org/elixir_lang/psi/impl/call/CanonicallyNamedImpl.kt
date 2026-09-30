@@ -1,5 +1,6 @@
 package org.elixir_lang.psi.impl.call
 
+import org.elixir_lang.Module.NO_VALUE
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.Implementation
 import org.elixir_lang.psi.Module
@@ -21,7 +22,7 @@ object CanonicallyNamedImpl {
         if (isModular(call)) {
             if (Implementation.`is`(call)) {
                 Implementation.name(call)
-                    ?: "${Implementation.protocolName(call) ?: '?'}.${Implementation.forText(call) ?: '?'}"
+                    ?: "${Implementation.protocolName(call) ?: NO_VALUE}.${Implementation.forText(call) ?: NO_VALUE}"
             } else {
                 val canonicalNameSuffix = when {
                     Module.`is`(call) -> Module.name(call)
@@ -30,13 +31,14 @@ object CanonicallyNamedImpl {
                 }
 
                 val enclosing = enclosingModularMacroCall(call)
+                val atomIndexName = atomIndexName(call)
 
-                if (canonicalNameSuffix != null && isModuleRelative(canonicalNameSuffix)) {
-                    expandModule(canonicalNameSuffix, call) ?: "?"
+                atomIndexName ?: if (canonicalNameSuffix != null && isModuleRelative(canonicalNameSuffix)) {
+                    expandModule(canonicalNameSuffix, call) ?: NO_VALUE
                 } else if (enclosing != null) {
-                    "${enclosing.canonicalName() ?: '?'}.${canonicalNameSuffix ?: '?'}"
+                    "${enclosing.canonicalName() ?: NO_VALUE}.${canonicalNameSuffix ?: NO_VALUE}"
                 } else {
-                    canonicalNameSuffix ?: "?"
+                    canonicalNameSuffix ?: NO_VALUE
                 }
             }
         } else {
@@ -50,12 +52,16 @@ object CanonicallyNamedImpl {
     fun canonicalNameSet(call: SyntacticCall): Set<String> =
         if (isModular(call)) {
             if (Implementation.`is`(call)) {
-                Implementation.nameCollection(call)?.toSet() ?: setOf("${Implementation.protocolName(call) ?: '?'}.?")
+                Implementation.nameCollection(call)?.toSet()
+                    ?: setOf("${Implementation.protocolName(call) ?: NO_VALUE}.$NO_VALUE")
             } else {
-                val canonicalNameSuffix = if (Module.`is`(call) || Protocol.`is`(call)) Module.name(call) else "?"
+                val canonicalNameSuffix = if (Module.`is`(call) || Protocol.`is`(call)) Module.name(call) else NO_VALUE
+                val atomIndexName = atomIndexName(call)
 
-                if (isModuleRelative(canonicalNameSuffix)) {
-                    setOf(expandModule(canonicalNameSuffix, call) ?: "?")
+                if (atomIndexName != null) {
+                    setOf(atomIndexName)
+                } else if (isModuleRelative(canonicalNameSuffix)) {
+                    setOf(expandModule(canonicalNameSuffix, call) ?: NO_VALUE)
                 } else {
                     enclosingModularMacroCall(call)
                         ?.canonicalNameSet()
@@ -79,6 +85,14 @@ object CanonicallyNamedImpl {
             name
         }
 
+    /**
+     * The index name of a module or protocol [call] names with an atom, which Elixir does not nest in the module around
+     * it; [NO_VALUE] when the atom has no value, and `null` for any other [call].
+     */
+    @RequiresReadLock
+    fun atomIndexName(call: SyntacticCall): String? =
+        if (Module.`is`(call) || Protocol.`is`(call)) call.firstPrimaryArgumentAtomIndexName() else null
+
     private fun isModuleRelative(name: String): Boolean = name == __MODULE__ || name.startsWith("$__MODULE__.")
 
     /** Inside a `quote`, `__MODULE__` is the module the quote is injected into. */
@@ -87,8 +101,8 @@ object CanonicallyNamedImpl {
 
         while (enclosing != null) {
             when {
-                QuoteMacro.`is`(enclosing) -> return "?"
-                isModular(enclosing) -> return enclosing.canonicalName() ?: "?"
+                QuoteMacro.`is`(enclosing) -> return NO_VALUE
+                isModular(enclosing) -> return enclosing.canonicalName() ?: NO_VALUE
             }
 
             enclosing = enclosingModularMacroCall(enclosing)

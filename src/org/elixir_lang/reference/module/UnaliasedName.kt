@@ -2,6 +2,7 @@ package org.elixir_lang.reference.module
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
+import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.name.Function
@@ -10,13 +11,15 @@ import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.call.maybeModularNameToModulars
 import org.elixir_lang.psi.impl.hasKeywordKey
+import org.elixir_lang.psi.impl.indexName
 
 object UnaliasedName {
+    @RequiresReadLock
     fun unaliasedName(namedElement: PsiNamedElement): String? =
             if (namedElement is QualifiableAlias) {
                 unaliasedName(namedElement)
             } else if (namedElement is ElixirAtom) {
-                ":${namedElement.name}"
+                namedElement.indexName()
             } else if (namedElement is Call && namedElement.isCalling(KERNEL, Function.__MODULE__, 0)) {
                 __MODULE__
                     .reference(namedElement, useCall = null)
@@ -44,7 +47,7 @@ object UnaliasedName {
                     down(children[0])
                 }
 
-                is ElixirAtom -> ":${element.name}"
+                is ElixirAtom -> element.indexName()
                 is QualifiableAlias -> element.name
                 // Anything else, such as a string, names no module
                 else -> null

@@ -12,6 +12,8 @@ import org.elixir_lang.psi.impl.call.CanonicallyNamedImpl
 import org.elixir_lang.psi.impl.call.finalArity
 import org.elixir_lang.psi.impl.enclosingMacroCall
 import org.elixir_lang.psi.impl.hasKeywordKey
+import org.elixir_lang.psi.impl.indexName
+import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Match
 
 /**
@@ -53,6 +55,9 @@ interface SyntacticCall {
     fun headListOf(): SyntacticCall?
 
     fun firstPrimaryArgumentText(): String?
+
+    /** The index name of an atom first argument, `?` when the atom has no value, and `null` for any other argument. */
+    fun firstPrimaryArgumentAtomIndexName(): String?
 
     /** The first argument as an alias, with a `__MODULE__` qualifier as written and any other call qualifier as `?`. */
     fun protocolAliasText(): String?
@@ -148,6 +153,9 @@ private class PsiBacked(val call: Call) : SyntacticCall {
     }
 
     override fun firstPrimaryArgumentText(): String? = call.primaryArguments()?.firstOrNull()?.text
+
+    override fun firstPrimaryArgumentAtomIndexName(): String? =
+        (call.primaryArguments()?.firstOrNull()?.stripAccessExpression() as? ElixirAtom)?.let { it.indexName() ?: org.elixir_lang.Module.NO_VALUE }
 
     override fun protocolAliasText(): String? =
         Implementation.protocolNameElement(call)?.let { alias ->

@@ -162,7 +162,7 @@ class BeamFileImpl private constructor(
                         ?: virtualFile.nameWithoutExtension
                 val name = defmoduleArgument(moduleName)
                 LOGGER.warn("Building minimal stub tree for ${virtualFile.presentableUrl} (module $name)")
-                ModuleStubImpl<ModuleImpl<*>>(rootStub, name)
+                ModuleStubImpl<ModuleImpl<*>>(rootStub, name, org.elixir_lang.Module.indexName(moduleName))
                 StubTree(rootStub)
             } else {
                 indexStubTree
@@ -533,7 +533,8 @@ class BeamFileImpl private constructor(
                     ?.let { moduleName ->
                         val name = defmoduleArgument(moduleName)
                         val parentStub = ElixirFileStubImpl()
-                        val moduleStub: ModuleStub<*> = ModuleStubImpl<ModuleImpl<*>>(parentStub, name)
+                        val indexName = org.elixir_lang.Module.indexName(moduleName)
+                        val moduleStub: ModuleStub<*> = ModuleStubImpl<ModuleImpl<*>>(parentStub, name, indexName)
                         buildCallDefinitions(moduleStub, reader)
                         buildTypeDefinitions(moduleStub, reader, atoms)
 
