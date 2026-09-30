@@ -6,12 +6,14 @@ import com.intellij.psi.ResolveState
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
 import org.elixir_lang.ArityRange
+import org.elixir_lang.declaration.Reach
 import org.elixir_lang.psi.NamedElement
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.call.whileInStabBodyChildExpressions
 import org.elixir_lang.psi.scope.CallDefinitionClause
 import org.elixir_lang.psi.scope.WhileIn
+import org.elixir_lang.psi.scope.reachedThrough
 import org.elixir_lang.psi.stub.index.ModularName
 import org.elixir_lang.reference.Resolver
 
@@ -43,7 +45,7 @@ open class Nested(val name: String, private val arityRangesByName: Map<String, A
                            call: Call,
                            state: ResolveState,
                            keepProcessing: (element: PsiElement, state: ResolveState) -> Boolean): Boolean {
-        val childState = state.put(CallDefinitionClause.MODULAR_CANONICAL_NAME, name)
+        val childState = state.reachedThrough(Reach.IMPORT).put(CallDefinitionClause.MODULAR_CANONICAL_NAME, name)
 
         val checkArguments = WhileIn.whileIn(modulars) { modular ->
             modular.whileInStabBodyChildExpressions { childExpression ->

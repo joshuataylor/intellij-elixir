@@ -18,6 +18,8 @@ import org.elixir_lang.psi.scope.ResolveResultOrderedSet
 import org.elixir_lang.psi.scope.VisitedElementSetResolveResult
 import org.elixir_lang.psi.scope.WhileIn.whileIn
 import org.elixir_lang.psi.scope.maxScope
+import org.elixir_lang.psi.scope.reached
+import org.elixir_lang.psi.scope.reachedThroughDelegation
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 import org.elixir_lang.structure_view.element.Callback
 
@@ -85,13 +87,13 @@ private constructor(
                                             modularResultResultElement,
                                             nameInDefiningModule,
                                             headValidResult && modularResultResult.isValidResult,
-                                            state
+                                            state.reachedThroughDelegation(element, modularResultResult.reach)
                                         )
                                         is BeamCallDefinition -> addToResolveResults(
                                             modularResultResultElement,
                                             nameInDefiningModule,
                                             headValidResult && modularResultResult.isValidResult,
-                                            state
+                                            state.reachedThroughDelegation(element, modularResultResult.reach)
                                         )
                                         // Anything else is not a definition a delegation can target.
                                         else -> Unit
@@ -212,9 +214,9 @@ private constructor(
     private fun addToResolveResults(call: Call, name: String, validResult: Boolean, state: ResolveState): Boolean =
             (call as? Named)?.nameIdentifier?.let { nameIdentifier ->
                 if (PsiTreeUtil.isAncestor(state.get(ENTRANCE), nameIdentifier, false)) {
-                    resolveResultOrderedSet.add(call, name, validResult, emptySet())
+                    resolveResultOrderedSet.add(call, name, validResult, emptySet(), state.reached(call))
                 } else {
-                    resolveResultOrderedSet.add(call, name, validResult, state.visitedElementSet())
+                    resolveResultOrderedSet.add(call, name, validResult, state.visitedElementSet(), state.reached(call))
                 }
 
                 keepProcessing()
@@ -224,7 +226,13 @@ private constructor(
                                     name: String,
                                     validResult: Boolean,
                                     state: ResolveState): Boolean {
-        resolveResultOrderedSet.add(callDefinition, name, validResult, state.visitedElementSet())
+        resolveResultOrderedSet.add(
+            callDefinition,
+            name,
+            validResult,
+            state.visitedElementSet(),
+            state.reached(callDefinition)
+        )
 
         return keepProcessing()
     }

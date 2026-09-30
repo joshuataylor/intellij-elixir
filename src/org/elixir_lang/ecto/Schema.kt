@@ -9,6 +9,7 @@ import org.elixir_lang.psi.NameArityRangeWalker
 import org.elixir_lang.psi.Using
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.scope.WhileIn.whileIn
+import org.elixir_lang.psi.scope.reachedThroughInjection
 
 object Schema : ModuleWalker(
     "Ecto.Schema",
@@ -28,11 +29,13 @@ object Schema : ModuleWalker(
             // don't include the `import`s
             ?.filter { CallDefinitionClause.`is`(it) }
             ?.let { definitions ->
+                val injectedState = state.reachedThroughInjection(call)
+
                 whileIn(definitions) {
                     Using.treeWalkUp(
                         using = it,
                         use = call,
-                        resolveState = state,
+                        resolveState = injectedState,
                         keepProcessing = keepProcessing
                     )
                 }
