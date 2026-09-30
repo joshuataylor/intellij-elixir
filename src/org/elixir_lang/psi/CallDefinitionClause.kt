@@ -84,6 +84,24 @@ object CallDefinitionClause {
         }
     }
 
+    /**
+     * The calls of [modularCalls] for [call]'s module that are written inside [call], in source order: none inside a
+     * block that is not part of the module's body.
+     */
+    @RequiresReadLock
+    @JvmStatic
+    fun blockChildCalls(call: Call, modularCalls: (Call) -> List<Call> = ::modularChildCalls): List<Call> {
+        ThreadingAssertions.assertReadAccess()
+
+        val modular = enclosingModularMacroCall(call) ?: return emptyList()
+        val calls = modularCalls(modular)
+        val range = call.textRange
+        // Source order is start-offset order, so the calls inside are the run starting after [call] and before its end.
+        val first = -calls.binarySearch { if (it.textRange.startOffset <= range.startOffset) -1 else 1 } - 1
+
+        return calls.subList(first, calls.size).takeWhile { it.textRange.startOffset < range.endOffset }
+    }
+
     /** No call under one that starts a new scope can have [modular] as its module, so those are not descended. */
     private fun collectModularChildCalls(modular: Call, calls: List<Call>, accumulator: MutableList<Call>) {
         for (call in calls) {

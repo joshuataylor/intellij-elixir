@@ -432,6 +432,35 @@ class ModuleBodyReadersTest : PlatformTestCase() {
         assertContainsElements(validTexts(), "def injected, do: :ok")
     }
 
+    fun testImportInIfDoesNotReachTheModule() =
+        assertImportDoesNotReach("if true do\n    import Imported\n  end\n\n  def caller, do: imported<caret>()")
+
+    fun testImportInElseDoesNotReachTheModule() =
+        assertImportDoesNotReach("if false do\n    :ok\n  else\n    import Imported\n  end\n\n  def caller, do: imported<caret>()")
+
+    fun testImportInUnlessDoesNotReachTheModule() =
+        assertImportDoesNotReach("unless false do\n    import Imported\n  end\n\n  def caller, do: imported<caret>()")
+
+    /** A caller before the block is reached through the module's calls rather than its previous siblings. */
+    fun testImportInIfDoesNotReachAnEarlierCaller() =
+        assertImportDoesNotReach("def caller, do: imported<caret>()\n\n  if true do\n    import Imported\n  end")
+
+    fun testImportInIfReachesACallerInIt() {
+        myFixture.configureByText(
+            "x.ex",
+            "defmodule Imported do\n  def imported, do: :ok\nend\n\n" +
+                "defmodule Importer do\n  if true do\n    import Imported\n\n    def caller, do: imported<caret>()\n  end\nend\n"
+        )
+
+        assertContainsElements(validTexts(), "def imported, do: :ok")
+    }
+
+    fun testImportInIfInDefDoesNotReachALaterCall() =
+        assertImportDoesNotReach("def caller do\n    if true do\n      import Imported\n    end\n\n    imported<caret>()\n  end")
+
+    fun testAliasInIfDoesNotReachTheModule() =
+        assertEquals(emptyList<String>(), aliasedCallTargets("if true do\n    alias Other.Target\n  end"))
+
     private fun assertImportDoesNotReach(body: String) {
         myFixture.configureByText(
             "x.ex",
