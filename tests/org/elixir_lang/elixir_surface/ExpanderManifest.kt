@@ -40,16 +40,6 @@ object ExpanderManifest {
         Row("elixir_fn", "escape", 1),
     )
 
-    const val REGENERATE =
-        "./gradlew test --tests org.elixir_lang.elixir_surface.ExpanderClauseManifestTest -PoverwriteTestData=true"
-
-    /**
-     * [REGENERATE] alone resolves the local SDK, not the leg that failed. The version flags are quoted because
-     * PowerShell splits an unquoted `-P` argument at its first dot.
-     */
-    fun regenerateCommand(elixirVersion: String, otpVersion: String): String =
-        "$REGENERATE \"-PelixirVersion=$elixirVersion\" \"-PotpVersion=$otpVersion\""
-
     fun expanderClauses(ebin: File): String {
         val functionsByModule = SPEC.map { it.module }.distinct().associateWith { functions(ebin, it) }
 

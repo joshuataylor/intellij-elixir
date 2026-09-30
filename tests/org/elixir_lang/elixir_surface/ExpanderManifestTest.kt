@@ -20,14 +20,6 @@ class ExpanderManifestTest : UnitTestCase() {
         assertEquals(2, lines.toSet().size)
     }
 
-    fun testRegenerateCommandNamesTheLeg() {
-        val command = ExpanderManifest.regenerateCommand(elixirVersion = "1.21.0", otpVersion = "29.1.1")
-
-        assertTrue(command, command.contains(" \"-PelixirVersion=1.21.0\" "))
-        assertTrue(command, command.endsWith(" \"-PotpVersion=29.1.1\""))
-        assertTrue(command, command.contains("-PoverwriteTestData=true"))
-    }
-
     fun testDuplicateSpecialFormClausesAreKept() {
         val clause = clause(listOf(atom("&"), integer(1)), OtpErlangList(), atom("true"))
 

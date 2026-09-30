@@ -7,7 +7,7 @@ import org.elixir_lang.golden.CommittedGolden
 import org.elixir_lang.junit.UnitTestCase
 import java.io.File
 
-class ManifestDiffTest : UnitTestCase() {
+class LegManifestTest : UnitTestCase() {
     private lateinit var directory: File
     private var savedSummary: String? = null
 
@@ -28,6 +28,15 @@ class ManifestDiffTest : UnitTestCase() {
         }
     }
 
+    fun testRegenerateCommandNamesTheTestAndTheLeg() {
+        val command = LegManifest.regenerateCommand(LegManifestTest::class, elixirVersion = "1.21.0", otpVersion = "29.1.1")
+
+        assertTrue(command, command.startsWith("./gradlew test --tests org.elixir_lang.elixir_surface.LegManifestTest "))
+        assertTrue(command, command.contains(" \"-PelixirVersion=1.21.0\" "))
+        assertTrue(command, command.endsWith(" \"-PotpVersion=29.1.1\""))
+        assertTrue(command, command.contains("-PoverwriteTestData=true"))
+    }
+
     fun testMismatchIsReportedToTheStepSummary() {
         // Under -PoverwriteTestData=true the platform rewrites the manifest before comparing, so nothing can mismatch.
         if (UsefulTestCase.OVERWRITE_TESTDATA) return
@@ -37,7 +46,7 @@ class ManifestDiffTest : UnitTestCase() {
         System.setProperty(CommittedGolden.STEP_SUMMARY_PROPERTY, summary.path)
 
         val error = try {
-            ManifestDiff.assertMatchesFile(manifest.path, "a 1\nc 1\n", regenerate = "regenerate-command")
+            LegManifest.assertMatchesFile(manifest.path, "a 1\nc 1\n", regenerate = "regenerate-command")
             null
         } catch (e: FileComparisonFailedError) {
             e
@@ -53,7 +62,7 @@ class ManifestDiffTest : UnitTestCase() {
         val path = File(directory, "missing.txt").path
 
         val error = try {
-            ManifestDiff.assertMatchesFile(path, "a 1\n", regenerate = "regenerate-command", writeMissing = false)
+            LegManifest.assertMatchesFile(path, "a 1\n", regenerate = "regenerate-command", writeMissing = false)
             null
         } catch (e: AssertionError) {
             e
