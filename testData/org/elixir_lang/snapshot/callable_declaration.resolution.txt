@@ -431,8 +431,8 @@ through_import.ex:15:10  psi  Module  `Views`  ->  through_import.ex:1:1 `defmod
 through_import.ex:15:10  symbol  ModuleReference  `Views`  ->  through_import.ex:1:11 ModuleSymbol(Views)
 through_import.ex:18:6  psi  Callable  `plain`  ->  through_import.ex:15:3 `import Views` | through_import.ex:5:3 `def plain(x), do: x`
 through_import.ex:18:6  symbol  FunctionCallReference  `plain`  ->  through_import.ex:5:7 FunctionSymbol(Views.plain/1, macro=false)
-through_import.ex:18:16  psi  Callable  `secret`  ->  through_import.ex:15:3 `import Views` | through_import.ex:6:3 `defp secret(x), do: x`
-through_import.ex:18:16  symbol  FunctionCallReference  `secret`  ->  through_import.ex:6:8 FunctionSymbol(Views.secret/1, macro=false)
+through_import.ex:18:16  psi  Callable  `secret`  ->  nothing
+through_import.ex:18:16  symbol  FunctionCallReference  `secret`  ->  nothing
 through_import.ex:18:27  psi  Callable  `greet`  ->  nothing
 through_import.ex:18:27  symbol  FunctionCallReference  `greet`  ->  nothing
 through_import.ex:18:39  psi  Callable  `hidden`  ->  nothing

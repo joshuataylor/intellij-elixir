@@ -36,7 +36,7 @@ class ImportTest : PlatformTestCase() {
             true
         }
 
-        assertEquals(3, importedCallList.size)
+        assertEquals(2, importedCallList.size)
     }
 
     fun testTreeWalkUpImportModuleExceptNameArity() {
@@ -61,7 +61,7 @@ class ImportTest : PlatformTestCase() {
             true
         }
 
-        assertEquals(2, importedCallList.size)
+        assertEquals(1, importedCallList.size)
 
         val nameArityIntervalList = importedCallList.map { importedCall ->
             when (importedCall) {
@@ -70,13 +70,7 @@ class ImportTest : PlatformTestCase() {
             }
         }
 
-        assertContainsElements(
-            listOf(
-                NameArityInterval("imported", ArityInterval(1, 1)),
-                NameArityInterval("imported", ArityInterval(0, 0))
-            ),
-            nameArityIntervalList
-        )
+        assertEquals(listOf(NameArityInterval("imported", ArityInterval(0, 0))), nameArityIntervalList)
     }
 
     fun testTreeWalkUpImportModuleOnlyNameArity() {
