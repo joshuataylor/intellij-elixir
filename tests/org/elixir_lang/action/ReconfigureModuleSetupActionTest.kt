@@ -23,6 +23,7 @@ import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.Facet
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.facet.Type
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.mix.project.ProjectModuleSetupValidator
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 
@@ -90,13 +91,11 @@ class ReconfigureModuleSetupActionTest : PlatformTestCase() {
     }
 
     private fun detectIssuesOnBgThread(): List<ProjectModuleSetupValidator.FolderMarkIssue> {
-        return ApplicationManager.getApplication()
-            .executeOnPooledThread<List<ProjectModuleSetupValidator.FolderMarkIssue>> {
-                ApplicationManager.getApplication().runReadAction(
-                    ThrowableComputable { ProjectModuleSetupValidator.detectFolderMarkIssues(project) }
-                )
-            }
-            .get()
+        return onPooledThread<List<ProjectModuleSetupValidator.FolderMarkIssue>> {
+            ApplicationManager.getApplication().runReadAction(
+                ThrowableComputable { ProjectModuleSetupValidator.detectFolderMarkIssues(project) }
+            )
+        }
     }
 
     private fun removeElixirFacetIfPresent() {

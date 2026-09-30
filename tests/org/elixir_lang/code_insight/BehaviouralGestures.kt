@@ -20,7 +20,6 @@ import com.intellij.refactoring.rename.impl.RenameOptions
 import com.intellij.refactoring.rename.impl.TextOptions
 import com.intellij.refactoring.rename.impl.buildQuery
 import com.intellij.refactoring.rename.impl.prepareRename
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.command.WriteCommandAction
@@ -38,6 +37,7 @@ import com.intellij.testFramework.PlatformTestUtil
 import com.intellij.testFramework.fixtures.CodeInsightTestFixture
 import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
+import org.elixir_lang.junit.onPooledThread
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Callable
 
@@ -115,13 +115,14 @@ sealed interface GtduNavigation {
  * action resolves off the EDT and Show-Usages variant building may touch the index.
  */
 fun CodeInsightTestFixture.gtduNavigationAtCaret(): GtduNavigation {
+    PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
     val targetFile = file
     val offset = caretOffset
     val project = project
     val editor = editor
-    return ApplicationManager.getApplication().executeOnPooledThread(Callable {
+    return onPooledThread {
         ReadAction.nonBlocking(Callable { resolveGtduNavigation(project, editor, targetFile, offset) }).executeSynchronously()
-    }).get()
+    }
 }
 
 private fun resolveGtduNavigation(project: Project, editor: Editor, targetFile: PsiFile, offset: Int): GtduNavigation {
@@ -189,13 +190,14 @@ private fun fromGtdProviders(project: Project, editor: Editor, offset: Int): Any
  * branch wrapper).
  */
 fun CodeInsightTestFixture.gotoDeclarationTargetsAtCaret(): List<GtduTarget>? {
+    PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
     val targetFile = file
     val offset = caretOffset
     val project = project
     val editor = editor
-    return ApplicationManager.getApplication().executeOnPooledThread(Callable {
+    return onPooledThread {
         ReadAction.nonBlocking(Callable { resolveGotoDeclarationTargets(project, editor, targetFile, offset) }).executeSynchronously()
-    }).get()
+    }
 }
 
 private fun resolveGotoDeclarationTargets(project: Project, editor: Editor, targetFile: PsiFile, offset: Int): List<GtduTarget>? {
@@ -408,18 +410,19 @@ private fun CodeInsightTestFixture.psiUsagesAtCaret(
     project: Project,
     selectTarget: (List<SearchTarget>) -> SearchTarget?
 ): List<PsiUsage> {
+    PlatformTestUtil.dispatchAllInvocationEventsInIdeEventQueue()
     val targetFile = symbolResolutionFile(project)
     val offset = caretOffset
     val allOptions = AllSearchOptions(
         UsageOptions.createOptions(GlobalSearchScope.allScope(project)),
         textSearch = false
     )
-    return ApplicationManager.getApplication().executeOnPooledThread(Callable {
+    return onPooledThread {
         ReadAction.nonBlocking(Callable {
             val target = selectTarget(searchTargets(targetFile, offset)) ?: return@Callable emptyList()
             buildQuery(project, target, allOptions).findAll().filterIsInstance<PsiUsage>()
         }).executeSynchronously()
-    }).get()
+    }
 }
 
 /** Number of Find Usages results at the caret that are *not* the declaration itself. */
@@ -462,18 +465,17 @@ fun CodeInsightTestFixture.renameTargetAtCaret(newName: String) {
  * the text. Worth it only for a test that renames thousands of times; elsewhere prefer [renameTargetAtCaret].
  */
 fun CodeInsightTestFixture.renameTargetDirectly(target: RenameTarget, newName: String) {
-    val application = ApplicationManager.getApplication()
     val options = RenameOptions(
         TextOptions(commentStringOccurrences = true, textOccurrences = true),
         runReadActionBlocking { target.maximalSearchScope } ?: GlobalSearchScope.projectScope(project)
     )
     // prepareRename insists on running outside a read action, and its inner read actions need a pooled thread
-    val (fileUpdates, modelUpdate) = application.executeOnPooledThread(Callable {
+    val (fileUpdates, modelUpdate) = onPooledThread {
         val usages = ReadAction.nonBlocking(Callable {
             buildQuery(project, target, options).findAll()
         }).executeSynchronously()
         runBlocking { prepareRename(usages, newName) }
-    }).get()
+    }
     WriteCommandAction.writeCommandAction(project).run<Throwable> {
         modelUpdate?.updateModel(newName)
         fileUpdates?.doUpdate()

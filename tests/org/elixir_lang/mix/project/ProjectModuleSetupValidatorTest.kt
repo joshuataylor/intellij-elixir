@@ -1,6 +1,5 @@
 package org.elixir_lang.mix.project
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.facet.FacetManager
 import com.intellij.facet.FacetType
@@ -8,6 +7,7 @@ import com.intellij.facet.impl.FacetUtil
 import org.elixir_lang.Facet
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.facet.Type
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.mix.project.ProjectModuleSetupValidator.detectFolderMarkIssues
 
 class ProjectModuleSetupValidatorTest : PlatformTestCase() {
@@ -51,11 +51,9 @@ class ProjectModuleSetupValidatorTest : PlatformTestCase() {
     }
 
     private fun detectFolderMarkIssuesOnBackgroundThread(): List<ProjectModuleSetupValidator.FolderMarkIssue> {
-        return ApplicationManager.getApplication()
-            .executeOnPooledThread<List<ProjectModuleSetupValidator.FolderMarkIssue>> {
-                detectFolderMarkIssues(project)
-            }
-            .get()
+        return onPooledThread<List<ProjectModuleSetupValidator.FolderMarkIssue>> {
+            detectFolderMarkIssues(project)
+        }
     }
 
     // -------------------------------------------------------------------------

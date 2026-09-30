@@ -7,13 +7,13 @@ import com.intellij.find.usages.impl.AllSearchOptions
 import com.intellij.find.usages.impl.buildQuery
 import com.intellij.find.usages.impl.searchTargets
 import com.intellij.model.psi.PsiSymbolReferenceService
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.model.psi.atom.AtomReference
 import org.elixir_lang.model.psi.atom.GeneralAtomReference
 import org.elixir_lang.psi.CallDefinitionClause
@@ -357,7 +357,7 @@ class MfaTupleReferenceTest : PlatformTestCase() {
             textSearch = false
         )
 
-        return ApplicationManager.getApplication().executeOnPooledThread(Callable<List<PsiUsage>> {
+        return onPooledThread<List<PsiUsage>> {
             ReadAction.nonBlocking(Callable<List<PsiUsage>> {
                 val targets = searchTargets(file, offset)
                 assertTrue("Expected at least one search target at offset $offset", targets.isNotEmpty())
@@ -365,6 +365,6 @@ class MfaTupleReferenceTest : PlatformTestCase() {
                     .flatMap { buildQuery(project, it, allOptions).findAll() }
                     .filterIsInstance<PsiUsage>()
             }).executeSynchronously()
-        }).get()
+        }
     }
 }

@@ -5,6 +5,7 @@ import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.testFramework.common.runAll
 import com.intellij.testFramework.registerOrReplaceServiceInstance
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.sdk.SdkFixtures.fakeHome
 import org.elixir_lang.sdk.wsl.MockWslCompatService
 import org.elixir_lang.sdk.wsl.WslCompatService
@@ -14,7 +15,6 @@ import org.elixir_lang.sdk.SdkFixtures
 import org.elixir_lang.sdk.SdkVersionsStore
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData
 import java.io.File
-import java.util.concurrent.Callable
 
 /**
  * Tests for [ElixirSdkValidation.detectOtpMismatch].
@@ -136,9 +136,7 @@ class OtpMismatchTest : PlatformTestCase() {
     // -------------------------------------------------------------------------
 
     private fun detectOnBackgroundThread(elixirSdk: Sdk): Pair<String, String>? =
-        ApplicationManager.getApplication()
-            .executeOnPooledThread(Callable { ElixirSdkValidation.detectOtpMismatch(elixirSdk) })
-            .get()
+        onPooledThread { ElixirSdkValidation.detectOtpMismatch(elixirSdk) }
 
     private fun registerErlangSdk(homePath: String, otpVersion: String?): Sdk {
         val sdk = SdkFixtures.registerAndWaitForFill(

@@ -2,7 +2,6 @@ package org.elixir_lang.console
 
 import com.intellij.execution.filters.FileHyperlinkInfo
 import com.intellij.execution.filters.Filter
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.openapi.progress.ProcessCanceledException
@@ -11,6 +10,7 @@ import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.testFramework.DumbModeTestUtils
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import java.io.File
 import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
@@ -197,14 +197,14 @@ class FileReferenceFilterTest : PlatformTestCase() {
         val indicator = EmptyProgressIndicator().apply { start(); cancel() }
         val filter = FileReferenceFilter(project, FileReferenceFilter.COMPILATION_ERROR_PATH)
 
-        val thrown = ApplicationManager.getApplication().executeOnPooledThread<Throwable?> {
+        val thrown = onPooledThread<Throwable?>(TimeUnit.SECONDS.toMillis(30)) {
             try {
                 ProgressManager.getInstance().runProcess({ filter.applyFilter(line, line.length) }, indicator)
                 null
             } catch (t: Throwable) {
                 t
             }
-        }.get(30, TimeUnit.SECONDS)
+        }
 
         assertInstanceOf(thrown, ProcessCanceledException::class.java)
     }

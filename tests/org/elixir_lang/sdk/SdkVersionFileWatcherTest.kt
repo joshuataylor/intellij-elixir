@@ -1,12 +1,12 @@
 package org.elixir_lang.sdk
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.openapi.vfs.newvfs.events.VFileContentChangeEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileCreateEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileDeleteEvent
 import com.intellij.openapi.vfs.newvfs.events.VFileEvent
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 import java.util.concurrent.TimeUnit
@@ -127,9 +127,7 @@ class SdkVersionFileWatcherTest : PlatformTestCase() {
     private fun watchUnderADisposedParent(home: String): Set<String> {
         val parent = Disposer.newDisposable().also(Disposer::dispose)
 
-        return ApplicationManager.getApplication()
-            .executeOnPooledThread<Set<String>> { SdkVersionFileWatcher.watch(listOf(home), parent) {} }
-            .get(30, TimeUnit.SECONDS)
+        return onPooledThread<Set<String>>(TimeUnit.SECONDS.toMillis(30)) { SdkVersionFileWatcher.watch(listOf(home), parent) {} }
     }
 
     private fun contentChange(path: String): VFileContentChangeEvent =

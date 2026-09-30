@@ -15,6 +15,7 @@ import com.intellij.openapi.roots.ProjectRootManager
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.util.concurrency.annotations.RequiresReadLock
+import org.elixir_lang.junit.onPooledThread
 import java.util.concurrent.Callable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -132,26 +133,13 @@ class ElixirSdkStatusWidgetTest : PlatformTestCase() {
 
     private fun createWidget(): ElixirEditorBasedSdkWidget = ElixirEditorBasedSdkWidget(project, testScope)
 
-    /**
-     * Calls [ElixirEditorBasedSdkWidget.detectModuleSdkIssues] from the EDT-bound test body.
-     *
-     * [detectModuleSdkIssues] asserts it runs off the EDT.  Test methods run on the EDT, so we
-     * dispatch to a pooled background thread via [com.intellij.openapi.application.Application.executeOnPooledThread] and
-     * use the synchronous (blocking, non-suspending) [com.intellij.openapi.application.Application.runReadAction]
-     * to acquire the read lock.  [java.util.concurrent.Future.get] blocks the EDT while waiting;
-     * this is safe because there are no pending write actions at the call site, so the background
-     * thread acquires the read lock immediately without needing the EDT.
-     *
-     * Prefer this over `runBlocking { readAction { } }` on the EDT: the suspend form of
-     * `readAction` internally needs the EDT to pump events for write-action coordination, which
-     * deadlocks when the EDT is already blocked by `runBlocking`.
-     */
+    /** Calls [ElixirEditorBasedSdkWidget.detectModuleSdkIssues], which asserts it runs off the EDT. */
     private fun ElixirEditorBasedSdkWidget.detectModuleSdkIssuesInTest(): List<ModuleSdkIssue> =
-        ApplicationManager.getApplication().executeOnPooledThread<List<ModuleSdkIssue>> {
+        onPooledThread {
             ApplicationManager.getApplication().runReadAction<List<ModuleSdkIssue>> {
                 detectModuleSdkIssues()
             }
-        }.get()
+        }
 
     // -------------------------------------------------------------------------
     // Scenario 1: Project SDK = Java, module SDK = Elixir

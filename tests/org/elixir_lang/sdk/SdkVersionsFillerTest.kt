@@ -7,6 +7,7 @@ import com.intellij.openapi.roots.ModuleRootModificationUtil
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import com.intellij.testFramework.registerOrReplaceServiceInstance
+import org.elixir_lang.junit.onPooledThread
 import kotlinx.coroutines.asContextElement
 import kotlinx.coroutines.withContext
 import org.elixir_lang.PlatformTestCase
@@ -439,9 +440,7 @@ class SdkVersionsFillerTest : PlatformTestCase() {
     fun testABlockingFillReadsAnUnreadHomeOffTheEdt() {
         val home = erlangHome("27", "27.3.4")
 
-        ApplicationManager.getApplication()
-            .executeOnPooledThread { SdkVersionsFiller.fillIfUnreadBlocking(home) }
-            .get()
+        onPooledThread { SdkVersionsFiller.fillIfUnreadBlocking(home) }
 
         assertEquals("27.3.4", store.otpVersion(home))
     }
@@ -451,11 +450,9 @@ class SdkVersionsFillerTest : PlatformTestCase() {
         // across a distro boot. The caller answers from the store instead.
         val home = erlangHome("27", "27.3.4")
 
-        ApplicationManager.getApplication()
-            .executeOnPooledThread {
-                ReadAction.nonBlocking(Callable { SdkVersionsFiller.fillIfUnreadBlocking(home) }).executeSynchronously()
-            }
-            .get()
+        onPooledThread {
+            ReadAction.nonBlocking(Callable { SdkVersionsFiller.fillIfUnreadBlocking(home) }).executeSynchronously()
+        }
 
         assertNull(store.otpVersion(home))
     }
@@ -539,9 +536,7 @@ class SdkVersionsFillerTest : PlatformTestCase() {
     }
 
     private fun fillBlankHomeBlockingOffTheEdt() {
-        ApplicationManager.getApplication()
-            .executeOnPooledThread { SdkVersionsFiller.fillIfUnreadBlocking("") }
-            .get(30, TimeUnit.SECONDS)
+        onPooledThread(TimeUnit.SECONDS.toMillis(30)) { SdkVersionsFiller.fillIfUnreadBlocking("") }
     }
 
     private fun pathsTouchedFilling(homePath: String): List<String> = pathsTouchedBy { fill(homePath) }
@@ -563,9 +558,7 @@ class SdkVersionsFillerTest : PlatformTestCase() {
     }
 
     private fun fillTheNotInstalledWslHomeBlockingOffTheEdt() {
-        ApplicationManager.getApplication()
-            .executeOnPooledThread { SdkVersionsFiller.fillIfUnreadBlocking(NOT_INSTALLED_WSL_HOME) }
-            .get(30, TimeUnit.SECONDS)
+        onPooledThread(TimeUnit.SECONDS.toMillis(30)) { SdkVersionsFiller.fillIfUnreadBlocking(NOT_INSTALLED_WSL_HOME) }
     }
 
     private fun fill(homePath: String, clearWhenUnreadable: Boolean = false): Boolean =
