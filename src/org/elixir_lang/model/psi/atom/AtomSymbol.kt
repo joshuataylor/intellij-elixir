@@ -14,9 +14,8 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.ResolveState
 import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.search.SearchScope
-import com.intellij.refactoring.rename.api.RenameTarget
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.model.psi.ElixirSymbolWithUsages
+import org.elixir_lang.model.psi.ElixirRenameTarget
 import org.elixir_lang.navigation.ElixirClausePresentation
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.call.Call
@@ -33,7 +32,7 @@ class AtomSymbol(
     val arity: Int,
     val macro: Boolean,
     private val displayText: String? = null
-) : ElixirSymbolWithUsages, NavigationTarget, SearchTarget, RenameTarget {
+) : ElixirRenameTarget, NavigationTarget, SearchTarget {
     override val searchText: String get() = name
     override val targetName: String get() = name
 

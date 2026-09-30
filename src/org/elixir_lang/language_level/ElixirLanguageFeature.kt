@@ -305,6 +305,22 @@ enum class ElixirLanguageFeature(
     DIGITS_IN_SIGIL_NAMES(sinceElixir = "1.17.0-rc.0"),
 
     /**
+     * `import M, only: :sigils` brings in `M`'s sigils. Before it the option is invalid.
+     *
+     * `elixir-lang/elixir@480d64042` (#11284), first released in v1.13.0-rc.0.
+     */
+    IMPORT_ONLY_SIGILS(sinceElixir = "1.13.0-rc.0"),
+
+    /**
+     * `import M, only: :sigils` brings in the arity-2 `sigil_` functions and macros whose suffix is a sigil name, as
+     * [MULTI_LETTER_SIGIL_NAMES] and [DIGITS_IN_SIGIL_NAMES] read one. Before it, `sigil_` and one letter of either case
+     * at any arity.
+     *
+     * `elixir-lang/elixir@aef087966` (#12626), first released in v1.15.0-rc.2.
+     */
+    IMPORT_ONLY_SIGILS_READS_SIGIL_NAMES(sinceElixir = "1.15.0-rc.2"),
+
+    /**
      * A map entry may be an expression without `=>`, Elixir's `map_base_expr`.
      *
      * `elixir-lang/elixir@d68c8d6cd`, first released in v1.17.0-rc.0.

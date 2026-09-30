@@ -66,7 +66,9 @@ private constructor(
                     // will fail at runtime to call the delegated function
                     addToResolveResults(element, headName, headValidResult, state)
 
-                    element.keywordArgument("to")?.let { definingModuleName ->
+                    // A target reached through a head that does not fit the call would be kept as invalid, and the
+                    // first result for an element wins, so it would hide the same target reached through one that fits.
+                    element.keywordArgument("to")?.takeIf { headValidResult || incompleteCode }?.let { definingModuleName ->
                         val modulars = definingModuleName.maybeModularNameToModulars(element.containingFile, useCall = null, incompleteCode = incompleteCode)
 
                         if (modulars.isNotEmpty()) {
@@ -82,13 +84,13 @@ private constructor(
                                         is Call -> addToResolveResults(
                                             modularResultResultElement,
                                             nameInDefiningModule,
-                                            modularResultResult.isValidResult,
+                                            headValidResult && modularResultResult.isValidResult,
                                             state
                                         )
                                         is BeamCallDefinition -> addToResolveResults(
                                             modularResultResultElement,
                                             nameInDefiningModule,
-                                            modularResultResult.isValidResult,
+                                            headValidResult && modularResultResult.isValidResult,
                                             state
                                         )
                                         // Anything else is not a definition a delegation can target.

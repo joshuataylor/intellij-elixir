@@ -42,6 +42,8 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             NULLARY_RANGE to ("1.13.4" to "1.14.0-rc.0"),
             MULTI_LETTER_SIGIL_NAMES to ("1.14.5" to "1.15.0-rc.0"),
             DIGITS_IN_SIGIL_NAMES to ("1.16.3" to "1.17.0-rc.0"),
+            IMPORT_ONLY_SIGILS to ("1.12.3" to "1.13.0-rc.0"),
+            IMPORT_ONLY_SIGILS_READS_SIGIL_NAMES to ("1.15.0-rc.1" to "1.15.0-rc.2"),
             MAP_ENTRY_WITHOUT_ASSOCIATION to ("1.16.3" to "1.17.0-rc.0"),
             ESCAPED_NEWLINE_BEFORE_ARITY to ("1.19.5" to "1.20.0-rc.0"),
             HEXADECIMAL_ESCAPE_NEEDS_TWO_DIGITS to ("1.19.5" to "1.20.0-rc.0"),
