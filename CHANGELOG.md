@@ -481,6 +481,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4256](https://github.com/intellij-elixir/intellij-elixir/pull/4256) [@sh41](https://github.com/sh41)
+  - **Calls, variables, bracket access and `do` blocks lower to the typed Elixir AST with each Elixir release's metadata; nothing uses it yet.** Fixes [#4247](https://github.com/intellij-elixir/intellij-elixir/issues/4247).
 - [#4253](https://github.com/intellij-elixir/intellij-elixir/pull/4253) [@sh41](https://github.com/sh41)
   - **Operators lower to the typed Elixir AST with each Elixir release's metadata; nothing uses it yet.** Fixes [#4246](https://github.com/intellij-elixir/intellij-elixir/issues/4246).
 - [#4249](https://github.com/intellij-elixir/intellij-elixir/pull/4249) [@sh41](https://github.com/sh41)

@@ -72,6 +72,10 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             NEWLINES_AFTER_MATCH_OPERATOR to ("1.14.5" to "1.15.0-rc.0"),
             NEWLINES_ON_NOT_IN to ("1.19.0-rc.0" to "1.19.0-rc.1"),
             REARRANGED_UNARY_KEEPS_ITS_METADATA to ("1.19.6" to "1.20.0-rc.0"),
+            CLOSING_ON_BRACKET_ACCESS to ("1.12.0-rc.1" to "1.12.0"),
+            DELIMITER_ON_QUOTED_REMOTE_CALL to ("1.17.3" to "1.18.0-rc.0"),
+            NESTED_PARENTHESES_DROP_INNER_METADATA to ("1.18.4" to "1.19.0-rc.0"),
+            CLOSING_ON_EMPTY_MULTIPLE_ALIASES to ("1.19.0-rc.0" to "1.19.0-rc.1"),
         )
 
         assertEquals(entries.filter { it.sinceElixir != null }.toSet(), boundaries.keys)

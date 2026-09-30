@@ -20,7 +20,8 @@ enum class ElixirLanguageFeature(
     /**
      * A `\` ending a line survives extraction into the buffer: a sigil then keeps the backslash and newline, since
      * sigil parts skip `unescape_tokens`, while a plain string or heredoc unescapes them away and is left with an empty
-     * segment. Before it, `\<newline>` in an interpolating sigil was consumed; `~S` is unaffected.
+     * segment. Before it, `\<newline>` in an interpolating sigil or a quoted remote call name was consumed; `~S` is
+     * unaffected.
      *
      * `elixir-lang/elixir@8c29984ed`, first released in v1.12.0-rc.0.
      */
@@ -152,7 +153,8 @@ enum class ElixirLanguageFeature(
     FROM_BRACKETS_ON_EVERY_BRACKET_FORM(sinceElixir = "1.16.2"),
 
     /**
-     * `...` quotes as the nullary call `{:..., meta, []}` rather than the variable `{:..., meta, nil}`.
+     * `...` quotes as the nullary call `{:..., meta, []}` rather than the variable `{:..., meta, nil}`, and before an
+     * operand as the unary operator `{:..., meta, [operand]}` rather than a call.
      *
      * `elixir-lang/elixir@d68c8d6cd` ("Unify handling of .. and ..."), first released in v1.17.0-rc.0.
      */
@@ -334,9 +336,43 @@ enum class ElixirLanguageFeature(
     LINE_METADATA_ON_BLOCK(sinceElixir = "1.20.0-rc.0"),
 
     /**
+     * With `token_metadata: true`, bracket access's `Access.get/2` call and its `.` carry `closing:`, and `newlines:`
+     * for newlines straight after the `[`.
+     *
+     * `elixir-lang/elixir@480c19cb5` ("Respect keywords in access in code formatter"), first released in v1.12.0.
+     */
+    CLOSING_ON_BRACKET_ACCESS(sinceElixir = "1.12.0"),
+
+    /**
+     * With `token_metadata: true`, a remote call whose name is quoted, `Foo."a b"()`, carries `delimiter:`.
+     *
+     * `elixir-lang/elixir@d0f7c0374` ("Fix delimiter metadata for single quote atoms and remote calls", #13966), first
+     * released in v1.18.0-rc.0.
+     */
+    DELIMITER_ON_QUOTED_REMOTE_CALL(sinceElixir = "1.18.0-rc.0"),
+
+    /**
+     * A call with a second set of parentheses, `foo(1)(2)`, keeps only the first call's `line` and `column` after its
+     * own `newlines:` and `closing:`, where earlier releases appended all of the first call's metadata.
+     *
+     * `elixir-lang/elixir@3ee2ecabf` ("Remove duplicated metadata in nested call AST", #14122), first released in
+     * v1.19.0-rc.0.
+     */
+    NESTED_PARENTHESES_DROP_INNER_METADATA(sinceElixir = "1.19.0-rc.0"),
+
+    /**
+     * With `token_metadata: true`, empty multiple aliases, `A.{}`, carry `closing:` and `newlines:`, as non-empty ones
+     * always have.
+     *
+     * `elixir-lang/elixir@f56139aa2`, a cherry-pick of `elixir-lang/elixir@02968a46f` ("Add closing token metadata to
+     * a.{}"), first released in v1.19.0-rc.1.
+     */
+    CLOSING_ON_EMPTY_MULTIPLE_ALIASES(sinceElixir = "1.19.0-rc.1"),
+
+    /**
      * A `\` + newline next to a spaced `+` or `-` after an identifier counts as space, so `f -\` + newline + `var` is a
-     * subtraction and `f \` + newline + `-var` the call `f(-var)`; before, both read the other way round. Read by the
-     * parser.
+     * subtraction and `f \` + newline + `-var` the call `f(-var)`; before, both read the other way round. Likewise an
+     * operator before `\` + newline + `/` is an identifier, as `...` is in `... \` + newline + `/0`.
      *
      * `elixir-lang/elixir@78fb31201` ("Consistently treat \ followed by newlines as horizontal space"), first released
      * in v1.20.0-rc.0.
