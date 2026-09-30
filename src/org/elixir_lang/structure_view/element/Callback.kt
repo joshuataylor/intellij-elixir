@@ -7,6 +7,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.usageView.UsageViewTypeLocation
+import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.call.Visibility
 import org.elixir_lang.navigation.item_presentation.NameArity
@@ -14,7 +15,7 @@ import org.elixir_lang.navigation.item_presentation.Parent
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.ElixirMatchedWhenOperation
 import org.elixir_lang.psi.call.Call
-import org.elixir_lang.psi.impl.ElixirPsiImplUtil
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.operation.Type
 import org.elixir_lang.structure_view.element.CallDefinitionClause.Companion.enclosingModular
 import org.elixir_lang.structure_view.element.Timed.Time
@@ -42,8 +43,9 @@ class Callback(private val modular: Modular, navigationItem: Call, private val k
                     else -> null
                 }
 
-            fun of(call: Call): Kind? =
-                (call as? AtUnqualifiedNoParenthesesCall<*>)?.let { of(ElixirPsiImplUtil.moduleAttributeName(it)) }
+            fun of(call: Call): Kind? = of(SyntacticCall.of(call))
+
+            fun of(call: SyntacticCall): Kind? = call.moduleAttributeName()?.let { of(it) }
         }
     }
 
@@ -116,8 +118,15 @@ class Callback(private val modular: Modular, navigationItem: Call, private val k
                 .singleOrNull()
                 ?.let { specificationHeadCall(it) }
 
-        @Contract(pure = true)
-        fun `is`(call: Call): Boolean = Kind.of(call) != null
+        @RequiresReadLock
+        fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
+
+        @RequiresReadLock
+        fun `is`(call: SyntacticCall): Boolean {
+            ThreadingAssertions.assertReadAccess()
+
+            return Kind.of(call) != null
+        }
 
         fun fromCall(modular: Modular, call: Call): Callback? =
             Kind.of(call)?.let { kind -> Callback(modular, call, kind) }
@@ -130,6 +139,7 @@ class Callback(private val modular: Modular, navigationItem: Call, private val k
          * names instead of the legacy `PsiReference`-based find-usages, which otherwise contributes a
          * redundant second target.
          */
+        @RequiresReadLock
         @Contract(pure = true)
         fun isHead(element: PsiElement): Boolean {
             val attribute = PsiTreeUtil.getParentOfType(element, AtUnqualifiedNoParenthesesCall::class.java, false)

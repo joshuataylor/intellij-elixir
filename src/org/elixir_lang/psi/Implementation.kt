@@ -9,6 +9,7 @@ import com.intellij.usageView.UsageViewTypeLocation
 import com.intellij.util.Processor
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.keywordValue
@@ -20,10 +21,13 @@ import org.elixir_lang.structure_view.element.modular.Modular
 object Implementation {
     @RequiresReadLock
     @JvmStatic
-    fun `is`(call: Call): Boolean {
-        return call.isCallingMacro(org.elixir_lang.psi.call.name.Module.KERNEL, Function.DEFIMPL, 2) ||
+    fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
+
+    @RequiresReadLock
+    @JvmStatic
+    fun `is`(call: SyntacticCall): Boolean =
+        call.isCallingMacro(org.elixir_lang.psi.call.name.Module.KERNEL, Function.DEFIMPL, 2) ||
                 call.isCallingMacro(org.elixir_lang.psi.call.name.Module.KERNEL, Function.DEFIMPL, 3)
-    }
 
     /**
      * @return `null` if protocol or module for the implementation cannot be derived or if the `for` argument is a

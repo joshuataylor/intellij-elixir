@@ -13,6 +13,7 @@ import org.elixir_lang.beam.psi.Module as BeamModule
 import org.elixir_lang.beam.psi.stubs.ModuleStub
 import org.elixir_lang.beam.psi.stubs.ModuleStubElementTypes
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function
 import org.elixir_lang.psi.stub.index.ImplementedProtocolName
 import org.jetbrains.annotations.Contract
@@ -20,7 +21,11 @@ import org.jetbrains.annotations.Contract
 object Protocol {
     @RequiresReadLock
     @JvmStatic
-    fun `is`(call: Call): Boolean =
+    fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
+
+    @RequiresReadLock
+    @JvmStatic
+    fun `is`(call: SyntacticCall): Boolean =
         call.isCallingMacro(org.elixir_lang.psi.call.name.Module.KERNEL, Function.DEFPROTOCOL, 2)
 
     fun `is`(moduleImpl: BeamModule): Boolean =

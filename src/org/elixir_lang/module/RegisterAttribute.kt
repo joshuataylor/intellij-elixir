@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.ElixirAtom
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.stripAccessExpression
 
@@ -12,7 +13,10 @@ object RegisterAttribute {
             element is Call && `is`(element)
 
     @JvmStatic
-    fun `is`(call: Call): Boolean =
+    fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
+
+    @JvmStatic
+    fun `is`(call: SyntacticCall): Boolean =
             call.functionName()?.let { functionName ->
                 functionName == "register_attribute" &&
                         call.resolvedFinalArity() == 3 &&

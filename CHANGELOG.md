@@ -478,6 +478,8 @@
 
 - [#4244](https://github.com/intellij-elixir/intellij-elixir/pull/4244) [@sh41](https://github.com/sh41)
   - **Resolution records how it reached each definition a call could mean; nothing uses it yet.** Fixes [#4233](https://github.com/intellij-elixir/intellij-elixir/issues/4233).
+- [#4242](https://github.com/intellij-elixir/intellij-elixir/pull/4242) [@sh41](https://github.com/sh41)
+  - **Building a file's stubs sees each call through a view that offers only questions the call's own text answers.** Refs [#4235](https://github.com/intellij-elixir/intellij-elixir/issues/4235).
 - [#4228](https://github.com/intellij-elixir/intellij-elixir/pull/4228) [@sh41](https://github.com/sh41)
   - **Source and compiled definitions share one model of whether a definition is a function, a macro or a guard, and whether it is public.** Refs [#4216](https://github.com/intellij-elixir/intellij-elixir/issues/4216).
 - [#4222](https://github.com/intellij-elixir/intellij-elixir/pull/4222) [@sh41](https://github.com/sh41)
