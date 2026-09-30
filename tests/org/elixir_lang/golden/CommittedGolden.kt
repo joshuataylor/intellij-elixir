@@ -20,21 +20,48 @@ object CommittedGolden {
                 "$path differs. Review each moved line, then regenerate with $regenerate"
             }
         } catch (error: FileComparisonFailedError) {
-            System.getProperty(STEP_SUMMARY_PROPERTY)?.takeIf(String::isNotBlank)?.let { stepSummary ->
-                runCatching {
-                    val text =
-                        summary(path, error.expectedStringPresentation, error.actualStringPresentation, regenerate)
-                    // One write, as forks append concurrently.
-                    FileOutputStream(stepSummary, true).use { it.write(text.toByteArray()) }
-                }.exceptionOrNull()?.let(error::addSuppressed)
-            }
+            appendToStepSummary(
+                "`$path` differs",
+                path,
+                error.expectedStringPresentation,
+                path,
+                error.actualStringPresentation,
+                regenerate
+            )?.let(error::addSuppressed)
 
             throw error
         }
     }
 
+    /**
+     * Appends the diff from [expected], labelled [expectedPath], to [actual], labelled [path], to the step summary if
+     * the run has one. Returns why it could not be written, for the caller to attach to its own failure.
+     */
+    fun appendToStepSummary(
+        heading: String,
+        expectedPath: String,
+        expected: String,
+        path: String,
+        actual: String,
+        regenerate: String,
+    ): Throwable? =
+        System.getProperty(STEP_SUMMARY_PROPERTY)?.takeIf(String::isNotBlank)?.let { stepSummary ->
+            runCatching {
+                val text = summary(heading, expectedPath, expected, path, actual, regenerate)
+                // One write, as forks append concurrently.
+                FileOutputStream(stepSummary, true).use { it.write(text.toByteArray()) }
+            }.exceptionOrNull()
+        }
+
     /** Hunks carry no context lines: each golden line identifies itself, so the cap is spent on moved lines. */
-    private fun summary(path: String, expected: String, actual: String, regenerate: String): String {
+    private fun summary(
+        heading: String,
+        expectedPath: String,
+        expected: String,
+        path: String,
+        actual: String,
+        regenerate: String,
+    ): String {
         val before = Diff.splitLines(expected)
         val after = Diff.splitLines(actual)
         val changes = Diff.buildChanges(before, after)?.toList().orEmpty()
@@ -47,10 +74,10 @@ object CommittedGolden {
         }
 
         return buildString {
-            append("### `$path` differs\n\n")
+            append("### $heading\n\n")
             append("${removed + added} lines moved: $removed removed, $added added. ")
             append("Review each moved line, then regenerate with `$regenerate`.\n\n")
-            append("```diff\n--- a/$path\n+++ b/$path\n")
+            append("```diff\n--- a/$expectedPath\n+++ b/$path\n")
             hunks.take(MAX_DIFF_LINES).forEach { append(it).append('\n') }
             append("```\n")
             if (hunks.size > MAX_DIFF_LINES) {

@@ -503,6 +503,8 @@
 
 ### Build / CI
 
+- [#4238](https://github.com/intellij-elixir/intellij-elixir/pull/4238) [@sh41](https://github.com/sh41)
+  - **Each test leg fails when its Elixir documents a `Kernel` or `Kernel.SpecialForms` macro that version's committed list lacks, or drops one it has, until the list is regenerated with `-PoverwriteTestData=true`.** Fixes [#4212](https://github.com/intellij-elixir/intellij-elixir/issues/4212).
 - [#4229](https://github.com/intellij-elixir/intellij-elixir/pull/4229) [@sh41](https://github.com/sh41)
   - **When a committed golden such as the resolution snapshot differs on CI, the job summary shows the diff and how many lines moved.** Fixes [#4215](https://github.com/intellij-elixir/intellij-elixir/issues/4215).
 - [#4220](https://github.com/intellij-elixir/intellij-elixir/pull/4220) [@sh41](https://github.com/sh41)
