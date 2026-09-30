@@ -104,7 +104,7 @@ private fun Lowering.expressions(parent: PsiElement): List<ElixirAst> {
         val lowered = lower(child.psi)
         val endOfExpression =
             if (index < children.lastIndex || isAvailable(END_OF_EXPRESSION_ON_LAST_EXPRESSION)) {
-                endOfExpression(child.textRange.endOffset)
+                endOfExpression(contentEnd(child))
             } else {
                 null
             }
