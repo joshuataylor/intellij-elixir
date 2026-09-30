@@ -1,40 +1,18 @@
 package org.elixir_lang.lowering
 
-import com.ericsson.otp.erlang.OtpErlangAtom
-import com.ericsson.otp.erlang.OtpErlangList
-import com.ericsson.otp.erlang.OtpErlangTuple
 import com.intellij.openapi.application.ReadAction
-import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiElement
+import com.intellij.psi.impl.source.tree.PsiErrorElementImpl
+import com.intellij.psi.util.PsiTreeUtil
+import org.elixir_lang.junit.logs.expectErrors
 import org.elixir_lang.language_level.ElixirLanguageLevel
-import org.elixir_lang.parser_definition.ParsingTestCase
+import org.elixir_lang.psi.ElixirEndOfExpression
 import org.elixir_lang.psi.ElixirFile
+import org.elixir_lang.psi.ElixirInterpolation
 import org.elixir_lang.psi.impl.ElixirMatchedQualifiedMultipleAliasesImpl
 import org.elixir_lang.psi.impl.ElixirMultipleAliasesImpl
-import com.intellij.psi.impl.source.tree.PsiErrorElementImpl
 
-class LoweringTest : ParsingTestCase() {
-    fun testAFileWithNoLoweringIsAPlaceholderSpanningIt() {
-        val file = createPsiFile("placeholder", "a\n😀b") as ElixirFile
-
-        val placeholder = lower(file) as ElixirAst.Placeholder
-
-        assertEquals(file.javaClass, (placeholder.reason as ElixirAst.Placeholder.Reason.Unlowered).shape)
-        assertEquals(TextRange(0, 5), placeholder.meta.origin)
-        assertPosition(1, 1, placeholder.meta.start)
-        // the emoji is two UTF-16 chars but one code point
-        assertPosition(2, 3, placeholder.meta.end)
-        assertEquals(
-            OtpErlangTuple(arrayOf(OtpErlangAtom("__cursor__"), OtpErlangList(), OtpErlangList())),
-            placeholder.toOtp()
-        )
-    }
-
-    fun testAnEndAfterANewlineIsTheStartOfTheNextLine() {
-        val file = createPsiFile("trailing_newline", "a\n") as ElixirFile
-
-        assertPosition(2, 1, lower(file).meta.end)
-    }
-
+class LoweringTest : LoweringTestCase() {
     fun testAShapeNoRowNamesIsUnknownNotNoNode() =
         assertEquals(Lowering.Bucket.UNKNOWN, Lowering.classifier.classify(PsiErrorElementImpl::class.java))
 
@@ -44,9 +22,23 @@ class LoweringTest : ParsingTestCase() {
             .map { Lowering.classifier.classify(it) }
     )
 
-    private fun lower(file: ElixirFile): ElixirAst =
-        ReadAction.computeBlocking<ElixirAst, Throwable> { Lowering.lower(file, ElixirLanguageLevel.FALLBACK) }
+    fun testAShapeItsParentReadsFailsOnItsOwn() =
+        assertFailsOnItsOwn("\"#{1}\"", ElixirInterpolation::class.java)
 
-    private fun assertPosition(line: Int, column: Int, position: Meta.Position) =
-        assertEquals("$line:$column", "${position.line}:${position.column}")
+    fun testAShapeWithNoNodeFailsOnItsOwn() = assertFailsOnItsOwn("1\n2", ElixirEndOfExpression::class.java)
+
+    private fun <T : PsiElement> assertFailsOnItsOwn(code: String, shape: Class<T>) {
+        val file = createPsiFile(getTestName(false), code) as ElixirFile
+        val element = PsiTreeUtil.findChildOfType(file, shape)!!
+
+        val errors = expectErrors(Lowering::class.java, Regex(".*${shape.simpleName}.*")) {
+            val lowered = ReadAction.computeBlocking<ElixirAst, Throwable> {
+                Lowering.of(file, ElixirLanguageLevel.FALLBACK).lower(element)
+            }
+
+            assertInstanceOf((lowered as ElixirAst.Placeholder).reason, ElixirAst.Placeholder.Reason.Unlowered::class.java)
+        }
+
+        assertEquals(1, errors.size)
+    }
 }

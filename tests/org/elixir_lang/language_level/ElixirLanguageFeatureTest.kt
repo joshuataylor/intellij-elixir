@@ -59,6 +59,9 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             NUMBER_ERROR_QUOTES_THE_CHARACTER to ("1.13.4" to "1.14.0-rc.0"),
             HEREDOC_OPENING_ERROR_SAYS_OPENING to ("1.15.0-rc.1" to "1.15.0-rc.2"),
             MIXED_SCRIPT_GUIDANCE_REQUIRES_UNDERSCORES to ("1.17.3" to "1.18.0-rc.0"),
+            HEREDOC_INDENTATION_IN_COLUMNS to ("1.11.4" to "1.12.0-rc.0"),
+            CLUSTER_COLUMNS_IN_QUOTED_TEXT to ("1.12.3" to "1.13.0-rc.0"),
+            ESCAPED_INTERPOLATION_COLUMNS to ("1.14.3" to "1.14.4"),
         )
 
         assertEquals(entries.filter { it.sinceElixir != null }.toSet(), boundaries.keys)

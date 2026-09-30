@@ -199,6 +199,40 @@ enum class ElixirLanguageFeature(
     ASSOC_ON_MAP_KEY(sinceElixir = "1.18.0-rc.0"),
 
     /**
+     * A column inside a heredoc's body counts its indentation, where 1.11 counted from the end of the indentation it
+     * had already removed.
+     *
+     * `elixir-lang/elixir@51d90f193` ("Allow heredoc inside heredoc interpolation"), first released in v1.12.0-rc.0.
+     */
+    HEREDOC_INDENTATION_IN_COLUMNS(sinceElixir = "1.12.0-rc.0"),
+
+    /**
+     * Inside quoted text - a string, charlist, heredoc, sigil, quoted atom or quoted keyword key - a column counts
+     * extended grapheme clusters, not code points; an escape is its `\` and one cluster, except an escaped terminator,
+     * or in interpolating text an escaped `#{`, which is one column per character. Everywhere else a column counts code
+     * points on every release.
+     *
+     * `elixir-lang/elixir@f429a27e2` ("Fix nfd cluster columns", #11231) and `elixir-lang/elixir@8f96b9a11`, first
+     * released in v1.13.0-rc.0.
+     */
+    CLUSTER_COLUMNS_IN_QUOTED_TEXT(sinceElixir = "1.13.0-rc.0"),
+
+
+
+    /**
+     * An escaped interpolation, `\#{`, advances the column by its three characters, where earlier releases advanced it
+     * by one.
+     *
+     * `elixir-lang/elixir@f026cb375`, a backport of `elixir-lang/elixir@2d65a4613`, first released in v1.14.4.
+     */
+    ESCAPED_INTERPOLATION_COLUMNS(sinceElixir = "1.14.4"),
+
+
+
+
+
+
+    /**
      * A character literal that is a newline, `?` + newline or `?\` + newline, advances the line of what follows, where
      * earlier releases counted only columns.
      *
