@@ -697,14 +697,29 @@ tasks.withType<KotlinJvmCompile>().configureEach {
     }
 }
 
-// JUnit 5 for the `test` source set only. `testUI` extends `testImplementation` and `testRuntimeOnly`, and takes its
-// JUnit version from ide-starter, so a pinned version there would override that.
+// The JUnit 5 API that `test` compiles against. At run time the platform's test framework supplies JUnit, Vintage
+// engine and launcher included, through a runtime-scoped `tests-bootstrap` that the compile classpath doesn't carry.
+// `testUI` extends `testImplementation` and takes its JUnit version from ide-starter, so this stays out of it.
 val junit5: Configuration = configurations.create("junit5") {
     isCanBeConsumed = false
     isCanBeResolved = false
 }
 configurations.testCompileClasspath { extendsFrom(junit5) }
-configurations.testRuntimeClasspath { extendsFrom(junit5) }
+
+// The platform's test framework alone, resolved only to read the JUnit version it runs `test` with.
+val platformTestFramework: Configuration = configurations.create("platformTestFramework") {
+    isCanBeConsumed = false
+    attributes { attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage.JAVA_RUNTIME)) }
+}
+
+// The versionless `junit5` bom takes this version, so `test` compiles against the JUnit it runs on.
+val platformJunitVersion: Provider<String> = provider {
+    val bom = libs.junit5.bom.get().module
+    platformTestFramework.incoming.resolutionResult.allComponents
+        .mapNotNull { it.moduleVersion }
+        .single { it.group == bom.group && it.name == bom.name }
+        .version
+}
 
 // --- Mockito Agent Configuration (Root project only) ---
 val mockitoAgent: Configuration = configurations.create("mockitoAgent")
@@ -723,6 +738,7 @@ dependencies {
         // to register the XML PSI services a multi-root (HEEx + HTML) ParsingTestCase requires. Not
         // part of the IDE distribution's own jars, unlike the rest of the XML platform modules.
         testFramework(TestFrameworkType.Plugin.XML)
+        testFramework(TestFrameworkType.Platform, configurationName = platformTestFramework.name)
         // UI Test framework dependencies
         testFramework(TestFrameworkType.Starter, configurationName = "testUIImplementation")
         testFramework(TestFrameworkType.JUnit5, configurationName = "testUIImplementation")
@@ -750,10 +766,9 @@ dependencies {
     testUIRuntimeOnly("org.junit.platform:junit-platform-launcher")
 
     junit5(platform(libs.junit5.bom))
+    constraints.addProvider("junit5", platformJunitVersion.map { "${libs.junit5.bom.get().module}:$it" })
+    // `org.elixir_lang.junit.logs` drives nested launches and holds Jupiter samples.
     junit5("org.junit.platform:junit-platform-launcher")
-    // Runs the JUnit 3 and 4 tests on the JUnit Platform.
-    junit5("org.junit.vintage:junit-vintage-engine")
-    // For Jupiter tests, which `org.elixir_lang.junit.logs` already covers.
     junit5("org.junit.jupiter:junit-jupiter")
 
 }

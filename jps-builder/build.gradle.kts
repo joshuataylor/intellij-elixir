@@ -85,7 +85,4 @@ dependencies {
     }
     implementation(project(":jps-shared"))
     testImplementation(libs.junit)
-    testRuntimeOnly(platform(libs.junit5.bom))
-    testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
