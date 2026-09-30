@@ -606,6 +606,19 @@ each verifying the plugin zip that was built once. Adding a product is one entry
 values are `intellij-repository` artifact ids (`ideaIU`, `rubymine`, `pycharmPC`, `webstorm`, ...),
 not marketing names.
 
+A leg runs the standalone Gradle build in `.github/verify`, so it configures nothing of the plugin
+build. To reproduce one locally against a built zip, with the product code from `PRODUCT_CODES` in
+`.github/scripts/ide-releases.js`:
+
+```sh
+./gradlew -p .github/verify verifyPlugin -Parchive="$PWD/build/distributions/<zip>" \
+  -PideCode=RM -PideVersion=2026.1.5 \
+  "-PfailureLevels=COMPATIBILITY_PROBLEMS INVALID_PLUGIN NON_EXTENDABLE_API_USAGES OVERRIDE_ONLY_API_USAGES" \
+  -PexternalPrefixes=org.jetbrains.jps
+```
+
+Its reports land in `.github/verify/build/reports/pluginVerifier`.
+
 ### From IntelliJ IDEA
 #### Running the plugin in a specific IDE
 1. Open the Gradle Tool Window (`View > Tool Windows > Gradle` OR from the Gradle button on the right tool button bar)

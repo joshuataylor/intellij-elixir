@@ -124,7 +124,6 @@ function main() {
   // `=== 'success'`, not `!== 'failure'`: a skipped or cancelled verify wrote no reports to demand.
   const verified = process.env.VERIFY_OUTCOME === 'success';
 
-  // The action sed's this out of the verifier's console log, so it can be empty or container-absolute.
   // No fallback to searching the workspace on purpose: one that finds nothing would pass the leg having
   // checked nothing.
   const root = process.env.REPORTS_DIR;
@@ -132,14 +131,14 @@ function main() {
     const where = root ? `"${root}", which is not a directory here` : 'nothing';
     if (verified) {
       fail(
-        `the verifier action reported its reports directory as ${where}, so no internal API usage could be ` +
-          'checked. Verification succeeded, so those reports exist and this gate is broken - passing the leg ' +
-          'would mean nothing. Upload Verify Reports is uploading nothing either; both read the same output.',
+        `the verifier's reports directory is ${where}, so no internal API usage could be checked. ` +
+          'Verification succeeded, so those reports exist and this gate is broken - passing the leg would ' +
+          'mean nothing. Upload Verify Reports reads the same directory, so it is uploading nothing either.',
         'Internal API usages not checked'
       );
     }
     warn(
-      `the verifier action reported its reports directory as ${where}, so no internal API usage was checked. ` +
+      `the verifier's reports directory is ${where}, so no internal API usage was checked. ` +
         'Verification did not succeed, so the reports may legitimately be absent.',
       'Internal API usages not checked'
     );
