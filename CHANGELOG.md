@@ -545,6 +545,8 @@
 
 ### Build / CI
 
+- [#4275](https://github.com/intellij-elixir/intellij-elixir/pull/4275) [@sh41](https://github.com/sh41)
+  - **A parser test checks that each spelling of a name, such as `:a`, `:"a"`, `:'a'` or `Elixir.Foo`, quotes as Elixir quotes it on every supported Elixir.** Fixes [#4272](https://github.com/intellij-elixir/intellij-elixir/issues/4272).
 - [#4268](https://github.com/intellij-elixir/intellij-elixir/pull/4268) [@sh41](https://github.com/sh41)
   - **Each test leg checks that the committed record of what its Elixir's compiler resolves every reference in the resolution snapshot's fixtures to, what each module defines and which fixtures fail to compile is unchanged; `-PoverwriteTestData=true` regenerates it.** Fixes [#4223](https://github.com/intellij-elixir/intellij-elixir/issues/4223).
 - [#4266](https://github.com/intellij-elixir/intellij-elixir/pull/4266) [@sh41](https://github.com/sh41)
