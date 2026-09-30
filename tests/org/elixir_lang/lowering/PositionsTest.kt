@@ -1,9 +1,10 @@
 package org.elixir_lang.lowering
 
 /**
- * Elixir's line and column for a node: code points outside quoted text, grapheme clusters inside it from 1.13, and
- * newlines older tokenizers did not count. Each expected term is `Code.string_to_quoted(code, columns: true,
- * token_metadata: true)` on that version's Elixir.
+ * Elixir's line and column for a node: code points outside quoted text, grapheme clusters as the running OTP segments
+ * them inside it from 1.13, and newlines older tokenizers did not count. Each expected term is
+ * `Code.string_to_quoted(code, columns: true, token_metadata: true)` on that version's Elixir, and on the OTP after its
+ * `/`.
  */
 class PositionsTest : LoweringTestCase() {
     fun testATabIsOneColumn() =
@@ -35,6 +36,50 @@ class PositionsTest : LoweringTestCase() {
         "[\"👨\u200d👩\u200d👧\", {1, 2, 3}]",
         "1.12.3" to "[\"👨\u200d👩\u200d👧\", {:{}, [closing: [line: 1, column: 19], line: 1, column: 11], [1, 2, 3]}]",
         "1.13.4" to "[\"👨\u200d👩\u200d👧\", {:{}, [closing: [line: 1, column: 15], line: 1, column: 7], [1, 2, 3]}]",
+    )
+
+    fun testAJoinerThenAMarkAfterAnEmojiIsTwoColumns() = assertLowers(
+        "[\"😀\u200d\u0300\", {1, 2, 3}]",
+        "1.15.8/24.3.4.6" to "[\"😀\u200d\u0300\", {:{}, [closing: [line: 1, column: 16], line: 1, column: 8], [1, 2, 3]}]",
+        "1.20.4/29.0.6" to "[\"😀\u200d\u0300\", {:{}, [closing: [line: 1, column: 16], line: 1, column: 8], [1, 2, 3]}]",
+    )
+
+    fun testAMarkFromUnicode14JoinsItsBaseFromOtp25() = assertLowers(
+        "[\"a\u0898\", {1, 2, 3}]",
+        "1.15.8/24.3.4.6" to "[\"a\u0898\", {:{}, [closing: [line: 1, column: 16], line: 1, column: 8], [1, 2, 3]}]",
+        "1.15.8/25.3.2.21" to "[\"a\u0898\", {:{}, [closing: [line: 1, column: 15], line: 1, column: 7], [1, 2, 3]}]",
+    )
+
+    fun testAMarkFromUnicode15JoinsItsBaseFromOtp26() = assertLowers(
+        "[\"a\u0CF3\", {1, 2, 3}]",
+        "1.15.8/25.3.2.21" to "[\"a\u0CF3\", {:{}, [closing: [line: 1, column: 16], line: 1, column: 8], [1, 2, 3]}]",
+        "1.15.8/26.2.5.21" to "[\"a\u0CF3\", {:{}, [closing: [line: 1, column: 15], line: 1, column: 7], [1, 2, 3]}]",
+        "1.18.4/27.3.4" to "[\"a\u0CF3\", {:{}, [closing: [line: 1, column: 15], line: 1, column: 7], [1, 2, 3]}]",
+    )
+
+    fun testAConjunctIsOneColumnFromOtp28() = assertLowers(
+        "[\"\u0915\u094D\u0937\", {1, 2, 3}]",
+        "1.18.4/27.3.4" to "[\"\u0915\u094D\u0937\", {:{}, [closing: [line: 1, column: 16], line: 1, column: 8], [1, 2, 3]}]",
+        "1.18.4/28.4" to "[\"\u0915\u094D\u0937\", {:{}, [closing: [line: 1, column: 15], line: 1, column: 7], [1, 2, 3]}]",
+    )
+
+    fun testAWordOfConjunctsIsOneColumnPerConjunctFromOtp28() = assertLowers(
+        "[\"স্পর্শমণি\", {1, 2, 3}]",
+        "1.18.4/27.3.4" to "[\"স্পর্শমণি\", {:{}, [closing: [line: 1, column: 20], line: 1, column: 12], [1, 2, 3]}]",
+        "1.18.4/28.4" to "[\"স্পর্শমণি\", {:{}, [closing: [line: 1, column: 18], line: 1, column: 10], [1, 2, 3]}]",
+    )
+
+    fun testAConjunctWithAnIndependentVowelIsOneColumnFromOtp29() = assertLowers(
+        "[\"\u0915\u094D\u0904\", {1, 2, 3}]",
+        "1.20.4/28.4" to "[\"\u0915\u094D\u0904\", {:{}, [closing: [line: 1, column: 16], line: 1, column: 8], [1, 2, 3]}]",
+        "1.20.4/29.0.6" to "[\"\u0915\u094D\u0904\", {:{}, [closing: [line: 1, column: 15], line: 1, column: 7], [1, 2, 3]}]",
+        "1.20.4" to "[\"\u0915\u094D\u0904\", {:{}, [closing: [line: 1, column: 15], line: 1, column: 7], [1, 2, 3]}]",
+    )
+
+    fun testASymbolThatStopsBeingPictographicOnOtp29BreaksAnEmojiSequence() = assertLowers(
+        "[\"\u2388\u200d😀\", {1, 2, 3}]",
+        "1.20.4/28.4" to "[\"\u2388\u200d😀\", {:{}, [closing: [line: 1, column: 15], line: 1, column: 7], [1, 2, 3]}]",
+        "1.20.4/29.0.6" to "[\"\u2388\u200d😀\", {:{}, [closing: [line: 1, column: 16], line: 1, column: 8], [1, 2, 3]}]",
     )
 
     fun testAnEscapedCharacterIsOneClusterAfterItsBackslash() = assertLowers(

@@ -8,12 +8,14 @@ import org.elixir_lang.psi.ElixirFile
 
 /**
  * Tabs, non-ASCII letters and astral characters, whose columns Elixir counts per code point outside quoted text and
- * per grapheme cluster inside it from 1.13, lowered whole so the snippet differential compares them on every leg.
+ * per grapheme cluster, as the running OTP segments them, inside it from 1.13, lowered whole so the snippet differential
+ * compares them on every leg.
  */
 class ColumnParsingTestCase : ParsingTestCase() {
     fun testTab() = assertLoweredAndQuotedCorrectly()
     fun testNonAscii() = assertLoweredAndQuotedCorrectly()
     fun testAstral() = assertLoweredAndQuotedCorrectly()
+    fun testGraphemes() = assertLoweredAndQuotedCorrectly()
 
     private fun assertLoweredAndQuotedCorrectly() {
         assertParsedAndQuotedCorrectly(false)

@@ -1,18 +1,19 @@
 package org.elixir_lang.lowering
 
 import com.intellij.openapi.util.TextRange
-import java.text.BreakIterator
+import org.elixir_lang.unicode_util.Graphemes
 
 /**
  * Offsets into a file's text as [Meta.Position]s, counted as one Elixir release's tokenizer counts them.
  *
  * @param uncountedNewlines offsets of newlines the tokenizer consumed without starting a line, which advance the
  *   column like any other character
- * @param quotedTexts quoted text whose columns count extended grapheme clusters rather than code points
+ * @param quotedTexts quoted text whose columns count [graphemes]' clusters rather than code points
  * @param zeroWidthRanges ranges the tokenizer did not advance the column over
  */
 internal class Lines(
     private val text: CharSequence,
+    private val graphemes: Graphemes,
     uncountedNewlines: Collection<Int> = emptyList(),
     quotedTexts: List<QuotedText> = emptyList(),
     zeroWidthRanges: List<TextRange> = emptyList(),
@@ -102,20 +103,8 @@ internal class Lines(
      * escape its `\` and then the one cluster that follows, whatever it holds.
      */
     private fun clusters(start: Int, end: Int, quoted: QuotedText, counted: (offset: Int, width: Int) -> Unit): Int {
-        val iterator = BreakIterator.getCharacterInstance()
-        var iteratorStart = -1
         var width = 0
         var offset = start
-
-        // Elixir takes each cluster from where the last one ended, so segmentation starts again after an escape.
-        fun clusterEnd(from: Int): Int {
-            if (iteratorStart < 0) {
-                iterator.setText(text.subSequence(from, end).toString())
-                iteratorStart = from
-            }
-
-            return iteratorStart + iterator.following(from - iteratorStart)
-        }
 
         while (offset < end) {
             counted(offset, width)
@@ -123,19 +112,17 @@ internal class Lines(
 
             if (text[offset] == '\\' && escaped < end) {
                 val fixed = fixedEscapeWidth(escaped, quoted)
-                iteratorStart = -1
 
                 if (fixed != null) {
                     width += fixed
                     offset += fixed
                 } else {
                     width += 2
-                    offset = clusterEnd(escaped)
-                    iteratorStart = -1
+                    offset = graphemes.clusterEnd(text, escaped, end)
                 }
             } else {
                 width++
-                offset = clusterEnd(offset)
+                offset = graphemes.clusterEnd(text, offset, end)
             }
         }
 
