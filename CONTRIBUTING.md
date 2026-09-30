@@ -306,6 +306,9 @@ For example, to launch the latest RubyMine EAP:
 ./gradlew runRubyMineEAP -PuseDynamicEapVersion=true
 ```
 
+The version is the newest EAP or RC build, the same rule CI applies to `LATEST-EAP-SNAPSHOT`. Between
+release cycles, when no pre-release is newer than the latest release, the build fails and says so.
+
 #### Testing
 
 ##### Test tasks

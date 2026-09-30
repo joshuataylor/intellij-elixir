@@ -1,81 +1,53 @@
 package versioning
 
+import java.io.IOException
 import java.net.URI
-import javax.xml.parsers.DocumentBuilderFactory
 
 /**
- * Version Fetcher Logic
- * Purpose: Isolates the complex logic required to fetch the latest IntelliJ EAP/RC build number.
- * Moved from the main build.gradle.kts to improve readability and separation of concerns.
+ * Resolves `useDynamicEapVersion` to the build of the newest active EAP or RC.
+ * Same rule as `.github/scripts/ide-releases.js`, which resolves CI's `LATEST-EAP-SNAPSHOT`.
  */
 object VersionFetcher {
-    // get platformType from gradle properties or default to "IU"
-    fun getLatestEapBuild(platformType: String = "IU"): String {
-        // Note that the order below is incorrect, as EAPs should be preferred over RCs, and RCs over Releases.
-        val apiUris = listOf(
-            URI("https://data.services.jetbrains.com/products/releases?code=$platformType&type=eap&latest=true&fields=build"),
-            URI("https://data.services.jetbrains.com/products/releases?code=$platformType&type=rc&latest=true&fields=build"),
-            URI("https://data.services.jetbrains.com/products/releases?code=$platformType&type=release&latest=true&fields=build")
-        )
+    private val buildField = """"build"\s*:\s*"([0-9.]+)"""".toRegex()
 
-        for (uri in apiUris) {
-            val json = runCatching {
-                uri.toURL().openStream().bufferedReader().use { it.readText() }
-            }.getOrNull()
-
-            if (json != null) {
-                val regex = """"build"\s*:\s*"([0-9.]+)"""".toRegex()
-                val match = regex.find(json)
-                if (match != null) {
-                    val selectedVersion = match.groupValues[1]
-                    println("Version: $selectedVersion found at $uri")
-                    return selectedVersion
-                }
-            }
+    /**
+     * The newer of the latest EAP and latest RC, only while it is above the latest release. The API keeps
+     * answering "latest EAP/RC" with the previous cycle's build after it ships, so neither a fixed type
+     * order nor the dates can tell whether a pre-release is active.
+     */
+    fun getLatestEapBuild(
+        platformType: String = "IU",
+        latest: (code: String, type: String) -> String? = ::fetchLatest,
+    ): String {
+        val (eap, rc, release) = listOf("eap", "rc", "release").map { latest(platformType, it) }
+        val candidate = listOfNotNull(eap, rc).maxWithOrNull(::compareBuilds)
+        if (candidate == null || (release != null && compareBuilds(candidate, release) <= 0)) {
+            throw IllegalStateException(
+                "No active EAP or RC for $platformType above release ${release ?: "<none>"}; " +
+                    "set useDynamicEapVersion=false"
+            )
         }
-
-        // Fallback logic
-        return fetchSnapshotVersion()
+        println("Version: $candidate is the latest $platformType pre-release")
+        return candidate
     }
 
-    private fun fetchSnapshotVersion(): String {
-        val snapshotsUri = URI("https://cache-redirector.jetbrains.com/www.jetbrains.com/intellij-repository/snapshots/com/jetbrains/intellij/idea/ideaIU/maven-metadata.xml")
-
-        val versions = kotlin.runCatching {
-            val doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(snapshotsUri.toURL().openStream())
-            doc.documentElement.normalize()
-            val versioning = doc.getElementsByTagName("versioning").item(0)
-            val versionsNode = versioning?.childNodes
-            buildList {
-                if (versionsNode != null) {
-                    for (i in 0 until versionsNode.length) {
-                        val n = versionsNode.item(i)
-                        if (n.nodeName == "versions") {
-                            val children = n.childNodes
-                            for (j in 0 until children.length) {
-                                val v = children.item(j)
-                                if (v.nodeName == "version") add(v.textContent)
-                            }
-                        }
-                    }
-                }
-            }
-        }.getOrNull().orEmpty()
-
-        // Look for versions like 253.17525.95-EAP-SNAPSHOT and convert to 253.17525.95
-        val numericEap = versions.asSequence()
-            .mapNotNull { v ->
-                val m = Regex("""^(\d+\.\d+\.\d+)-EAP-SNAPSHOT$""").matchEntire(v)
-                m?.groupValues?.get(1)
-            }
-            .lastOrNull()
-
-        if (numericEap != null) {
-            println("Fallback Version: $numericEap found at $snapshotsUri")
-            return numericEap
+    fun compareBuilds(a: String, b: String): Int {
+        val x = a.split('.').map(String::toInt)
+        val y = b.split('.').map(String::toInt)
+        for (i in 0 until maxOf(x.size, y.size)) {
+            val d = x.getOrElse(i) { 0 }.compareTo(y.getOrElse(i) { 0 })
+            if (d != 0) return d
         }
+        return 0
+    }
 
-        // Return result or throw exception
-        throw IllegalStateException("No numeric EAP build found")
+    private fun fetchLatest(code: String, type: String): String? {
+        val uri = URI("https://data.services.jetbrains.com/products/releases?code=$code&type=$type&latest=true&fields=build")
+        val json = try {
+            uri.toURL().openStream().bufferedReader().use { it.readText() }
+        } catch (e: IOException) {
+            throw IllegalStateException("Could not read $uri", e)
+        }
+        return buildField.find(json)?.groupValues?.get(1)
     }
 }
