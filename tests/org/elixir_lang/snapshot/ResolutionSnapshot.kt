@@ -32,13 +32,35 @@ import org.elixir_lang.psi.stub.type.call.Stub
  */
 @Suppress("UnstableApiUsage")
 class ResolutionSnapshot(private val root: VirtualFile) {
-    private data class Row(val path: String, val offset: Int, val line: String)
+    sealed interface Row {
+        val path: String
+        val offset: Int
+        val line: String
+    }
 
-    fun lines(files: Iterable<PsiFile>): List<String> =
+    data class Inventory(override val path: String, override val offset: Int, override val line: String) : Row
+
+    /**
+     * A reference's line and what it was built from. [file] is the view-provider root the reference was found in,
+     * [symbols] is empty for a `psi` reference, and [label] is the line's `system  class  \`text\`` part.
+     */
+    data class Reference(
+        override val path: String,
+        override val offset: Int,
+        override val line: String,
+        val file: PsiFile,
+        val range: TextRange,
+        val label: String,
+        val resolves: Boolean,
+        val symbols: List<Symbol>,
+    ) : Row
+
+    fun lines(files: Iterable<PsiFile>): List<String> = rows(files).map(Row::line)
+
+    fun rows(files: Iterable<PsiFile>): List<Row> =
         files
             .flatMap { file -> file.viewProvider.allFiles.flatMap(::rows) }
             .sortedWith(compareBy(Row::path, Row::offset, Row::line))
-            .map(Row::line)
 
     private fun rows(file: PsiFile): List<Row> {
         val rows = mutableListOf<Row>()
@@ -48,12 +70,13 @@ class ResolutionSnapshot(private val root: VirtualFile) {
                 super.visitElement(element)
 
                 for (reference in PsiReferenceService.getService().getReferences(element, NO_HINTS)) {
-                    rows += row(file, "psi", reference, reference.absoluteRange, targets(reference))
+                    rows += row(file, "psi", reference, reference.absoluteRange, targets(reference), emptyList())
                 }
 
                 for (reference in PsiSymbolReferenceService.getService().getReferences(element)) {
-                    val targets = reference.resolveReference().map(::describe).sorted()
-                    rows += row(file, "symbol", reference, reference.absoluteRange, targets)
+                    val symbols = reference.resolveReference().toList()
+                    val targets = symbols.map(::describe).sorted()
+                    rows += row(file, "symbol", reference, reference.absoluteRange, targets, symbols)
                 }
 
                 if (element is Call && Stub.isModular(element)) {
@@ -65,24 +88,32 @@ class ResolutionSnapshot(private val root: VirtualFile) {
         return rows
     }
 
-    private fun row(file: PsiFile, system: String, reference: Any, range: TextRange, targets: List<String>): Row {
-        val text = oneLine(range.subSequence(file.viewProvider.contents).toString())
+    private fun row(
+        file: PsiFile,
+        system: String,
+        reference: Any,
+        range: TextRange,
+        targets: List<String>,
+        symbols: List<Symbol>,
+    ): Reference {
+        val label = "$system  ${reference.javaClass.simpleName}  `${text(file, range)}`"
         val resolved = targets.joinToString(" | ").ifEmpty { "nothing" }
+        val line = "${location(file, range)}  $label  ->  $resolved"
 
-        return row(file, range, "$system  ${reference.javaClass.simpleName}  `$text`  ->  $resolved")
+        return Reference(path(file), range.startOffset, line, file, range, label, targets.isNotEmpty(), symbols)
     }
 
-    private fun inventory(file: PsiFile, modular: Call): List<Row> {
+    private fun inventory(file: PsiFile, modular: Call): List<Inventory> {
         val module = (modular as? CanonicallyNamed)?.canonicalNameSet().orEmpty().sorted().joinToString(", ")
             .ifEmpty { "?" }
         val definitions = Modular.callDefinitionClauseCallSequence(modular).map { clause ->
             val description = CallDefinitionClause.declaration(clause, ResolveState.initial())?.let(::describe)
                 ?: "(no declaration)  `${firstLine(clause)}`"
 
-            row(file, clause.textRange, "definition  $module  $description")
+            inventory(file, clause.textRange, "definition  $module  $description")
         }
 
-        return listOf(row(file, modular.textRange, "module  $module")) + definitions
+        return listOf(inventory(file, modular.textRange, "module  $module")) + definitions
     }
 
     private fun describe(declaration: Declaration): String {
@@ -103,8 +134,8 @@ class ResolutionSnapshot(private val root: VirtualFile) {
             "${capabilities.visibility.name.lowercase()} ${capabilities.presentation.name.lowercase()} $time"
     }
 
-    private fun row(file: PsiFile, range: TextRange, description: String): Row =
-        Row(path(file), range.startOffset, "${location(file, range)}  $description")
+    private fun inventory(file: PsiFile, range: TextRange, description: String): Inventory =
+        Inventory(path(file), range.startOffset, "${location(file, range)}  $description")
 
     private fun targets(reference: PsiReference): List<String> =
         if (reference is PsiPolyVariantReference) {
@@ -122,16 +153,16 @@ class ResolutionSnapshot(private val root: VirtualFile) {
         return "$path:${position(file, element.textRange.startOffset)} `${firstLine(element)}`"
     }
 
-    private fun describe(symbol: Symbol): String =
+    fun describe(symbol: Symbol): String =
         when (symbol) {
             is ElixirSymbolWithUsages -> "${location(symbol.file, symbol.range)} $symbol"
             is GenServerHandlerTarget -> "${location(symbol.file, symbol.range)} $symbol"
             else -> symbol.toString()
         }
 
-    private fun location(file: PsiFile, range: TextRange): String = "${path(file)}:${position(file, range.startOffset)}"
+    fun location(file: PsiFile, range: TextRange): String = "${path(file)}:${position(file, range.startOffset)}"
 
-    private fun path(file: PsiFile): String {
+    fun path(file: PsiFile): String {
         val virtualFile = file.viewProvider.virtualFile
 
         return VfsUtilCore.getRelativePath(virtualFile, root)
@@ -144,6 +175,9 @@ class ResolutionSnapshot(private val root: VirtualFile) {
 
         return "${line + 1}:${offset - document.getLineStartOffset(line) + 1}"
     }
+
+    fun text(file: PsiFile, range: TextRange): String =
+        oneLine(range.subSequence(file.viewProvider.contents).toString())
 
     private fun firstLine(element: PsiElement): String = oneLine(element.text.lineSequence().first().trim())
 

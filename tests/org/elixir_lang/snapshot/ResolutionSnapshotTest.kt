@@ -1,42 +1,19 @@
 package org.elixir_lang.snapshot
 
-import com.intellij.openapi.vfs.VfsUtilCore
-import com.intellij.psi.PsiFile
-import com.intellij.psi.PsiManager
-import org.elixir_lang.PlatformTestCase
-import org.elixir_lang.golden.CommittedGolden
-
 /**
  * Fails when any reference in an input directory resolves differently, or any module in it defines something
  * different, from that directory's committed snapshot.
  */
-class ResolutionSnapshotTest : PlatformTestCase() {
+class ResolutionSnapshotTest : SnapshotTestCase() {
     fun testCallableDeclaration() =
         assertSnapshot("psi/callable_declaration", "snapshot/callable_declaration.resolution.txt")
 
     fun testInputs() = assertSnapshot("snapshot/inputs", "snapshot/inputs.resolution.txt")
 
     private fun assertSnapshot(inputDirectory: String, golden: String) {
-        val root = myFixture.copyDirectoryToProject(inputDirectory, "")
-        val psiManager = PsiManager.getInstance(project)
-        val files = mutableListOf<PsiFile>()
-        VfsUtilCore.iterateChildrenRecursively(root, null) { virtualFile ->
-            if (!virtualFile.isDirectory) files += psiManager.findFile(virtualFile)!!
-            true
-        }
-
-        val lines = ResolutionSnapshot(root).lines(files)
-        val hashed = lines.filter { IDENTITY_HASH.containsMatchIn(it) }
-        assertTrue(
-            "Lines carry identity hashes, which differ between runs:\n${hashed.joinToString("\n")}",
-            hashed.isEmpty()
-        )
-
-        val text = (HEADER + lines).joinToString("\n", postfix = "\n")
-        CommittedGolden.assertMatches("$testDataPath/$golden", text, REGENERATE)
+        val (root, files) = copyInputs(inputDirectory)
+        assertGolden(golden, HEADER, ResolutionSnapshot(root).lines(files), REGENERATE)
     }
-
-    override fun getTestDataPath(): String = "testData/org/elixir_lang"
 
     companion object {
         private const val REGENERATE =
@@ -50,6 +27,5 @@ class ResolutionSnapshotTest : PlatformTestCase() {
                 "(no declaration)  `first line`.",
             "# Review each moved line in a diff.",
         )
-        private val IDENTITY_HASH = Regex("""[\w$]@[0-9a-f]+(?![\w.])""")
     }
 }
