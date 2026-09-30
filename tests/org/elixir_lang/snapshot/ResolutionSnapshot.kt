@@ -13,12 +13,22 @@ import com.intellij.psi.PsiRecursiveElementWalkingVisitor
 import com.intellij.psi.PsiReference
 import com.intellij.psi.PsiReferenceService
 import com.intellij.psi.PsiReferenceService.Hints.NO_HINTS
+import com.intellij.psi.ResolveState
+import org.elixir_lang.declaration.ArityKnowledge
+import org.elixir_lang.declaration.Declaration
+import org.elixir_lang.declaration.Declared
 import org.elixir_lang.model.psi.ElixirSymbolWithUsages
 import org.elixir_lang.model.psi.generic_server.GenServerHandlerTarget
+import org.elixir_lang.psi.CallDefinitionClause
+import org.elixir_lang.psi.Modular
+import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.CanonicallyNamed
+import org.elixir_lang.psi.stub.type.call.Stub
 
 /**
  * What the references in a set of files resolve to, one line per reference, from both of the plugin's reference
- * systems: `psi` for [PsiReference]s and `symbol` for [com.intellij.model.psi.PsiSymbolReference]s.
+ * systems: `psi` for [PsiReference]s and `symbol` for [com.intellij.model.psi.PsiSymbolReference]s. Each module
+ * gets a `module` line and a `definition` line per clause that the resolver sees in it.
  */
 @Suppress("UnstableApiUsage")
 class ResolutionSnapshot(private val root: VirtualFile) {
@@ -45,6 +55,10 @@ class ResolutionSnapshot(private val root: VirtualFile) {
                     val targets = reference.resolveReference().map(::describe).sorted()
                     rows += row(file, "symbol", reference, reference.absoluteRange, targets)
                 }
+
+                if (element is Call && Stub.isModular(element)) {
+                    rows += inventory(file, element)
+                }
             }
         })
 
@@ -52,13 +66,45 @@ class ResolutionSnapshot(private val root: VirtualFile) {
     }
 
     private fun row(file: PsiFile, system: String, reference: Any, range: TextRange, targets: List<String>): Row {
-        val path = path(file)
         val text = oneLine(range.subSequence(file.viewProvider.contents).toString())
         val resolved = targets.joinToString(" | ").ifEmpty { "nothing" }
-        val line = "${location(file, range)}  $system  ${reference.javaClass.simpleName}  `$text`  ->  $resolved"
 
-        return Row(path, range.startOffset, line)
+        return row(file, range, "$system  ${reference.javaClass.simpleName}  `$text`  ->  $resolved")
     }
+
+    private fun inventory(file: PsiFile, modular: Call): List<Row> {
+        val module = (modular as? CanonicallyNamed)?.canonicalNameSet().orEmpty().sorted().joinToString(", ")
+            .ifEmpty { "?" }
+        val definitions = Modular.callDefinitionClauseCallSequence(modular).map { clause ->
+            val description = CallDefinitionClause.declaration(clause, ResolveState.initial())?.let(::describe)
+                ?: "(no declaration)  `${firstLine(clause)}`"
+
+            row(file, clause.textRange, "definition  $module  $description")
+        }
+
+        return listOf(row(file, modular.textRange, "module  $module")) + definitions
+    }
+
+    private fun describe(declaration: Declaration): String {
+        val arity = when (val arity = declaration.arity) {
+            is ArityKnowledge.Exact -> "${arity.arity}"
+            is ArityKnowledge.Range -> "${arity.minimum}..${arity.maximum}"
+            is ArityKnowledge.Open -> "${arity.minimum}.."
+            ArityKnowledge.Unknown -> "?"
+        }
+        val form = when (val declared = declaration.declared) {
+            is Declared.Source -> declared.form.name.lowercase()
+            is Declared.Compiled -> "compiled"
+        }
+        val capabilities = declaration.capabilities
+        val time = if (capabilities.compileTime) "compile-time" else "runtime"
+
+        return "${declaration.name}/$arity  $form  " +
+            "${capabilities.visibility.name.lowercase()} ${capabilities.presentation.name.lowercase()} $time"
+    }
+
+    private fun row(file: PsiFile, range: TextRange, description: String): Row =
+        Row(path(file), range.startOffset, "${location(file, range)}  $description")
 
     private fun targets(reference: PsiReference): List<String> =
         if (reference is PsiPolyVariantReference) {
@@ -72,9 +118,8 @@ class ResolutionSnapshot(private val root: VirtualFile) {
     private fun describe(element: PsiElement?): String {
         val file = element?.containingFile ?: return element.toString()
         val path = path(file)
-        val firstLine = oneLine(element.text.lineSequence().first().trim())
 
-        return "$path:${position(file, element.textRange.startOffset)} `$firstLine`"
+        return "$path:${position(file, element.textRange.startOffset)} `${firstLine(element)}`"
     }
 
     private fun describe(symbol: Symbol): String =
@@ -99,6 +144,8 @@ class ResolutionSnapshot(private val root: VirtualFile) {
 
         return "${line + 1}:${offset - document.getLineStartOffset(line) + 1}"
     }
+
+    private fun firstLine(element: PsiElement): String = oneLine(element.text.lineSequence().first().trim())
 
     private fun oneLine(text: String): String {
         val escaped = text.replace("\n", "\\n")
