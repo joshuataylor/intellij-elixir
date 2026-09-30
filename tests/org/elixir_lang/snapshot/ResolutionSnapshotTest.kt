@@ -4,6 +4,7 @@ import com.intellij.openapi.vfs.VfsUtilCore
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.golden.CommittedGolden
 
 /**
  * Fails when any reference in an input directory resolves differently from that directory's committed snapshot.
@@ -31,9 +32,7 @@ class ResolutionSnapshotTest : PlatformTestCase() {
         )
 
         val text = (HEADER + lines).joinToString("\n", postfix = "\n")
-        assertSameLinesWithFile("$testDataPath/$golden", text, false) {
-            "The resolution snapshot differs. Review each moved line, then regenerate with $REGENERATE"
-        }
+        CommittedGolden.assertMatches("$testDataPath/$golden", text, REGENERATE)
     }
 
     override fun getTestDataPath(): String = "testData/org/elixir_lang"

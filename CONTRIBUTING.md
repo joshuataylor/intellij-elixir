@@ -355,6 +355,9 @@ its output instead when run with `-PoverwriteTestData=true`; review the diff bef
 ./gradlew test --tests "<class>" -PoverwriteTestData=true
 ```
 
+A new committed golden compares through `org.elixir_lang.golden.CommittedGolden.assertMatches`, which on CI also
+writes its diff to the job summary.
+
 `test` builds and starts the Elixir quoter daemon, because the parser tests
 (`org.elixir_lang.parser_definition.*`) quote source through it and compare the result against the
 plugin's own quoting. Gradle stops the daemon at the end of the build. On a warm cache this costs
