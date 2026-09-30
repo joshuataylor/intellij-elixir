@@ -112,6 +112,7 @@
 - [#4242](https://github.com/intellij-elixir/intellij-elixir/pull/4242) [@sh41](https://github.com/sh41)
   - **A module written as `Kernel.defmodule Foo do ... end` is recognised as a module in a file that is not open.**
   - **Indexing a file with `defimpl __MODULE__.P, for: X` no longer reports an internal error.**
+  - **Indexing a file with `defimpl(P, for: [X, Y]) do ... end`, or with `defimpl(P) do ... end` outside a module, no longer reports an internal error.**
   - **A `defimpl` without `for:` is named after the module around it, as `P.Outer`.**
   - **A `defimpl` inside a module is found under the name Elixir gives it, `P.X` rather than `Outer.P.X`.**
   - **`defmodule __MODULE__.Named` inside `Outer` is found as `Outer.Named`.**

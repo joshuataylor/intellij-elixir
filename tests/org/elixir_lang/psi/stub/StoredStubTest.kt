@@ -17,6 +17,11 @@ class StoredStubTest : PlatformTestCase() {
         "IMPLEMENTATION ? Kernel.defimpl/3 do [P.X, P.Y] P",
     )
 
+    fun testDefimplWithParenthesesAndForList() = assertStored(
+        "defimpl(P, for: [X, Y]) do\nend\n",
+        "IMPLEMENTATION ? Kernel.defimpl/3 do [P.X, P.Y] P",
+    )
+
     fun testDefimplWithForInAModule() = assertStored(
         "defmodule Outer do\n  defimpl P, for: X do\n  end\nend\n",
         "MODULE Outer Kernel.defmodule/2 do [Outer] -",
@@ -38,6 +43,11 @@ class StoredStubTest : PlatformTestCase() {
 
     fun testDefimplWithoutForAtTopLevel() = assertStored(
         "defimpl P do\nend\n",
+        "IMPLEMENTATION ? Kernel.defimpl/2 do [P.?] P",
+    )
+
+    fun testDefimplWithParenthesesAndWithoutForAtTopLevel() = assertStored(
+        "defimpl(P) do\nend\n",
         "IMPLEMENTATION ? Kernel.defimpl/2 do [P.?] P",
     )
 

@@ -1,5 +1,6 @@
 package org.elixir_lang.psi.stub.type;
 
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.stubs.StubElement;
 import com.intellij.psi.stubs.StubInputStream;
 import org.elixir_lang.psi.ElixirUnmatchedUnqualifiedParenthesesCall;
@@ -41,7 +42,7 @@ public class UnmatchedUnqualifiedParenthesesCall extends Stub<org.elixir_lang.ps
                 call.functionName(),
                 call.resolvedFinalArity(),
                 call.hasDoBlockOrKeyword(),
-                call.name(),
+                StringUtil.notNullize(call.name(), "?"),
                 call.canonicalNameSet(),
                 call.implementedProtocolName()
         );
