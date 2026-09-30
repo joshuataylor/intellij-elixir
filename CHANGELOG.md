@@ -110,8 +110,8 @@
 ### Bug Fixes
 
 - [#4276](https://github.com/intellij-elixir/intellij-elixir/pull/4276) [@sh41](https://github.com/sh41)
-  - **Go to Declaration on `@for` in a `defimpl` goes to the module it is for, and completion offers `@for`
-    and `@protocol` there.** Refs
+  - **Go to Declaration on `@for` in a `defimpl` goes to the module it is for, completion offers `@for` and
+    `@protocol` there, and the "Elixir module attributes" folding shows attribute values again.** Refs
     [#4259](https://github.com/intellij-elixir/intellij-elixir/issues/4259).
 - [#4273](https://github.com/intellij-elixir/intellij-elixir/pull/4273) [@sh41](https://github.com/sh41)
   - **A module named with an atom, such as `defmodule :"a.b"` or one nested inside another module, is now found from

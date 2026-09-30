@@ -61,5 +61,17 @@ class ImplementationAttributeReference(
                 }
                 ?.takeIf { Implementation.`is`(it) }
         }
+
+        /** What [usage] names, as text, when it is `@for` or `@protocol` in [implementation]. */
+        @RequiresReadLock
+        fun valueText(usage: Call, implementation: Call): String? {
+            ThreadingAssertions.assertReadAccess()
+
+            return when (usage.functionName()) {
+                FOR -> Implementation.forText(implementation)
+                PROTOCOL -> Implementation.protocolName(implementation)
+                else -> null
+            }
+        }
     }
 }
