@@ -51,7 +51,11 @@ internal fun inspect(term: OtpErlangObject): String =
 
 private val ASCII_PRINTABLE_CONTROLS = setOf('\n', '\r', '\t', '\u000B', '\b', '\u000C', '\u001B', '\u007F', '\u0007')
 private val IDENTIFIER = Regex("[\\p{Ll}_][\\p{L}\\p{N}_@]*[?!]?")
-private val OPERATORS = setOf("{}", "<<>>", "%{}", "%", ".", "..", "=", "|", "<>", "&", "@", "+", "-", "*", "/", "!")
+private val OPERATORS = setOf(
+    "{}", "<<>>", "%{}", "%", ".", "..", "..//", "...", "=", "|", "<>", "&", "@", "+", "-", "*", "/", "!", "^", "**",
+    "||", "|||", "&&", "&&&", "==", "!=", "=~", "===", "!==", "<", ">", "<=", ">=", "|>", "<<<", ">>>", "<<~", "~>>",
+    "<~", "~>", "<~>", "<-", "\\\\", "++", "--", "+++", "---", "->",
+)
 
 private fun atom(name: String): String =
     when {

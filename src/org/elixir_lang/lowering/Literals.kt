@@ -576,7 +576,7 @@ private fun Lowering.mapUpdate(mapUpdate: ElixirMapUpdateArguments): ElixirAst {
     val children = mapUpdate.children
     val pipe = children.getOrNull(1) as? Operator ?: return unlowered(mapUpdate)
     val pipeToken = pipe.operatorTokenNode()
-    val newlines = newlines(pipeToken.textRange.endOffset) ?: newlines(children[0].textRange.endOffset)
+    val newlines = operatorNewlines(children[0].node, pipeToken)
 
     return ElixirAst.Call(
         meta(mapUpdate, newlines, location(pipeToken)),

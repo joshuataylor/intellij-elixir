@@ -4,7 +4,10 @@ import com.intellij.lang.ASTNode
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiComment
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiWhiteSpace
+import com.intellij.psi.impl.source.tree.TreeUtil
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.language_level.ElixirLanguageFeature
@@ -132,6 +135,37 @@ class Lowering private constructor(
         endOfExpression(offset)
             ?.takeIf { it.isNewline && it.newlines > 0 }
             ?.let { tokenMetadata("newlines", it.newlines) }
+
+    /**
+     * Where [node]'s last token that is neither whitespace nor a comment ends, which can be before [node] does: an empty
+     * element, as a sigil without modifiers ends with, takes in the whitespace and comments before it.
+     */
+    internal fun contentEnd(node: ASTNode): Int =
+        generateSequence(TreeUtil.findLastLeaf(node)) { TreeUtil.prevLeaf(it) }
+            .takeWhile { it.startOffset >= node.startOffset }
+            .firstOrNull { leaf ->
+                leaf.textLength > 0 && leaf.psi.let { it !is PsiWhiteSpace && it !is PsiComment }
+            }
+            ?.textRange
+            ?.endOffset
+            ?: node.startOffset
+
+    /**
+     * `newlines:` for a binary operator from [operator] to [operatorEnd] after [operand]: the parser replaces the
+     * tokenizer's count of the newlines before the operator with the count of those after it.
+     */
+    internal fun operatorNewlines(
+        operand: ASTNode,
+        operator: ASTNode,
+        operatorEnd: Int = operator.textRange.endOffset,
+        afterCounts: Boolean = true,
+    ): Meta.Key? {
+        val after = endOfExpression(operatorEnd)?.takeIf { afterCounts && it.isNewline }
+        val before = endOfExpression(contentEnd(operand))?.takeIf { it.isNewline && it.offset < operator.startOffset }
+        val count = (after ?: before)?.newlines ?: 0
+
+        return if (count > 0) tokenMetadata("newlines", count) else null
+    }
 
     internal fun tokenMetadata(name: String, text: String): Meta.Key =
         Meta.Key.Entry(name, Meta.Value.Binary(text), tokenMetadata = true)
