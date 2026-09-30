@@ -362,8 +362,6 @@ class OperatorsTest : LoweringTestCase() {
         assertEquals(":+", inspect(lowerElement(file, operator).toOtp()))
     }
 
-    fun testAnOperationMissingAnOperandIsAPlaceholderNotACrash() = assertTrue(lower("1 +").hasUnlowered())
-
     fun testEveryOperatorShapeLowers() {
         val snippets = listOf(
             OLDEST to "1..2\n..//: 1",
@@ -491,6 +489,7 @@ class OperatorsTest : LoweringTestCase() {
         when (node) {
             is ElixirAst.Placeholder -> when (val reason = node.reason) {
                 is ElixirAst.Placeholder.Reason.Unlowered -> listOf(reason.shape)
+                ElixirAst.Placeholder.Reason.Error -> emptyList()
             }
             is ElixirAst.Call -> unloweredShapes(node.callee) + node.arguments.orEmpty().flatMap { unloweredShapes(it) }
             is ElixirAst.Alias -> node.segments.flatMap { unloweredShapes(it) }

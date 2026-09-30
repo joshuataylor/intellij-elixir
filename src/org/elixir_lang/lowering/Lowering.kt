@@ -60,7 +60,10 @@ class Lowering private constructor(
         /** Contributes no node: an end of expression, EEx tags. */
         NOT_ALONE,
 
-        /** No row names it: an error element, whitespace, a comment, a bare token. */
+        /** An error element, where the parser recovered from broken code. */
+        ERROR,
+
+        /** No row names it: whitespace, a comment, a bare token. */
         UNKNOWN,
     }
 
@@ -102,6 +105,7 @@ class Lowering private constructor(
                 logger<Lowering>().error("${element.javaClass.simpleName} reached on its own: its parent's family lowers it")
                 unlowered(element)
             }
+            Bucket.ERROR -> broken(element)
             Bucket.UNKNOWN -> unlowered(element)
         }
     }
@@ -109,6 +113,10 @@ class Lowering private constructor(
     /** A placeholder for [element], which [shape] leaves without a lowering. */
     internal fun unlowered(element: PsiElement, shape: PsiElement = element): ElixirAst =
         ElixirAst.Placeholder(meta(element, location(element)), ElixirAst.Placeholder.Reason.Unlowered(shape.javaClass))
+
+    /** [element] as broken code: an error element, or a shape Elixir's parser rejects. */
+    internal fun broken(element: PsiElement): ElixirAst =
+        ElixirAst.Placeholder(meta(element, location(element)), ElixirAst.Placeholder.Reason.Error)
 
     internal fun isAvailable(feature: ElixirLanguageFeature): Boolean = feature.isSufficient(languageLevel)
 

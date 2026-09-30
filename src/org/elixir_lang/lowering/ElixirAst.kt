@@ -53,6 +53,9 @@ sealed class ElixirAst {
         sealed class Reason {
             /** No lowering exists yet for [shape]. */
             class Unlowered(val shape: Class<out PsiElement>) : Reason()
+
+            /** Broken code: an error element the parser recovered from, or a shape Elixir's parser rejects. */
+            object Error : Reason()
         }
     }
 

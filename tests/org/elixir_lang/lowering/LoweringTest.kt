@@ -2,6 +2,7 @@ package org.elixir_lang.lowering
 
 import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.PsiElement
+import com.intellij.psi.impl.source.tree.LeafPsiElement
 import com.intellij.psi.impl.source.tree.PsiErrorElementImpl
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.junit.logs.expectErrors
@@ -16,8 +17,11 @@ import org.elixir_lang.psi.impl.ElixirStabBodyImpl
 import org.elixir_lang.psi.impl.ElixirStabImpl
 
 class LoweringTest : LoweringTestCase() {
+    fun testAnErrorElementIsAnError() =
+        assertEquals(Lowering.Bucket.ERROR, Lowering.classifier.classify(PsiErrorElementImpl::class.java))
+
     fun testAShapeNoRowNamesIsUnknownNotNoNode() =
-        assertEquals(Lowering.Bucket.UNKNOWN, Lowering.classifier.classify(PsiErrorElementImpl::class.java))
+        assertEquals(Lowering.Bucket.UNKNOWN, Lowering.classifier.classify(LeafPsiElement::class.java))
 
     fun testQualifiedMultipleAliasesAndTheirAliasListAreCalls() = assertEquals(
         listOf(Lowering.Bucket.CALL, Lowering.Bucket.CALL),
@@ -35,7 +39,16 @@ class LoweringTest : LoweringTestCase() {
 
     fun testAnAttributeIsLeftUnlowered() = assertUnloweredIn("@a 1", Lowering.Bucket.ATTRIBUTE)
 
-    fun testAShapeNoRowNamesIsUnlowered() = assertUnloweredIn("1)", Lowering.Bucket.UNKNOWN)
+    fun testAShapeNoRowNamesIsUnlowered() {
+        val file = createPsiFile(getTestName(false), "1") as ElixirFile
+        val leaf = PsiTreeUtil.getDeepestFirst(file)
+
+        val lowered = ReadAction.computeBlocking<ElixirAst, Throwable> {
+            Lowering.of(file, ElixirLanguageLevel.FALLBACK).lower(leaf)
+        }
+
+        assertEquals(leaf.javaClass, ((lowered as ElixirAst.Placeholder).reason as ElixirAst.Placeholder.Reason.Unlowered).shape)
+    }
 
     fun testALiteralLowers() = assertLowers("1", "1")
 

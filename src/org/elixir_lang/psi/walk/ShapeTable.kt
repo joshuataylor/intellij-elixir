@@ -1,5 +1,6 @@
 package org.elixir_lang.psi.walk
 
+import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiFile
 import org.elixir_lang.annotator.ParameterWalk
 import org.elixir_lang.lowering.Lowering
@@ -809,6 +810,9 @@ object ShapeTable {
         leaf(ElixirBlockIdentifier::class.java, Lowering.Bucket.CALL),
         leaf(ElixirEmptyParentheses::class.java, Lowering.Bucket.LITERAL),
         leaf(ElixirEndOfExpression::class.java, Lowering.Bucket.NOT_ALONE),
+
+        // where the parser recovered from broken code
+        Row(PsiErrorElement::class.java, lowering = Lowering.Bucket.ERROR),
 
         // the file
         Row(
