@@ -130,6 +130,44 @@ class PatternTest : PlatformTestCase() {
         )
     }
 
+    fun testMatchMustReachTheEndOfTheName() {
+        assertEquals(
+            setOf("defmodule :x_target do\nend"),
+            resolve(
+                """
+                defmodule :x_target do
+                end
+
+                defmodule :x_target_extra do
+                end
+
+                defmodule User do
+                  def f, do: :"#{:x}_target"
+                end
+                """
+            )
+        )
+    }
+
+    fun testMatchMustStartAtTheStartOfTheName() {
+        assertEquals(
+            setOf("defmodule :a_c do\nend"),
+            resolve(
+                """
+                defmodule :a_c do
+                end
+
+                defmodule :"b:a_c" do
+                end
+
+                defmodule User do
+                  def f(x), do: :"a_#{x}"
+                end
+                """
+            )
+        )
+    }
+
     private fun resolve(source: String): Set<String> {
         myFixture.configureByText("pattern.ex", source.trimIndent())
         val atom = PsiTreeUtil

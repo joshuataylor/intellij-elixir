@@ -13,7 +13,7 @@ import java.util.regex.Pattern
 
 class Pattern(private val predicate: Predicate<String>) : Resolvable() {
     constructor(regex: String) : this(Pattern.compile(":$regex")) {}
-    constructor(pattern: Pattern) : this(pattern.asPredicate()) {}
+    constructor(pattern: Pattern) : this(pattern.asMatchPredicate()) {}
 
     override fun resolve(element: ElixirAtom): Array<ResolveResult> {
         val project = element.project
