@@ -63,9 +63,13 @@ async function main() {
   // names at roughly 24 characters, and `/` is illegal in an artifact name (hence `+` between Elixir and
   // OTP) though legal in a job name. It carries the declared version, not the build, so a pointer's
   // check keeps its name from one build to the next.
+  // `continue-on-error` on either axis makes the leg informational; shared-test.yml reads only the leg's.
   const leg = async (os, idea, beam, label) => {
     const build = await buildFor('IU', idea.version);
-    return build && { os, 'idea-version': build, 'java-version': idea.java, beam, label };
+    const continueOnError = Boolean(idea['continue-on-error'] || beam['continue-on-error']);
+    return (
+      build && { os, 'idea-version': build, 'java-version': idea.java, beam, label, 'continue-on-error': continueOnError }
+    );
   };
 
   const legs = (
@@ -129,7 +133,7 @@ async function main() {
           entry['java-version'],
           entry.beam.elixir,
           entry.beam.otp,
-          entry.beam['continue-on-error'] || false,
+          entry['continue-on-error'],
           '',
         ].join(' | ').trim(),
       ),

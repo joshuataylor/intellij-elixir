@@ -178,7 +178,7 @@ jobs:
 
       - name: Setup Build Environment
         id: setup-env
-        continue-on-error: ${{ matrix.beam.continue-on-error || false }}
+        continue-on-error: ${{ matrix.continue-on-error || false }}
         uses: ./.github/actions/setup-env
         with:
           elixir-version: ${{ matrix.beam.elixir }}
@@ -232,17 +232,17 @@ jobs:
       #   Run tests       - check (test + :jps-builder:test); owns the quoter daemon start/stop.
       - name: Compile
         id: compile
-        continue-on-error: ${{ matrix.beam.continue-on-error || false }}
+        continue-on-error: ${{ matrix.continue-on-error || false }}
         run: ./gradlew $GRADLE_FLAGS testClasses
 
       - name: Prepare test sandbox
         id: prepare-sandbox
-        continue-on-error: ${{ matrix.beam.continue-on-error || false }}
+        continue-on-error: ${{ matrix.continue-on-error || false }}
         run: ./gradlew $GRADLE_FLAGS prepareTestSandbox
 
       - name: Build quoter
         id: build-quoter
-        continue-on-error: ${{ matrix.beam.continue-on-error || false }}
+        continue-on-error: ${{ matrix.continue-on-error || false }}
         run: ./gradlew $GRADLE_FLAGS releaseQuoter
 
       # Saved here because the cached paths do not exist until releaseQuoter has run. `path` must stay
@@ -274,7 +274,7 @@ jobs:
 
       - name: Download corpus
         id: download-corpus
-        continue-on-error: ${{ matrix.beam.continue-on-error || false }}
+        continue-on-error: ${{ matrix.continue-on-error || false }}
         run: ./gradlew $GRADLE_FLAGS elixirParsingCorpus
 
       - name: Save corpus cache
@@ -294,7 +294,7 @@ jobs:
       - name: Run tests
         id: test
         timeout-minutes: 30
-        continue-on-error: ${{ matrix.beam.continue-on-error || false }}
+        continue-on-error: ${{ matrix.continue-on-error || false }}
         run: ./gradlew $GRADLE_FLAGS -Dtestlogger.theme=standard check
 
       # Without this the reporting cannot tell a leg that never compiled from one that passed: it
@@ -319,7 +319,7 @@ jobs:
           IDEA: ${{ matrix.idea-version }}
           ELIXIR: ${{ matrix.beam.elixir }}
           OTP: ${{ matrix.beam.otp }}
-          INFORMATIONAL: ${{ matrix.beam.continue-on-error || false }}
+          INFORMATIONAL: ${{ matrix.continue-on-error || false }}
         run: node .github/scripts/record-leg-status.js
 
       - name: Upload Leg Status
@@ -343,7 +343,7 @@ jobs:
       - name: Flag informational leg failure
         id: flag-informational-failure
         if: >-
-          ${{ always() && (matrix.beam.continue-on-error || false)
+          ${{ always() && (matrix.continue-on-error || false)
               && steps.leg-status.outputs.failed-at != '' }}
         env:
           PHASE: ${{ steps.leg-status.outputs.failed-at }}
@@ -359,7 +359,7 @@ jobs:
             echo "\`$leg\` failed at **$PHASE** but does not block the merge."
             echo
             echo "It stays informational until it goes green; at that point remove"
-            echo '`continue-on-error` from its `beam.additional` entry in `.github/ci-versions.json`'
+            echo '`continue-on-error` from its entry in `.github/ci-versions.json`'
             echo "so the version becomes supported and any later regression fails the pipeline."
           } >> "$GITHUB_STEP_SUMMARY"
 
