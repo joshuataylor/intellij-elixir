@@ -9,7 +9,7 @@ import org.elixir_lang.navigation.item_presentation.Parent
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.ElixirMatchedWhenOperation
 import org.elixir_lang.psi.call.Call
-import org.elixir_lang.psi.impl.ElixirPsiImplUtil
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.operation.Type
 import org.elixir_lang.structure_view.element.modular.Modular
 import org.jetbrains.annotations.Contract
@@ -58,11 +58,10 @@ class CallDefinitionSpecification(
             }
 
         @Contract(pure = true)
-        fun `is`(call: Call): Boolean =
-                (call as? AtUnqualifiedNoParenthesesCall<*>)?.let {
-                    ElixirPsiImplUtil.moduleAttributeName(it) == "@spec"
-                } ?:
-                false
+        fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
+
+        @Contract(pure = true)
+        fun `is`(call: SyntacticCall): Boolean = call.moduleAttributeName() == "@spec"
 
         @JvmStatic
         fun moduleAttributeNameArity(

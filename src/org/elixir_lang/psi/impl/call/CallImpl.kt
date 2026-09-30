@@ -780,7 +780,7 @@ object CallImpl {
     @Suppress("UNCHECKED_CAST")
     @JvmStatic
     fun resolvedModuleName(qualified: org.elixir_lang.psi.call.qualification.Qualified): String =
-        (qualified as? StubBased<Stub<*>>)?.stub?.resolvedFunctionName() ?: stripElixirPrefix(qualified.moduleName())
+        (qualified as? StubBased<Stub<*>>)?.stub?.resolvedModuleName() ?: stripElixirPrefix(qualified.moduleName())
 
     @Suppress("UNCHECKED_CAST")
     @JvmStatic

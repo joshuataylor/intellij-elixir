@@ -7,8 +7,8 @@ import org.elixir_lang.psi.Definition;
 import org.elixir_lang.psi.ElixirUnmatchedUnqualifiedNoArgumentsCall;
 import org.elixir_lang.psi.QuoteMacro;
 import org.elixir_lang.psi.Variable;
-import org.elixir_lang.psi.call.Call;
 import org.elixir_lang.psi.impl.ElixirUnmatchedUnqualifiedNoArgumentsCallImpl;
+import org.elixir_lang.psi.call.SyntacticCall;
 import org.elixir_lang.psi.stub.call.Deserialized;
 import org.elixir_lang.psi.stub.type.call.Stub;
 import org.jetbrains.annotations.NotNull;
@@ -37,18 +37,18 @@ public class UnmatchedUnqualifiedNoArgumentsCall extends Stub<org.elixir_lang.ps
     }
 
     @Override
-    public org.elixir_lang.psi.stub.UnmatchedUnqualifiedNoArgumentsCall createStub(@NotNull ElixirUnmatchedUnqualifiedNoArgumentsCall psi, StubElement parentStub) {
+    public org.elixir_lang.psi.stub.UnmatchedUnqualifiedNoArgumentsCall createStub(@NotNull SyntacticCall call, StubElement parentStub) {
         return new org.elixir_lang.psi.stub.UnmatchedUnqualifiedNoArgumentsCall(
                 parentStub,
                 this,
-                psi.resolvedModuleName(),
-                psi.functionName(),
-                psi.resolvedFinalArity(),
-                psi.hasDoBlockOrKeyword(),
-                StringUtil.notNullize(psi.getName(), "?"),
-                psi.canonicalNameSet(),
-                definition(psi),
-                psi.implementedProtocolName()
+                call.resolvedModuleName(),
+                call.functionName(),
+                call.resolvedFinalArity(),
+                call.hasDoBlockOrKeyword(),
+                StringUtil.notNullize(call.name(), "?"),
+                call.canonicalNameSet(),
+                definition(call),
+                call.implementedProtocolName()
         );
     }
 
@@ -61,11 +61,11 @@ public class UnmatchedUnqualifiedNoArgumentsCall extends Stub<org.elixir_lang.ps
         return new org.elixir_lang.psi.stub.UnmatchedUnqualifiedNoArgumentsCall(parentStub, this, deserialized);
     }
 
-    private @Nullable Definition definition(@NotNull ElixirUnmatchedUnqualifiedNoArgumentsCall psi) {
+    private @Nullable Definition definition(@NotNull SyntacticCall call) {
         Definition definition = null;
 
-        if (Variable.isDeclaration(psi)) {
-            Call enclosingModularMacroCall = enclosingModularMacroCall(psi);
+        if (Variable.isDeclaration(call)) {
+            SyntacticCall enclosingModularMacroCall = enclosingModularMacroCall(call);
 
             if (enclosingModularMacroCall != null && QuoteMacro.is(enclosingModularMacroCall)) {
                 definition = Definition.VARIABLE;

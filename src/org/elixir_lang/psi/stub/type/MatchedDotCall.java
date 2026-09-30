@@ -5,6 +5,7 @@ import com.intellij.psi.stubs.StubElement;
 import com.intellij.psi.stubs.StubInputStream;
 import org.elixir_lang.psi.ElixirMatchedDotCall;
 import org.elixir_lang.psi.impl.ElixirMatchedDotCallImpl;
+import org.elixir_lang.psi.call.SyntacticCall;
 import org.elixir_lang.psi.stub.call.Deserialized;
 import org.elixir_lang.psi.stub.type.call.Stub;
 import org.jetbrains.annotations.NotNull;
@@ -32,17 +33,17 @@ public class MatchedDotCall extends Stub<org.elixir_lang.psi.stub.MatchedDotCall
 
     @NotNull
     @Override
-    public org.elixir_lang.psi.stub.MatchedDotCall createStub(@NotNull ElixirMatchedDotCall psi, StubElement parentStub) {
+    public org.elixir_lang.psi.stub.MatchedDotCall createStub(@NotNull SyntacticCall call, StubElement parentStub) {
         return new org.elixir_lang.psi.stub.MatchedDotCall(
                 parentStub,
                 this,
-                psi.resolvedModuleName(),
-                psi.functionName(),
-                psi.resolvedFinalArity(),
-                psi.hasDoBlockOrKeyword(),
-                StringUtil.notNullize(psi.getName(), "?"),
-                psi.canonicalNameSet(),
-                psi.implementedProtocolName()
+                call.resolvedModuleName(),
+                call.functionName(),
+                call.resolvedFinalArity(),
+                call.hasDoBlockOrKeyword(),
+                StringUtil.notNullize(call.name(), "?"),
+                call.canonicalNameSet(),
+                call.implementedProtocolName()
         );
     }
 

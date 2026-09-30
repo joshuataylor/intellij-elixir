@@ -5,6 +5,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function.QUOTE
 import org.elixir_lang.psi.call.name.Function.TRY
 import org.elixir_lang.psi.call.name.Module.KERNEL
@@ -68,7 +69,10 @@ object QuoteMacro {
     }
 
     @JvmStatic
-    fun `is`(call: Call): Boolean {
+    fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
+
+    @JvmStatic
+    fun `is`(call: SyntacticCall): Boolean {
         // TODO change Elixir.Kernel to Elixir.Kernel.SpecialForms when resolving works
         return call.isCallingMacro(KERNEL, QUOTE, 1) || // without keyword arguments
                 call.isCallingMacro(KERNEL, QUOTE, 2) // with keyword arguments

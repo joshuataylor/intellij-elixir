@@ -1,6 +1,8 @@
 package org.elixir_lang.psi.stub.type.call;
 
 import com.intellij.lang.ASTNode;
+import com.intellij.psi.PsiElement;
+import com.intellij.psi.stubs.StubElement;
 import com.intellij.psi.stubs.StubOutputStream;
 import com.intellij.util.concurrency.annotations.RequiresReadLock;
 import org.elixir_lang.module.PutAttribute;
@@ -8,7 +10,7 @@ import org.elixir_lang.module.RegisterAttribute;
 import org.elixir_lang.psi.*;
 import org.elixir_lang.psi.Module;
 import org.elixir_lang.psi.call.Call;
-import org.elixir_lang.psi.call.StubBased;
+import org.elixir_lang.psi.call.SyntacticCall;
 import org.elixir_lang.psi.stub.call.Deserialized;
 import org.elixir_lang.structure_view.element.CallDefinitionHead;
 import org.elixir_lang.structure_view.element.CallDefinitionSpecification;
@@ -31,34 +33,23 @@ public abstract class Stub<Stub extends org.elixir_lang.psi.stub.call.Stub<Psi>,
 
     @RequiresReadLock
     public static boolean isModular(Call call) {
+        return isModular(SyntacticCall.of(call));
+    }
+
+    @RequiresReadLock
+    public static boolean isModular(SyntacticCall call) {
         return Implementation.is(call) || Module.is(call) || Protocol.is(call);
     }
 
-    private boolean hasCanonicalNames(Call call) {
-        boolean hasCanonicalNames = false;
-
-        if (call instanceof StubBased) {
-            StubBased stubBased = (StubBased) call;
-
-            hasCanonicalNames = stubBased.canonicalNameSet().size() > 0;
-        }
-
-        return hasCanonicalNames;
+    private static boolean hasNameOrCanonicalNames(SyntacticCall call) {
+        return call.name() != null || !call.canonicalNameSet().isEmpty();
     }
 
-    private boolean hasName(Call call) {
-        return call.getName() != null;
-    }
-
-    private boolean hasNameOrCanonicalNames(Call call) {
-        return hasName(call) || hasCanonicalNames(call);
-    }
-
-    private boolean isDelegationCallDefinitionHead(Call call) {
+    private static boolean isDelegationCallDefinitionHead(SyntacticCall call) {
         return CallDefinitionHead.Companion.is(call) && CallDefinitionHead.Companion.enclosingDelegationCall(call) != null;
     }
 
-    private boolean isEnclosableByModular(Call call) {
+    private static boolean isEnclosableByModular(SyntacticCall call) {
         return CallDefinitionClause.is(call) ||
                 /* skip CallDefinitionHead because there can be false positives the the ancestor calls need to be
                    checked */
@@ -67,16 +58,16 @@ public abstract class Stub<Stub extends org.elixir_lang.psi.stub.call.Stub<Psi>,
                 Callback.Companion.is(call);
     }
 
-    private boolean isNameable(Call call) {
+    private static boolean isNameable(SyntacticCall call) {
         return isEnclosableByModular(call) || isDelegationCallDefinitionHead(call) || isModular(call) || isQuoted(call);
     }
 
-    private boolean isQuoted(Call call) {
+    private static boolean isQuoted(SyntacticCall call) {
         boolean isQuoted;
 
         if (ModuleAttribute.isDeclaration(call) || RegisterAttribute.is(call) || PutAttribute.is(call) ||
                 Variable.isDeclaration(call)) {
-            Call enclosingModularMacroCall = enclosingModularMacroCall(call);
+            SyntacticCall enclosingModularMacroCall = enclosingModularMacroCall(call);
 
             if (enclosingModularMacroCall != null) {
                 isQuoted = QuoteMacro.is(enclosingModularMacroCall);
@@ -96,9 +87,16 @@ public abstract class Stub<Stub extends org.elixir_lang.psi.stub.call.Stub<Psi>,
     }
 
     @Override
-    public boolean shouldCreateStub(ASTNode node) {
-        Call call = (Call) node.getPsi();
+    public final boolean shouldCreateStub(ASTNode node) {
+        SyntacticCall call = SyntacticCall.of((Call) node.getPsi());
 
         return isNameable(call) && hasNameOrCanonicalNames(call);
     }
+
+    @Override
+    public final @NotNull Stub createStub(@NotNull Psi psi, StubElement<? extends PsiElement> parentStub) {
+        return createStub(SyntacticCall.of(psi), parentStub);
+    }
+
+    protected abstract Stub createStub(@NotNull SyntacticCall call, StubElement parentStub);
 }

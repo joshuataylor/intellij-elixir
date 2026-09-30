@@ -10,6 +10,7 @@ import org.elixir_lang.call.Visibility
 import org.elixir_lang.navigation.item_presentation.NameArity
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function.UNQUOTE
 import org.elixir_lang.psi.impl.PsiNamedElementImpl.unquoteName
 import org.elixir_lang.psi.impl.stripAccessExpression
@@ -44,39 +45,16 @@ class CallDefinitionHead(val callDefinition: CallDefinition, private val visibil
     override fun visibility(): Visibility = visibility
 
     companion object {
-        private fun argumentEnclosingDelegationCall(arguments: PsiElement): Call? =
-            if (arguments is ElixirNoParenthesesOneArgument) {
-                (arguments.getParent() as? Call)?.let { argumentsParent ->
-                    if (Delegation.`is`(argumentsParent)) {
-                        argumentsParent
-                    } else {
-                        null
-                    }
-                }
-            } else {
-                null
-            }
+        fun enclosingDelegationCall(call: Call): Call? =
+            enclosingDelegationCall(SyntacticCall.of(call))?.let(SyntacticCall::call)
 
-        fun enclosingDelegationCall(call: Call): Call? {
-            // reverse of {@link org.elixir_lang.structure_view.element.Delegation.filterCallDefinitionHeadCallList()}
-            val parent = call.parent
+        // reverse of {@link org.elixir_lang.structure_view.element.Delegation.filterCallDefinitionHeadCallList()}
+        fun enclosingDelegationCall(call: SyntacticCall): SyntacticCall? =
+            call.headListOf()?.takeIf { Delegation.`is`(it) }
 
-            return if (parent is ElixirList) {
-                val grandParent = parent.parent
+        fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
 
-                if (grandParent is ElixirAccessExpression) {
-                    val greatGrandParent = grandParent.parent
-
-                    argumentEnclosingDelegationCall(greatGrandParent)
-                } else {
-                    null
-                }
-            } else {
-                argumentEnclosingDelegationCall(parent)
-            }
-        }
-
-        fun `is`(call: Call): Boolean = call is UnqualifiedParenthesesCall<*>
+        fun `is`(call: SyntacticCall): Boolean = call.shape == SyntacticCall.Shape.UNQUALIFIED_PARENTHESES
 
         fun nameIdentifier(head: PsiElement): PsiElement? =
             if (head is ElixirMatchedAtOperation) {

@@ -2,87 +2,97 @@ package org.elixir_lang.psi.impl.call
 
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.Implementation
-import org.elixir_lang.psi.Implementation.forNameCollection
 import org.elixir_lang.psi.Module
 import org.elixir_lang.psi.Protocol
+import org.elixir_lang.psi.QuoteMacro
 import org.elixir_lang.psi.call.StubBased
+import org.elixir_lang.psi.call.SyntacticCall
+import org.elixir_lang.psi.call.name.Function.__MODULE__
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.stub.type.call.Stub.isModular
 
 object CanonicallyNamedImpl {
     @RequiresReadLock
-    fun canonicalName(stubBased: StubBased<*>): String? =
-        if (isModular(stubBased)) {
-            val canonicalNameSuffix = when {
-                Implementation.`is`(stubBased) -> {
-                    val protocolName = Implementation.protocolName(stubBased)
-                    val forName = Implementation.forNameElement(stubBased)?.text
+    fun canonicalName(stubBased: StubBased<*>): String? = canonicalName(SyntacticCall.of(stubBased))
 
-                    "${protocolName ?: '?'}.${forName ?: '?'}"
-                }
-                Module.`is`(stubBased) -> Module.name(stubBased)
-                Protocol.`is`(stubBased) -> Module.name(stubBased)
-                else -> null
-            }
-
-            val enclosing = enclosingModularMacroCall(stubBased)
-
-            if (enclosing is StubBased<*>) {
-                val enclosingStubBased = enclosing as StubBased<*>?
-                val canonicalNamePrefix = enclosingStubBased!!.canonicalName()
-
-                "${canonicalNamePrefix ?: '?'}.${canonicalNameSuffix ?: '?'}"
+    /** Elixir does not nest an implementation in the module around it, as it does a module or protocol. */
+    @RequiresReadLock
+    fun canonicalName(call: SyntacticCall): String? =
+        if (isModular(call)) {
+            if (Implementation.`is`(call)) {
+                Implementation.name(call) ?: "${Implementation.protocolName(call) ?: '?'}.${call.forText() ?: '?'}"
             } else {
-                canonicalNameSuffix ?: "?"
+                val canonicalNameSuffix = when {
+                    Module.`is`(call) -> Module.name(call)
+                    Protocol.`is`(call) -> Module.name(call)
+                    else -> null
+                }
+
+                val enclosing = enclosingModularMacroCall(call)
+
+                if (canonicalNameSuffix != null && isModuleRelative(canonicalNameSuffix)) {
+                    expandModule(canonicalNameSuffix, call) ?: "?"
+                } else if (enclosing != null) {
+                    "${enclosing.canonicalName() ?: '?'}.${canonicalNameSuffix ?: '?'}"
+                } else {
+                    canonicalNameSuffix ?: "?"
+                }
             }
         } else {
-            stubBased.name
+            call.name()
         }
-
 
     @RequiresReadLock
-    fun canonicalNameSet(stubBased: StubBased<*>): Set<String> =
-        if (isModular(stubBased)) {
-            val canonicalNameSuffixSet: Set<String> = if (Implementation.`is`(stubBased)) {
-                val protocolName = Implementation.protocolName(stubBased) ?: "?"
-                val prefix = "$protocolName."
+    fun canonicalNameSet(stubBased: StubBased<*>): Set<String> = canonicalNameSet(SyntacticCall.of(stubBased))
 
-                stubBased
-                    .let { Implementation.forNameElement(it) }
-                    ?.let { forNameCollection(it) }
-                    ?.map { "$prefix$it" }
-                    ?.toSet()
-                    ?: enclosingModularMacroCall(stubBased)
-                        ?.let { enclosingModularMacroCall ->
-                            if (enclosingModularMacroCall is StubBased<*> && Module.`is`(enclosingModularMacroCall)) {
-                                canonicalNameSet(enclosingModularMacroCall)
-                            } else {
-                                null
-                            }
-                        }
-                        ?.map { "$prefix$it" }
-                        ?.toSet()
-                    ?: setOf("$prefix?")
-            } else if (Module.`is`(stubBased)) {
-                setOf(Module.name(stubBased))
-            } else if (Protocol.`is`(stubBased)) {
-                setOf(Module.name(stubBased))
+    @RequiresReadLock
+    fun canonicalNameSet(call: SyntacticCall): Set<String> =
+        if (isModular(call)) {
+            if (Implementation.`is`(call)) {
+                Implementation.nameCollection(call)?.toSet() ?: setOf("${Implementation.protocolName(call) ?: '?'}.?")
             } else {
-                setOf("?")
+                val canonicalNameSuffix = if (Module.`is`(call) || Protocol.`is`(call)) Module.name(call) else "?"
+
+                if (isModuleRelative(canonicalNameSuffix)) {
+                    setOf(expandModule(canonicalNameSuffix, call) ?: "?")
+                } else {
+                    enclosingModularMacroCall(call)
+                        ?.canonicalNameSet()
+                        ?.map { canonicalNamePrefix -> "$canonicalNamePrefix.$canonicalNameSuffix" }
+                        ?.toSet()
+                        ?: setOf(canonicalNameSuffix)
+                }
+            }
+        } else {
+            call.name()?.let { setOf(it) } ?: emptySet()
+        }
+
+    /** At the top level `__MODULE__` is `nil`, which Elixir drops from an alias. */
+    @RequiresReadLock
+    fun expandModule(name: String, call: SyntacticCall): String? =
+        if (isModuleRelative(name)) {
+            val relative = name.removePrefix(__MODULE__)
+
+            enclosingModuleName(call)?.let { "$it$relative" } ?: relative.removePrefix(".").ifEmpty { null }
+        } else {
+            name
+        }
+
+    private fun isModuleRelative(name: String): Boolean = name == __MODULE__ || name.startsWith("$__MODULE__.")
+
+    /** Inside a `quote`, `__MODULE__` is the module the quote is injected into. */
+    private fun enclosingModuleName(call: SyntacticCall): String? {
+        var enclosing = enclosingModularMacroCall(call)
+
+        while (enclosing != null) {
+            when {
+                QuoteMacro.`is`(enclosing) -> return "?"
+                isModular(enclosing) -> return enclosing.canonicalName() ?: "?"
             }
 
-            enclosingModularMacroCall(stubBased)
-                .let { it as? StubBased<*> }
-                ?.let { enclosing ->
-                    enclosing
-                        .canonicalNameSet()
-                        .flatMap { canonicalNamePrefix ->
-                            canonicalNameSuffixSet.map { canonicalNameSuffix ->
-                                "$canonicalNamePrefix.$canonicalNameSuffix"
-                            }
-                        }.toSet()
-                } ?: canonicalNameSuffixSet
-        } else {
-            stubBased.name?.let { setOf(it) } ?: emptySet()
+            enclosing = enclosingModularMacroCall(enclosing)
         }
+
+        return null
+    }
 }

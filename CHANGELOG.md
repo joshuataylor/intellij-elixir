@@ -109,6 +109,13 @@
 
 ### Bug Fixes
 
+- [#4242](https://github.com/intellij-elixir/intellij-elixir/pull/4242) [@sh41](https://github.com/sh41)
+  - **A module written as `Kernel.defmodule Foo do ... end` is recognised as a module in a file that is not open.**
+  - **Indexing a file with `defimpl __MODULE__.P, for: X` no longer reports an internal error.**
+  - **Indexing a file with `defimpl(P, for: [X, Y]) do ... end`, or with `defimpl(P) do ... end` outside a module, no longer reports an internal error.**
+  - **A `defimpl` without `for:` is named after the module around it, as `P.Outer`.**
+  - **A `defimpl` inside a module is found under the name Elixir gives it, `P.X` rather than `Outer.P.X`.**
+  - **`defmodule __MODULE__.Named` inside `Outer` is found as `Outer.Named`.**
 - [#4230](https://github.com/intellij-elixir/intellij-elixir/pull/4230) [@sh41](https://github.com/sh41)
   - **An atom with interpolation, such as `:"a(#{x}"` or `:"#{x}_target"`, no longer reports an internal error while resolving or resolves to modules it cannot name, such as `:x_target_extra`.**
 - [#4220](https://github.com/intellij-elixir/intellij-elixir/pull/4220) [@sh41](https://github.com/sh41)
@@ -478,6 +485,8 @@
   - **Literals, containers and blocks lower to the typed Elixir AST with each Elixir release's metadata; nothing uses it yet.** Refs [#4243](https://github.com/intellij-elixir/intellij-elixir/issues/4243).
 - [#4244](https://github.com/intellij-elixir/intellij-elixir/pull/4244) [@sh41](https://github.com/sh41)
   - **Resolution records how it reached each definition a call could mean; nothing uses it yet.** Fixes [#4233](https://github.com/intellij-elixir/intellij-elixir/issues/4233).
+- [#4242](https://github.com/intellij-elixir/intellij-elixir/pull/4242) [@sh41](https://github.com/sh41)
+  - **Building a file's stubs sees each call through a view that offers only questions the call's own text answers.** Refs [#4235](https://github.com/intellij-elixir/intellij-elixir/issues/4235).
 - [#4228](https://github.com/intellij-elixir/intellij-elixir/pull/4228) [@sh41](https://github.com/sh41)
   - **Source and compiled definitions share one model of whether a definition is a function, a macro or a guard, and whether it is public.** Refs [#4216](https://github.com/intellij-elixir/intellij-elixir/issues/4216).
 - [#4222](https://github.com/intellij-elixir/intellij-elixir/pull/4222) [@sh41](https://github.com/sh41)

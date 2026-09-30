@@ -9,39 +9,49 @@ import com.intellij.usageView.UsageViewTypeLocation
 import com.intellij.util.Processor
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function
+import org.elixir_lang.psi.impl.call.CanonicallyNamedImpl
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.keywordValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.stub.index.ModularName
-import org.elixir_lang.structure_view.element.CallDefinitionClause
 import org.elixir_lang.structure_view.element.modular.Modular
 
 object Implementation {
     @RequiresReadLock
     @JvmStatic
-    fun `is`(call: Call): Boolean {
-        return call.isCallingMacro(org.elixir_lang.psi.call.name.Module.KERNEL, Function.DEFIMPL, 2) ||
+    fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
+
+    @RequiresReadLock
+    @JvmStatic
+    fun `is`(call: SyntacticCall): Boolean =
+        call.isCallingMacro(org.elixir_lang.psi.call.name.Module.KERNEL, Function.DEFIMPL, 2) ||
                 call.isCallingMacro(org.elixir_lang.psi.call.name.Module.KERNEL, Function.DEFIMPL, 3)
-    }
 
     /**
      * @return `null` if protocol or module for the implementation cannot be derived or if the `for` argument is a
      * list.
      */
     @RequiresReadLock
-    fun name(call: Call): String? = nameCollection(CallDefinitionClause.enclosingModular(call), call)?.singleOrNull()
+    fun name(call: Call): String? = name(SyntacticCall.of(call))
 
-    private fun nameCollection(enclosingModular: Modular?, call: Call): Collection<String>? {
-        val protocolName = protocolName(call)
-        val forNameCollection = forNameCollection(enclosingModular, call)
+    @RequiresReadLock
+    fun name(call: SyntacticCall): String? = nameCollection(call)?.singleOrNull()
 
-        return if (protocolName != null && forNameCollection != null) {
-            forNameCollection.map { forName -> "$protocolName.$forName" }
-        } else {
-            null
-        }
+    /** A `PROTOCOL.FOR` name for each module `for:` names. */
+    @RequiresReadLock
+    fun nameCollection(call: SyntacticCall): Collection<String>? {
+        val protocolName = protocolName(call) ?: return null
+
+        return forNames(call)?.map { forName -> "$protocolName.$forName" }
     }
+
+    /** Without `for:`, Elixir implements the protocol for `__MODULE__`. */
+    private fun forNames(call: SyntacticCall): Collection<String>? =
+        (call.forNames() ?: listOf(Function.__MODULE__))
+            .mapNotNull { forName -> CanonicallyNamedImpl.expandModule(forName, call) }
+            .takeIf { it.isNotEmpty() }
 
     fun elementDescription(location: ElementDescriptionLocation): String? =
         if (location === UsageViewTypeLocation.INSTANCE) {
@@ -114,7 +124,16 @@ object Implementation {
 
     @RequiresReadLock
     @JvmStatic
-    fun protocolName(call: Call): String? = protocolNameElement(call)?.let { protocolName(it) }
+    fun protocolName(call: Call): String? = protocolName(SyntacticCall.of(call))
+
+    @RequiresReadLock
+    @JvmStatic
+    fun protocolName(call: SyntacticCall): String? =
+        call.protocolAliasText()?.let { CanonicallyNamedImpl.expandModule(it, call) }?.replace("Elixir.", "")
+
+    @RequiresReadLock
+    @JvmStatic
+    fun implementedProtocolName(call: SyntacticCall): String? = if (`is`(call)) protocolName(call) else null
 
     @RequiresReadLock
     fun protocolNameElement(call: Call): QualifiableAlias? {
@@ -130,7 +149,4 @@ object Implementation {
             null
         }
     }
-
-    private fun protocolName(qualifiableAlias: QualifiableAlias): String =
-        qualifiableAlias.fullyQualifiedName().replace("Elixir.", "")
 }

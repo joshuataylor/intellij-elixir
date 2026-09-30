@@ -17,6 +17,7 @@ import org.elixir_lang.declaration.Form
 import org.elixir_lang.declaration.Presentation
 import org.elixir_lang.declaration.SourceOrigin
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function.*
 import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.enclosingMacroCall
@@ -31,9 +32,14 @@ object CallDefinitionClause {
      */
     @RequiresReadLock
     @JvmStatic
-    fun enclosingModularMacroCall(call: Call): Call? {
+    fun enclosingModularMacroCall(call: Call): Call? =
+        enclosingModularMacroCall(SyntacticCall.of(call))?.let(SyntacticCall::call)
+
+    @RequiresReadLock
+    @JvmStatic
+    fun enclosingModularMacroCall(call: SyntacticCall): SyntacticCall? {
         var enclosedCall = call
-        var enclosingMacroCall: Call?
+        var enclosingMacroCall: SyntacticCall?
 
         while (true) {
             ProgressManager.checkCanceled()
@@ -79,17 +85,29 @@ object CallDefinitionClause {
 
     @RequiresReadLock
     @JvmStatic
-    fun `is`(call: Call): Boolean = definer(call) != null
+    fun `is`(call: Call): Boolean = `is`(SyntacticCall.of(call))
+
+    @RequiresReadLock
+    @JvmStatic
+    fun `is`(call: SyntacticCall): Boolean = definer(call) != null
 
     /** The `def*` [call] is written with, `null` when it is no clause. */
     @RequiresReadLock
     @JvmStatic
-    fun definer(call: Call): Definer? =
+    fun definer(call: Call): Definer? = definer(SyntacticCall.of(call))
+
+    @RequiresReadLock
+    @JvmStatic
+    fun definer(call: SyntacticCall): Definer? =
         call.functionName()?.let { Definer.of(it) }?.takeIf { isCallingKernelMacroOrHead(call, it.keyword) }
 
     @RequiresReadLock
     @JvmStatic
-    fun capabilities(call: Call): Capabilities? = definer(call)?.capabilities
+    fun capabilities(call: Call): Capabilities? = capabilities(SyntacticCall.of(call))
+
+    @RequiresReadLock
+    @JvmStatic
+    fun capabilities(call: SyntacticCall): Capabilities? = definer(call)?.capabilities
 
     @RequiresReadLock
     fun declaration(call: Call, state: ResolveState): Declaration? {
@@ -188,7 +206,7 @@ object CallDefinitionClause {
                 null
             }
 
-    private fun isCallingKernelMacroOrHead(call: Call, resolvedName: String): Boolean =
+    private fun isCallingKernelMacroOrHead(call: SyntacticCall, resolvedName: String): Boolean =
             call.isCallingMacro(KERNEL, resolvedName, 2) ||
                     call.isCalling(KERNEL, resolvedName, 1)
 }

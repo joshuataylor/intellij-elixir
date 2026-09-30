@@ -2,6 +2,8 @@ package org.elixir_lang.psi
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
+import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 
 object ModuleAttribute {
     private const val BEHAVIOUR_NAME = "behaviour"
@@ -20,7 +22,11 @@ object ModuleAttribute {
         }.toSet()
 
     @JvmStatic
-    fun isDeclaration(element: PsiElement): Boolean = element is AtUnqualifiedNoParenthesesCall<*> && element.resolvedFinalArity() == 1
+    fun isDeclaration(element: PsiElement): Boolean = element is Call && isDeclaration(SyntacticCall.of(element))
+
+    @JvmStatic
+    fun isDeclaration(call: SyntacticCall): Boolean =
+        call.shape == SyntacticCall.Shape.AT_UNQUALIFIED_NO_PARENTHESES && call.resolvedFinalArity() == 1
 
     @JvmStatic
     fun isTypeSpecName(name: String): Boolean =
