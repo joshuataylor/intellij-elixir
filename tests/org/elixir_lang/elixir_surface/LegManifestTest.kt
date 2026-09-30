@@ -8,13 +8,16 @@ import org.elixir_lang.junit.UnitTestCase
 import java.io.File
 
 class LegManifestTest : UnitTestCase() {
-    private lateinit var directory: File
+    private lateinit var root: File
+    private lateinit var summary: File
     private var savedSummary: String? = null
 
     override fun setUp() {
         super.setUp()
-        directory = FileUtil.createTempDirectory("manifest", null)
+        root = FileUtil.createTempDirectory("manifest", null)
+        summary = File(root, "summary.md")
         savedSummary = System.getProperty(CommittedGolden.STEP_SUMMARY_PROPERTY)
+        System.setProperty(CommittedGolden.STEP_SUMMARY_PROPERTY, summary.path)
     }
 
     override fun tearDown() {
@@ -22,7 +25,7 @@ class LegManifestTest : UnitTestCase() {
             savedSummary
                 ?.let { System.setProperty(CommittedGolden.STEP_SUMMARY_PROPERTY, it) }
                 ?: System.clearProperty(CommittedGolden.STEP_SUMMARY_PROPERTY)
-            directory.deleteRecursively()
+            root.deleteRecursively()
         } finally {
             super.tearDown()
         }
@@ -41,12 +44,10 @@ class LegManifestTest : UnitTestCase() {
         // Under -PoverwriteTestData=true the platform rewrites the manifest before comparing, so nothing can mismatch.
         if (UsefulTestCase.OVERWRITE_TESTDATA) return
 
-        val manifest = File(directory, "manifest.txt").apply { writeText("a 1\nb 1\n") }
-        val summary = File(directory, "summary.md")
-        System.setProperty(CommittedGolden.STEP_SUMMARY_PROPERTY, summary.path)
+        commit("1.20.4", "a 1\nb 1\n")
 
         val error = try {
-            LegManifest.assertMatchesFile(manifest.path, "a 1\nc 1\n", regenerate = "regenerate-command")
+            LegManifest.assertMatchesFile(root.path, "1.20.4", NAME, "a 1\nc 1\n", regenerate = "regenerate-command")
             null
         } catch (e: FileComparisonFailedError) {
             e
@@ -54,23 +55,45 @@ class LegManifestTest : UnitTestCase() {
 
         assertNotNull("a differing manifest must fail", error)
         assertTrue(error!!.message, error.message!!.contains("regenerate-command"))
-        val lines = summary.readLines()
-        assertTrue(summary.readText(), lines.containsAll(listOf("-b 1", "+c 1")))
+        assertTrue(summary.readText(), summary.readLines().containsAll(listOf("-b 1", "+c 1")))
     }
 
     fun testMissingManifestNamesTheLinesAndTheRegeneration() {
-        val path = File(directory, "missing.txt").path
+        val error = missing("1.20.4", "a 1\n")
 
-        val error = try {
-            LegManifest.assertMatchesFile(path, "a 1\n", regenerate = "regenerate-command", writeMissing = false)
-            null
+        assertTrue(error.message, error.message!!.lines().contains("a 1"))
+        assertTrue(error.message, error.message!!.contains("regenerate-command"))
+        assertFalse("only regeneration writes a manifest", File(root, "1.20.4/$NAME").exists())
+    }
+
+    fun testMissingManifestIsDiffedAgainstTheNearestEarlierVersion() {
+        commit("1.2.0", "a 1\n")
+        commit("1.9.0", "a 1\nb 1\n")
+        commit("1.11.0", "a 1\nb 1\nc 1\nd 1\n")
+        File(root, "1.9.5").mkdirs()
+
+        missing("1.10.0", "a 1\nc 1\n")
+
+        val lines = summary.readLines()
+        assertTrue(summary.readText(), lines.contains("--- a/${root.path}/1.9.0/$NAME"))
+        assertTrue(summary.readText(), lines.contains("+++ b/${root.path}/1.10.0/$NAME"))
+        assertTrue(summary.readText(), lines.containsAll(listOf("-b 1", "+c 1")))
+        assertFalse(summary.readText(), lines.contains("-a 1"))
+    }
+
+    private fun commit(version: String, text: String) {
+        File(root, "$version/$NAME").apply { parentFile.mkdirs() }.writeText(text)
+    }
+
+    private fun missing(version: String, actual: String): AssertionError =
+        try {
+            LegManifest.assertMatchesFile(root.path, version, NAME, actual, regenerate = "regenerate-command", writeMissing = false)
+            throw IllegalStateException("a missing manifest must fail")
         } catch (e: AssertionError) {
             e
         }
 
-        assertNotNull("a missing manifest must fail", error)
-        assertTrue(error!!.message, error.message!!.lines().contains("a 1"))
-        assertTrue(error.message, error.message!!.contains("regenerate-command"))
-        assertFalse("only regeneration writes a manifest", File(path).exists())
+    companion object {
+        private const val NAME = "manifest.txt"
     }
 }
