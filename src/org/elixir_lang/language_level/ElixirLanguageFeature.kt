@@ -218,9 +218,9 @@ enum class ElixirLanguageFeature(
 
     /**
      * Inside quoted text - a string, charlist, heredoc, sigil, quoted atom or quoted keyword key - a column counts
-     * extended grapheme clusters, not code points; an escape is its `\` and one cluster, except an escaped terminator,
-     * or in interpolating text an escaped `#{`, which is one column per character. Everywhere else a column counts code
-     * points on every release.
+     * grapheme clusters as the running OTP's `unicode_util:gc/1` splits them, not code points; an escape is its `\` and
+     * one cluster, except an escaped terminator, or in interpolating text an escaped `#{`, which is one column per
+     * character. Everywhere else a column counts code points on every release.
      *
      * `elixir-lang/elixir@f429a27e2` ("Fix nfd cluster columns", #11231) and `elixir-lang/elixir@8f96b9a11`, first
      * released in v1.13.0-rc.0.
@@ -527,6 +527,38 @@ enum class ElixirLanguageFeature(
      * targeted.
      */
     MAYBE_RESERVED(sinceOtp = "27.0-rc1"),
+
+    /**
+     * `unicode_util:gc/1`, which splits quoted text into the grapheme clusters [CLUSTER_COLUMNS_IN_QUOTED_TEXT] counts,
+     * reads Unicode 14.0's properties instead of 13.0's.
+     *
+     * `erlang/otp@20c89ed71f`, first released in OTP 25.0-rc1.
+     */
+    UNICODE_14_GRAPHEME_CLUSTERS(sinceOtp = "25.0-rc1"),
+
+    /**
+     * `unicode_util:gc/1` reads Unicode 15.0's properties.
+     *
+     * `erlang/otp@020d1d44e2`, first released in OTP 26.0-rc2.
+     */
+    UNICODE_15_GRAPHEME_CLUSTERS(sinceOtp = "26.0-rc2"),
+
+    /**
+     * `unicode_util:gc/1` reads Unicode 16.0's properties and keeps a consonant, a virama and the next consonant in one
+     * cluster. It takes every script's consonants and viramas from `IndicSyllabicCategory.txt`, where Unicode's
+     * `Indic_Conjunct_Break` takes a few scripts', and lets a spacing mark stand between them.
+     *
+     * `erlang/otp@6119a85ff1` and `erlang/otp@47655d1ff6`, first released in OTP 28.0-rc2.
+     */
+    INDIC_CONJUNCT_GRAPHEME_CLUSTERS(sinceOtp = "28.0-rc2"),
+
+    /**
+     * `unicode_util:gc/1` reads Unicode 17.0's properties, and joins independent vowels and U+1B0B and U+1B0C as
+     * consonants and invisible stackers as viramas.
+     *
+     * `erlang/otp@a9c19d4b5c` and `erlang/otp@8de68766bb`, first released in OTP 29.0-rc1.
+     */
+    WIDER_INDIC_CONJUNCT_GRAPHEME_CLUSTERS(sinceOtp = "29.0-rc1"),
 
     /**
      * Bidirectional formatting characters, U+202A to U+202E and U+2066 to U+2069, are rejected in comments and quoted
