@@ -4,19 +4,12 @@ import com.intellij.ide.util.treeView.smartTree.TreeElement
 import com.intellij.navigation.ItemPresentation
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.call.Visibility
+import org.elixir_lang.declaration.Presentation
 import org.elixir_lang.errorreport.Logger
 import org.elixir_lang.navigation.item_presentation.NameArity
+import org.elixir_lang.psi.CallDefinitionClause.capabilities
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.CallDefinitionClause.head
-import org.elixir_lang.psi.CallDefinitionClause.isFunction
-import org.elixir_lang.psi.CallDefinitionClause.isGuard
-import org.elixir_lang.psi.CallDefinitionClause.isMacro
-import org.elixir_lang.psi.CallDefinitionClause.isPrivateFunction
-import org.elixir_lang.psi.CallDefinitionClause.isPrivateGuard
-import org.elixir_lang.psi.CallDefinitionClause.isPrivateMacro
-import org.elixir_lang.psi.CallDefinitionClause.isPublicFunction
-import org.elixir_lang.psi.CallDefinitionClause.isPublicGuard
-import org.elixir_lang.psi.CallDefinitionClause.isPublicMacro
 import org.elixir_lang.psi.QuoteMacro
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.enclosingMacroCall
@@ -129,11 +122,10 @@ class CallDefinitionClause(val callDefinition: CallDefinition, call: Call) :
          */
         @RequiresReadLock
         fun time(call: Call): Timed.Time =
-            when {
-                isFunction(call) -> Timed.Time.RUN
-                isGuard(call) -> Timed.Time.RUN
-                isMacro(call) -> Timed.Time.COMPILE
-                else -> {
+            when (capabilities(call)?.presentation) {
+                Presentation.FUNCTION, Presentation.GUARD -> Timed.Time.RUN
+                Presentation.MACRO -> Timed.Time.COMPILE
+                null -> {
                     Logger.error(logger, "Don't whether call is at runtime or compile-time", call)
 
                     Timed.Time.RUN
@@ -147,11 +139,7 @@ class CallDefinitionClause(val callDefinition: CallDefinition, call: Call) :
          */
         @RequiresReadLock
         fun visibility(call: Call): Visibility =
-            if (isPublicFunction(call) || isPublicMacro(call) || isPublicGuard(call)) {
-                Visibility.PUBLIC
-            } else if (isPrivateFunction(call) || isPrivateMacro(call) || isPrivateGuard(call)) {
-                Visibility.PRIVATE
-            } else {
+            capabilities(call)?.visibility ?: run {
                 Logger.error(logger, "Don't know whether call is public or private", call)
 
                 Visibility.PUBLIC

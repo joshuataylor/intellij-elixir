@@ -3,6 +3,7 @@ package org.elixir_lang.psi
 import com.intellij.psi.PsiElement
 import org.elixir_lang.Arity
 import org.elixir_lang.ArityRange
+import org.elixir_lang.declaration.ArityKnowledge
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.name.Module
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil
@@ -107,6 +108,13 @@ data class ArityInterval(val minimum: Arity, val maximum: Arity?) {
 }
 
 fun ArityInterval?.orEmpty(): ArityInterval = this ?: ArityInterval.empty()
+
+fun ArityInterval.arityKnowledge(): ArityKnowledge =
+    when (maximum) {
+        null -> ArityKnowledge.Open(minimum)
+        minimum -> ArityKnowledge.Exact(minimum)
+        else -> ArityKnowledge.Range(minimum, maximum)
+    }
 
 /**
  * Whether the given element presents a default argument (with `\\` in it.

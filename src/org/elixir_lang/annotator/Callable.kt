@@ -12,6 +12,7 @@ import com.intellij.psi.*
 import org.elixir_lang.model.psi.variable.VariableSymbol
 import org.elixir_lang.ElixirSyntaxHighlighter
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
+import org.elixir_lang.declaration.Presentation
 import org.elixir_lang.psi.AtOperation
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.CallDefinitionClause
@@ -22,7 +23,6 @@ import org.elixir_lang.psi.call.name.Module.KERNEL_SPECIAL_FORMS
 import org.elixir_lang.reference.Callable.Companion.BIT_STRING_TYPES
 import org.elixir_lang.reference.Callable.Companion.isBitStreamSegmentOption
 import org.elixir_lang.safeMultiResolve
-import org.elixir_lang.structure_view.element.Timed
 import java.util.*
 
 /**
@@ -129,10 +129,10 @@ internal class Callable : Annotator, DumbAware {
 
                 private fun visitStrippedCallDefinitionHead(stripped: Call, clause: Call) {
                     stripped.functionNameElement()?.let { functionNameElement ->
-                        val textAttributeKey = when {
-                            CallDefinitionClause.isFunction(clause) -> ElixirSyntaxHighlighter.FUNCTION_DECLARATION
-                            CallDefinitionClause.isMacro(clause) -> ElixirSyntaxHighlighter.MACRO_DECLARATION
-                            else -> null
+                        val textAttributeKey = when (CallDefinitionClause.capabilities(clause)?.presentation) {
+                            Presentation.FUNCTION -> ElixirSyntaxHighlighter.FUNCTION_DECLARATION
+                            Presentation.MACRO -> ElixirSyntaxHighlighter.MACRO_DECLARATION
+                            Presentation.GUARD, null -> null
                         }
 
                         if (textAttributeKey != null) {
@@ -158,8 +158,8 @@ internal class Callable : Annotator, DumbAware {
     }
 
     private fun callHighlight(resolved: Call, previousCallHighlight: CallHighlight?): CallHighlight? =
-        when {
-            CallDefinitionClause.isFunction(resolved) -> {
+        when (CallDefinitionClause.capabilities(resolved)?.presentation) {
+            Presentation.FUNCTION -> {
                 val referrerTextAttributesKeys = referrerTextAttributesKeys(
                     resolved,
                     FUNCTION_CALL_TEXT_ATTRIBUTE_KEYS,
@@ -171,7 +171,7 @@ internal class Callable : Annotator, DumbAware {
                     referrerTextAttributesKeys
                 )
             }
-            CallDefinitionClause.isMacro(resolved) -> {
+            Presentation.MACRO -> {
                 val referrerTextAttributesKeys = referrerTextAttributesKeys(
                     resolved,
                     MACRO_CALL_TEXT_ATTRIBUTES_KEYS,
@@ -183,7 +183,7 @@ internal class Callable : Annotator, DumbAware {
                     referrerTextAttributesKeys
                 )
             }
-            else -> when (VariableSymbol.classify(resolved)) {
+            Presentation.GUARD, null -> when (VariableSymbol.classify(resolved)) {
                 VariableSymbol.Kind.PARAMETER ->
                     CallHighlight.nullablePut(
                         previousCallHighlight,
@@ -229,13 +229,13 @@ internal class Callable : Annotator, DumbAware {
         }
 
     private fun callHighlight(resolved: BeamCallDefinition, previousCallHighlight: CallHighlight?): CallHighlight {
-        val referrerTextAttributesKeys = when (resolved.time) {
-            Timed.Time.COMPILE -> referrerTextAttributesKeys(
+        val referrerTextAttributesKeys = when (resolved.capabilities.presentation) {
+            Presentation.MACRO, Presentation.GUARD -> referrerTextAttributesKeys(
                 resolved,
                 MACRO_CALL_TEXT_ATTRIBUTES_KEYS,
                 PREDEFINED_MACRO_CALL_TEXT_ATTRIBUTES_KEYS
             )
-            Timed.Time.RUN -> referrerTextAttributesKeys(
+            Presentation.FUNCTION -> referrerTextAttributesKeys(
                 resolved,
                 FUNCTION_CALL_TEXT_ATTRIBUTE_KEYS,
                 PREDEFINED_FUNCTION_CALL_TEXT_ATTRIBUTE_KEYS

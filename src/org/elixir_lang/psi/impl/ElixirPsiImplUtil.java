@@ -14,6 +14,7 @@ import com.intellij.psi.tree.TokenSet;
 import com.intellij.util.concurrency.annotations.RequiresReadLock;
 import kotlin.NotImplementedError;
 import kotlin.jvm.functions.Function1;
+import org.elixir_lang.declaration.Capabilities;
 import org.elixir_lang.psi.*;
 import org.elixir_lang.psi.call.Call;
 import org.elixir_lang.psi.call.StubBased;
@@ -282,8 +283,16 @@ public class ElixirPsiImplUtil {
 
     @RequiresReadLock
     public static boolean isExported(@NotNull final UnqualifiedNoParenthesesCall unqualifiedNoParenthesesCall) {
-        return CallDefinitionClause.isPublicFunction(unqualifiedNoParenthesesCall) ||
-                CallDefinitionClause.isPublicMacro(unqualifiedNoParenthesesCall);
+        Capabilities capabilities = CallDefinitionClause.capabilities(unqualifiedNoParenthesesCall);
+
+        if (capabilities == null) {
+            return false;
+        }
+
+        return switch (capabilities.getPresentation()) {
+            case FUNCTION, MACRO -> capabilities.getPublic();
+            case GUARD -> false;
+        };
     }
 
     public static boolean isModuleName(@NotNull final ElixirAccessExpression accessExpression) {

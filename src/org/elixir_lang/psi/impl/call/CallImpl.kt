@@ -357,7 +357,7 @@ fun Call.macroDefinitionClauseForArgument(): Call? {
             val greatGrandParent = grandParent.getParent()
 
             if (greatGrandParent is Call) {
-                if (CallDefinitionClause.isMacro(greatGrandParent)) {
+                if (CallDefinitionClause.capabilities(greatGrandParent)?.quotesArguments == true) {
                     macroDefinitionClause = greatGrandParent
                 }
             }

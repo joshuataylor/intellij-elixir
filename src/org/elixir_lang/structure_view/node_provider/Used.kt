@@ -109,7 +109,7 @@ class Used : FileStructureNodeProvider<TreeElement>, ActionShortcutProvider {
                                             for (childCall in childCalls) {
                                                 /* portion of {@link org.elixir_lang.structure_view.element.enclosingModular.Module#childCallTreeElements}
                                                    dealing with macros, restricted to __using__/1 */
-                                                if (org.elixir_lang.psi.CallDefinitionClause.isMacro(childCall)) {
+                                                if (org.elixir_lang.psi.CallDefinitionClause.capabilities(childCall)?.quotesArguments == true) {
                                                     val nameArityInterval =
                                                         org.elixir_lang.psi.CallDefinitionClause.nameArityInterval(
                                                             childCall,

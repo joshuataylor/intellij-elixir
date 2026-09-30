@@ -120,7 +120,7 @@ private fun sourceCallSymbols(call: Call, name: String): List<AtomSymbol> {
     if (!CallDefinitionClause.`is`(call)) return emptyList()
     val nameArity = CallDefinitionClause.nameArityInterval(call, ResolveState.initial()) ?: return emptyList()
     if (nameArity.name != name) return emptyList()
-    if (CallDefinitionClause.isMacro(call)) return emptyList()
+    if (CallDefinitionClause.capabilities(call)?.quotesArguments == true) return emptyList()
     return AtomSymbol.fromClause(call)
 }
 
@@ -129,7 +129,7 @@ private fun sourceCallResolveResults(call: Call, name: String, validResult: Bool
     if (!CallDefinitionClause.`is`(call)) return emptyList()
     val nameArity = CallDefinitionClause.nameArityInterval(call, ResolveState.initial()) ?: return emptyList()
     if (nameArity.name != name) return emptyList()
-    if (CallDefinitionClause.isMacro(call)) return emptyList()
+    if (CallDefinitionClause.capabilities(call)?.quotesArguments == true) return emptyList()
     return listOf(PsiElementResolveResult(call, validResult))
 }
 

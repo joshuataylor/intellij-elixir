@@ -7,9 +7,8 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
 import org.elixir_lang.beam.BeamReader
 import org.elixir_lang.beam.psi.Module
+import org.elixir_lang.declaration.Presentation
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
-import org.elixir_lang.beam.psi.impl.CallDefinitionImpl
-import org.elixir_lang.psi.Definition
 import org.elixir_lang.psi.call.MaybeExported
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.Attribute
 import org.elixir_lang.beam.chunk.debug_info.v1.erl_abstract_code.abstract_code_compiler_options.abstract_code.attribute.Spec
@@ -78,7 +77,7 @@ object BeamDocsHelper {
      *
      * The `signature` metadata contains a list of Erlang abstract form attribute tuples like
      * `{attribute, Line, spec, {{Name, Arity}, [Definition, ...]}}`. These are parsed using
-     * the existing [Attribute] → [Spec] pipeline and rendered via [Spec.toMacroString].
+     * the existing [Attribute] -> [Spec] pipeline and rendered via [Spec.toMacroString].
      */
     private fun specsFromMetadata(metadata: Map<String, OtpErlangObject>): List<String> {
         val signatureTerms = metadata["signature"] as? OtpErlangList ?: return emptyList()
@@ -94,18 +93,14 @@ object BeamDocsHelper {
     /**
      * Returns the list of BEAM documentation "kind" strings to try when looking up docs for [element].
      *
-     * For [BeamCallDefinition] elements, the stub's [Definition] tells us whether this is a function or macro.
      * The preferred kind is tried first, but we fall back to the other kind in case the BEAM docs
      * use a different categorization than expected (e.g. guards stored as macros).
      */
     private fun kindForElement(element: MaybeExported): List<String> =
         when (element) {
-            // The stub, not the model: Definition is a stub-level detail with no interface counterpart.
-            is CallDefinitionImpl<*> -> when (element.stub.definition) {
-                Definition.PUBLIC_MACRO, Definition.PRIVATE_MACRO -> listOf("macro", "function")
-                Definition.PUBLIC_FUNCTION, Definition.PRIVATE_FUNCTION -> listOf("function", "macro")
-                Definition.PUBLIC_GUARD, Definition.PRIVATE_GUARD -> listOf("macro", "function")
-                else -> listOf("function", "macro")
+            is BeamCallDefinition -> when (element.capabilities.presentation) {
+                Presentation.MACRO, Presentation.GUARD -> listOf("macro", "function")
+                Presentation.FUNCTION -> listOf("function", "macro")
             }
             else -> listOf("function", "macro")
         }

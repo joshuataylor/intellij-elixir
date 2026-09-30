@@ -43,7 +43,7 @@ import org.elixir_lang.reference.resolver.Module as ModuleResolver
 
         return module.stabBodyChildExpressions()
             ?.filterIsInstance<Call>()
-            ?.filter(CallDefinitionClause::isFunction)
+            ?.filter { CallDefinitionClause.capabilities(it)?.runtimeFunction == true }
             ?.filter { call -> arity1(call) }
             ?.toList()
             ?: emptyList()
@@ -90,7 +90,7 @@ import org.elixir_lang.reference.resolver.Module as ModuleResolver
 
     private fun declarationTarget(element: PsiElement): PsiElement =
         (element as? Call)
-            ?.takeIf(CallDefinitionClause::isFunction)
+            ?.takeIf { CallDefinitionClause.capabilities(it)?.runtimeFunction == true }
             ?.let { CallDefinitionClause.nameIdentifier(it) }
             ?: element
 }

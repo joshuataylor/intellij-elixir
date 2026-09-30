@@ -89,7 +89,7 @@ internal object GenServerDispatch {
         val nameArity = CallDefinitionClause.nameArityInterval(clause, ResolveState.initial()) ?: return false
         if (nameArity.name != dispatch.handlerName) return false
         if (dispatch.handlerArity !in nameArity.arityInterval) return false
-        if (CallDefinitionClause.isMacro(clause)) return false
+        if (CallDefinitionClause.capabilities(clause)?.quotesArguments == true) return false
         val head = CallDefinitionClause.head(clause) as? Call ?: return false
         val firstParam = head.primaryArguments()?.firstOrNull()?.stripAccessExpression() ?: return false
         val paramAtom = firstParam as? ElixirAtom ?: return false

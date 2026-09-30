@@ -22,7 +22,6 @@ import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Match
 import org.elixir_lang.psi.scope.WhileIn.whileIn
 import org.elixir_lang.psi.stub.index.ModularName
-import org.elixir_lang.structure_view.element.Timed
 import org.elixir_lang.util.AccumulatorContinue
 
 object Using {
@@ -216,7 +215,9 @@ object Using {
                                             modular,
                                             modularResolveState
                                         ) { callDefinitionClauseCall, accResolveState ->
-                                            if (CallDefinitionClause.isFunction(callDefinitionClauseCall)) {
+                                            val capabilities = CallDefinitionClause.capabilities(callDefinitionClauseCall)
+
+                                            if (capabilities?.runtimeFunction == true) {
                                                 treeWalkUp(
                                                     callDefinitionClauseCall,
                                                     useCall,
@@ -365,14 +366,14 @@ object Using {
     private const val USING = "__using__"
 
     private fun isDefiner(call: Call): Boolean =
-        call.isCalling(KERNEL, DEFMACRO) &&
+        CallDefinitionClause.capabilities(call)?.let { it.quotesArguments && it.public } == true &&
                 nameArityInterval(call, ResolveState.initial())?.let { nameArityRange ->
                     nameArityRange.name == USING && nameArityRange.arityInterval.contains(ARITY)
                 }
                 ?: false
 
     private fun isDefiner(callDefinitionImpl: BeamCallDefinition): Boolean =
-        callDefinitionImpl.time == Timed.Time.COMPILE &&
+        callDefinitionImpl.capabilities.compileTime &&
                 callDefinitionImpl.name == USING &&
                 callDefinitionImpl.exportedArity(ResolveState.initial()) == ARITY
 }

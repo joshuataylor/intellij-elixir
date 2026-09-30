@@ -37,7 +37,7 @@ class ProtocolImplReference(
     override fun resolveReference(): Collection<Symbol> {
         if (!CallDefinitionClause.`is`(call)) return emptyList()
         val nameArity = CallDefinitionClause.nameArityInterval(call, ResolveState.initial()) ?: return emptyList()
-        val macro = CallDefinitionClause.isMacro(call)
+        val macro = CallDefinitionClause.capabilities(call)?.quotesArguments == true
 
         // Walk up to the defimpl - confirmed present by ProtocolImplReferenceProvider
         val defimpl = CallDefinitionClause.enclosingModularMacroCall(call) ?: return emptyList()

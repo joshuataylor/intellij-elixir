@@ -2,12 +2,20 @@ package org.elixir_lang.psi
 
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.ElementDescriptionLocation
+import com.intellij.psi.PsiCompiledFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.usageView.UsageViewTypeLocation
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.NameArityInterval
+import org.elixir_lang.declaration.Capabilities
+import org.elixir_lang.declaration.Declaration
+import org.elixir_lang.declaration.Declared
+import org.elixir_lang.declaration.Definer
+import org.elixir_lang.declaration.Form
+import org.elixir_lang.declaration.Presentation
+import org.elixir_lang.declaration.SourceOrigin
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.name.Function.*
 import org.elixir_lang.psi.call.name.Module.KERNEL
@@ -53,10 +61,10 @@ object CallDefinitionClause {
      */
     @RequiresReadLock
     fun elementDescription(call: Call, location: ElementDescriptionLocation): String? =
-            when {
-                isFunction(call) -> functionElementDescription(call, location)
-                isMacro(call) -> macroElementDescription(location)
-                else -> null
+            when (capabilities(call)?.presentation) {
+                Presentation.FUNCTION -> functionElementDescription(call, location)
+                Presentation.MACRO -> macroElementDescription(location)
+                Presentation.GUARD, null -> null
             }
 
     /**
@@ -71,7 +79,37 @@ object CallDefinitionClause {
 
     @RequiresReadLock
     @JvmStatic
-    fun `is`(call: Call): Boolean = isFunction(call) || isMacro(call) || isGuard(call)
+    fun `is`(call: Call): Boolean = definer(call) != null
+
+    /** The `def*` [call] is written with, `null` when it is no clause. */
+    @RequiresReadLock
+    @JvmStatic
+    fun definer(call: Call): Definer? =
+        call.functionName()?.let { Definer.of(it) }?.takeIf { isCallingKernelMacroOrHead(call, it.keyword) }
+
+    @RequiresReadLock
+    @JvmStatic
+    fun capabilities(call: Call): Capabilities? = definer(call)?.capabilities
+
+    @RequiresReadLock
+    fun declaration(call: Call, state: ResolveState): Declaration? {
+        val capabilities = capabilities(call) ?: return null
+        val (name, arityInterval) = nameArityInterval(call, state) ?: return null
+        val file = call.containingFile
+        val viewProvider =
+            (file.originalFile as? PsiCompiledFile)?.takeIf { it.decompiledPsiFile == file }?.viewProvider
+                ?: file.viewProvider
+
+        return Declaration(
+            name,
+            arityInterval.arityKnowledge(),
+            capabilities,
+            Declared.Source(
+                Form.CLAUSE,
+                SourceOrigin(viewProvider.virtualFile, viewProvider.modificationStamp, call.textRange)
+            )
+        )
+    }
 
     /**
      * Returns `true` if [element] is at or within the name/head of any call-definition clause -
@@ -91,36 +129,6 @@ object CallDefinitionClause {
         return PsiTreeUtil.isAncestor(nameIdentifier, element, false) ||
                PsiTreeUtil.isAncestor(element, nameIdentifier, false)
     }
-
-    @RequiresReadLock
-    @JvmStatic
-    fun isFunction(call: Call): Boolean = isPrivateFunction(call) || isPublicFunction(call)
-    @RequiresReadLock
-    @JvmStatic
-    fun isPublicFunction(call: Call): Boolean =
-            isCallingKernelMacroOrHead(call, DEF) || isCallingKernelMacroOrHead(call, DEFMEMO)
-    @RequiresReadLock
-    fun isPrivateFunction(call: Call): Boolean =
-            isCallingKernelMacroOrHead(call, DEFP) || isCallingKernelMacroOrHead(call, DEFMEMOP)
-
-    @RequiresReadLock
-    @JvmStatic
-    fun isMacro(call: Call): Boolean = isPrivateMacro(call) || isPublicMacro(call)
-    @RequiresReadLock
-    @JvmStatic
-    fun isPublicMacro(call: Call): Boolean = isCallingKernelMacroOrHead(call, DEFMACRO)
-    @RequiresReadLock
-    fun isPrivateMacro(call: Call): Boolean = isCallingKernelMacroOrHead(call, DEFMACROP)
-
-    @RequiresReadLock
-    fun isGuard(call: Call): Boolean = isPrivateGuard(call) || isPublicGuard(call)
-    @RequiresReadLock
-    fun isPublicGuard(call: Call): Boolean = isCallingKernelMacroOrHead(call, DEFGUARD)
-    @RequiresReadLock
-    fun isPrivateGuard(call: Call): Boolean = isCallingKernelMacroOrHead(call, DEFGUARDP)
-
-    @RequiresReadLock
-    fun isPublic(call: Call): Boolean = isPublicFunction(call) || isPublicMacro(call) || isPublicGuard(call)
 
     /**
      * The name and arity range of the call definition this clause belongs to.

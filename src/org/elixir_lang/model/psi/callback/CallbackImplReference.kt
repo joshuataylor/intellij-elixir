@@ -38,7 +38,7 @@ class CallbackImplReference(
     override fun resolveReference(): Collection<Symbol> {
         if (!CallDefinitionClause.`is`(call)) return emptyList()
         val nameArity = CallDefinitionClause.nameArityInterval(call, ResolveState.initial()) ?: return emptyList()
-        val macro = CallDefinitionClause.isMacro(call)
+        val macro = CallDefinitionClause.capabilities(call)?.quotesArguments == true
         val module = CallDefinitionClause.enclosingModularMacroCall(call) ?: return emptyList()
 
         val behaviourNames = BehaviourMembership.namesImplementedBy(module)
