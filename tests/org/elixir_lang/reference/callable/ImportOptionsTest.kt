@@ -113,6 +113,61 @@ class ImportOptionsTest : PlatformTestCase() {
         assertDoesNotResolve("import M, except: [f: 1]", "private(1)")
     }
 
+    fun testExceptOneArityOfADelegatedFunctionIsNotReachedThroughAnotherArity() {
+        val delegations = """
+            defmodule Target do
+              def snoc(q), do: q
+              def snoc(q, x), do: [x | q]
+            end
+
+            defmodule D do
+              defdelegate snoc(q), to: Target
+              defdelegate snoc(q, x), to: Target
+            end
+        """.trimIndent()
+
+        assertEmpty(validTargets(delegations, "import D, except: [snoc: 1]", "snoc(1)"))
+        assertContainsElements(
+            validTargets(delegations, "import D, except: [snoc: 1]", "snoc(1, 2)"),
+            "def snoc(q, x), do: [x | q]"
+        )
+    }
+
+    fun testADelegationOfAnotherArityDoesNotHideTheTarget() {
+        val delegations = """
+            defmodule Target do
+              def get(m, k, d \\ nil), do: {m, k, d}
+            end
+
+            defmodule D do
+              defdelegate get(m, k, d), to: Target
+              defdelegate get(m, k), to: Target
+            end
+        """.trimIndent()
+
+        assertContainsElements(
+            validTargets(delegations, "import D", "get(1, 2)"),
+            """def get(m, k, d \\ nil), do: {m, k, d}"""
+        )
+    }
+
+    /** The first line of each valid result for [use] under [import], after the modules [delegations] declares. */
+    private fun validTargets(delegations: String, import: String, use: String): List<String> {
+        val user = """
+            defmodule U do
+              $import
+
+              def u do
+                <caret>$use
+              end
+            end
+        """.trimIndent()
+        myFixture.configureByText("u.ex", "$delegations\n\n$user")
+        val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
+
+        return reference.multiResolve(false).filter { it.isValidResult }.mapNotNull { it.element?.text?.lines()?.first() }
+    }
+
     fun testUnderscoredNamesAreNotImported() {
         assertDoesNotResolve("import M", "_hidden(1)")
         assertDoesNotResolve("import M, except: [f: 1]", "_hidden(1)")
