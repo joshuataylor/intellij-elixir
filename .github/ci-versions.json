@@ -25,7 +25,7 @@
     "  beam.baseline must match the mise.toml pin, and must stay green. It is the newest supported",
     "    pair and the one every IDEA leg and the Windows leg run. beam.additional carries the rest,",
     "    either side of it, down to the oldest pair the runners can install: builds.hex.pm publishes",
-    "    OTP for ubuntu-22.04 only from 24.2, so nothing below Elixir 1.11.4 can run.",
+    "    OTP for ubuntu-24.04 only from 24.3.4, so nothing below Elixir 1.11.4 can run.",
     "  beam.additional is a ratchet. continue-on-error means the version is NOT supported yet and its",
     "    leg is expected to fail; the workflow tolerates failure at every phase of that leg, not just",
     "    the tests, so an Elixir the toolchain or the quoter cannot handle still cannot block a merge.",

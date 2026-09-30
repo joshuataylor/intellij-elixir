@@ -30,10 +30,10 @@ const leg = (os, idea, beam, label) => ({
 
 const legs = [
   ...ideaVersions(declaration).map((idea) =>
-    leg('ubuntu-22.04', idea, base, `IDEA ${idea.version}`),
+    leg('ubuntu-24.04-arm', idea, base, `IDEA ${idea.version}`),
   ),
   ...beamAdditional(declaration).map((beam) =>
-    leg('ubuntu-22.04', minimumSupported, beam, `${beam.elixir}+${beam.otp}`),
+    leg('ubuntu-24.04-arm', minimumSupported, beam, `${beam.elixir}+${beam.otp}`),
   ),
   leg('windows-2025', minimumSupported, base, `Win25, IDEA ${minimumSupported.version}`),
 ];

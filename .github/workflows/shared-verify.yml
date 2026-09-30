@@ -170,7 +170,7 @@ jobs:
     # and the checks graph truncates around 24-27 characters - `verify / verify (ideaIU, 2026...` spent
     # its whole budget saying verify twice. `verify / ideaIU 2026.1.5` fits.
     name: ${{ matrix.product }} ${{ matrix.version }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     strategy:
       # One product failing verification must not cancel the others: each leg is an independent

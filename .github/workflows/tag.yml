@@ -38,7 +38,7 @@ jobs:
   # the doubled-v and bare-v cases, and a release tag is an immutable public identifier - quietly
   # renaming what the operator typed is worse than making them retype it.
   validate-tag:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     permissions:
       contents: read
@@ -175,7 +175,7 @@ jobs:
     # validate-tag leaves test-and-verify *skipped* - which the clause below accepts - so without the
     # first condition an invalid tag would still be released.
     if: ${{ always() && needs.validate-tag.result == 'success' && (needs.test-and-verify.result == 'success' || needs.test-and-verify.result == 'skipped') }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     permissions:
       contents: write

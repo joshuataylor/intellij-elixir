@@ -445,7 +445,7 @@ Three places in this document quote that data rather than deriving it - the JBR 
 [Reading a leg in the checks list](#reading-a-leg-in-the-checks-list). Nothing keeps them in sync, so
 update them in the same commit as `.github/ci-versions.json`.
 
-Tests always run against IntelliJ IDEA. The legs are every declared IDEA version on Ubuntu with
+Tests always run against IntelliJ IDEA. The legs are every declared IDEA version on Ubuntu (arm64) with
 `beam.baseline`, plus one leg per `beam.additional` pair on the minimum supported IDEA, plus
 `beam.baseline` on Windows.
 
@@ -472,7 +472,7 @@ resolved versions - so a bad declaration is diagnosable locally rather than from
 
 `beam.baseline` is the newest supported pair, and the one every IDEA leg and the Windows leg run.
 `beam.additional` covers the rest of the window, which reaches back to 1.11.4: `builds.hex.pm`
-publishes OTP for `ubuntu-22.04` only from 24.2, and 1.11.4 is the oldest Elixir that runs on OTP 24,
+publishes OTP for `ubuntu-24.04` only from 24.3.4, and 1.11.4 is the oldest Elixir that runs on OTP 24,
 so nothing below it can be tested.
 
 `beam.additional` is not one-entry-per-Elixir-minor: a pair may exist to cover an **OTP major** no other
