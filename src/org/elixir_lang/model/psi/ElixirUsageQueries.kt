@@ -15,7 +15,6 @@ import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
-import com.intellij.psi.PsiCompiledFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
 import com.intellij.psi.ResolveState
@@ -107,18 +106,7 @@ internal object ElixirUsageQueries {
         // the same per-symbol queries against a LocalSearchScope over the decompiled mirror: a
         // LocalSearchScope makes searchWord scan the given PSI text directly (no index), so the in-memory
         // mirror's occurrences are found. The global pass above cannot see these, so there is no overlap.
-        //
-        // `target.file` can arrive in either of two shapes: the navigable compiled file itself (e.g. when
-        // the target is built directly from the caret), or - crucially, in the real Find Usages pipeline,
-        // which dereferences the target through its `Pointer` on a background thread - the in-memory mirror
-        // `ElixirFile`, because `TypeSymbol.createPointer()` restores `file` from the mirror element's
-        // `containingFile`. A mirror is recognised by its `originalFile` being the compiled file. Handle both.
-        val declarationFile = target.file
-        val compiledFile: PsiCompiledFile? = when {
-            declarationFile is PsiCompiledFile -> declarationFile
-            declarationFile.originalFile is PsiCompiledFile -> declarationFile.originalFile as PsiCompiledFile
-            else -> null
-        }
+        val compiledFile = target.compiledFile
         if (compiledFile != null) {
             // The decompiled mirror to scan (the same cached instance whether `target.file` arrived as the
             // compiled file or as the mirror restored through the pointer - `getMirror()` caches it).

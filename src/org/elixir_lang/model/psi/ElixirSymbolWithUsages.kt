@@ -1,6 +1,7 @@
 package org.elixir_lang.model.psi
 
 import com.intellij.openapi.util.TextRange
+import com.intellij.psi.PsiCompiledFile
 import com.intellij.psi.PsiFile
 
 /**
@@ -15,4 +16,11 @@ interface ElixirSymbolWithUsages : ElixirSymbol {
     val file: PsiFile
     val range: TextRange
     val searchText: String
+
+    /**
+     * The compiled file this symbol is declared in, or `null` for source. [file] is either that file or, once a
+     * pointer has restored the symbol from the decompiled mirror, the mirror, whose `originalFile` is that file.
+     */
+    val compiledFile: PsiCompiledFile?
+        get() = file as? PsiCompiledFile ?: file.originalFile as? PsiCompiledFile
 }

@@ -12,9 +12,8 @@ import com.intellij.platform.backend.presentation.TargetPresentation
 import com.intellij.psi.PsiFile
 import com.intellij.psi.SmartPointerManager
 import com.intellij.psi.search.SearchScope
-import com.intellij.refactoring.rename.api.RenameTarget
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.model.psi.ElixirSymbolWithUsages
+import org.elixir_lang.model.psi.ElixirRenameTarget
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.structure_view.element.CallDefinitionSpecification
@@ -28,7 +27,7 @@ class TypeSymbol(
     val moduleName: String,
     val name: String,
     val arity: Int
-) : ElixirSymbolWithUsages, NavigationTarget, SearchTarget, RenameTarget {
+) : ElixirRenameTarget, NavigationTarget, SearchTarget {
     override val searchText: String get() = name
     override val targetName: String get() = name
 
