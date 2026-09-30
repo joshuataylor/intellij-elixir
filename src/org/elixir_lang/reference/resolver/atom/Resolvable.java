@@ -71,7 +71,7 @@ public abstract class Resolvable {
                     codePointList = addChildTextCodePoints(codePointList, child);
                 } else if (elementType == ElixirTypes.INTERPOLATION) {
                     if (codePointList != null) {
-                        regexList.add(codePointListToString(codePointList));
+                        regexList.add(codePointListToRegex(codePointList));
                         codePointList = null;
                     }
 

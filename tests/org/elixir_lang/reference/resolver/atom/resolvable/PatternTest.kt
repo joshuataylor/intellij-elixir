@@ -7,29 +7,135 @@ import org.elixir_lang.psi.ElixirAtom
 
 class PatternTest : PlatformTestCase() {
     fun testInterpolatedAtomResolvesToEveryMatchingName() {
-        myFixture.configureByText(
-            "pattern.ex",
-            """
-            defmodule :interpolated_target do
-            end
-
-            defmodule :other_target do
-            end
-
-            defmodule User do
-              def target, do: :"#{:interpolated}_target"
-            end
-            """.trimIndent()
-        )
-        val atom = PsiTreeUtil
-            .findChildrenOfType(myFixture.file, ElixirAtom::class.java)
-            .single { it.text.startsWith(":\"") }
-
-        val resolved = (atom.reference as PsiPolyVariantReference).multiResolve(false).map { it.element!!.text }
-
         assertEquals(
             setOf("defmodule :interpolated_target do\nend", "defmodule :other_target do\nend"),
-            resolved.toSet()
+            resolve(
+                """
+                defmodule :interpolated_target do
+                end
+
+                defmodule :other_target do
+                end
+
+                defmodule User do
+                  def target, do: :"#{:interpolated}_target"
+                end
+                """
+            )
         )
+    }
+
+    fun testInterpolationOnlyResolvesToEveryAtomName() {
+        assertEquals(
+            setOf("defmodule :one do\nend", "defmodule :two do\nend"),
+            resolve(
+                """
+                defmodule :one do
+                end
+
+                defmodule :two do
+                end
+
+                defmodule User do
+                  def f(x), do: :"#{x}"
+                end
+                """
+            )
+        )
+    }
+
+    fun testLeadingLiteralParenthesisIsNotAGroup() {
+        assertEquals(
+            emptySet<String>(),
+            resolve(
+                """
+                defmodule :a_b do
+                end
+
+                defmodule User do
+                  def f(x), do: :"a(#{x}"
+                end
+                """
+            )
+        )
+    }
+
+    fun testLeadingLiteralQuestionMarkIsNotAQuantifier() {
+        assertEquals(
+            setOf("defmodule :a? do\nend"),
+            resolve(
+                """
+                defmodule :a? do
+                end
+
+                defmodule :b do
+                end
+
+                defmodule User do
+                  def f(x), do: :"a?#{x}"
+                end
+                """
+            )
+        )
+    }
+
+    fun testLeadingLiteralDotIsNotAWildcard() {
+        assertEquals(
+            emptySet<String>(),
+            resolve(
+                """
+                defmodule :aXb do
+                end
+
+                defmodule User do
+                  def f(x), do: :"a.#{x}"
+                end
+                """
+            )
+        )
+    }
+
+    fun testLiteralBetweenInterpolationsParenthesisIsNotAGroup() {
+        assertEquals(
+            emptySet<String>(),
+            resolve(
+                """
+                defmodule :a_b do
+                end
+
+                defmodule User do
+                  def f(a, b), do: :"#{a}(#{b}"
+                end
+                """
+            )
+        )
+    }
+
+    fun testTrailingLiteralQuestionMarkIsNotAQuantifier() {
+        assertEquals(
+            setOf("defmodule :a? do\nend"),
+            resolve(
+                """
+                defmodule :a? do
+                end
+
+                defmodule :a do
+                end
+
+                defmodule User do
+                  def f(x), do: :"#{x}?"
+                end
+                """
+            )
+        )
+    }
+
+    private fun resolve(source: String): Set<String> {
+        myFixture.configureByText("pattern.ex", source.trimIndent())
+        val atom = PsiTreeUtil
+            .findChildrenOfType(myFixture.file, ElixirAtom::class.java)
+            .single { it.text.contains("#{") }
+
+        return (atom.reference as PsiPolyVariantReference).multiResolve(false).map { it.element!!.text }.toSet()
     }
 }

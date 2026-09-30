@@ -109,6 +109,8 @@
 
 ### Bug Fixes
 
+- [#PR-TBD](https://github.com/intellij-elixir/intellij-elixir/pull/PR-TBD) [@sh41](https://github.com/sh41)
+  - **An atom with text such as `(`, `.` or `?` before an interpolation, as in `:"a(#{x}"`, no longer reports an internal error while resolving or matches modules it cannot name.**
 - [#4220](https://github.com/intellij-elixir/intellij-elixir/pull/4220) [@sh41](https://github.com/sh41)
   - **An atom with interpolation, such as `:"#{name}_suffix"`, no longer reports an internal error while resolving.**
 - [#4178](https://github.com/intellij-elixir/intellij-elixir/pull/4178) [@sh41](https://github.com/sh41)
