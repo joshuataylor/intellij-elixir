@@ -144,6 +144,24 @@ class LiteralsTest : LoweringTestCase() {
         "1.20.4" to "{:%{}, [closing: [line: 2, column: 7], line: 1, column: 1], [{:|, [newlines: 1, line: 2, column: 1], [{:%{}, [closing: [line: 1, column: 5], line: 1, column: 3], []}, [a: 1]]}]}",
     )
 
+    fun testAnUpdatePipesNewlinesAfterItReplaceThoseBeforeIt() = assertLowers(
+        "%{%{}\n\n|\n a: 1}",
+        "1.16.3" to "{:%{}, [closing: [line: 4, column: 6], line: 1, column: 2], [{:|, [newlines: 1, line: 3, column: 1], [{:%{}, [closing: [line: 1, column: 5], line: 1, column: 4], []}, [a: 1]]}]}",
+        "1.17.3" to "{:%{}, [closing: [line: 4, column: 6], line: 1, column: 1], [{:|, [newlines: 1, line: 3, column: 1], [{:%{}, [closing: [line: 1, column: 5], line: 1, column: 3], []}, [a: 1]]}]}",
+    )
+
+    fun testAnUpdatePipeHasTheNewlinesBeforeItAfterASigil() = assertLowers(
+        "%{~c\"a\"\n| a: 1}",
+        "1.16.3" to "{:%{}, [closing: [line: 2, column: 7], line: 1, column: 2], [{:|, [newlines: 1, line: 2, column: 1], [{:sigil_c, [delimiter: \"\\\"\", line: 1, column: 3], [{:<<>>, [line: 1, column: 3], [\"a\"]}, []]}, [a: 1]]}]}",
+        "1.17.3" to "{:%{}, [closing: [line: 2, column: 7], line: 1, column: 1], [{:|, [newlines: 1, line: 2, column: 1], [{:sigil_c, [delimiter: \"\\\"\", line: 1, column: 3], [{:<<>>, [line: 1, column: 3], [\"a\"]}, []]}, [a: 1]]}]}",
+    )
+
+    fun testAnUpdatePipeAfterAnEscapedNewlineCharacter() = assertLowers(
+        "%{?\\\n| a: 1}",
+        "1.18.4" to "{:%{}, [closing: [line: 1, column: 12], line: 1, column: 1], [{:|, [line: 1, column: 6], [10, [a: 1]]}]}",
+        "1.19.5" to "{:%{}, [closing: [line: 2, column: 7], line: 1, column: 1], [{:|, [line: 2, column: 1], [10, [a: 1]]}]}",
+    )
+
     fun testAStructUpdatePipeHasItsNewlines() = assertLowers(
         "%Foo{%{} |\n\n a: 1}",
         "1.11.4" to "{:%, [line: 1, column: 1], [{:__aliases__, [line: 1, column: 2], [:Foo]}, {:%{}, [closing: [line: 3, column: 6], line: 1, column: 5], [{:|, [newlines: 2, line: 1, column: 10], [{:%{}, [closing: [line: 1, column: 8], line: 1, column: 7], []}, [a: 1]]}]}]}",

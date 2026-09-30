@@ -128,6 +128,14 @@ enum class ElixirLanguageFeature(
     SOLITARY_UNARY_WRAPPED_IN_EVERY_BLOCK(removedInElixir = "1.15.0-rc.0"),
 
     /**
+     * `=` carries `newlines:` for the newlines after it, as every other binary operator does; before, only those
+     * before it counted.
+     *
+     * `elixir-lang/elixir@7b73407af` ("Respect line breaks after ="), first released in v1.15.0-rc.0.
+     */
+    NEWLINES_AFTER_MATCH_OPERATOR(sinceElixir = "1.15.0-rc.0"),
+
+    /**
      * `from_interpolation: true` in the metadata of the `Kernel.to_string/1` call that `"a#{b}c"` quotes to.
      *
      * `elixir-lang/elixir@5225b33ba` ("Add interpolation token metadata"), first released in v1.16.0-rc.0.
@@ -302,6 +310,21 @@ enum class ElixirLanguageFeature(
     IN_OF_NOT_IN_ON_ITS_OWN_LINE(sinceElixir = "1.19.0-rc.1"),
 
     /**
+     * The `not` of `not in` carries `newlines:` for the newlines before `not` or after `in`, as a binary operator does.
+     *
+     * `elixir-lang/elixir@a2baac915` ("Address regressions on 'not in' operator"), first released in v1.19.0-rc.1.
+     */
+    NEWLINES_ON_NOT_IN(sinceElixir = "1.19.0-rc.1"),
+
+    /**
+     * With token metadata, the `not` of `not in` carries `operator: :"not in"`.
+     *
+     * Removed by `elixir-lang/elixir@5b3ae1b8c` ("Rewrite not (foo in bar) to foo not in bar"), first released in
+     * v1.12.0-rc.0.
+     */
+    OPERATOR_ON_NOT_IN(removedInElixir = "1.12.0-rc.0"),
+
+    /**
      * A `do`-`end` block's `__block__`, which carried no metadata, carries the position of its own `do` token, and an
      * empty file or interpolation's block is at line 1, column 1 rather than at its first end of expression, if any;
      * either carries `column` only with `columns: true`. With token metadata, a lone expression that has metadata
@@ -319,6 +342,15 @@ enum class ElixirLanguageFeature(
      * in v1.20.0-rc.0.
      */
     ESCAPED_NEWLINE_AS_SPACE(sinceElixir = "1.20.0-rc.0"),
+
+    /**
+     * The `not` or `!` that `not a in b` and `!a in b` move outside the `in` keeps its own metadata, where it took the
+     * `in`'s.
+     *
+     * `elixir-lang/elixir@e1ff7819b` ("Fix deprecation warning on !left in right"), first released in v1.20.0-rc.0.
+     */
+    REARRANGED_UNARY_KEEPS_ITS_METADATA(sinceElixir = "1.20.0-rc.0"),
+
     /**
      * A heredoc terminator after content on its line is content, where 1.11 rejects it there ("invalid location for
      * heredoc terminator") and scans a heredoc's lines for its terminator before reading its interpolations.

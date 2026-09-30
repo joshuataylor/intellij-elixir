@@ -69,6 +69,9 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             DELIMITER_OF_SINGLE_QUOTED_ATOM to ("1.17.3" to "1.18.0-rc.0"),
             DELIMITER_ON_QUOTED_KEYWORD_KEY to ("1.17.3" to "1.18.0-rc.0"),
             CLOSING_FIRST_IN_PARENS to ("1.19.5" to "1.20.0-rc.0"),
+            NEWLINES_AFTER_MATCH_OPERATOR to ("1.14.5" to "1.15.0-rc.0"),
+            NEWLINES_ON_NOT_IN to ("1.19.0-rc.0" to "1.19.0-rc.1"),
+            REARRANGED_UNARY_KEEPS_ITS_METADATA to ("1.19.6" to "1.20.0-rc.0"),
         )
 
         assertEquals(entries.filter { it.sinceElixir != null }.toSet(), boundaries.keys)
@@ -86,6 +89,7 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             SOLITARY_UNARY_WRAPPED_IN_EVERY_BLOCK to ("1.14.5" to "1.15.0-rc.0"),
             ENCLOSING_PARENS_MERGE_BLOCK_METADATA to ("1.16.3" to "1.17.0-rc.0"),
             GRAPHEME_CLUSTER_CRASH_IN_QUOTED_CALL_NAME to ("1.17.3" to "1.18.0-rc.0"),
+            OPERATOR_ON_NOT_IN to ("1.11.4" to "1.12.0-rc.0"),
         )
 
         assertEquals(entries.filter { it.removedInElixir != null }.toSet(), removals.keys)
