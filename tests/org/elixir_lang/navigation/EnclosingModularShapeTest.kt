@@ -11,11 +11,10 @@ import org.elixir_lang.structure_view.element.CallDefinitionClause as StructureC
  * `ChooseByNameContributor` reports "Cannot find enclosing Modular" - issues #1108 and #1695.
  *
  * `enclosingMacroCall` walks outwards through a fixed list of transparent PSI types in
- * [org.elixir_lang.psi.impl.selfOrEnclosingMacroCall], and `enclosingModularMacroCall` then walks past
- * `alias`, `require` and `for`. Anything else ends the walk on a non-Modular call. That list has grown
- * once per report - a 2018 cons-list/pipe fix for #1141, a 2021 `for` fix, a 2021 alias/require fix -
- * and #1695 is the next shape it never covered: a `quote` held as a value in a map literal, where the
- * walk stopped at `ElixirContainerAssociationOperation` and the map internals above it.
+ * [org.elixir_lang.psi.impl.selfOrEnclosingMacroCall]. That list has grown once per report - a 2018
+ * cons-list/pipe fix for #1141 - and #1695 is the next shape it never covered: a `quote` held as a value in
+ * a map literal, where the walk stopped at `ElixirContainerAssociationOperation` and the map internals
+ * above it.
  *
  * #1108's own reported code is already covered by `GotoSymbolContributorTest.testIssue1141`, whose
  * fixture is that code verbatim.

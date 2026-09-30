@@ -5,12 +5,12 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
+import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.Use
 import org.elixir_lang.psi.Using
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil
 import org.elixir_lang.psi.impl.call.finalArguments
-import org.elixir_lang.psi.impl.call.macroChildCallSequence
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
 
 /**
@@ -18,8 +18,8 @@ import org.elixir_lang.psi.impl.maybeModularNameToModulars
  * present in the module's *expanded* form - a literal `@behaviour B`, or an `@behaviour B` injected
  * by a `use` (via the used module's `__using__` quote), transitively. `use B` alone is NOT enough.
  *
- * Shared by the forward search ([org.elixir_lang.model.psi.ElixirSymbolUsageSearcher]: callback →
- * implementations) and the reverse reference ([CallbackImplReference]: implementing `def` →
+ * Shared by the forward search ([org.elixir_lang.model.psi.ElixirSymbolUsageSearcher]: callback ->
+ * implementations) and the reverse reference ([CallbackImplReference]: implementing `def` ->
  * `@callback`) so both directions stay consistent.
  *
  * Injected `@behaviour` is found by scanning the used module's `__using__` definer quote directly -
@@ -56,13 +56,13 @@ object BehaviourMembership {
     @RequiresReadLock
     private fun collectModule(module: Call, out: MutableSet<String>, visited: MutableSet<PsiElement>) {
         if (!visited.add(module)) return
-        module
-            .macroChildCallSequence()
+        val calls = CallDefinitionClause.modularChildCalls(module)
+
+        calls
             .filterIsInstance<AtUnqualifiedNoParenthesesCall<*>>()
             .filter { ElixirPsiImplUtil.moduleAttributeName(it) == "@behaviour" }
             .forEach { out += namesFromAttr(it, module) }
-        module
-            .macroChildCallSequence()
+        calls
             .filter { Use.`is`(it) }
             .forEach { useCall ->
                 Use.modulars(useCall).filterIsInstance<Call>().forEach { used -> collectUseInjected(used, out, visited) }

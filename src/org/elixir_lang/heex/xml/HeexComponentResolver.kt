@@ -6,6 +6,7 @@ import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.xml.XmlTag
+import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.ElixirFile
@@ -14,7 +15,6 @@ import org.elixir_lang.psi.Module
 import org.elixir_lang.psi.Protocol
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.model.psi.function.FunctionSymbol
-import org.elixir_lang.psi.impl.call.stabBodyChildExpressions
 import org.elixir_lang.psi.scope.call_definition_clause.MultiResolve
 import org.elixir_lang.reference.resolver.Module as ModuleResolver
 
@@ -38,15 +38,13 @@ import org.elixir_lang.reference.resolver.Module as ModuleResolver
     fun resolveFunctionSymbols(tag: XmlTag): List<FunctionSymbol> =
         resolveCall(tag)?.takeIf(CallDefinitionClause::`is`)?.let(FunctionSymbol::fromClause).orEmpty()
     /** The module's arity-1 call definitions, local-component candidates for tag-name completion. */
+    @RequiresReadLock
     fun localComponentDefinitions(tag: XmlTag): List<Call> {
         val module = elixirRoot(tag)?.viewFile()?.modulars()?.singleOrNull() as? Call ?: return emptyList()
 
-        return module.stabBodyChildExpressions()
-            ?.filterIsInstance<Call>()
-            ?.filter { CallDefinitionClause.capabilities(it)?.runtimeFunction == true }
-            ?.filter { call -> arity1(call) }
-            ?.toList()
-            ?: emptyList()
+        return CallDefinitionClause.modularChildCalls(module)
+            .filter { CallDefinitionClause.capabilities(it)?.runtimeFunction == true }
+            .filter { call -> arity1(call) }
     }
 
     private fun arity1(call: Call): Boolean =

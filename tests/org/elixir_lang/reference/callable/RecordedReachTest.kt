@@ -467,6 +467,31 @@ class RecordedReachTest : PlatformTestCase() {
         )
     }
 
+    fun testEctoQueryApiDefInCase() {
+        myFixture.addFileToProject("lib/ecto/query.ex", ECTO_QUERY)
+        myFixture.addFileToProject(
+            "lib/ecto/query/api.ex",
+            """
+            defmodule Ecto.Query.API do
+              case :a do
+                :a -> def avg(value), do: value
+              end
+            end
+            """.trimIndent()
+        )
+
+        assertReaches(
+            """
+            defmodule Caller do
+              import Ecto.Query
+
+              def g, do: from(p in Post, select: <caret>avg(p.x))
+            end
+            """,
+            "def avg(value), do: value" to Reach.IMPORT
+        )
+    }
+
     fun testEctoQueryWindowApi() {
         myFixture.addFileToProject("lib/ecto/query.ex", ECTO_QUERY)
         myFixture.addFileToProject(

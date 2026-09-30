@@ -109,6 +109,10 @@
 
 ### Bug Fixes
 
+- [#4254](https://github.com/intellij-elixir/intellij-elixir/pull/4254) [@sh41](https://github.com/sh41)
+  - **A definition, `@spec`, `@type`, `@callback` or `@behaviour` inside `if`, `case`, `try`, ExUnit's `describe` or a
+    library's DSL block now belongs to the module the block is in, for navigation, completion, docs, protocols,
+    behaviours, `import`, `use`, EEx and HEEx templates, and `mix.exs`.**
 - [#4242](https://github.com/intellij-elixir/intellij-elixir/pull/4242) [@sh41](https://github.com/sh41)
   - **A module written as `Kernel.defmodule Foo do ... end` is recognised as a module in a file that is not open.**
   - **Indexing a file with `defimpl __MODULE__.P, for: X` no longer reports an internal error.**

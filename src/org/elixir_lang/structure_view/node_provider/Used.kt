@@ -11,11 +11,11 @@ import com.intellij.psi.PsiFile
 import com.intellij.psi.ResolveState
 import com.intellij.util.IncorrectOperationException
 import org.elixir_lang.NameArity
+import org.elixir_lang.psi.CallDefinitionClause.modularChildCalls
 import org.elixir_lang.psi.ElixirAccessExpression
 import org.elixir_lang.psi.QualifiableAlias
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.finalArguments
-import org.elixir_lang.psi.impl.call.macroChildCalls
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.structure_view.element.*
 import org.elixir_lang.structure_view.element.modular.Module
@@ -102,7 +102,7 @@ class Used : FileStructureNodeProvider<TreeElement>, ActionShortcutProvider {
 
                                         if (org.elixir_lang.psi.Module.`is`(call)) {
                                             val module = Module(call)
-                                            val childCalls = call.macroChildCalls()
+                                            val childCalls = modularChildCalls(call)
 
                                             val macroByNameArity = HashMap<NameArity, CallDefinition>(childCalls.size)
 

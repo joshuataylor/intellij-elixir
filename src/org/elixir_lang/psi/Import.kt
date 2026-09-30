@@ -33,7 +33,6 @@ import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.ENTRANCE
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.call.keywordArguments
-import org.elixir_lang.psi.impl.call.stabBodyChildExpressions
 import org.elixir_lang.psi.impl.hasKeywordKey
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
 import org.elixir_lang.psi.impl.stripAccessExpression
@@ -305,16 +304,15 @@ object Import {
         resolveState: ResolveState,
         keepProcessing: (PsiElement, ResolveState) -> Boolean
     ): Boolean =
-        importedModular
-            .stabBodyChildExpressions()
-            ?.filterIsInstance<Call>()
-            ?.filter { !resolveState.hasBeenVisited(it) }
-            ?.map {
+        CallDefinitionClause.modularChildCalls(importedModular)
+            .asSequence()
+            .filter { !resolveState.hasBeenVisited(it) }
+            .map {
                 ProgressManager.checkCanceled()
                 treeWalkUpImportedModularChildExpression(filter, it, resolveState, keepProcessing)
             }
-            ?.takeWhile { it }
-            ?.lastOrNull()
+            .takeWhile { it }
+            .lastOrNull()
             ?: true
 
     private fun treeWalkUpImportedModular(
