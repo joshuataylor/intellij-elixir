@@ -56,14 +56,29 @@ object UseScopeImpl {
      * @return the search scope instance.
      * @see {@link com.intellij.psi.search.PsiSearchHelper.getUseScope
      */
+    @RequiresReadLock
     @Contract(pure = true)
     @JvmStatic
     fun get(atUnqualifiedNoParenthesesCall: AtUnqualifiedNoParenthesesCall<*>): SearchScope =
             if (isNonReferencing(atUnqualifiedNoParenthesesCall.atIdentifier)) {
                 atUnqualifiedNoParenthesesCall.moduleWithDependentsScope()
             } else {
-                atUnqualifiedNoParenthesesCall.selfAndFollowingSiblingsSearchScope()
+                selfAndFollowingInModuleSearchScope(atUnqualifiedNoParenthesesCall)
             }
+
+    /** A declaration made in a block that runs as part of its module's body stays in effect after the block. */
+    @RequiresReadLock
+    private fun selfAndFollowingInModuleSearchScope(declaration: AtUnqualifiedNoParenthesesCall<*>): LocalSearchScope {
+        val modular = CallDefinitionClause.enclosingModularMacroCall(declaration)
+        // Does not exclude PsiComment as Search In Comments is an option
+        val following = generateSequence<PsiElement>(declaration) { it.parent }
+            .takeWhile { it != modular && it !is PsiFile }
+            .flatMap { generateSequence(it.nextSibling) { sibling -> sibling.nextSibling } }
+            .onEach { ProgressManager.checkCanceled() }
+            .filter { it !is ElixirEndOfExpression && it !is PsiWhiteSpace }
+
+        return LocalSearchScope((sequenceOf<PsiElement>(declaration) + following).toList().toTypedArray())
+    }
 
     /**
      * Returns the scope in which references to this element are searched.

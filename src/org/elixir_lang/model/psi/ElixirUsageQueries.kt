@@ -1081,41 +1081,27 @@ internal object ElixirUsageQueries {
                     .filterIsInstance<AtUnqualifiedNoParenthesesCall<*>>()
                     .firstOrNull { it.atIdentifier.identifierTextRange() == symbol.range }
                     ?: return@JCallable true
+                val modular = CallDefinitionClause.enclosingModularMacroCall(declaration) ?: return@JCallable true
                 val seen = mutableSetOf<TextRange>(declaration.atIdentifier.textRange)
 
-                // Walk ALL of the declaration's siblings, not just the following ones: the rename
-                // can start from ANY of a re-declared attribute's declaration sites (or from a
-                // read, which resolves to the nearest preceding one), and the earlier declarations
-                // are just as much part of the logical attribute as the later ones.
-                var sibling: PsiElement? = declaration.parent?.firstChild ?: declaration
-                while (sibling != null) {
+                // Every declaration in the module, not just the following ones: the rename can start from any of a
+                // re-declared attribute's declaration sites, or from a read, which resolves to only one of them.
+                for (candidate in CallDefinitionClause.modularChildCalls(modular)) {
                     ProgressManager.checkCanceled()
-                    val declarationCandidate = sibling as? AtUnqualifiedNoParenthesesCall<*>
-                    if (declarationCandidate != null) {
-                        ProgressManager.checkCanceled()
-                        val candidateSymbol = ModuleAttributeSymbol.fromDeclaration(declarationCandidate)
-                        if (candidateSymbol != null) {
-                            if (candidateSymbol.name != symbol.name || candidateSymbol.moduleName != symbol.moduleName) {
-                                sibling = sibling.nextSibling
-                                continue
-                            }
-                            if (!seen.add(declarationCandidate.atIdentifier.textRange)) {
-                                sibling = sibling.nextSibling
-                                continue
-                            }
+                    val declarationCandidate = candidate as? AtUnqualifiedNoParenthesesCall<*> ?: continue
+                    val candidateSymbol = ModuleAttributeSymbol.fromDeclaration(declarationCandidate) ?: continue
 
-                            val atIdentifier = declarationCandidate.atIdentifier
-                            val usage = ElixirPsiUsage.create(
-                                atIdentifier,
-                                atIdentifier.identifierTextRange().shiftLeft(atIdentifier.textRange.startOffset),
-                                declaration = false,
-                                usageType = MODULE_ATTRIBUTE_WRITE
-                            )
-                            if (!consumer.process(usage)) return@JCallable false
-                        }
-                    }
+                    if (candidateSymbol.name != symbol.name || candidateSymbol.moduleName != symbol.moduleName) continue
+                    if (!seen.add(declarationCandidate.atIdentifier.textRange)) continue
 
-                    sibling = sibling.nextSibling
+                    val atIdentifier = declarationCandidate.atIdentifier
+                    val usage = ElixirPsiUsage.create(
+                        atIdentifier,
+                        atIdentifier.identifierTextRange().shiftLeft(atIdentifier.textRange.startOffset),
+                        declaration = false,
+                        usageType = MODULE_ATTRIBUTE_WRITE
+                    )
+                    if (!consumer.process(usage)) return@JCallable false
                 }
 
                 true

@@ -445,7 +445,8 @@ object ProcessDeclarationsImpl {
         place: PsiElement
     ): Boolean =
         sequence
-            .filter { !createsNewScope(it) }
+            // A block with its own variables can still be part of the module's body, as a DSL's is.
+            .filter { processor is org.elixir_lang.psi.scope.ModuleAttribute || !createsNewScope(it) }
             .map {
                 /* A call decides what it declares through its own `processDeclarations`, and so do a template's
                    tags and the alias shapes. A container that is a statement on its own, `[x = 1]` or
