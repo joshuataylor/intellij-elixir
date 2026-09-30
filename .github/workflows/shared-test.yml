@@ -185,6 +185,7 @@ jobs:
           otp-version: ${{ matrix.beam.otp }}
           idea-version: ${{ matrix.idea-version }}
           java-version: ${{ matrix.java-version }}
+          cache-key-prefix: idea
           github-token: ${{ secrets.GITHUB_TOKEN }}
           gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           build-scan-publish: 'true'
@@ -495,6 +496,7 @@ jobs:
         uses: ./.github/actions/setup-env
         with:
           setup-elixir: false
+          cache-key-prefix: idea
           github-token: ${{ secrets.GITHUB_TOKEN }}
           gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           skip-searchable-options: 'true'

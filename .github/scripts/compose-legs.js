@@ -6,42 +6,13 @@
 //
 // `verify` is not projected onto a test leg: every test leg builds against IntelliJ IDEA
 // (platformType=IU), and those products are verification targets only.
+//
+// A version pointer (LATEST-EAP-SNAPSHOT) is resolved here, once per run, and every leg gets the build
+// it names. A pointer with no active pre-release for a product composes no legs for it.
 
 const { readDeclaration, ideaVersions, baseline, beamAdditional, verifyProducts } = require('./ci-versions');
+const { productCode, resolveBuild, noActivePrerelease } = require('./ide-releases');
 const { setOutput, addSummary, fail } = require('./actions');
-
-const declaration = readDeclaration();
-
-const minimumSupported = declaration.idea.minimumSupported;
-const base = baseline(declaration);
-
-// The label is the only name used downstream - the job, both artifacts, and the check named after the
-// Test Results artifact - so a leg group names the axis it varies and omits what is invariant within
-// it. Two constraints on the format: the discriminator goes first, because the checks graph truncates
-// names at roughly 24 characters, and `/` is illegal in an artifact name (hence `+` between Elixir and
-// OTP) though legal in a job name.
-const leg = (os, idea, beam, label) => ({
-  os,
-  'idea-version': idea.version,
-  'java-version': idea.java,
-  beam,
-  label,
-});
-
-const legs = [
-  ...ideaVersions(declaration).map((idea) =>
-    leg('ubuntu-24.04-arm', idea, base, `IDEA ${idea.version}`),
-  ),
-  ...beamAdditional(declaration).map((beam) =>
-    leg('ubuntu-24.04-arm', minimumSupported, beam, `${beam.elixir}+${beam.otp}`),
-  ),
-  leg('windows-2025', minimumSupported, base, `Win25, IDEA ${minimumSupported.version}`),
-];
-
-// One leg per product x version, never several IDEs per verifier JVM - see shared-verify.yml.
-const verifyLegs = ideaVersions(declaration).flatMap((idea) =>
-  verifyProducts(idea).map((product) => ({ product, version: idea.version })),
-);
 
 // Rejects rather than deduplicates: upload-artifact refuses the second of a duplicate name, so a
 // silently dropped leg leaves the aggregate reporting a smaller matrix as if that were all of it.
@@ -56,47 +27,122 @@ function requireUniqueNames(names, title, consequence) {
   );
 }
 
-requireUniqueNames(
-  legs.map((entry) => entry.label),
-  'Duplicate test legs',
-  'two test legs would share a job name, a check name and both artifact names',
-);
-requireUniqueNames(
-  verifyLegs.map((entry) => `${entry.product} ${entry.version}`),
-  'Duplicate verification legs',
-  'two verification jobs would share a name and a report artifact name',
-);
+async function main() {
+  const declaration = readDeclaration();
 
-setOutput('matrix', JSON.stringify({ include: legs }));
-setOutput('verify', JSON.stringify({ include: verifyLegs }));
-// An empty include list is not a valid matrix, so the verify job is gated on this instead.
-setOutput('verify-any', verifyLegs.length > 0 ? 'true' : 'false');
+  const minimumSupported = declaration.idea.minimumSupported;
+  const base = baseline(declaration);
 
-addSummary(
-  [
-    '### Test legs',
-    '',
-    '| leg | os | IDEA | JBR | Elixir | OTP | informational |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
-    ...legs.map((entry) =>
-      [
-        '',
-        entry.label,
-        entry.os,
-        entry['idea-version'],
-        entry['java-version'],
-        entry.beam.elixir,
-        entry.beam.otp,
-        entry.beam['continue-on-error'] || false,
-        '',
-      ].join(' | ').trim(),
-    ),
-    '',
-    '### Verification legs',
-    '',
-    '| product | version |',
-    '| --- | --- |',
-    ...verifyLegs.map((entry) => `| ${entry.product} | ${entry.version} |`),
-    '',
-  ].join('\n'),
-);
+  // Keyed by product code as well as version: a pointer names a different build per product.
+  const resolutions = new Map();
+  const skipped = [];
+  async function buildFor(code, version) {
+    const key = `${code} ${version}`;
+    if (!resolutions.has(key)) {
+      resolutions.set(
+        key,
+        resolveBuild(code, version).then(
+          ({ build, release }) => {
+            if (!build) {
+              const message = `${noActivePrerelease(version, code, release)}, legs skipped`;
+              console.log(`::notice title=No active pre-release::${message}`);
+              skipped.push(message);
+            }
+            return build;
+          },
+          (error) => fail(`resolving ${version} for ${code}: ${error.message}`, 'IDE version not resolved'),
+        ),
+      );
+    }
+    return resolutions.get(key);
+  }
+
+  // The label is the only name used downstream - the job, both artifacts, and the check named after the
+  // Test Results artifact - so a leg group names the axis it varies and omits what is invariant within
+  // it. Two constraints on the format: the discriminator goes first, because the checks graph truncates
+  // names at roughly 24 characters, and `/` is illegal in an artifact name (hence `+` between Elixir and
+  // OTP) though legal in a job name. It carries the declared version, not the build, so a pointer's
+  // check keeps its name from one build to the next.
+  const leg = async (os, idea, beam, label) => {
+    const build = await buildFor('IU', idea.version);
+    return build && { os, 'idea-version': build, 'java-version': idea.java, beam, label };
+  };
+
+  const legs = (
+    await Promise.all([
+      ...ideaVersions(declaration).map((idea) =>
+        leg('ubuntu-24.04-arm', idea, base, `IDEA ${idea.version}`),
+      ),
+      ...beamAdditional(declaration).map((beam) =>
+        leg('ubuntu-24.04-arm', minimumSupported, beam, `${beam.elixir}+${beam.otp}`),
+      ),
+      leg('windows-2025', minimumSupported, base, `Win25, IDEA ${minimumSupported.version}`),
+    ])
+  ).filter(Boolean);
+
+  // One leg per product x version, never several IDEs per verifier JVM - see shared-verify.yml.
+  const verifyLegs = (
+    await Promise.all(
+      ideaVersions(declaration).flatMap((idea) =>
+        verifyProducts(idea).map(async (product) => {
+          let code;
+          try {
+            code = productCode(product);
+          } catch (error) {
+            fail(error.message, 'Unknown verification product');
+          }
+          const build = await buildFor(code, idea.version);
+          return build && { product, version: idea.version, build };
+        }),
+      ),
+    )
+  ).filter(Boolean);
+
+  requireUniqueNames(
+    legs.map((entry) => entry.label),
+    'Duplicate test legs',
+    'two test legs would share a job name, a check name and both artifact names',
+  );
+  requireUniqueNames(
+    verifyLegs.map((entry) => `${entry.product} ${entry.version}`),
+    'Duplicate verification legs',
+    'two verification jobs would share a name and a report artifact name',
+  );
+
+  setOutput('matrix', JSON.stringify({ include: legs }));
+  setOutput('verify', JSON.stringify({ include: verifyLegs }));
+  // An empty include list is not a valid matrix, so the verify job is gated on this instead.
+  setOutput('verify-any', verifyLegs.length > 0 ? 'true' : 'false');
+
+  addSummary(
+    [
+      '### Test legs',
+      '',
+      '| leg | os | IDEA | JBR | Elixir | OTP | informational |',
+      '| --- | --- | --- | --- | --- | --- | --- |',
+      ...legs.map((entry) =>
+        [
+          '',
+          entry.label,
+          entry.os,
+          entry['idea-version'],
+          entry['java-version'],
+          entry.beam.elixir,
+          entry.beam.otp,
+          entry.beam['continue-on-error'] || false,
+          '',
+        ].join(' | ').trim(),
+      ),
+      '',
+      '### Verification legs',
+      '',
+      '| product | version | build |',
+      '| --- | --- | --- |',
+      ...verifyLegs.map((entry) => `| ${entry.product} | ${entry.version} | ${entry.build} |`),
+      '',
+      ...(skipped.length ? ['### Skipped', '', ...skipped.map((message) => `- ${message}`), ''] : []),
+    ].join('\n'),
+  );
+}
+
+main();

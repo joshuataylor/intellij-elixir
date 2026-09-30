@@ -591,6 +591,12 @@ something. `./gradlew check` on the pinned pair must stay at zero.
 entry, or an `idea.additionalToTest` entry for a platform. The matrix, the JBR levels and the verifier's IDE
 lists all follow from it.
 
+An `idea.additionalToTest` version may be `LATEST-EAP-SNAPSHOT`. `compose-legs.js` resolves it once per
+run and per product to the newest EAP or RC build, but only while that build is newer than the latest
+release. Every leg then sees that build, and so does its Gradle cache key; the check names keep
+`LATEST-EAP-SNAPSHOT`. When a product has no active pre-release, its legs for that entry are skipped with
+a notice.
+
 Other IDEs appear only in plugin *verification*. Each IDEA version lists the products to verify it
 against in a `verify` array, and CI runs one job per product/version pair (`.github/workflows/shared-verify.yml`),
 each verifying the plugin zip that was built once. Adding a product is one entry in that array; the
