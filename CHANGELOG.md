@@ -500,6 +500,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4274](https://github.com/intellij-elixir/intellij-elixir/pull/4274) [@sh41](https://github.com/sh41)
+  - **`fn`, `->` clauses and module attributes lower to the typed Elixir AST, and broken code lowers to placeholders; nothing uses it yet.** Fixes [#4248](https://github.com/intellij-elixir/intellij-elixir/issues/4248).
 - [#4267](https://github.com/intellij-elixir/intellij-elixir/pull/4267) [@sh41](https://github.com/sh41)
   - **Which of a `defdelegate` and what it delegates to comes first is decided in one place, beside the rules for what a call resolves to and why it is rejected, which nothing uses yet.** Fixes [#4234](https://github.com/intellij-elixir/intellij-elixir/issues/4234).
 - [#4256](https://github.com/intellij-elixir/intellij-elixir/pull/4256) [@sh41](https://github.com/sh41)

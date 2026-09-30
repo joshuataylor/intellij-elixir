@@ -17,6 +17,8 @@ import org.elixir_lang.language_level.ElixirLanguageFeature.NESTED_PARENTHESES_D
 import org.elixir_lang.language_level.ElixirLanguageFeature.REMOTE_CALL_ON_NAME_LINE
 import org.elixir_lang.language_level.ElixirLanguageFeature.UNESCAPED_QUOTED_REMOTE_CALL_NAME
 import org.elixir_lang.psi.AtOperation
+import org.elixir_lang.psi.AtUnqualifiedBracketOperation
+import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.BracketOperation
 import org.elixir_lang.psi.DotCall
 import org.elixir_lang.psi.ElixirAtomKeyword
@@ -222,8 +224,8 @@ private fun Lowering.nameAlone(element: PsiElement, identifier: PsiElement): Eli
 
 /**
  * The `...` in [expression], outside its nested blocks, that from 1.17 is a unary operator: a call of `...` with
- * parentheses or arguments, brackets or a `do` block, or a lone `...` before a `+` or `-`, even across a `\` ending
- * the line. Its operand is still grouped as before 1.17.
+ * parentheses or arguments, brackets or a `do` block, the attribute `@... 1` or `@...[0]`, or a lone `...` before a
+ * `+` or `-`, even across a `\` ending the line. Its operand is still grouped as before 1.17.
  */
 internal fun Lowering.unaryEllipsis(expression: PsiElement): PsiElement? {
     if (!isAvailable(ELLIPSIS_NULLARY_CALL) || !expression.textContains('.')) return null
@@ -233,15 +235,18 @@ internal fun Lowering.unaryEllipsis(expression: PsiElement): PsiElement? {
         .firstOrNull { call ->
             val name = call.firstChild
 
-            name?.text == "..." &&
-                when (call) {
-                    is UnqualifiedNoArgumentsCall<*> ->
-                        doBlock(call) != null ||
-                            nextTokenText(name, skipsLineContinuations = true).let { it == "+" || it == "-" }
-                    is UnqualifiedParenthesesCall<*>, is UnqualifiedNoParenthesesCall<*>,
-                    is ElixirUnqualifiedNoParenthesesManyArgumentsCall, is UnqualifiedBracketOperation -> true
-                    else -> false
-                }
+            when (call) {
+                is UnqualifiedNoArgumentsCall<*> ->
+                    name?.text == "..." &&
+                        (doBlock(call) != null ||
+                            nextTokenText(name, skipsLineContinuations = true).let { it == "+" || it == "-" })
+                is UnqualifiedParenthesesCall<*>, is UnqualifiedNoParenthesesCall<*>,
+                is ElixirUnqualifiedNoParenthesesManyArgumentsCall, is UnqualifiedBracketOperation -> name?.text == "..."
+                is AtUnqualifiedNoParenthesesCall<*> ->
+                    call.atIdentifier.node.findChildByType(ElixirTypes.IDENTIFIER_TOKEN)?.text == "..."
+                is AtUnqualifiedBracketOperation -> call.node.findChildByType(ElixirTypes.IDENTIFIER_TOKEN)?.text == "..."
+                else -> false
+            }
         }
 }
 

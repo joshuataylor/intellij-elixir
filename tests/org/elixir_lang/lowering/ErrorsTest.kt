@@ -9,6 +9,16 @@ class ErrorsTest : LoweringTestCase() {
         assertFalse(lowered.hasUnlowered())
     }
 
+    fun testAnErrorInsideAnotherShapeIsAPlaceholderWhereTheErrorIs() {
+        val lowered = lower("@")
+
+        assertEquals(ERROR, placeholderReasons(lowered))
+        assertEquals(
+            "{:@, [line: 1, column: 1], [{:__cursor__, [line: 1, column: 2], []}]}",
+            inspect(lowered.toOtp(COLUMNS_AND_TOKEN_METADATA))
+        )
+    }
+
     fun testAnUnfinishedClauseIsAnErrorPlaceholder() = assertEquals(ERROR, placeholderReasons(lower("fn ->")))
 
     fun testFnWithoutAClauseIsAnErrorPlaceholder() {
