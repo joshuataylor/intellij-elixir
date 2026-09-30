@@ -340,10 +340,11 @@ object Import {
         when {
             CallDefinitionClause.`is`(importedCall) -> {
                 CallDefinitionClause.nameArityInterval(importedCall, resolveState)?.let { nameArityInterval ->
-                    val macro = CallDefinitionClause.isMacro(importedCall) || CallDefinitionClause.isGuard(importedCall)
+                    val capabilities = CallDefinitionClause.capabilities(importedCall)
 
-                    if (CallDefinitionClause.isPublic(importedCall) &&
-                        filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, macro)
+                    if (capabilities != null &&
+                        capabilities.public &&
+                        filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, capabilities.compileTime)
                     ) {
                         keepProcessing(importedCall, resolveState)
                     } else {
