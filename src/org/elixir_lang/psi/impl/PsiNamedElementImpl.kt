@@ -9,6 +9,7 @@ import org.elixir_lang.module.PutAttribute
 import org.elixir_lang.module.RegisterAttribute
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function.UNQUOTE
 import org.jetbrains.annotations.Contract
 
@@ -36,34 +37,33 @@ object PsiNamedElementImpl {
     @Contract(pure = true)
     @JvmStatic
     fun getName(namedElement: NamedElement): String? =
-        if (namedElement is Call && RegisterAttribute.`is`(namedElement)) {
-            RegisterAttribute.name(namedElement)
-        } else if (namedElement is Call && PutAttribute.`is`(namedElement)) {
-            PutAttribute.name(namedElement)
+        if (namedElement is Call) {
+            name(SyntacticCall.of(namedElement))
         } else {
-            val nameIdentifier = namedElement.nameIdentifier
+            namedElement.nameIdentifier?.let { unquoteName(namedElement, it.text) }
+        }
 
-            if (nameIdentifier != null) {
-                unquoteName(namedElement, nameIdentifier.text)
-            } else {
-                if (namedElement is Call) {
-                    val call = namedElement as Call
-
-                    /* The name of the module defined by {@code defimpl PROTOCOL[ for: MODULE]} is derived by combining the
-                   PROTOCOL and MODULE name into PROTOCOL.MODULE.  Neither piece is really the "name" or
-                   "nameIdentifier" element of the implementation because changing the PROTOCOL make the implementation
-                   just for that different Protocol and changing the MODULE makes the implementation for a different
-                   MODULE.  If `for:` isn't given, it's really the enclosing {@code defmodule MODULE} whose name should
-                   be changed. */
-                    if (Implementation.`is`(call)) {
-                        Implementation.name(call)
-                    } else {
-                        null
-                    }
+    @RequiresReadLock
+    @Contract(pure = true)
+    @JvmStatic
+    fun name(call: SyntacticCall): String? =
+        if (RegisterAttribute.`is`(call)) {
+            RegisterAttribute.name(call)
+        } else if (PutAttribute.`is`(call)) {
+            PutAttribute.name(call)
+        } else {
+            call.nameIdentifierName() ?:
+                /* The name of the module defined by {@code defimpl PROTOCOL[ for: MODULE]} is derived by combining the
+               PROTOCOL and MODULE name into PROTOCOL.MODULE.  Neither piece is really the "name" or
+               "nameIdentifier" element of the implementation because changing the PROTOCOL make the implementation
+               just for that different Protocol and changing the MODULE makes the implementation for a different
+               MODULE.  If `for:` isn't given, it's really the enclosing {@code defmodule MODULE} whose name should
+               be changed. */
+                if (Implementation.`is`(call)) {
+                    Implementation.name(call)
                 } else {
                     null
                 }
-            }
         }
 
     @JvmStatic

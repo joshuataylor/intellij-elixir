@@ -2,7 +2,6 @@ package org.elixir_lang.module
 
 import com.intellij.psi.PsiElement
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.psi.ElixirAtom
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.impl.call.finalArguments
@@ -24,11 +23,10 @@ object RegisterAttribute {
             } ?: false
 
     @RequiresReadLock
-    fun name(call: Call): String? =
-            when (val nameIdentifier = nameIdentifier(call)) {
-                is ElixirAtom -> "@${nameIdentifier.name}"
-                else -> null
-            }
+    fun name(call: Call): String? = name(SyntacticCall.of(call))
+
+    @RequiresReadLock
+    fun name(call: SyntacticCall): String? = call.attributeAtomName()?.let { "@$it" }
 
     @RequiresReadLock
     fun nameIdentifier(call: Call): PsiElement? =

@@ -17,6 +17,7 @@ import kotlin.jvm.functions.Function1;
 import org.elixir_lang.declaration.Capabilities;
 import org.elixir_lang.psi.*;
 import org.elixir_lang.psi.call.Call;
+import org.elixir_lang.psi.call.SyntacticCall;
 import org.elixir_lang.psi.call.StubBased;
 import org.elixir_lang.psi.call.arguments.None;
 import org.elixir_lang.psi.call.arguments.star.NoParentheses;
@@ -1108,15 +1109,7 @@ public class ElixirPsiImplUtil {
 
     @RequiresReadLock
     public static @Nullable String implementedProtocolName(@NotNull final Call call) {
-        String protocolName;
-
-        if (Implementation.is(call)) {
-            protocolName = Implementation.protocolName(call);
-        } else {
-            protocolName = null;
-        }
-
-        return protocolName;
+        return Implementation.implementedProtocolName(SyntacticCall.of(call));
     }
 
     @Nullable

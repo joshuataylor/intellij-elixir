@@ -2,11 +2,8 @@ package org.elixir_lang.module
 
 import com.intellij.psi.PsiElement
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.psi.ElixirAtom
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
-import org.elixir_lang.psi.impl.call.finalArguments
-import org.elixir_lang.psi.impl.stripAccessExpression
 
 object PutAttribute {
     fun `is`(element: PsiElement): Boolean =
@@ -24,18 +21,11 @@ object PutAttribute {
             } ?: false
 
     @RequiresReadLock
-    fun name(call: Call): String? =
-            when (val nameIdentifier = nameIdentifier(call)) {
-                is ElixirAtom -> "@${nameIdentifier.name}"
-                else -> null
-            }
+    fun name(call: Call): String? = name(SyntacticCall.of(call))
 
     @RequiresReadLock
-    fun nameIdentifier(call: Call): PsiElement? =
-            call
-                    .finalArguments()
-                    ?.let { arguments ->
-                        arguments[arguments.lastIndex - 1]
-                    }
-                    ?.stripAccessExpression()
+    fun name(call: SyntacticCall): String? = call.attributeAtomName()?.let { "@$it" }
+
+    @RequiresReadLock
+    fun nameIdentifier(call: Call): PsiElement? = RegisterAttribute.nameIdentifier(call)
 }

@@ -1,9 +1,14 @@
 package org.elixir_lang.psi.call
 
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiNamedElement
+import org.elixir_lang.module.RegisterAttribute
 import org.elixir_lang.psi.*
+import org.elixir_lang.psi.call.name.Function.__MODULE__
+import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil
+import org.elixir_lang.psi.impl.PsiNamedElementImpl
+import org.elixir_lang.psi.impl.QualifiableAliasImpl
+import org.elixir_lang.psi.impl.call.CanonicallyNamedImpl
 import org.elixir_lang.psi.impl.call.finalArity
 import org.elixir_lang.psi.impl.enclosingMacroCall
 import org.elixir_lang.psi.impl.hasKeywordKey
@@ -49,7 +54,20 @@ interface SyntacticCall {
 
     fun firstPrimaryArgumentText(): String?
 
+    /** The first argument as an alias, with a `__MODULE__` qualifier as written and any other call qualifier as `?`. */
+    fun protocolAliasText(): String?
+
+    /** The names in the `for:` option, `null` without one. */
+    fun forNames(): Collection<String>?
+    fun forText(): String?
+
+    fun nameIdentifierName(): String?
+
+    /** The atom naming the attribute in `Module.register_attribute(module, name, options)` or `put_attribute`. */
+    fun attributeAtomName(): String?
+
     fun name(): String?
+    fun canonicalName(): String?
     fun canonicalNameSet(): Set<String>
     fun implementedProtocolName(): String?
 
@@ -132,7 +150,27 @@ private class PsiBacked(val call: Call) : SyntacticCall {
 
     override fun firstPrimaryArgumentText(): String? = call.primaryArguments()?.firstOrNull()?.text
 
-    override fun name(): String? = (call as? PsiNamedElement)?.name
-    override fun canonicalNameSet(): Set<String> = (call as? StubBased<*>)?.canonicalNameSet() ?: emptySet()
-    override fun implementedProtocolName(): String? = ElixirPsiImplUtil.implementedProtocolName(call)
+    override fun protocolAliasText(): String? =
+        Implementation.protocolNameElement(call)?.let { alias ->
+            QualifiableAliasImpl.selfQualifiedName(alias) { qualifier ->
+                if (qualifier.isCalling(KERNEL, __MODULE__, 0)) __MODULE__ else "?"
+            }
+        }
+
+    override fun forNames(): Collection<String>? =
+        Implementation.forNameElement(call)?.let { Implementation.forNameCollection(it) }
+
+    override fun forText(): String? = Implementation.forNameElement(call)?.text
+
+    override fun nameIdentifierName(): String? =
+        (call as? NamedElement)
+            ?.nameIdentifier
+            ?.let { PsiNamedElementImpl.unquoteName(call, it.text) }
+
+    override fun attributeAtomName(): String? = (RegisterAttribute.nameIdentifier(call) as? ElixirAtom)?.name
+
+    override fun name(): String? = PsiNamedElementImpl.name(this)
+    override fun canonicalName(): String? = CanonicallyNamedImpl.canonicalName(this)
+    override fun canonicalNameSet(): Set<String> = CanonicallyNamedImpl.canonicalNameSet(this)
+    override fun implementedProtocolName(): String? = Implementation.implementedProtocolName(this)
 }

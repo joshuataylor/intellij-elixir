@@ -23,11 +23,11 @@ import java.io.IOException;
 
 public class File extends IStubFileElementType<org.elixir_lang.psi.stub.File> {
     /**
-     * Bump whenever the parse tree can change shape, so stubs built by an earlier version are
-     * rebuilt. Parsing is version-aware, so that includes changes to how the language level is resolved and
-     * not only changes to the grammar.
+     * Bump whenever the parse tree can change shape or a stub can store a different value, so stubs built by an
+     * earlier version are rebuilt. Parsing is version-aware, so that includes changes to how the language level is
+     * resolved and not only changes to the grammar.
      */
-    public static final int VERSION = 8;
+    public static final int VERSION = 9;
     public static final IStubFileElementType INSTANCE = new File();
 
     public File() {

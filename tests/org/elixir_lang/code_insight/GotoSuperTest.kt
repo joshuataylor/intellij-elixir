@@ -28,4 +28,13 @@ class GotoSuperTest : PlatformTestCase() {
         assertTrue("Expected enclosing modular to be defprotocol", Protocol.`is`(enclosingModular!!))
         assertEquals("run", CallDefinitionClause.nameIdentifier(callDefinitionClause)?.text)
     }
+
+    @RequiresReadLock
+    fun testDefimplOfModuleAliasFunctionNavigatesToProtocolFunction() {
+        myFixture.configureByFile("defimpl_of_module_alias_to_defprotocol.ex")
+
+        GotoSuper().invoke(project, myFixture.editor, myFixture.file)
+
+        assertEquals(myFixture.file.text.indexOf("def run(value)") + "def ".length, myFixture.caretOffset)
+    }
 }

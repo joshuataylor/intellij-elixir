@@ -141,15 +141,16 @@ object QualifiableAliasImpl {
         prependQualifiers(qualifiableAlias.parent, qualifiableAlias, selfQualifiedName(qualifiableAlias))
 
     /**
-     * The name of [qualifiableAlias] with its own qualifier expanded.
+     * The name of [qualifiableAlias] with each call qualifier, such as `__MODULE__` in `__MODULE__.Endpoint`, named by
+     * [callQualifierName].
      *
-     * [com.intellij.psi.PsiNamedElement.getName] for a [QualifiedAlias] is the raw source text.
-     * That only equals the resolvable module name when the qualifier chain consists purely of
-     * Aliases: a call qualifier such as `__MODULE__` in `__MODULE__.Endpoint` must be resolved to
-     * the enclosing module so the name becomes e.g. `MyModule.Endpoint` - echoing the text would
-     * produce `__MODULE__.Endpoint`, which matches nothing in the module name index.
+     * [com.intellij.psi.PsiNamedElement.getName] for a [QualifiedAlias] is the raw source text, which matches nothing
+     * in the module name index when a qualifier is a call.
      */
-    private fun selfQualifiedName(qualifiableAlias: QualifiableAlias): String {
+    fun selfQualifiedName(
+        qualifiableAlias: QualifiableAlias,
+        callQualifierName: (Call) -> String = ::resolvedQualifierName
+    ): String {
         if (qualifiableAlias !is QualifiedAlias) {
             return qualifiableAlias.name ?: "?"
         }
@@ -162,32 +163,23 @@ object QualifiableAliasImpl {
             ?.name
 
         return if (qualifier != null && relativeName != null) {
-            "${qualifierName(qualifier, qualifiableAlias)}.$relativeName"
+            "${qualifierName(qualifier, callQualifierName)}.$relativeName"
         } else {
             qualifiableAlias.name ?: "?"
         }
     }
 
-    /**
-     * The module name contributed by [qualifier], the left operand of a qualified alias or
-     * qualified call: the dotted name for Alias chains (recursing through [selfQualifiedName] so
-     * call qualifiers nested in longer chains like `__MODULE__.Foo.Bar` expand too), or the name
-     * of the modular a call qualifier such as `__MODULE__` resolves to.
-     */
-    private fun qualifierName(qualifier: PsiElement, context: PsiElement): String =
+    /** The module name contributed by [qualifier], the left operand of a qualified alias or qualified call. */
+    private fun qualifierName(qualifier: PsiElement, callQualifierName: (Call) -> String): String =
         when (val strippedQualifier = qualifier.stripAccessExpression()) {
-            is QualifiedAlias -> selfQualifiedName(strippedQualifier)
+            is QualifiedAlias -> selfQualifiedName(strippedQualifier, callQualifierName)
             is QualifiableAlias -> strippedQualifier.name ?: "?"
-            is Call -> {
-                val modularSet = strippedQualifier.maybeModularNameToModulars()
-
-                // A qualifier that resolves to no module, or to more than one, is a placeholder segment
-                modularSet.singleOrNull()?.name ?: "?"
-            }
-
-            // Anything else names no module either
+            is Call -> callQualifierName(strippedQualifier)
             else -> "?"
         }
+
+    // A qualifier that resolves to no module, or to more than one, is a placeholder segment
+    private fun resolvedQualifierName(call: Call): String = call.maybeModularNameToModulars().singleOrNull()?.name ?: "?"
 
     private fun prependQualifiers(ancestor: PsiElement, previousAncestor: PsiElement, accumulator: String): String =
         when (ancestor) {
@@ -232,7 +224,7 @@ object QualifiableAliasImpl {
                         // ancestor was qualifier, so it is only the qualifier's name
                         accumulator
                     } else {
-                        "${qualifierName(qualifier, ancestor)}.${accumulator}"
+                        "${qualifierName(qualifier, ::resolvedQualifierName)}.${accumulator}"
                     }
                 } else {
                     // A qualified alias still missing its qualifier while being typed

@@ -17,11 +17,98 @@ class StoredStubTest : PlatformTestCase() {
         "IMPLEMENTATION ? Kernel.defimpl/3 do [P.X, P.Y] P",
     )
 
+    fun testDefimplWithForInAModule() = assertStored(
+        "defmodule Outer do\n  defimpl P, for: X do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "IMPLEMENTATION P.X Kernel.defimpl/3 do [P.X] P",
+    )
+
+    fun testModuleOfModuleAliasInADefimplInAModule() = assertStored(
+        "defmodule Outer do\n  defimpl P, for: X do\n    defmodule __MODULE__.Y do\n    end\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "IMPLEMENTATION P.X Kernel.defimpl/3 do [P.X] P",
+        "MODULE __MODULE__.Y Kernel.defmodule/2 do [P.X.Y] -",
+    )
+
+    fun testDefimplWithForListInAModule() = assertStored(
+        "defmodule Outer do\n  defimpl P, for: [X, Y] do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "IMPLEMENTATION ? Kernel.defimpl/3 do [P.X, P.Y] P",
+    )
+
+    fun testDefimplWithoutForAtTopLevel() = assertStored(
+        "defimpl P do\nend\n",
+        "IMPLEMENTATION ? Kernel.defimpl/2 do [P.?] P",
+    )
+
+    fun testDefimplWithoutForInAModule() = assertStored(
+        "defmodule Outer do\n  defimpl P do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "IMPLEMENTATION P.Outer Kernel.defimpl/2 do [P.Outer] P",
+    )
+
+    fun testDefimplWithoutForInANestedModule() = assertStored(
+        "defmodule Outer do\n  defmodule Inner do\n    defimpl P do\n    end\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "MODULE Inner Kernel.defmodule/2 do [Outer.Inner] -",
+        "IMPLEMENTATION P.Outer.Inner Kernel.defimpl/2 do [P.Outer.Inner] P",
+    )
+
+    fun testDefimplForModuleInAModule() = assertStored(
+        "defmodule Outer do\n  defimpl P, for: __MODULE__ do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "IMPLEMENTATION P.Outer Kernel.defimpl/3 do [P.Outer] P",
+    )
+
+    fun testDefimplOfModuleAliasAtTopLevel() = assertStored(
+        "defimpl __MODULE__.Q, for: X do\nend\n",
+        "IMPLEMENTATION Q.X Kernel.defimpl/3 do [Q.X] Q",
+    )
+
+    fun testDefimplOfModuleAliasInAModule() = assertStored(
+        "defmodule Outer do\n  defimpl __MODULE__.Q, for: X do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "IMPLEMENTATION Outer.Q.X Kernel.defimpl/3 do [Outer.Q.X] Outer.Q",
+    )
+
+    fun testDefimplOfModuleAliasInANestedModule() = assertStored(
+        "defmodule Outer do\n  defmodule Inner do\n    defimpl __MODULE__.Q, for: X do\n    end\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "MODULE Inner Kernel.defmodule/2 do [Outer.Inner] -",
+        "IMPLEMENTATION Outer.Inner.Q.X Kernel.defimpl/3 do [Outer.Inner.Q.X] Outer.Inner.Q",
+    )
+
+    fun testDefimplOfModuleAliasInAQuote() = assertStored(
+        "defmodule U do\n" +
+            "  defmacro __using__(_) do\n" +
+            "    quote do\n" +
+            "      defimpl __MODULE__.Q, for: X do\n" +
+            "      end\n" +
+            "    end\n" +
+            "  end\n" +
+            "end\n",
+        "MODULE U Kernel.defmodule/2 do [U] -",
+        "PUBLIC_MACRO __using__ Kernel.defmacro/2 do [__using__] -",
+        "IMPLEMENTATION ?.Q.X Kernel.defimpl/3 do [?.Q.X] ?.Q",
+    )
+
     fun testNestedModules() = assertStored(
         "defmodule Outer do\n  defmodule Inner do\n  end\n  defmodule __MODULE__.Named do\n  end\nend\n",
         "MODULE Outer Kernel.defmodule/2 do [Outer] -",
         "MODULE Inner Kernel.defmodule/2 do [Outer.Inner] -",
-        "MODULE __MODULE__.Named Kernel.defmodule/2 do [Outer.__MODULE__.Named] -",
+        "MODULE __MODULE__.Named Kernel.defmodule/2 do [Outer.Named] -",
+    )
+
+    fun testModuleOfModuleAliasInANestedModule() = assertStored(
+        "defmodule Outer do\n  defmodule Inner do\n    defmodule __MODULE__.Deep do\n    end\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "MODULE Inner Kernel.defmodule/2 do [Outer.Inner] -",
+        "MODULE __MODULE__.Deep Kernel.defmodule/2 do [Outer.Inner.Deep] -",
+    )
+
+    fun testModuleOfModuleAliasAtTopLevel() = assertStored(
+        "defmodule __MODULE__.Top do\nend\n",
+        "MODULE __MODULE__.Top Kernel.defmodule/2 do [Top] -",
     )
 
     fun testDefprotocol() = assertStored(
