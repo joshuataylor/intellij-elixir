@@ -474,6 +474,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4244](https://github.com/intellij-elixir/intellij-elixir/pull/4244) [@sh41](https://github.com/sh41)
+  - **Resolution records how it reached each definition a call could mean; nothing uses it yet.** Fixes [#4233](https://github.com/intellij-elixir/intellij-elixir/issues/4233).
 - [#4228](https://github.com/intellij-elixir/intellij-elixir/pull/4228) [@sh41](https://github.com/sh41)
   - **Source and compiled definitions share one model of whether a definition is a function, a macro or a guard, and whether it is public.** Refs [#4216](https://github.com/intellij-elixir/intellij-elixir/issues/4216).
 - [#4222](https://github.com/intellij-elixir/intellij-elixir/pull/4222) [@sh41](https://github.com/sh41)

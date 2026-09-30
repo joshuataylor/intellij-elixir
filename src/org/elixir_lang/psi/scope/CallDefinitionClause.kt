@@ -11,6 +11,7 @@ import com.intellij.psi.util.isAncestor
 import org.elixir_lang.EEx
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.beam.psi.Module as BeamModule
+import org.elixir_lang.declaration.Reach
 import org.elixir_lang.ecto.query.WindowAPI
 import org.elixir_lang.errorreport.Logger
 import org.elixir_lang.psi.*
@@ -235,8 +236,10 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
                 ?.filterIsInstance<Call>()
                 ?.filter { org.elixir_lang.psi.CallDefinitionClause.capabilities(it)?.quotesArguments == true }
                 ?.let { macroDefinitions ->
+                    val injectedState = state.reachedThroughInjection(macroCall)
+
                     whileIn(macroDefinitions) { macroDefinition ->
-                        executeOnUnknownMacroDefinition(macroDefinition, state)
+                        executeOnUnknownMacroDefinition(macroDefinition, injectedState)
                     }
                 }
                 ?: true
@@ -287,10 +290,11 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
         val entrance = state.get(ENTRANCE) ?: element
         val scope = narrowedScope(entrance, project)
 
-        val keepProcessing = implicitImport(project, scope, KERNEL, state)
+        val implicitState = state.reachedThrough(Reach.IMPLICIT_IMPORT)
+        val keepProcessing = implicitImport(project, scope, KERNEL, implicitState)
 
         return if (keepProcessing) {
-            val modularCanonicalNameState = state.put(MODULAR_CANONICAL_NAME, KERNEL_SPECIAL_FORMS)
+            val modularCanonicalNameState = implicitState.put(MODULAR_CANONICAL_NAME, KERNEL_SPECIAL_FORMS)
 
             implicitImport(project, scope, KERNEL_SPECIAL_FORMS, modularCanonicalNameState)
         } else {

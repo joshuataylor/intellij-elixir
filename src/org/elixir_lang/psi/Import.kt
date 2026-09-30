@@ -20,6 +20,7 @@ import org.elixir_lang.Name
 import org.elixir_lang.NameArity
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.beam.psi.Module as BeamModule
+import org.elixir_lang.declaration.Reach
 import org.elixir_lang.language_level.ElixirLanguageFeature.DIGITS_IN_SIGIL_NAMES
 import org.elixir_lang.language_level.ElixirLanguageFeature.IMPORT_ONLY_SIGILS
 import org.elixir_lang.language_level.ElixirLanguageFeature.IMPORT_ONLY_SIGILS_READS_SIGIL_NAMES
@@ -36,6 +37,7 @@ import org.elixir_lang.psi.impl.call.stabBodyChildExpressions
 import org.elixir_lang.psi.impl.hasKeywordKey
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
 import org.elixir_lang.psi.impl.stripAccessExpression
+import org.elixir_lang.psi.scope.reachedThrough
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 import org.elixir_lang.structure_view.element.Delegation
 import org.elixir_lang.structure_view.element.Timed
@@ -262,7 +264,7 @@ object Import {
             val modulars = modulars(importCall)
 
             if (modulars.isNotEmpty()) {
-                val importCallResolveState = resolveState.putVisitedElement(importCall)
+                val importCallResolveState = resolveState.putVisitedElement(importCall).reachedThrough(Reach.IMPORT)
                 // An earlier `import` of the same module is not looked for, so `except:` subtracts from everything the
                 // module exports even where that `import` brought in less.
                 val filter =
