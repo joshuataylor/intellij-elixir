@@ -31,10 +31,46 @@ class LoweringTest : LoweringTestCase() {
             .map { Lowering.classifier.classify(it) }
     )
 
+    fun testAnOperatorIsLeftUnlowered() = assertUnloweredIn("1 + 2", Lowering.Bucket.OPERATOR)
+
+    fun testACallIsLeftUnlowered() = assertUnloweredIn("a", Lowering.Bucket.CALL)
+
+    fun testAnAnonymousFunctionIsLeftUnlowered() = assertUnloweredIn("fn -> 1 end", Lowering.Bucket.CLAUSE)
+
+    fun testAnAttributeIsLeftUnlowered() = assertUnloweredIn("@a 1", Lowering.Bucket.ATTRIBUTE)
+
+    fun testAShapeNoRowNamesIsUnlowered() = assertUnloweredIn("1)", Lowering.Bucket.UNKNOWN)
+
+    fun testALiteralLowers() = assertLowers("1", "1")
+
+    fun testParenthesesLowerAsABlock() = assertLowers("(1)", "1")
+
     fun testAShapeItsParentReadsFailsOnItsOwn() =
         assertFailsOnItsOwn("\"#{1}\"", ElixirInterpolation::class.java)
 
     fun testAShapeWithNoNodeFailsOnItsOwn() = assertFailsOnItsOwn("1\n2", ElixirEndOfExpression::class.java)
+
+    private fun assertUnloweredIn(code: String, bucket: Lowering.Bucket) {
+        val placeholders = placeholders(lower(code))
+
+        assertFalse("no placeholder in $code", placeholders.isEmpty())
+        placeholders.forEach { placeholder ->
+            val shape = (placeholder.reason as ElixirAst.Placeholder.Reason.Unlowered).shape
+
+            assertEquals(shape.name, bucket, Lowering.classifier.classify(shape))
+        }
+    }
+
+    private fun placeholders(node: ElixirAst): List<ElixirAst.Placeholder> =
+        when (node) {
+            is ElixirAst.Placeholder -> listOf(node)
+            is ElixirAst.Call -> placeholders(node.callee) + node.arguments.orEmpty().flatMap { placeholders(it) }
+            is ElixirAst.Alias -> node.segments.flatMap { placeholders(it) }
+            is ElixirAst.Literal -> emptyList()
+            is ElixirAst.ListNode -> node.elements.flatMap { placeholders(it) }
+            is ElixirAst.Tuple -> node.elements.flatMap { placeholders(it) }
+            is ElixirAst.Block -> node.expressions.flatMap { placeholders(it) }
+        }
 
     private fun <T : PsiElement> assertFailsOnItsOwn(code: String, shape: Class<T>) {
         val file = createPsiFile(getTestName(false), code) as ElixirFile

@@ -11,6 +11,7 @@ import org.elixir_lang.language_level.ElixirLanguageFeature
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.psi.walk.ShapeTable
+import java.text.Normalizer
 
 /** Lowers PSI to [ElixirAst]. Which lowering a shape gets is its [ShapeTable] row's `lowering` bucket. */
 class Lowering private constructor(
@@ -130,7 +131,21 @@ class Lowering private constructor(
     internal fun newlines(offset: Int): Meta.Key? =
         endOfExpression(offset)
             ?.takeIf { it.isNewline && it.newlines > 0 }
-            ?.let { Meta.Key.Entry("newlines", Meta.Value.Integer(it.newlines.toLong()), tokenMetadata = true) }
+            ?.let { tokenMetadata("newlines", it.newlines) }
+
+    internal fun tokenMetadata(name: String, text: String): Meta.Key =
+        Meta.Key.Entry(name, Meta.Value.Binary(text), tokenMetadata = true)
+
+    internal fun tokenMetadata(name: String, value: Int): Meta.Key =
+        Meta.Key.Entry(name, Meta.Value.Integer(value.toLong()), tokenMetadata = true)
+
+    /** An identifier's atom name: from 1.14, normalized as Elixir normalizes identifiers. */
+    internal fun identifier(text: String): String =
+        if (text.any { it.code > 0x7F } && isAvailable(ElixirLanguageFeature.NORMALIZED_IDENTIFIERS)) {
+            Normalizer.normalize(text, Normalizer.Form.NFC).replace('µ', 'μ')
+        } else {
+            text
+        }
 
     /** Where [decorate] puts a parent's keys among a child's own. */
     internal enum class Placement {

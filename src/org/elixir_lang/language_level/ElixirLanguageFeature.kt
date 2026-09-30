@@ -217,7 +217,21 @@ enum class ElixirLanguageFeature(
      */
     CLUSTER_COLUMNS_IN_QUOTED_TEXT(sinceElixir = "1.13.0-rc.0"),
 
+    /**
+     * With `token_metadata: true`, an interpolated quoted atom's `:erlang.binary_to_atom` call carries `delimiter:`.
+     *
+     * `elixir-lang/elixir@f10c90c30` ("Do not assume that literals in blocks have been normalized"), first released in
+     * v1.13.0-rc.0.
+     */
+    DELIMITER_ON_QUOTED_ATOM(sinceElixir = "1.13.0-rc.0"),
 
+    /**
+     * With `token_metadata: true`, an interpolated string or charlist heredoc carries `indentation:`, as a sigil
+     * heredoc always has.
+     *
+     * `elixir-lang/elixir@d1223e11f` (#11128), first released in v1.13.0-rc.0.
+     */
+    INDENTATION_ON_HEREDOC(sinceElixir = "1.13.0-rc.0"),
 
     /**
      * An escaped interpolation, `\#{`, advances the column by its three characters, where earlier releases advanced it
@@ -245,7 +259,20 @@ enum class ElixirLanguageFeature(
      */
     PARENS_ON_PARENTHESIZED_EXPRESSION(sinceElixir = "1.18.0-rc.0"),
 
+    /**
+     * An interpolated charlist atom, `:'a#{b}'`, carries `delimiter: "'"`, where earlier releases reported `"`.
+     *
+     * `elixir-lang/elixir@d0f7c0374` ("Fix delimiter metadata for single quote atoms and remote calls", #13966), first
+     * released in v1.18.0-rc.0.
+     */
+    DELIMITER_OF_SINGLE_QUOTED_ATOM(sinceElixir = "1.18.0-rc.0"),
 
+    /**
+     * With `token_metadata: true`, an interpolated quoted keyword key, `"a#{b}": c`, carries `delimiter:`.
+     *
+     * `elixir-lang/elixir@d0f7c0374` (#13966), first released in v1.18.0-rc.0.
+     */
+    DELIMITER_ON_QUOTED_KEYWORD_KEY(sinceElixir = "1.18.0-rc.0"),
 
     /**
      * `parens:` lists `closing:` before the opening's `line` and `column`, as a parenthesised block's own metadata
