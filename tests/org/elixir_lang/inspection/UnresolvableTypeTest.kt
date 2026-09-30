@@ -43,6 +43,11 @@ class UnresolvableTypeTest : BeamLibraryTestCase() {
         myFixture.checkHighlighting()
     }
 
+    fun testLocalTypeInReturnNotFlagged() {
+        myFixture.configureByFiles("local_type_in_return_not_flagged.ex")
+        myFixture.checkHighlighting()
+    }
+
     fun testBuiltinTypeNotFlagged() {
         myFixture.configureByFiles("builtin_type_not_flagged.ex")
         myFixture.checkHighlighting()

@@ -10,12 +10,12 @@ import com.intellij.psi.util.isAncestor
 import org.elixir_lang.beam.psi.Module as BeamModule
 import org.elixir_lang.beam.psi.TypeDefinition as BeamTypeDefinition
 import org.elixir_lang.psi.*
+import org.elixir_lang.psi.CallDefinitionClause.modularChildCalls
 import org.elixir_lang.psi.Module
 import org.elixir_lang.psi.ModuleAttribute.isTypeSpecName
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.qualification.Qualified
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.ENTRANCE
-import org.elixir_lang.psi.impl.call.macroChildCalls
 import org.elixir_lang.psi.impl.call.whileInStabBodyChildExpressions
 import org.elixir_lang.psi.impl.identifierName
 import org.elixir_lang.psi.impl.whileInChildExpressions
@@ -53,7 +53,8 @@ abstract class Type : PsiScopeProcessor {
             is UnqualifiedNoArgumentsCall<*> -> executeOnParameter(call, state)
             is AtUnqualifiedNoParenthesesCall<*> -> execute(call, state)
             else -> if (isModular(call) && call.isAncestor(state.get(ENTRANCE), false)) {
-                val childCalls = call.macroChildCalls()
+                // A bare name written as a statement is a variable, never a type parameter.
+                val childCalls = modularChildCalls(call).filterNot { it is UnqualifiedNoArgumentsCall<*> }
                 val childCallsKeepProcessing = whileIn(childCalls) {
                     execute(it, state)
                 }

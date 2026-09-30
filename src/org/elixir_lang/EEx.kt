@@ -4,18 +4,16 @@ import com.intellij.psi.ResolveState
 import org.elixir_lang.psi.call.Call
 
 object EEx {
-    fun isFunctionFrom(call: Call, state: ResolveState): Boolean =
-        call.functionName()?.let { functionName ->
-            when (functionName) {
-                FUNCTION_FROM_FILE_ARITY_RANGE.name ->
-                    call.resolvedFinalArity() in FUNCTION_FROM_FILE_ARITY_RANGE.arityRange &&
-                            resolvesToEEx(call, state)
-                FUNCTION_FROM_STRING_ARITY_RANGE.name ->
-                    call.resolvedFinalArity() in FUNCTION_FROM_STRING_ARITY_RANGE.arityRange &&
-                            resolvesToEEx(call, state)
-                else -> false
-            }
-        } ?: false
+    fun isFunctionFrom(call: Call, state: ResolveState): Boolean = isFunctionFromShaped(call) && resolvesToEEx(call, state)
+
+    /** Named and called like a `function_from_*`, before resolving whether it is `EEx`'s. */
+    fun isFunctionFromShaped(call: Call): Boolean =
+        when (call.functionName()) {
+            FUNCTION_FROM_FILE_ARITY_RANGE.name -> call.resolvedFinalArity() in FUNCTION_FROM_FILE_ARITY_RANGE.arityRange
+            FUNCTION_FROM_STRING_ARITY_RANGE.name ->
+                call.resolvedFinalArity() in FUNCTION_FROM_STRING_ARITY_RANGE.arityRange
+            else -> false
+        }
 
     private fun resolvesToEEx(call: Call, state: ResolveState): Boolean =
             resolvesToModularName(call, state, "EEx")

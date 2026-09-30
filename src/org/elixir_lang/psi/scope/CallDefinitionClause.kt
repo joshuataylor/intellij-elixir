@@ -7,14 +7,21 @@ import com.intellij.psi.*
 import com.intellij.psi.scope.PsiScopeProcessor
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.isAncestor
+import com.intellij.util.concurrency.ThreadingAssertions
+import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.EEx
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.beam.psi.Module as BeamModule
+import org.elixir_lang.declaration.MacroRole
 import org.elixir_lang.declaration.Reach
 import org.elixir_lang.ecto.query.WindowAPI
 import org.elixir_lang.errorreport.Logger
 import org.elixir_lang.psi.*
+import org.elixir_lang.psi.CallDefinitionClause.macroRole
+import org.elixir_lang.psi.CallDefinitionClause.modularChildCalls
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.name.Function.*
 import org.elixir_lang.psi.call.name.Module.KERNEL
@@ -23,6 +30,7 @@ import org.elixir_lang.psi.ex_unit.Case
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.ENTRANCE
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.hasDoBlockOrKeyword
 import org.elixir_lang.psi.impl.ancestorSequence
+import org.elixir_lang.psi.impl.enclosingMacroCall
 import org.elixir_lang.psi.impl.call.*
 import org.elixir_lang.psi.impl.keywordValue
 import org.elixir_lang.psi.impl.siblingExpressions
@@ -161,11 +169,16 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             (isModular(element) ||
                     Case.isChild(element, state))
                     && modularContainsEntrance(element, state) -> {
-                val childCalls = element.macroChildCallSequence()
+                val childCalls = if (isModular(element)) {
+                    modularCallsToExecute(element).asSequence()
+                } else {
+                    element.macroChildCallSequence()
+                }
 
                 // If the entrance is at compile time level of `childCalls`, then only previous siblings could possibly define
                 // this call and those will be handled by ElixirStabBody's processDeclarations.
-                if (!containsCompileTimeEntranceAncestorOrSelf(childCalls, state)) {
+                // `childCalls` reaches into nested blocks and can hold the entrance itself, so this reads direct children.
+                if (!containsCompileTimeEntranceAncestorOrSelf(element.macroChildCallSequence(), state)) {
                     for (childCall in childCalls) {
                         execute(childCall, state)
                     }
@@ -360,6 +373,49 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
     companion object {
         val MODULAR_CANONICAL_NAME = Key<String>("MODULAR_CANONICAL_NAME")
+
+        /**
+         * The calls of [modular] to hand to [execute]. A block that runs in place is left out, as its calls are among
+         * these. An `import` inside a block is not taken, as in Elixir it reaches no further than that block. From a
+         * block that only its expansion runs, such as a `test` body, only the calls
+         * [isTakenFromExpansionDependentBlock] names are taken.
+         */
+        @RequiresReadLock
+        fun modularCallsToExecute(modular: Call): List<Call> {
+            ThreadingAssertions.assertReadAccess()
+
+            return CachedValuesManager.getCachedValue(modular) {
+                val calls = modularChildCalls(modular).filter { call ->
+                    macroRole(call).block != MacroRole.Block.IN_PLACE &&
+                            (isTakenFromExpansionDependentBlock(call) ||
+                                    !isInExpansionDependentBlock(call, modular) && !isNestedImport(call, modular))
+                }
+
+                CachedValueProvider.Result.create(calls, modular.containingFile)
+            }
+        }
+
+        private fun isInExpansionDependentBlock(call: Call, modular: Call): Boolean =
+            generateSequence(call.enclosingMacroCall()) { it.enclosingMacroCall() }
+                .takeWhile { it != modular }
+                .any { macroRole(it).block == MacroRole.Block.EXPANSION_DEPENDENT }
+
+        private fun isNestedImport(call: Call, modular: Call): Boolean =
+            call.enclosingMacroCall() != modular && Import.`is`(call)
+
+        /**
+         * The calls taken from a block that only its expansion runs: those that define something, and a `use` for what
+         * it injects. The `EEx` and `Mix.Generator` definers are matched by shape, as resolving whose they are needs
+         * the [ResolveState] that [execute] has.
+         */
+        private fun isTakenFromExpansionDependentBlock(call: Call): Boolean =
+            org.elixir_lang.psi.CallDefinitionClause.`is`(call) ||
+                    Callback.`is`(call) ||
+                    Delegation.`is`(call) ||
+                    Exception.`is`(call) ||
+                    Use.`is`(call) ||
+                    EEx.isFunctionFromShaped(call) ||
+                    org.elixir_lang.psi.mix.Generator.isEmbedShaped(call)
 
         /**
          * The `state.get(ENTRANCE)` is one of the `childCalls` OR any calls in the way are compile-time conditional

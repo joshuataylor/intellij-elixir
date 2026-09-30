@@ -14,6 +14,7 @@ import com.intellij.psi.util.CachedValuesManager
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.file.containsFileWithSuffix
 import org.elixir_lang.psi.CallDefinitionClause.capabilities
+import org.elixir_lang.psi.CallDefinitionClause.modularChildCalls
 import org.elixir_lang.psi.CallDefinitionClause.nameArityInterval
 import org.elixir_lang.psi.ElixirAccessExpression
 import org.elixir_lang.psi.ElixirFile
@@ -23,7 +24,6 @@ import org.elixir_lang.psi.Quotable
 import org.elixir_lang.psi.QuotableKeywordList
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.finalArguments
-import org.elixir_lang.psi.impl.call.macroChildCallList
 import org.elixir_lang.psi.impl.keywordValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.capture.NonNumeric
@@ -126,7 +126,7 @@ object Test {
         mixExs
             .modulars()
             .asSequence()
-            .flatMap { it.macroChildCallList().asSequence() }
+            .flatMap { modularChildCalls(it).asSequence() }
             .filter { call ->
                 capabilities(call)?.remoteCallable == true &&
                     nameArityInterval(call, ResolveState.initial())?.let { (name, arityInterval) ->

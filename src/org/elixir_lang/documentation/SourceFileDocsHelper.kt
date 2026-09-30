@@ -5,11 +5,8 @@ import com.intellij.psi.ResolveState
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
-import org.elixir_lang.psi.ElixirUnmatchedAtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.CanonicallyNamed
-import org.elixir_lang.psi.impl.ElixirUnmatchedUnqualifiedNoParenthesesCallImpl
-import org.elixir_lang.psi.impl.call.macroChildCallList
 import org.elixir_lang.psi.impl.identifierName
 import org.elixir_lang.psi.impl.siblingExpressions
 import org.elixir_lang.psi.stub.type.call.Stub
@@ -94,21 +91,20 @@ object SourceFileDocsHelper {
 
     private fun fetchDocs(call: Call): FetchedDocs? = when {
         Stub.isModular(call) -> {
-            val moduleDoc = (call as? ElixirUnmatchedUnqualifiedNoParenthesesCallImpl)
-                ?.doBlock
-                ?.stab
-                ?.stabBody
-                ?.unmatchedExpressionList
-                ?.asSequence()
-                ?.filterIsInstance<ElixirUnmatchedAtUnqualifiedNoParenthesesCall>()
-                ?.filter { it.atIdentifier.lastChild?.text == "moduledoc" }
-                ?.mapNotNull { moduleAttribute ->
-                    moduleAttribute.moduleAttributeValue()?.documentationMarkdownText()
-                }
-                ?.joinToString("")
+            // As in Elixir, the last `@moduledoc` replaces any before it and `false` or `nil` hides it, while a list is
+            // metadata that Elixir merges into the doc. Any other value this cannot render, such as
+            // `File.read!(...)`, is passed over too, so the doc before it is shown where Elixir would show the file.
+            val moduleDoc = CallDefinitionClause.modularChildCalls(call)
+                .asReversed()
+                .asSequence()
+                .filterIsInstance<AtUnqualifiedNoParenthesesCall<*>>()
+                .filter { it.atIdentifier.identifierName() == "moduledoc" }
+                .mapNotNull { it.moduleAttributeValue() }
+                .firstOrNull { it.text == "false" || it.text == "nil" || it.documentationMarkdownText() != null }
+                ?.documentationMarkdownText()
 
             if (!moduleDoc.isNullOrEmpty()) {
-                FetchedDocs.ModuleDocumentation(call.canonicalName().orEmpty(), moduleDoc)
+                FetchedDocs.ModuleDocumentation((call as? CanonicallyNamed)?.canonicalName().orEmpty(), moduleDoc)
             } else {
                 null
             }
@@ -120,8 +116,7 @@ object SourceFileDocsHelper {
                 enclosingModularMacroCall(call)?.let { modular ->
                     val module = (modular as? CanonicallyNamed)?.canonicalName().orEmpty()
 
-                    modular
-                        .macroChildCallList()
+                    CallDefinitionClause.modularChildCalls(modular)
                         .mapNotNull { sibling ->
                             if (CallDefinitionClause.`is`(sibling)) {
                                 CallDefinitionClause

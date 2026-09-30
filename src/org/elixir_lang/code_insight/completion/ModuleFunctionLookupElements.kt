@@ -8,7 +8,6 @@ import com.intellij.psi.PsiFile
 import org.elixir_lang.beam.psi.Module as BeamModule
 import org.elixir_lang.code_insight.preferFunctionHeads
 import org.elixir_lang.psi.call.Call
-import org.elixir_lang.psi.impl.call.macroChildCalls
 import org.elixir_lang.code_insight.lookup.element.CallDefinitionClause as CallDefinitionClauseLookupElement
 import org.elixir_lang.code_insight.lookup.element_renderer.CallDefinitionClause as CallDefinitionClauseRenderer
 import com.intellij.psi.ResolveState
@@ -63,7 +62,7 @@ fun callDefinitionClauseLookupElements(
 }
 
 private fun callDefinitionClauseLookupElements(scope: Call, appendParentheses: Boolean): Iterable<LookupElement> {
-    val childCalls = scope.macroChildCalls()
+    val childCalls = CallDefinitionClausePsi.modularChildCalls(scope)
 
     val publicClauses = childCalls
         .filter { CallDefinitionClausePsi.`is`(it) }
@@ -89,7 +88,7 @@ private fun callDefinitionClauseLookupElements(scope: Call, appendParentheses: B
  * info like a `def`, and stays a bare name for an MFA atom, where a name is not a call.
  */
 private fun delegationLookupElements(
-    childCalls: Array<Call>,
+    childCalls: List<Call>,
     clauseNames: Set<String>,
     appendParentheses: Boolean
 ): List<LookupElement> =

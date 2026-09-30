@@ -8,7 +8,7 @@ import kotlin.reflect.KClass
 
 /** Manifests committed per Elixir version under `testData/org/elixir_lang/elixir_surface/<version>/`. */
 object LegManifest {
-    private const val ROOT = "testData/org/elixir_lang/elixir_surface"
+    const val ROOT = "testData/org/elixir_lang/elixir_surface"
 
     fun ebin(): File = File(environment("ELIXIR_LANG_ELIXIR_PATH"), "lib/elixir/ebin")
 

@@ -18,7 +18,6 @@ import org.elixir_lang.psi.call.StubBased
 import org.elixir_lang.psi.call.qualification.Qualified
 import org.elixir_lang.psi.impl.ProcessDeclarationsImpl
 import org.elixir_lang.psi.impl.call.finalArguments
-import org.elixir_lang.psi.impl.call.stabBodyChildExpressions
 import org.elixir_lang.psi.impl.childExpressions
 
 class ElixirFile(viewProvider: FileViewProvider) : PsiFileBase(viewProvider, ElixirLanguage) {
@@ -117,7 +116,7 @@ class ElixirFile(viewProvider: FileViewProvider) : PsiFileBase(viewProvider, Eli
         }
 
     private fun moduleUsesEExFile(module: Call): Boolean =
-            module.stabBodyChildExpressions()?.filterIsInstance<Qualified>()?.any { call ->
+            CallDefinitionClause.modularChildCalls(module).filterIsInstance<Qualified>().any { call ->
                 // `function_from_file(kind, name, file, args \\ [], options \\ [])`
                 if (call.qualifier().let { it as? ElixirAlias }?.name == "EEx" && call.functionName() == "function_from_file" &&
                         call.resolvedFinalArity() in 3..5) {
@@ -125,7 +124,7 @@ class ElixirFile(viewProvider: FileViewProvider) : PsiFileBase(viewProvider, Eli
                 } else {
                     false
                 }
-            } ?: false
+            }
 
     private fun eexFunctionFromFileUsesEExFile(call: Call): Boolean =
         call.finalArguments()?.let { arguments ->

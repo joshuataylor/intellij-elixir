@@ -12,11 +12,11 @@ import com.intellij.psi.ResolveState
 import org.elixir_lang.ElixirScriptFileType
 import org.elixir_lang.mix.Project
 import org.elixir_lang.psi.CallDefinitionClause.capabilities
+import org.elixir_lang.psi.CallDefinitionClause.modularChildCalls
 import org.elixir_lang.psi.CallDefinitionClause.nameArityInterval
 import org.elixir_lang.psi.ElixirAccessExpression
 import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.psi.ElixirList
-import org.elixir_lang.psi.impl.call.macroChildCallList
 import org.elixir_lang.psi.impl.keywordValue
 import java.io.IOException
 import java.nio.file.Paths
@@ -47,7 +47,7 @@ private fun appList(elixirFile: ElixirFile): List<String> {
 
     return modulars.asSequence()
             .flatMap { modular ->
-                modular.macroChildCallList().asSequence()
+                modularChildCalls(modular).asSequence()
             }
             .filter { call ->
                 capabilities(call)?.remoteCallable == true &&

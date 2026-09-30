@@ -9,10 +9,9 @@ import org.elixir_lang.Arity
 import org.elixir_lang.Name
 import org.elixir_lang.NameArityInterval
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
-import org.elixir_lang.psi.For
+import org.elixir_lang.psi.CallDefinitionClause.modularChildCalls
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.finalArguments
-import org.elixir_lang.psi.impl.call.macroChildCalls
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 import org.elixir_lang.structure_view.element.CallDefinitionSpecification.Companion.typeNameArity
 import org.elixir_lang.structure_view.element.Delegation
@@ -21,7 +20,7 @@ object CallDefinitionClause : ResolveCache.PolyVariantResolver<org.elixir_lang.r
     override fun resolve(callDefinitionClause: org.elixir_lang.reference.CallDefinitionClause,
                          incompleteCode: Boolean): Array<ResolveResult> {
         ApplicationManager.getApplication().assertReadAccessAllowed()
-        return enclosingModularMacroCall(callDefinitionClause.moduleAttribute)?.macroChildCalls()?.let { siblings ->
+        return enclosingModularMacroCall(callDefinitionClause.moduleAttribute)?.let(::modularChildCalls)?.let { siblings ->
             if (siblings.isNotEmpty()) {
                 val nameArity = typeNameArity(callDefinitionClause.element) ?: return emptyArray()
                 val name = nameArity.name
@@ -52,19 +51,6 @@ object CallDefinitionClause : ResolveCache.PolyVariantResolver<org.elixir_lang.r
                             ?.let { nameArityRange -> nameArityIntervalToResolveResult(call, name, arity, nameArityRange) }
                             ?.let { listOf(it) }
                             .orEmpty()
-                }
-                For.`is`(call) -> {
-                    val resolveResultList = mutableListOf<ResolveResult>()
-
-                    For.treeWalkDown(call, ResolveState.initial()) { child, _ ->
-                        if (child is Call) {
-                            resolveResultList.addAll(callToResolveResults(child, name, arity))
-                        }
-
-                        true
-                    }
-
-                    resolveResultList
                 }
                 else -> emptyList()
             }

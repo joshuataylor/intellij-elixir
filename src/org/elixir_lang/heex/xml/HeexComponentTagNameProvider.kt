@@ -2,7 +2,9 @@ package org.elixir_lang.heex.xml
 
 import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.psi.xml.XmlTag
+import com.intellij.util.concurrency.annotations.RequiresReadLock
 import com.intellij.xml.XmlTagNameProvider
 import org.elixir_lang.heex.isInHeex
 import org.elixir_lang.psi.CallDefinitionClause
@@ -14,12 +16,14 @@ import org.elixir_lang.psi.CallDefinitionClause
  * every candidate is added unconditionally, the same way `DefaultXmlTagNameProvider` does.
  */
 class HeexComponentTagNameProvider : XmlTagNameProvider {
+    @RequiresReadLock
     override fun addTagNameVariants(elements: MutableList<LookupElement>, tag: XmlTag, prefix: String) {
         if (!tag.isInHeex()) {
             return
         }
 
         for (definition in HeexComponentResolver.localComponentDefinitions(tag)) {
+            ProgressManager.checkCanceled()
             val name = CallDefinitionClause.nameIdentifier(definition)?.text ?: continue
             elements.add(LookupElementBuilder.create(definition, ".$name"))
         }

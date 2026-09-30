@@ -9,10 +9,10 @@ import org.elixir_lang.NameArity
 import org.elixir_lang.package_manager.DepGatherer
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.CallDefinitionClause.capabilities
+import org.elixir_lang.psi.CallDefinitionClause.modularChildCalls
 import org.elixir_lang.psi.CallDefinitionClause.nameArityInterval
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.foldChildrenWhile
-import org.elixir_lang.psi.impl.call.macroChildCalls
 import org.elixir_lang.psi.impl.keywordValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.util.AccumulatorContinue
@@ -44,7 +44,7 @@ class DepGatherer(private val isDependency: Boolean = false) : DepGatherer() {
 
     override fun visitElement(element: PsiElement) {
         if (element is Call && Module.`is`(element)) {
-            val childCalls = element.macroChildCalls()
+            val childCalls = modularChildCalls(element).toTypedArray()
 
             childCalls.projectKeywordList()?.depsPath()?.let { depsPath = it }
 

@@ -5,8 +5,11 @@ import com.intellij.psi.ElementDescriptionLocation
 import com.intellij.psi.PsiCompiledFile
 import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.usageView.UsageViewTypeLocation
+import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.NameArityInterval
 import org.elixir_lang.declaration.Capabilities
@@ -14,21 +17,24 @@ import org.elixir_lang.declaration.Declaration
 import org.elixir_lang.declaration.Declared
 import org.elixir_lang.declaration.Definer
 import org.elixir_lang.declaration.Form
+import org.elixir_lang.declaration.MacroRole
 import org.elixir_lang.declaration.Presentation
 import org.elixir_lang.declaration.SourceOrigin
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
-import org.elixir_lang.psi.call.name.Function.*
 import org.elixir_lang.psi.call.name.Module.KERNEL
-import org.elixir_lang.psi.impl.enclosingMacroCall
+import org.elixir_lang.psi.call.name.Module.KERNEL_SPECIAL_FORMS
+import org.elixir_lang.psi.impl.hasKeywordKey
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 
 object CallDefinitionClause {
     /**
-     * The enclosing macro call that acts as the modular scope of `call`.  Ignores enclosing `for` calls that
-     * [enclosingMacroCall] doesn't.
+     * The enclosing macro call that acts as the modular scope of `call`: the nearest one whose `do` block is a
+     * [MacroRole.Block.BOUNDARY], or a `Module.create/3`.
      *
-     * @param call a def(macro)?p?
+     * A macro whose block depends on its expansion, such as ExUnit's `describe` or a library's DSL, is looked through
+     * as if it ran its block in place. Outside every module the nearest such macro is the answer instead, since only
+     * its expansion can define the module that a definition there needs.
      */
     @RequiresReadLock
     @JvmStatic
@@ -38,25 +44,111 @@ object CallDefinitionClause {
     @RequiresReadLock
     @JvmStatic
     fun enclosingModularMacroCall(call: SyntacticCall): SyntacticCall? {
+        ThreadingAssertions.assertReadAccess()
+
         var enclosedCall = call
-        var enclosingMacroCall: SyntacticCall?
+        var expansionDependent: SyntacticCall? = null
 
         while (true) {
             ProgressManager.checkCanceled()
-            enclosingMacroCall = enclosedCall.enclosingMacroCall()
+            val enclosingMacroCall = enclosedCall.enclosingMacroCall() ?: return expansionDependent
+            val block = macroRole(enclosingMacroCall).block
 
-            if (enclosingMacroCall != null &&
-                    (enclosingMacroCall.isCalling(KERNEL, ALIAS) ||
-                            enclosingMacroCall.isCalling(KERNEL, REQUIRE) ||
-                            For.`is`(enclosingMacroCall))) {
-                enclosedCall = enclosingMacroCall
-            } else {
-                break
+            if (startsNewScope(enclosingMacroCall, block)) {
+                return enclosingMacroCall
+            }
+
+            if (block == MacroRole.Block.EXPANSION_DEPENDENT && expansionDependent == null) {
+                expansionDependent = enclosingMacroCall
+            }
+
+            enclosedCall = enclosingMacroCall
+        }
+    }
+
+    /**
+     * The statements whose [enclosingModularMacroCall] is [modular], in source order, so the walk down agrees with the
+     * walk up by construction. An operand, such as a type in a `@spec`, is not one.
+     */
+    @RequiresReadLock
+    @JvmStatic
+    fun modularChildCalls(modular: Call): List<Call> {
+        ThreadingAssertions.assertReadAccess()
+
+        return CachedValuesManager.getCachedValue(modular) {
+            val accumulator = mutableListOf<Call>()
+            collectModularChildCalls(modular, nearestCalls(modular, mutableListOf()), accumulator)
+
+            CachedValueProvider.Result.create(accumulator.toList(), modular.containingFile)
+        }
+    }
+
+    /** No call under one that starts a new scope can have [modular] as its module, so those are not descended. */
+    private fun collectModularChildCalls(modular: Call, calls: List<Call>, accumulator: MutableList<Call>) {
+        for (call in calls) {
+            ProgressManager.checkCanceled()
+
+            if (isStatement(call) && enclosingModularMacroCall(call) == modular) {
+                accumulator.add(call)
+            }
+
+            if (!startsNewScope(SyntacticCall.of(call))) {
+                collectModularChildCalls(modular, nearestCalls(call, mutableListOf()), accumulator)
             }
         }
-
-        return enclosingMacroCall
     }
+
+    /** Written as one of a block's expressions, or as an element of a list that is one. */
+    private fun isStatement(element: PsiElement): Boolean {
+        var parent = element.parent
+
+        while (parent is ElixirAccessExpression) {
+            parent = parent.parent
+        }
+
+        return when (parent) {
+            is ElixirStabBody -> true
+            is ElixirList -> isStatement(parent)
+            // `keywordValue` is already stripped of the access expression.
+            is QuotableKeywordPair -> parent.keywordValue == element && parent.hasKeywordKey("do")
+            else -> false
+        }
+    }
+
+    /** The calls under [element] that no other call under it holds. */
+    private fun nearestCalls(element: PsiElement, accumulator: MutableList<Call>): List<Call> {
+        for (child in element.children) {
+            ProgressManager.checkCanceled()
+
+            if (child is Call) accumulator.add(child) else nearestCalls(child, accumulator)
+        }
+
+        return accumulator
+    }
+
+    private fun startsNewScope(call: SyntacticCall, block: MacroRole.Block = macroRole(call).block): Boolean =
+        block == MacroRole.Block.BOUNDARY || Module.`is`(call)
+
+    /** The [MacroRole] of [call], or that of a macro the table does not list when [call] is not `Kernel`'s. */
+    @RequiresReadLock
+    @JvmStatic
+    fun macroRole(call: Call): MacroRole {
+        ThreadingAssertions.assertReadAccess()
+
+        return macroRole(SyntacticCall.of(call))
+    }
+
+    private fun macroRole(call: SyntacticCall): MacroRole {
+        val name = call.functionName()
+
+        return if (name != null && call.resolvedModuleName() in KERNEL_MODULES) {
+            MacroRole.of(name, call.hasDoBlockOrKeyword())
+        } else {
+            MacroRole.unlisted(call.hasDoBlockOrKeyword())
+        }
+    }
+
+    private val KERNEL_MODULES = setOf(KERNEL, KERNEL_SPECIAL_FORMS)
 
     /**
      * Description of element used in find-usages and element-description presentation.

@@ -110,6 +110,7 @@ definitions.ex:14:29  psi  Callable  `a`  ->  definitions.ex:14:21 `a`
 definitions.ex:14:29  symbol  VariableReference  `a`  ->  definitions.ex:14:21 VariableSymbol(a, PARAMETER, (387,388))
 definitions.ex:16:3  psi  Callable  `if`  ->  nothing
 definitions.ex:16:3  symbol  FunctionCallReference  `if`  ->  nothing
+definitions.ex:17:5  definition  Definitions  conditional/1  clause  public function runtime
 definitions.ex:17:21  psi  Callable  `a`  ->  definitions.ex:17:21 `a`
 definitions.ex:17:29  psi  Callable  `a`  ->  definitions.ex:17:21 `a`
 definitions.ex:17:29  symbol  VariableReference  `a`  ->  definitions.ex:17:21 VariableSymbol(a, PARAMETER, (431,432))

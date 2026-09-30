@@ -10,7 +10,6 @@ import org.elixir_lang.declaration.Reach
 import org.elixir_lang.psi.NamedElement
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.finalArguments
-import org.elixir_lang.psi.impl.call.whileInStabBodyChildExpressions
 import org.elixir_lang.psi.scope.CallDefinitionClause
 import org.elixir_lang.psi.scope.WhileIn
 import org.elixir_lang.psi.scope.reachedThrough
@@ -48,8 +47,8 @@ open class Nested(val name: String, private val arityRangesByName: Map<String, A
         val childState = state.reachedThrough(Reach.IMPORT).put(CallDefinitionClause.MODULAR_CANONICAL_NAME, name)
 
         val checkArguments = WhileIn.whileIn(modulars) { modular ->
-            modular.whileInStabBodyChildExpressions { childExpression ->
-                keepProcessing(childExpression, childState)
+            WhileIn.whileIn(CallDefinitionClause.modularCallsToExecute(modular)) { childCall ->
+                keepProcessing(childCall, childState)
             }
         }
 
