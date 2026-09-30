@@ -542,7 +542,7 @@ object ShapeTable {
             typeDescent = TypeDescent.Bucket.HALT,
             typeAscent = TypeAscent.Bucket.PARENT,
             destructure = Destructure.Bucket.OPAQUE,
-            lowering = Lowering.Bucket.CLAUSE,
+            lowering = Lowering.Bucket.BLOCK,
         ),
         Row(
             ElixirStab::class.java,
@@ -554,7 +554,7 @@ object ShapeTable {
             typeDescent = TypeDescent.Bucket.PASS,
             typeAscent = TypeAscent.Bucket.PARENT,
             destructure = Destructure.Bucket.OPAQUE,
-            lowering = Lowering.Bucket.CLAUSE,
+            lowering = Lowering.Bucket.BLOCK,
         ),
         Row(
             ElixirStabBody::class.java,
@@ -566,7 +566,7 @@ object ShapeTable {
             typeDescent = TypeDescent.Bucket.PASS,
             typeAscent = TypeAscent.Bucket.PARENT,
             destructure = Destructure.Bucket.OPAQUE,
-            lowering = Lowering.Bucket.CLAUSE,
+            lowering = Lowering.Bucket.BLOCK,
         ),
         // the call Elixir before 1.12 reads `..//: value` as; a match cannot call it, so nothing binds inside
         Row(

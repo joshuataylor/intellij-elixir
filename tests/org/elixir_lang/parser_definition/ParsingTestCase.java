@@ -10,6 +10,7 @@ import org.elixir_lang.ElixirLanguage;
 import org.elixir_lang.ElixirParserDefinition;
 import org.elixir_lang.intellij_elixir.Quoter;
 import org.elixir_lang.junit.logs.UnexpectedLogs;
+import org.elixir_lang.lowering.SnippetDifferential;
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil;
 import org.elixir_lang.language_level.ElixirLanguageLevel;
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver;
@@ -245,6 +246,7 @@ public abstract class ParsingTestCase extends com.intellij.testFramework.Parsing
 
     protected void assertQuotedCorrectly() {
         Quoter.assertQuotedCorrectly(myFile);
+        SnippetDifferential.assertLowersLikeTheQuoter(myFile);
     }
 
     @Override

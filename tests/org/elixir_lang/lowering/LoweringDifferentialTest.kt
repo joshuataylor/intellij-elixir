@@ -6,7 +6,6 @@ import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.io.FileUtilRt
 import org.elixir_lang.intellij_elixir.Quoter
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
-import org.elixir_lang.lowering.ElixirAst.Placeholder
 import org.elixir_lang.parser_definition.ElixirLangElixirParsingTestCase
 import org.elixir_lang.parser_definition.ParsingTestCase
 import org.elixir_lang.psi.ElixirFile
@@ -69,19 +68,6 @@ class LoweringDifferentialTest : ParsingTestCase() {
             else -> Outcome.DIFFERS
         }
     }
-
-    private fun ElixirAst.hasUnlowered(): Boolean =
-        when (this) {
-            is Placeholder -> when (reason) {
-                is Placeholder.Reason.Unlowered -> true
-            }
-            is ElixirAst.Call -> callee.hasUnlowered() || arguments.orEmpty().any { it.hasUnlowered() }
-            is ElixirAst.Alias -> segments.any { it.hasUnlowered() }
-            is ElixirAst.Literal -> false
-            is ElixirAst.ListNode -> elements.any { it.hasUnlowered() }
-            is ElixirAst.Tuple -> elements.any { it.hasUnlowered() }
-            is ElixirAst.Block -> expressions.any { it.hasUnlowered() }
-        }
 
     private companion object {
         const val CORPUS = ElixirLangElixirParsingTestCase.CORPUS_ENVIRONMENT_VARIABLE

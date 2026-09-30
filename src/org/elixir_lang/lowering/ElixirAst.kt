@@ -56,6 +56,14 @@ sealed class ElixirAst {
         }
     }
 
+    /** Whether Elixir gives this node metadata of its own, which a parent can add keys to. */
+    internal fun hasMetadata(): Boolean =
+        when (this) {
+            is Call, is Alias, is Block, is Placeholder -> true
+            is Tuple -> elements.size != 2
+            is Literal, is ListNode -> false
+        }
+
     /** The AST as `Code.string_to_quoted` under [options] returns it; a [Placeholder] becomes `__cursor__`. */
     fun toOtp(options: ParserOptions = ParserOptions.DEFAULT): OtpErlangObject =
         when (this) {
