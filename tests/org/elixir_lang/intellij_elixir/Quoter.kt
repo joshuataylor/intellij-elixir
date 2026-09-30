@@ -8,12 +8,14 @@ import org.apache.commons.lang3.CharUtils
 import org.elixir_lang.GenericServer.call
 import org.elixir_lang.IntellijElixir
 import org.elixir_lang.Keyword.isKeyword
+import org.elixir_lang.lowering.ParserOptions
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil
 import org.elixir_lang.psi.impl.ParentImpl.elixirString
 import org.jetbrains.annotations.Contract
 import org.junit.Assert
 import org.junit.ComparisonFailure
 import java.io.IOException
+import kotlin.time.Duration
 
 /**
  * Created by kadie.enheduanna.inanna on 12/31/14.
@@ -58,6 +60,8 @@ object Quoter {
     private const val AVAILABLE_VARIABLE = "QUOTER_AVAILABLE"
 
     private const val UNAVAILABLE_REASON_VARIABLE = "QUOTER_UNAVAILABLE_REASON"
+
+    private const val QUOTER_REF_PROPERTY = "elixir.quoter.ref"
 
     /**
      * As [assertError], for the releases that reject by raising rather than by answering `{:error, _}`.
@@ -272,7 +276,7 @@ object Quoter {
      *
      * Set -Delixir.quoter.fullDump=true to restore the complete side-by-side dump.
      */
-    private fun assertQuotedCorrectly(
+    internal fun assertQuotedCorrectly(
         expectedQuoted: OtpErlangObject,
         actualQuoted: OtpErlangObject
     ) {
@@ -445,21 +449,109 @@ object Quoter {
         }.joinToString("\n")
     }
 
-    fun quote(code: String): OtpErlangTuple? {
+    fun quote(code: String): OtpErlangTuple? = send(elixirString(code), TIMEOUT_IN_MILLISECONDS) as OtpErlangTuple?
+
+    /**
+     * `Code.string_to_quoted(code, options)` on the quoter's Elixir: `{:ok, quoted, diagnostics}`,
+     * `{:error, reason, diagnostics}` or `{:raise, kind, message, diagnostics}`.
+     */
+    fun quote(code: String, options: ParserOptions): OtpErlangTuple {
+        assertProtocol(3, "quoting with parser options")
+
+        val request = OtpErlangTuple(
+            arrayOf(
+                OtpErlangAtom("quote"),
+                elixirString(code),
+                OtpErlangList(
+                    arrayOf(
+                        keyword("columns", OtpErlangBoolean(options.columns)),
+                        keyword("token_metadata", OtpErlangBoolean(options.tokenMetadata))
+                    )
+                )
+            )
+        )
+
+        return received(call(request, TIMEOUT_IN_MILLISECONDS)) as OtpErlangTuple
+    }
+
+    /**
+     * What compiling [code] on the quoter's node produced. [status] is `:ok`, `{:error, reason}`,
+     * `{:raise, kind, message}` or `:timeout`; the lists are in arrival order.
+     */
+    class Compiled(
+        val status: OtpErlangObject,
+        val messages: List<OtpErlangObject>,
+        /** Raw `{event, env}` pairs, as the tracer saw them. */
+        val events: List<OtpErlangObject>,
+        val diagnostics: List<OtpErlangObject>
+    )
+
+    /** Compiles [code] on the quoter's node, where [timeout] bounds the compile itself. */
+    fun compile(code: String, timeout: Duration): Compiled {
+        assertProtocol(3, "compiling")
+
+        val timeoutInMilliseconds = Math.toIntExact(timeout.inWholeMilliseconds)
+        val request = OtpErlangTuple(
+            arrayOf(
+                OtpErlangAtom("compile"),
+                elixirString(code),
+                OtpErlangList(arrayOf(keyword("timeout", OtpErlangLong(timeoutInMilliseconds.toLong()))))
+            )
+        )
+        val reply = received(call(request, timeoutInMilliseconds + TIMEOUT_IN_MILLISECONDS)) as OtpErlangTuple
+
+        return Compiled(
+            reply.elementAt(0),
+            (reply.elementAt(1) as OtpErlangList).elements().toList(),
+            (reply.elementAt(2) as OtpErlangList).elements().toList(),
+            (reply.elementAt(3) as OtpErlangList).elements().toList()
+        )
+    }
+
+    fun elixirVersion(): String {
+        assertProtocol(2, "reporting its Elixir version")
+
+        return utf8(capabilities!!.get(OtpErlangAtom("elixir"))!!)
+    }
+
+    /** `null` from a protocol 1 quoter, which quotes `:capabilities` as source like any other request. */
+    private val capabilities: OtpErlangMap? by lazy {
+        received(call(OtpErlangAtom("capabilities"), TIMEOUT_IN_MILLISECONDS)) as? OtpErlangMap
+    }
+
+    private fun assertProtocol(minimum: Long, what: String) {
+        val protocol = (capabilities?.get(OtpErlangAtom("protocol")) as OtpErlangLong?)?.longValue() ?: 1
+
+        if (protocol < minimum) {
+            throw AssertionError(
+                "${quoterPreamble("predates $what")}: quoterRef ${System.getProperty(QUOTER_REF_PROPERTY)} " +
+                    "speaks protocol $protocol, and $what needs protocol $minimum"
+            )
+        }
+    }
+
+    private fun received(message: OtpErlangObject?): OtpErlangObject {
+        assertMessageReceived(message)
+
+        return message!!
+    }
+
+    private fun call(request: OtpErlangObject, timeoutInMilliseconds: Int): OtpErlangObject? =
+        try {
+            send(request, timeoutInMilliseconds)
+        } catch (e: OtpErlangExit) {
+            daemonDied(e)
+        }
+
+    private fun send(request: OtpErlangObject, timeoutInMilliseconds: Int): OtpErlangObject? {
         assertAvailable()
 
         val otpNode = IntellijElixir.getLocalNode()
-        val otpMbox = otpNode.createMbox()
-        val request: OtpErlangObject = elixirString(code)
-        return call(
-            otpMbox,
-            otpNode,
-            REMOTE_NAME,
-            IntellijElixir.REMOTE_NODE,
-            request,
-            TIMEOUT_IN_MILLISECONDS
-        ) as OtpErlangTuple?
+
+        return call(otpNode.createMbox(), otpNode, REMOTE_NAME, IntellijElixir.REMOTE_NODE, request, timeoutInMilliseconds)
     }
+
+    private fun keyword(key: String, value: OtpErlangObject) = OtpErlangTuple(arrayOf(OtpErlangAtom(key), value))
 
     private fun toString(quoted: OtpErlangBitstr, depth: Int): String {
         val indent = indent(depth)

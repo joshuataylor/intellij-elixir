@@ -1,8 +1,10 @@
 package org.elixir_lang.lowering
 
+import com.ericsson.otp.erlang.OtpErlangAtom
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.openapi.util.io.FileUtilRt
+import org.elixir_lang.intellij_elixir.Quoter
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import org.elixir_lang.lowering.ElixirAst.Placeholder
 import org.elixir_lang.parser_definition.ElixirLangElixirParsingTestCase
@@ -13,10 +15,23 @@ import java.nio.file.Path
 
 /**
  * Lowers every file of the parser corpus and, where nothing was left unlowered, holds the lowering's terms equal to
- * today's quoting. Prints how many files that covered.
+ * today's quoting, and to the quoter's with columns and token metadata. Prints how many files that covered.
  */
 class LoweringDifferentialTest : ParsingTestCase() {
-    fun testLoweringQuotesLikeQuotableOnEveryFileItCovers() {
+    fun testLoweringQuotesLikeQuotableOnEveryFileItCovers() =
+        assertAgreesOnEveryFileItCovers("quoting") { lowered, file, _ -> lowered.toOtp() == ElixirPsiImplUtil.quote(file) }
+
+    fun testLoweringQuotesLikeTheQuoterWithColumnsAndTokenMetadataOnEveryFileItCovers() =
+        assertAgreesOnEveryFileItCovers("the quoter with columns and token metadata") { lowered, _, text ->
+            val reply = Quoter.quote(text, COLUMNS_AND_TOKEN_METADATA)
+
+            reply.elementAt(0) == OtpErlangAtom("ok") && lowered.toOtp(COLUMNS_AND_TOKEN_METADATA) == reply.elementAt(1)
+        }
+
+    private fun assertAgreesOnEveryFileItCovers(
+        reference: String,
+        agrees: (lowered: ElixirAst, file: ElixirFile, text: String) -> Boolean
+    ) {
         val corpus = System.getenv(CORPUS)
         assertFalse("$CORPUS is not set; the Gradle test task sets it", corpus.isNullOrEmpty())
         val root = Path.of(corpus!!)
@@ -24,21 +39,25 @@ class LoweringDifferentialTest : ParsingTestCase() {
         assertFalse("no .ex or .exs files under $root", paths.isEmpty())
 
         val outcomes = paths.associateWith { path ->
-            compare(path, FileUtil.loadFile(root.resolve(path).toFile(), Charsets.UTF_8.name(), true).trim())
+            compare(path, FileUtil.loadFile(root.resolve(path).toFile(), Charsets.UTF_8.name(), true).trim(), agrees)
         }
         val covered = outcomes.values.count { it != Outcome.UNCOVERED }
         println("covered $covered of ${paths.size} files")
 
         val differing = outcomes.filterValues { it == Outcome.DIFFERS }.keys
         assertTrue(
-            "lowering and quoting differ in ${differing.size} of $covered covered files:\n  ${differing.joinToString("\n  ")}",
+            "lowering and $reference differ in ${differing.size} of $covered covered files:\n  ${differing.joinToString("\n  ")}",
             differing.isEmpty()
         )
     }
 
     private enum class Outcome { UNCOVERED, AGREES, DIFFERS }
 
-    private fun compare(path: String, text: String): Outcome {
+    private fun compare(
+        path: String,
+        text: String,
+        agrees: (lowered: ElixirAst, file: ElixirFile, text: String) -> Boolean
+    ): Outcome {
         val file = createPsiFile(FileUtilRt.getNameWithoutExtension(path.substringAfterLast('/')), text) as ElixirFile
         val lowered = ReadAction.computeBlocking<ElixirAst, Throwable> {
             Lowering.lower(file, ElixirLanguageLevelResolver.languageLevelFor(file))
@@ -46,7 +65,7 @@ class LoweringDifferentialTest : ParsingTestCase() {
 
         return when {
             lowered.hasUnlowered() -> Outcome.UNCOVERED
-            lowered.toOtp() == ElixirPsiImplUtil.quote(file) -> Outcome.AGREES
+            agrees(lowered, file, text) -> Outcome.AGREES
             else -> Outcome.DIFFERS
         }
     }
@@ -66,5 +85,6 @@ class LoweringDifferentialTest : ParsingTestCase() {
 
     private companion object {
         const val CORPUS = ElixirLangElixirParsingTestCase.CORPUS_ENVIRONMENT_VARIABLE
+        val COLUMNS_AND_TOKEN_METADATA = ParserOptions(columns = true, tokenMetadata = true)
     }
 }

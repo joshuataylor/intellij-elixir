@@ -60,13 +60,22 @@ enum class ElixirLanguageFeature(
     DECIMAL_NUMBER_ENDS_BEFORE_WORD(removedInElixir = "1.12.0-rc.0"),
 
     /**
-     * A remote call split by a newline after its `.` carries its name's line rather than the dot's, so `:erlang.` +
-     * newline + `get(1)` is a call on line 2; the `.` node keeps the dot's line on every release.
+     * A remote call carries its name's location rather than the dot's, so `:erlang.` + newline + `get(1)` is a call on
+     * line 2, and with `columns: true` a call's column is its name's; the `.` node keeps the dot's location on every
+     * release.
      *
      * `elixir-lang/elixir@376ff1e51` ("Add more token metadata to aliases and remote calls", #11038), first released in
      * v1.13.0-rc.0.
      */
     REMOTE_CALL_ON_NAME_LINE(sinceElixir = "1.13.0-rc.0"),
+
+    /**
+     * With `token_metadata: true`, an alias such as `Foo.Bar` carries `last:`, the location of its last segment.
+     *
+     * `elixir-lang/elixir@376ff1e51` ("Add more token metadata to aliases and remote calls", #11038), first released in
+     * v1.13.0-rc.0.
+     */
+    LAST_ON_ALIAS(sinceElixir = "1.13.0-rc.0"),
 
     /**
      * `\"""` inside a sigil heredoc quotes as `"""`, where earlier releases keep the backslash, in `~s` and `~S` alike.
@@ -152,6 +161,14 @@ enum class ElixirLanguageFeature(
     AMBIGUOUS_DUAL_OPERATOR_CALL(sinceElixir = "1.17.0-rc.0"),
 
     /**
+     * With `columns: true`, a map's column is its `%` rather than its `{`. A struct's inner `%{}` still takes its `{`.
+     *
+     * `elixir-lang/elixir@fd4e6b530` ("Fix column marker for maps") and `elixir-lang/elixir@ba579f141`, first released
+     * in v1.17.0-rc.0.
+     */
+    MAP_COLUMN_AT_PERCENT(sinceElixir = "1.17.0-rc.0"),
+
+    /**
      * A plain pair of parentheses around an expression that already quotes to a `__block__` - a solitary `not` or `!`
      * rearranged by an inner pair, `unquote_splicing`, or several expressions - appends its own `line` to that block's
      * metadata, once per layer, so `&(((&1 not in ?0..?9)))` carries `[line: N, line: N]` on that block. Since then
@@ -171,6 +188,15 @@ enum class ElixirLanguageFeature(
      * released in v1.18.0-rc.0.
      */
     UNESCAPED_QUOTED_REMOTE_CALL_NAME(sinceElixir = "1.18.0-rc.0"),
+
+    /**
+     * With `token_metadata: true`, the key of a `=>` pair carries `assoc:`, the location of the `=>`, when the key is a
+     * node with metadata.
+     *
+     * `elixir-lang/elixir@5b221a554` ("Add AST metadata about assoc operator location", #13978), first released in
+     * v1.18.0-rc.0.
+     */
+    ASSOC_ON_MAP_KEY(sinceElixir = "1.18.0-rc.0"),
 
     /**
      * A character literal that is a newline, `?` + newline or `?\` + newline, advances the line of what follows, where
@@ -193,8 +219,8 @@ enum class ElixirLanguageFeature(
     /**
      * A `do:` block's `__block__` carries the line of its own `do` token (`elixir-lang/elixir@90e1826c7`), and a 0-byte
      * file's implicit top-level block carries `line: 1` (`elixir-lang/elixir@7da1b76b6`), where both carried none. Only
-     * `line` is added, not `column`: the rest of each commit is gated behind `?columns()`/`?token_metadata()`, which
-     * neither this plugin nor its reference quoter enables. First released in v1.20.0-rc.0.
+     * `line` is added, not `column`: the rest of each commit is gated behind `?columns()`/`?token_metadata()`. First
+     * released in v1.20.0-rc.0.
      */
     LINE_METADATA_ON_BLOCK(sinceElixir = "1.20.0-rc.0"),
 
