@@ -8,10 +8,12 @@ import com.intellij.psi.ResolveState
 import com.intellij.psi.scope.PsiScopeProcessor
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.psi.stubs.StubIndex
+import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.impl.call.body
 import org.elixir_lang.psi.stub.index.AllName
 import org.elixir_lang.psi.stub.type.call.Stub
 
@@ -28,7 +30,7 @@ class PsiScopeProcessor(val call: Call, val useCall: Call?) : PsiScopeProcessor 
     private fun execute(call: Call, state: ResolveState): Boolean =
         if (call != this.call) {
             when {
-                QuoteMacro.`is`(call) -> {
+                QuoteMacro.`is`(call) && isInBody(call) -> {
                     if (useCall != null) {
                         for (modular in Use.modulars(useCall)) {
                             resolveResultList.add(PsiElementResolveResult(modular))
@@ -71,7 +73,7 @@ class PsiScopeProcessor(val call: Call, val useCall: Call?) : PsiScopeProcessor 
 
                     false
                 }
-                Stub.isModular(call) -> {
+                Stub.isModular(call) && isInBody(call) -> {
                     PsiElementResolveResult(call).let {
                         resolveResultList.add(it)
                     }
@@ -83,6 +85,9 @@ class PsiScopeProcessor(val call: Call, val useCall: Call?) : PsiScopeProcessor 
         } else {
             true
         }
+
+    /** A module's or `quote`'s own arguments are evaluated outside it, so `__MODULE__` there is not it. */
+    private fun isInBody(enclosing: Call): Boolean = PsiTreeUtil.isAncestor(enclosing.body(), call, false)
 
     override fun <T> getHint(hintKey: Key<T>): T? = null
     override fun handleEvent(event: PsiScopeProcessor.Event, associated: Any?) {}

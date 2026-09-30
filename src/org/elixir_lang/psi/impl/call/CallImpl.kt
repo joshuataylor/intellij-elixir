@@ -199,6 +199,10 @@ fun Call.cachedReference(): PsiReference? =
 @RequiresReadLock
 fun Call.keywordArgument(keywordKeyText: String): PsiElement? = keywordArguments()?.keywordValue(keywordKeyText)
 
+/** The code that runs inside this call, its `do` block or `do:` value, unlike its other arguments. */
+@RequiresReadLock
+fun Call.body(): PsiElement? = doBlock ?: keywordArgument("do")
+
 /**
  * The keyword arguments for `call`.
  * @receiver the call to search for keyword arguments.
