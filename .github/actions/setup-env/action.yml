@@ -19,6 +19,13 @@ inputs:
     description: 'JBR major version to install. Must match the Java level of idea-version: 25 for 2026.2+ (build 262), 21 for earlier. Empty resolves to the java declared for idea-version in .github/ci-versions.json.'
     required: false
     default: ''
+  cache-key-prefix:
+    description: |
+      Names this job's Gradle User Home cache: every setup-gradle key starts with
+      `<cache-key-prefix>-<resolved idea-version>-`. Jobs that build the plugin use `idea`, so a test
+      leg restores what `main`'s build of the same platform saved; a job that resolves different
+      dependencies names its own, so neither restores the other's multi-GB entries.
+    required: true
   github-token:
     description: 'GitHub token for API access (required for setup-java to download JBR)'
     required: true
@@ -159,29 +166,22 @@ runs:
     # later steps in the workflow that use this action.
     # https://docs.gradle.org/current/userguide/build_environment.html#setting_a_project_property
     #
-    # We could use https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-faq.html#how-to-check-the-latest-available-eap-release , but
-    # it's wrong and doesn't actually work?
-    # See also https://github.com/JetBrains/intellij-platform-gradle-plugin/issues/1628
-    #
-    # We want to find the latest "public" EAP, also called [nextversion](https://www.jetbrains.com/idea/nextversion/)
+    # Always a concrete build: compose-legs.js resolves a LATEST-EAP-SNAPSHOT pointer once per run, so
+    # every leg, and the cache key below, names the same build.
     - name: Export Environment Variables
       id: export-environment-variables
       shell: bash
       env:
         IDEA_VERSION: ${{ steps.resolve.outputs.idea-version }}
         SKIP_SEARCHABLE_OPTIONS: ${{ inputs.skip-searchable-options }}
+        CACHE_KEY_PREFIX: ${{ inputs.cache-key-prefix }}
       run: |
-        if [ "$IDEA_VERSION" = "LATEST-EAP-SNAPSHOT" ]; then
-          # Use VersionFetcher to resolve the actual EAP version
-          echo "ORG_GRADLE_PROJECT_useDynamicEapVersion=true" >> $GITHUB_ENV
-        elif [ -n "$IDEA_VERSION" ]; then
-          echo "ORG_GRADLE_PROJECT_platformVersion=$IDEA_VERSION" >> $GITHUB_ENV
-        fi
+        echo "ORG_GRADLE_PROJECT_platformVersion=$IDEA_VERSION" >> $GITHUB_ENV
         echo "ORG_GRADLE_PROJECT_skipSearchableOptions=$SKIP_SEARCHABLE_OPTIONS" >> $GITHUB_ENV
         # Prefixes every setup-gradle cache key, the extracted build-cache and transforms entries included. Those are
         # keyed by OS but not by IDE, so a leg on one IDEA version otherwise restores another version's compiled
         # classes and extracted IDE, and recompiles everything.
-        echo "GRADLE_BUILD_ACTION_CACHE_KEY_PREFIX=idea-${IDEA_VERSION:-default}-" >> $GITHUB_ENV
+        echo "GRADLE_BUILD_ACTION_CACHE_KEY_PREFIX=${CACHE_KEY_PREFIX}-${IDEA_VERSION}-" >> $GITHUB_ENV
 
     # modules-2 is cached so the IDE archive (1.3-1.6 GiB/version) downloads once, not per job -
     # concurrent downloads hit JetBrains rate limiting. The enhanced provider dedups it to one copy

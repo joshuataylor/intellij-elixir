@@ -2,8 +2,8 @@ name: Verify Plugin
 
 # Runs the IntelliJ plugin verifier against one IDE per job, fanned out over a matrix supplied by the
 # caller. It verifies an artifact the caller has already built and uploaded; it never builds the
-# plugin itself, and needs no Gradle, JBR or Elixir toolchain - the verifier action runs in its own
-# container and reads the plugin from the workspace.
+# plugin itself. The verifier runs from the standalone Gradle build in .github/verify, which configures
+# nothing of the plugin build and needs no Elixir.
 #
 # One IDE per verifier JVM is deliberate. The verifier parallelises verification internally, so
 # bundling several IDEs into one invocation only serialises the download phase, and past about six
@@ -41,7 +41,7 @@ on:
           - mps
         default: ideaIU
       version:
-        description: 'Marketing version, e.g. 2026.2 or 2026.1.5.'
+        description: 'Marketing version (2026.1.5), build number (263.5701.42), or LATEST-EAP-SNAPSHOT for the active EAP or RC.'
         required: true
         type: string
       plugin:
@@ -49,14 +49,14 @@ on:
         required: true
         type: string
         default: latest-ci
-      # Everything from here down is passed straight to the verifier action, and each default is what
+      # Everything from here down is passed straight to the plugin verifier, and each default is what
       # this workflow uses when nothing is supplied - so a dispatch form arrives pre-filled with the
       # settings CI actually runs, and editing one field changes only that field.
       #
       # The defaults are repeated in the workflow_call block below because the two triggers have
       # separate input sets and workflow YAML supports no anchors. Change one, change both.
       verifier-version:
-        description: 'Passed to the verifier action. The version of verifier-all.jar to download and use for verification.'
+        description: 'Passed to the plugin verifier. The version of verifier-all.jar to download and use for verification.'
         required: false
         type: string
         default: LATEST
@@ -68,27 +68,27 @@ on:
       #     fail on the usages JetBrains have agreed to ignore. Enforced instead by the
       #     `Check internal API usages against the allowlist` step.
       failure-levels:
-        description: 'Passed to the verifier action. The list of failure levels you want to set. Any set and found will cause this action to fail. One of COMPATIBILITY_WARNINGS, COMPATIBILITY_PROBLEMS, DEPRECATED_API_USAGES, EXPERIMENTAL_API_USAGES, INTERNAL_API_USAGES, OVERRIDE_ONLY_API_USAGES, NON_EXTENDABLE_API_USAGES, PLUGIN_STRUCTURE_WARNINGS, MISSING_DEPENDENCIES, INVALID_PLUGIN, NOT_DYNAMIC, whitespace-separated.'
+        description: 'Passed to the plugin verifier. The list of failure levels you want to set. Any set and found will cause this action to fail. One of COMPATIBILITY_WARNINGS, COMPATIBILITY_PROBLEMS, DEPRECATED_API_USAGES, EXPERIMENTAL_API_USAGES, INTERNAL_API_USAGES, OVERRIDE_ONLY_API_USAGES, NON_EXTENDABLE_API_USAGES, PLUGIN_STRUCTURE_WARNINGS, MISSING_DEPENDENCIES, INVALID_PLUGIN, NOT_DYNAMIC, whitespace-separated.'
         required: false
         type: string
         default: COMPATIBILITY_PROBLEMS INVALID_PLUGIN NON_EXTENDABLE_API_USAGES OVERRIDE_ONLY_API_USAGES
       mute-plugin-problems:
-        description: 'Passed to the verifier action. The comma-separated list of rules to suppress. See https://github.com/JetBrains/intellij-plugin-verifier?tab=readme-ov-file#specific-options for a list of valid values.'
+        description: 'Passed to the plugin verifier. The comma-separated list of rules to suppress. See https://github.com/JetBrains/intellij-plugin-verifier?tab=readme-ov-file#specific-options for a list of valid values.'
         required: false
         type: string
         default: ''
       external-prefixes:
-        description: 'Passed to the verifier action. Colon-separated list of external class prefixes to ignore for "No such class" errors (verifier -external-prefixes).'
+        description: 'Passed to the plugin verifier. Colon-separated list of external class prefixes to ignore for "No such class" errors (verifier -external-prefixes).'
         required: false
         type: string
         default: org.jetbrains.jps
       verification-reports-formats:
-        description: 'Passed to the verifier action. Comma-separated list of verification report output formats. Supported: plain, html, markdown. Prefix with - to exclude (e.g. -plain).'
+        description: 'Passed to the plugin verifier. Comma-separated list of verification report output formats. Supported: plain, html, markdown. plain is always written, because the verdict is read from it.'
         required: false
         type: string
         default: plain,markdown,html
       add-to-summary:
-        description: 'Passed to the verifier action. Comma-separated list of report filenames to append to the GitHub Actions Job Summary, grouped by IDE. Aliases: "markdown" (all .md files), "plain" (all .txt files). Text files >3 lines are collapsed. Leave unset to skip.'
+        description: 'Comma-separated list of report filenames to append to the GitHub Actions Job Summary, grouped by IDE. Aliases: "markdown" (all .md files), "plain" (all .txt files). Text files >3 lines are collapsed. Leave unset to skip.'
         required: false
         type: string
         default: verification-verdict.txt,compatibility-problems.txt,invalid-plugin.txt
@@ -103,7 +103,7 @@ on:
   workflow_call:
     inputs:
       matrix:
-        description: 'Verification legs as a JSON matrix: {"include":[{"product":"ideaIU","version":"2026.2"},...]}. product is an intellij-repository artifact id, version a marketing version.'
+        description: 'Verification legs as a JSON matrix: {"include":[{"product":"ideaIU","version":"LATEST-EAP-SNAPSHOT","build":"263.5701.42"},...]}. product is an intellij-repository artifact id, version the declared version and build what it resolved to (compose-legs.js).'
         # Required, so a caller that forgets it fails at call time with a clear message rather than
         # falling through to the manual-dispatch branch and verifying ":".
         required: true
@@ -118,32 +118,32 @@ on:
       # Same verifier settings as the dispatch block above, with the same defaults, so a caller that
       # passes none gets exactly what a manual run with an untouched form gets. Change one, change both.
       verifier-version:
-        description: 'Passed to the verifier action. The version of verifier-all.jar to download and use for verification.'
+        description: 'Passed to the plugin verifier. The version of verifier-all.jar to download and use for verification.'
         required: false
         type: string
         default: LATEST
       failure-levels:
-        description: 'Passed to the verifier action. The list of failure levels you want to set. Any set and found will cause this action to fail. One of COMPATIBILITY_WARNINGS, COMPATIBILITY_PROBLEMS, DEPRECATED_API_USAGES, EXPERIMENTAL_API_USAGES, INTERNAL_API_USAGES, OVERRIDE_ONLY_API_USAGES, NON_EXTENDABLE_API_USAGES, PLUGIN_STRUCTURE_WARNINGS, MISSING_DEPENDENCIES, INVALID_PLUGIN, NOT_DYNAMIC, whitespace-separated.'
+        description: 'Passed to the plugin verifier. The list of failure levels you want to set. Any set and found will cause this action to fail. One of COMPATIBILITY_WARNINGS, COMPATIBILITY_PROBLEMS, DEPRECATED_API_USAGES, EXPERIMENTAL_API_USAGES, INTERNAL_API_USAGES, OVERRIDE_ONLY_API_USAGES, NON_EXTENDABLE_API_USAGES, PLUGIN_STRUCTURE_WARNINGS, MISSING_DEPENDENCIES, INVALID_PLUGIN, NOT_DYNAMIC, whitespace-separated.'
         required: false
         type: string
         default: COMPATIBILITY_PROBLEMS INVALID_PLUGIN NON_EXTENDABLE_API_USAGES OVERRIDE_ONLY_API_USAGES
       mute-plugin-problems:
-        description: 'Passed to the verifier action. The comma-separated list of rules to suppress. See https://github.com/JetBrains/intellij-plugin-verifier?tab=readme-ov-file#specific-options for a list of valid values.'
+        description: 'Passed to the plugin verifier. The comma-separated list of rules to suppress. See https://github.com/JetBrains/intellij-plugin-verifier?tab=readme-ov-file#specific-options for a list of valid values.'
         required: false
         type: string
         default: ''
       external-prefixes:
-        description: 'Passed to the verifier action. Colon-separated list of external class prefixes to ignore for "No such class" errors (verifier -external-prefixes).'
+        description: 'Passed to the plugin verifier. Colon-separated list of external class prefixes to ignore for "No such class" errors (verifier -external-prefixes).'
         required: false
         type: string
         default: org.jetbrains.jps
       verification-reports-formats:
-        description: 'Passed to the verifier action. Comma-separated list of verification report output formats. Supported: plain, html, markdown. Prefix with - to exclude (e.g. -plain).'
+        description: 'Passed to the plugin verifier. Comma-separated list of verification report output formats. Supported: plain, html, markdown. plain is always written, because the verdict is read from it.'
         required: false
         type: string
         default: plain,markdown,html
       add-to-summary:
-        description: 'Passed to the verifier action. Comma-separated list of report filenames to append to the GitHub Actions Job Summary, grouped by IDE. Aliases: "markdown" (all .md files), "plain" (all .txt files). Text files >3 lines are collapsed. Leave unset to skip.'
+        description: 'Comma-separated list of report filenames to append to the GitHub Actions Job Summary, grouped by IDE. Aliases: "markdown" (all .md files), "plain" (all .txt files). Text files >3 lines are collapsed. Leave unset to skip.'
         required: false
         type: string
         default: verification-verdict.txt,compatibility-problems.txt,invalid-plugin.txt
@@ -170,7 +170,7 @@ jobs:
     # and the checks graph truncates around 24-27 characters - `verify / verify (ideaIU, 2026...` spent
     # its whole budget saying verify twice. `verify / ideaIU 2026.1.5` fits.
     name: ${{ matrix.product }} ${{ matrix.version }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     strategy:
       # One product failing verification must not cancel the others: each leg is an independent
@@ -186,9 +186,10 @@ jobs:
             || fromJson(format('{{"include":[{{"product":"{0}","version":"{1}"}}]}}', inputs.product, inputs.version)) }}
 
     steps:
-      # Only the internal API gate needs the repository. MUST be first: checkout clears the workspace
-      # unless it is already a clone of this repo, so later it would delete the staged plugin zip.
-      - name: Checkout the internal API allowlist
+      # The verify build, the Gradle wrapper and catalog it runs with, setup-env, and the internal API
+      # gate - nothing of the plugin's sources. MUST be first: checkout clears the workspace unless it is
+      # already a clone of this repo, so later it would delete the staged plugin zip.
+      - name: Checkout
         id: checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -198,15 +199,29 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
           persist-credentials: false
           sparse-checkout: |
+            .github/actions/setup-env
             .github/internal-api-usages-allowlist.txt
             .github/scripts
+            .github/verify
+            gradle/libs.versions.toml
+            gradle/wrapper
+            gradlew
           sparse-checkout-cone-mode: false
 
-      # Every source lands a zip in build/distributions, which is the verifier action's default
-      # plugin-location (resolved relative to the workspace), so nothing downstream varies.
+      # A called leg arrives with its build resolved by compose-legs.js, so only a dispatch of
+      # LATEST-EAP-SNAPSHOT reaches the network here. With no active pre-release `build` is empty and
+      # every later step skips: the leg passes with a notice.
+      - name: Resolve IDE build
+        id: resolve
+        env:
+          PRODUCT: ${{ matrix.product }}
+          VERSION: ${{ matrix.build || matrix.version }}
+        run: node .github/scripts/ide-releases.js
+
+      # Every source lands a zip in build/distributions, so nothing downstream varies.
       - name: Download plugin distribution (this run)
         id: download-plugin-same-run
-        if: ${{ inputs.matrix != '' }}
+        if: ${{ inputs.matrix != '' && steps.resolve.outputs.build != '' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ inputs.plugin-artifact || 'plugin-distribution' }}
@@ -214,7 +229,7 @@ jobs:
 
       - name: Fetch plugin (manual dispatch)
         id: fetch-plugin
-        if: ${{ inputs.matrix == '' }}
+        if: ${{ inputs.matrix == '' && steps.resolve.outputs.build != '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -263,10 +278,11 @@ jobs:
               ;;
           esac
 
-      # The action globs build/distributions/*.zip; more than one match, or none, would verify the
-      # wrong thing or fail deep inside the container with a less obvious message.
+      # More than one zip, or none, would verify the wrong thing or fail inside the verifier with a less
+      # obvious message.
       - name: Check exactly one plugin zip is staged
         id: check-plugin
+        if: ${{ steps.resolve.outputs.build != '' }}
         run: |
           shopt -s nullglob
           zips=(build/distributions/*.zip)
@@ -275,46 +291,55 @@ jobs:
             echo "::error::expected exactly one zip in build/distributions, found ${#zips[@]}"
             exit 1
           }
+          echo "zip=$GITHUB_WORKSPACE/${zips[0]}" >> "$GITHUB_OUTPUT"
 
-      # Marketing versions, not build numbers: the verifier downloads
-      # intellij-repository/releases/.../<version>/<artifact>-<version>.zip, where a marketing
-      # version and its release build are the SAME artifact (ideaIU-2026.1.4.zip and
-      # ideaIU-261.26222.65.zip are both 1664258220 bytes), and where rubymine is published under
-      # marketing versions ONLY -- rubymine:261.26222.67 would 404. Pinning a patch version is as
-      # reproducible as pinning a build: ideaIU:2026.2 still resolves to 262.8665.258 now that
-      # 2026.2.0.1 (262.8665.337) exists.
+      # The cache namespace carries the product: RubyMine and IDEA share marketing versions, and the key
+      # would otherwise restore one product's IDE into the other's leg. Java 21 runs Gradle and the
+      # verifier CLI; each IDE is verified against its own bundled JBR.
+      - name: Setup Build Environment
+        id: setup-env
+        if: ${{ steps.resolve.outputs.build != '' }}
+        uses: ./.github/actions/setup-env
+        with:
+          setup-elixir: false
+          idea-version: ${{ steps.resolve.outputs.build }}
+          java-version: '21'
+          cache-key-prefix: verify-${{ matrix.product }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Verify Plugin
         id: verify
-        # Fork carrying two changes upstream does not have yet:
-        #   - the reports-format inputs, offered as
-        #     https://github.com/ChrisCarini/intellij-platform-plugin-verifier-action/pull/102
-        #   - a JDK 21 base image. The verifier resolves JDK classes against the JVM it runs on, and
-        #     upstream's image is Java 17, so every Java 21 API in the plugin is reported as an
-        #     unresolved method. Not yet offered upstream.
-        # Drop the fork once both land upstream.
-        uses: sh41/intellij-platform-plugin-verifier-action@add_format_options_jdk21
+        if: ${{ steps.resolve.outputs.build != '' }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          # ide-versions and plugin-location are the only two action inputs this workflow owns rather
-          # than exposing: the first is the matrix leg, and the second is where the steps above staged
-          # the zip, having already checked that exactly one is there.
-          ide-versions: ${{ matrix.product }}:${{ matrix.version }}
-          verifier-version: ${{ inputs.verifier-version }}
-          failure-levels: ${{ inputs.failure-levels }}
-          mute-plugin-problems: ${{ inputs.mute-plugin-problems }}
-          external-prefixes: ${{ inputs.external-prefixes }}
-          verification-reports-formats: ${{ inputs.verification-reports-formats }}
-          add-to-summary: ${{ inputs.add-to-summary }}
-
-      - name: Print Verification Output
-        id: print-verification-output
-        if: ${{ !cancelled() }}
+          ARCHIVE: ${{ steps.check-plugin.outputs.zip }}
+          IDE_CODE: ${{ steps.resolve.outputs.code }}
+          IDE_BUILD: ${{ steps.resolve.outputs.build }}
+          VERIFIER_VERSION: ${{ inputs.verifier-version }}
+          FAILURE_LEVELS: ${{ inputs.failure-levels }}
+          MUTE_PLUGIN_PROBLEMS: ${{ inputs.mute-plugin-problems }}
+          EXTERNAL_PREFIXES: ${{ inputs.external-prefixes }}
+          REPORT_FORMATS: ${{ inputs.verification-reports-formats }}
         run: |
-          log_file="${{ steps.verify.outputs.verification-output-log-filename }}"
-          if [ -n "$log_file" ] && [ -f "$log_file" ]; then
-            cat "$log_file"
-          fi
+          set -o pipefail
+          ./gradlew -p .github/verify verifyPlugin -Dorg.gradle.console=plain \
+            "-Parchive=$ARCHIVE" \
+            "-PideCode=$IDE_CODE" \
+            "-PideVersion=$IDE_BUILD" \
+            "-PverifierVersion=$VERIFIER_VERSION" \
+            "-PfailureLevels=$FAILURE_LEVELS" \
+            "-PmutePluginProblems=$MUTE_PLUGIN_PROBLEMS" \
+            "-PexternalPrefixes=$EXTERNAL_PREFIXES" \
+            "-PreportFormats=$REPORT_FORMATS" \
+            2>&1 | tee verification_result.log
+
+      - name: Add verification reports to the job summary
+        id: summary
+        if: ${{ !cancelled() && steps.resolve.outputs.build != '' }}
+        env:
+          REPORTS_DIR: .github/verify/build/reports/pluginVerifier
+          ADD_TO_SUMMARY: ${{ inputs.add-to-summary }}
+          LEG: ${{ matrix.product }} ${{ steps.resolve.outputs.build }}
+        run: node .github/scripts/verify-summary.js
 
       # Runs on every path, dispatch included: a one-off run is asking whether that zip passes TODAY's
       # approved list. Placed BEFORE Upload Verify Reports so that step's `failure()` still uploads the
@@ -322,17 +347,17 @@ jobs:
       # thing that uploads.
       - name: Check internal API usages against the allowlist
         id: internal-api-usages
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.resolve.outputs.build != '' }}
         env:
-          REPORTS_DIR: ${{ steps.verify.outputs.verification-reports-dir }}
+          REPORTS_DIR: .github/verify/build/reports/pluginVerifier
           # `outcome`, not `failure()`: a leg that never downloaded its plugin is `skipped` and a timed-out
           # one is `cancelled`; the script only demands reports when verification actually succeeded.
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
-          LEG: ${{ matrix.product }} ${{ matrix.version }}
+          LEG: ${{ matrix.product }} ${{ steps.resolve.outputs.build }}
         run: node .github/scripts/check-internal-api-usages.js
 
-      # One invocation per job, so the action's fixed verification_result.log name needs no
-      # per-product copy - the artifact name carries the product and version instead.
+      # One verification per job, so the log needs no per-product name - the artifact name carries the
+      # product and version instead.
       #
       # `inputs.upload-verifier-reports` is always false on `pull_request`: the `inputs` context is
       # empty for that trigger, and a `workflow_call` default applies only when the workflow is called.
@@ -341,11 +366,11 @@ jobs:
       - name: Upload Verify Reports
         id: upload-verify-reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ (failure() || inputs.upload-verifier-reports) && steps.verify.outputs.verification-output-log-filename != '' }}
+        if: ${{ (failure() || inputs.upload-verifier-reports) && steps.resolve.outputs.build != '' }}
         with:
           name: verify-plugin-reports-${{ matrix.product }}-${{ matrix.version }}
           path: |
-            ${{ steps.verify.outputs.verification-output-log-filename }}
-            ${{ steps.verify.outputs.verification-reports-dir }}
+            verification_result.log
+            .github/verify/build/reports/pluginVerifier
           retention-days: 30
           if-no-files-found: warn

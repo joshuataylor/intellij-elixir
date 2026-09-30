@@ -306,6 +306,9 @@ For example, to launch the latest RubyMine EAP:
 ./gradlew runRubyMineEAP -PuseDynamicEapVersion=true
 ```
 
+The version is the newest EAP or RC build, the same rule CI applies to `LATEST-EAP-SNAPSHOT`. Between
+release cycles, when no pre-release is newer than the latest release, the build fails and says so.
+
 #### Testing
 
 ##### Test tasks
@@ -445,7 +448,7 @@ Three places in this document quote that data rather than deriving it - the JBR 
 [Reading a leg in the checks list](#reading-a-leg-in-the-checks-list). Nothing keeps them in sync, so
 update them in the same commit as `.github/ci-versions.json`.
 
-Tests always run against IntelliJ IDEA. The legs are every declared IDEA version on Ubuntu with
+Tests always run against IntelliJ IDEA. The legs are every declared IDEA version on Ubuntu (arm64) with
 `beam.baseline`, plus one leg per `beam.additional` pair on the minimum supported IDEA, plus
 `beam.baseline` on Windows.
 
@@ -472,7 +475,7 @@ resolved versions - so a bad declaration is diagnosable locally rather than from
 
 `beam.baseline` is the newest supported pair, and the one every IDEA leg and the Windows leg run.
 `beam.additional` covers the rest of the window, which reaches back to 1.11.4: `builds.hex.pm`
-publishes OTP for `ubuntu-22.04` only from 24.2, and 1.11.4 is the oldest Elixir that runs on OTP 24,
+publishes OTP for `ubuntu-24.04` only from 24.3.4, and 1.11.4 is the oldest Elixir that runs on OTP 24,
 so nothing below it can be tested.
 
 `beam.additional` is not one-entry-per-Elixir-minor: a pair may exist to cover an **OTP major** no other
@@ -591,11 +594,30 @@ something. `./gradlew check` on the pinned pair must stay at zero.
 entry, or an `idea.additionalToTest` entry for a platform. The matrix, the JBR levels and the verifier's IDE
 lists all follow from it.
 
+An `idea.additionalToTest` version may be `LATEST-EAP-SNAPSHOT`. `compose-legs.js` resolves it once per
+run and per product to the newest EAP or RC build, but only while that build is newer than the latest
+release. Every leg then sees that build, and so does its Gradle cache key; the check names keep
+`LATEST-EAP-SNAPSHOT`. When a product has no active pre-release, its legs for that entry are skipped with
+a notice.
+
 Other IDEs appear only in plugin *verification*. Each IDEA version lists the products to verify it
 against in a `verify` array, and CI runs one job per product/version pair (`.github/workflows/shared-verify.yml`),
 each verifying the plugin zip that was built once. Adding a product is one entry in that array; the
 values are `intellij-repository` artifact ids (`ideaIU`, `rubymine`, `pycharmPC`, `webstorm`, ...),
 not marketing names.
+
+A leg runs the standalone Gradle build in `.github/verify`, so it configures nothing of the plugin
+build. To reproduce one locally against a built zip, with the product code from `PRODUCT_CODES` in
+`.github/scripts/ide-releases.js`:
+
+```sh
+./gradlew -p .github/verify verifyPlugin -Parchive="$PWD/build/distributions/<zip>" \
+  -PideCode=RM -PideVersion=2026.1.5 \
+  "-PfailureLevels=COMPATIBILITY_PROBLEMS INVALID_PLUGIN NON_EXTENDABLE_API_USAGES OVERRIDE_ONLY_API_USAGES" \
+  -PexternalPrefixes=org.jetbrains.jps
+```
+
+Its reports land in `.github/verify/build/reports/pluginVerifier`.
 
 ### From IntelliJ IDEA
 #### Running the plugin in a specific IDE

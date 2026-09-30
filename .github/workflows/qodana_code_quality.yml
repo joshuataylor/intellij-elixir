@@ -52,7 +52,7 @@ jobs:
   qodana:
     name: Qodana
     needs: changes
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -83,6 +83,7 @@ jobs:
         id: setup-env
         uses: ./.github/actions/setup-env
         with:
+          cache-key-prefix: idea
           github-token: ${{ secrets.GITHUB_TOKEN }}
           gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           # Qodana imports the Gradle project; it never runs the quoter, so the BEAM toolchain is

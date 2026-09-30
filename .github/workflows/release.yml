@@ -14,7 +14,7 @@ jobs:
 
   release:
     needs: [ test-and-verify ]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -27,6 +27,7 @@ jobs:
         id: setup-env
         uses: ./.github/actions/setup-env
         with:
+          cache-key-prefix: idea
           github-token: ${{ secrets.GITHUB_TOKEN }}
           gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
           skip-searchable-options: 'false'

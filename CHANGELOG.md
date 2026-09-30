@@ -530,6 +530,10 @@
 
 ### Build / CI
 
+- [#4250](https://github.com/intellij-elixir/intellij-elixir/pull/4250) [@sh41](https://github.com/sh41)
+  - **Every Linux job runs on GitHub's `ubuntu-24.04-arm` runners, where the tests use fewer runner minutes, ahead of the `ubuntu-22.04` image's retirement.**
+  - **Plugin verification runs from a standalone Gradle build instead of a container action, so it runs on arm64 and can verify EAP builds.**
+  - **A `LATEST-EAP-SNAPSHOT` version is resolved to one build per run, and only while an EAP or RC is newer than the latest release; `-PuseDynamicEapVersion=true` follows the same rule.**
 - [#4241](https://github.com/intellij-elixir/intellij-elixir/pull/4241) [@sh41](https://github.com/sh41)
   - **`CHANGELOG.md` merges with git's default driver again: GitHub ignores `merge=union`, so the rule hid locally the conflicts pull requests showed anyway.**
   - **The `test` source set takes its JUnit 5 version from the platform's test framework instead of a pin that Dependabot could bump past it.**
