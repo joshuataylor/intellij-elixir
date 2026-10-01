@@ -24,7 +24,8 @@ class Lowering private constructor(
 ) {
     /**
      * A shape with its own `quote()` belongs to a family, even when only its parent reaches it, as a digit or an
-     * operator token does; [BY_PARENT] is for shapes without one.
+     * operator token does; [BY_PARENT] is for a shape its parent's lowering consumes whole, whether or not it has a
+     * `quote()` of its own.
      */
     enum class Bucket {
         /**
@@ -45,22 +46,25 @@ class Lowering private constructor(
         /** Stabs, their bodies, and parentheses: what the one block builder builds. A stab's `->` is a [CLAUSE]. */
         BLOCK,
 
-        /** `fn`, `->` and its signatures. */
+        /** `fn` and `->`. */
         CLAUSE,
 
         /** Module attributes: `@name`, `@name value`, `@name[key]`. */
         ATTRIBUTE,
 
         /**
-         * No `quote()` of its own; the shape above it reads it as it lowers: most argument lists, the parts of strings,
-         * heredocs and sigils, escape sequences, interpolation, `do` blocks.
+         * The shape above it reads it as it lowers: most argument lists, the parts of strings,
+         * heredocs and sigils, escape sequences, interpolation, `do` blocks, a `->`'s signature.
          */
         BY_PARENT,
 
         /** Contributes no node: an end of expression, EEx tags. */
         NOT_ALONE,
 
-        /** No row names it: an error element, whitespace, a comment, a bare token. */
+        /** An error element, where the parser recovered from broken code. */
+        ERROR,
+
+        /** No row names it: whitespace, a comment, a bare token. */
         UNKNOWN,
     }
 
@@ -102,6 +106,7 @@ class Lowering private constructor(
                 logger<Lowering>().error("${element.javaClass.simpleName} reached on its own: its parent's family lowers it")
                 unlowered(element)
             }
+            Bucket.ERROR -> broken(element)
             Bucket.UNKNOWN -> unlowered(element)
         }
     }
@@ -109,6 +114,10 @@ class Lowering private constructor(
     /** A placeholder for [element], which [shape] leaves without a lowering. */
     internal fun unlowered(element: PsiElement, shape: PsiElement = element): ElixirAst =
         ElixirAst.Placeholder(meta(element, location(element)), ElixirAst.Placeholder.Reason.Unlowered(shape.javaClass))
+
+    /** [element] as broken code: an error element, or a shape Elixir's parser rejects. */
+    internal fun broken(element: PsiElement): ElixirAst =
+        ElixirAst.Placeholder(meta(element, location(element)), ElixirAst.Placeholder.Reason.Error)
 
     internal fun isAvailable(feature: ElixirLanguageFeature): Boolean = feature.isSufficient(languageLevel)
 

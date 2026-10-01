@@ -261,8 +261,19 @@ enum class ElixirLanguageFeature(
     END_OF_EXPRESSION_ON_LAST_EXPRESSION(sinceElixir = "1.17.0-rc.0"),
 
     /**
-     * With `token_metadata: true`, parentheses around one expression that has metadata add `parens:` to it, and empty
-     * parentheses add it to their empty `__block__`.
+     * With `token_metadata: true`, an end of expression after a `->` clause's first body expression goes on the `->`
+     * itself when that expression has no metadata, as after `2` in `fn 1 -> 2; 3 -> 4 end`, and one after a clause with
+     * no body does too, as after the first `->` in `fn 1 -> ; 2 -> 3 end`.
+     *
+     * Removed by `elixir-lang/elixir@d244eaf8b` ("Remove end_of_expression from ->", #13318), first released in
+     * v1.17.0-rc.0.
+     */
+    END_OF_EXPRESSION_ON_STAB_OPERATOR(removedInElixir = "1.17.0-rc.0"),
+
+    /**
+     * With `token_metadata: true`, parentheses around one expression that has metadata add `parens:` to it, empty
+     * parentheses add it to their empty `__block__`, and a `->` head of no, several or keyword arguments in
+     * parentheses adds it to the `->`.
      *
      * `elixir-lang/elixir@bd7d428ca` (#13940), `elixir-lang/elixir@7d421b197` (#13973) and
      * `elixir-lang/elixir@3b01b2a63` (#13996), first released in v1.18.0-rc.0.

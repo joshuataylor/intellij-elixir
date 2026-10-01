@@ -39,8 +39,8 @@ internal fun Lowering.operator(element: PsiElement): ElixirAst =
     }
 
 private fun Lowering.infix(infix: Infix): ElixirAst {
-    val left = infix.leftOperand() ?: return unlowered(infix)
-    val right = infix.rightOperand() ?: return unlowered(infix)
+    val left = infix.leftOperand() ?: return broken(infix)
+    val right = infix.rightOperand() ?: return broken(infix)
 
     return ambiguousDualOperatorCall(infix, left, right) ?: binary(infix, lower(left), lower(right))
 }
@@ -99,8 +99,8 @@ private fun Lowering.ambiguousDualOperatorCall(infix: Infix, left: PsiElement, r
 
 /** `a..b//c` is `..//` with the range's metadata; a step after anything else is left as `//`, which Elixir rejects. */
 private fun Lowering.ternary(ternary: Ternary): ElixirAst {
-    val left = ternary.leftOperand() ?: return unlowered(ternary)
-    val right = ternary.rightOperand() ?: return unlowered(ternary)
+    val left = ternary.leftOperand() ?: return broken(ternary)
+    val right = ternary.rightOperand() ?: return broken(ternary)
     val range = lower(left)
 
     return if (range is ElixirAst.Call && (range.callee as? ElixirAst.Literal.Atom)?.name == ".." && range.arguments?.size == 2) {
@@ -116,8 +116,8 @@ private fun Lowering.ternary(ternary: Ternary): ElixirAst {
 
 /** `not a in b` and `!a in b` move the `not` or `!` outside the `in`. */
 private fun Lowering.`in`(`in`: In): ElixirAst {
-    val left = `in`.leftOperand() ?: return unlowered(`in`)
-    val right = `in`.rightOperand() ?: return unlowered(`in`)
+    val left = `in`.leftOperand() ?: return broken(`in`)
+    val right = `in`.rightOperand() ?: return broken(`in`)
     val loweredLeft = lower(left)
     val unary = (loweredLeft as? ElixirAst.Call)
         ?.takeIf { (it.callee as? ElixirAst.Literal.Atom)?.name in REARRANGED_UNARY_OPERATORS && it.arguments?.size == 1 }
@@ -138,8 +138,8 @@ private val REARRANGED_UNARY_OPERATORS = setOf("not", "!")
 
 /** `a not in b` is `not(a in b)`. */
 private fun Lowering.notIn(notIn: NotIn): ElixirAst {
-    val left = notIn.leftOperand() ?: return unlowered(notIn)
-    val right = notIn.rightOperand() ?: return unlowered(notIn)
+    val left = notIn.leftOperand() ?: return broken(notIn)
+    val right = notIn.rightOperand() ?: return broken(notIn)
     val not = notIn.notInfixOperator.operatorTokenNode()
     val `in` = notIn.inInfixOperator.operatorTokenNode()
 
@@ -170,7 +170,7 @@ private fun Lowering.notIn(notIn: NotIn): ElixirAst {
 }
 
 private fun Lowering.prefix(prefix: Prefix): ElixirAst {
-    val operand = prefix.operand() ?: return unlowered(prefix)
+    val operand = prefix.operand() ?: return broken(prefix)
     val operator = prefix.operator()
     val token = operator.operatorTokenNode()
 
@@ -193,7 +193,7 @@ private fun Lowering.prefix(prefix: Prefix): ElixirAst {
 private fun Lowering.steppedRangeKeywordCall(steppedRangeKeywordCall: ElixirSteppedRangeKeywordCall): ElixirAst {
     val node = steppedRangeKeywordCall.node
     val range = node.firstChildNode
-    val division = node.findChildByType(ElixirTypes.DIVISION_OPERATOR) ?: return unlowered(steppedRangeKeywordCall)
+    val division = node.findChildByType(ElixirTypes.DIVISION_OPERATOR) ?: return broken(steppedRangeKeywordCall)
 
     return ElixirAst.Call(
         meta(steppedRangeKeywordCall, location(range)),

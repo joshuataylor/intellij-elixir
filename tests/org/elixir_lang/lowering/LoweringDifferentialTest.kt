@@ -13,21 +13,21 @@ import org.elixir_lang.psi.impl.ElixirPsiImplUtil
 import java.nio.file.Path
 
 /**
- * Lowers every file of the parser corpus and, where nothing was left unlowered, holds the lowering's terms equal to
- * today's quoting, and to the quoter's with columns and token metadata. Prints how many files that covered.
+ * Lowers every file of the parser corpus, holds each one lowered completely, and holds the lowering's terms equal to
+ * today's quoting, and to the quoter's with columns and token metadata. Prints how many files were covered.
  */
 class LoweringDifferentialTest : ParsingTestCase() {
-    fun testLoweringQuotesLikeQuotableOnEveryFileItCovers() =
-        assertAgreesOnEveryFileItCovers("quoting") { lowered, file, _ -> lowered.toOtp() == ElixirPsiImplUtil.quote(file) }
+    fun testLoweringQuotesLikeQuotableOnEveryFile() =
+        assertAgreesOnEveryFile("quoting") { lowered, file, _ -> lowered.toOtp() == ElixirPsiImplUtil.quote(file) }
 
-    fun testLoweringQuotesLikeTheQuoterWithColumnsAndTokenMetadataOnEveryFileItCovers() =
-        assertAgreesOnEveryFileItCovers("the quoter with columns and token metadata") { lowered, _, text ->
+    fun testLoweringQuotesLikeTheQuoterWithColumnsAndTokenMetadataOnEveryFile() =
+        assertAgreesOnEveryFile("the quoter with columns and token metadata") { lowered, _, text ->
             val reply = Quoter.quote(text, COLUMNS_AND_TOKEN_METADATA)
 
             reply.elementAt(0) == OtpErlangAtom("ok") && lowered.toOtp(COLUMNS_AND_TOKEN_METADATA) == reply.elementAt(1)
         }
 
-    private fun assertAgreesOnEveryFileItCovers(
+    private fun assertAgreesOnEveryFile(
         reference: String,
         agrees: (lowered: ElixirAst, file: ElixirFile, text: String) -> Boolean
     ) {
@@ -47,6 +47,12 @@ class LoweringDifferentialTest : ParsingTestCase() {
         assertTrue(
             "lowering and $reference differ in ${differing.size} of $covered covered files:\n  ${differing.joinToString("\n  ")}",
             differing.isEmpty()
+        )
+
+        val uncovered = outcomes.filterValues { it == Outcome.UNCOVERED }.keys
+        assertTrue(
+            "${uncovered.size} of ${paths.size} files are left partly unlowered:\n  ${uncovered.joinToString("\n  ")}",
+            uncovered.isEmpty()
         )
     }
 

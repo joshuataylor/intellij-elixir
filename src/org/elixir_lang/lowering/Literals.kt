@@ -62,7 +62,7 @@ import java.math.BigInteger
 internal fun Lowering.literal(element: PsiElement): ElixirAst =
     when (element) {
         is ElixirFile -> file(element)
-        is ElixirAccessExpression -> element.children.singleOrNull()?.let { lower(it) } ?: unlowered(element)
+        is ElixirAccessExpression -> element.children.singleOrNull()?.let { lower(it) } ?: broken(element)
         is ElixirAlias -> alias(element)
         is QualifiedAlias -> qualifiedAlias(element)
         is ElixirAtom -> atom(element)
@@ -132,7 +132,7 @@ private fun Lowering.decimalFloat(decimalFloat: ElixirDecimalFloat): ElixirAst {
 }
 
 private fun Lowering.charToken(charToken: ElixirCharToken): ElixirAst {
-    val tokenized = charToken.node.getChildren(null).getOrNull(1) ?: return unlowered(charToken)
+    val tokenized = charToken.node.getChildren(null).getOrNull(1) ?: return broken(charToken)
     val codePoint =
         if (tokenized.elementType == ElixirTypes.FRAGMENT) {
             tokenized.text.takeIf { it.codePointCount(0, it.length) == 1 }?.codePointAt(0)
@@ -140,7 +140,7 @@ private fun Lowering.charToken(charToken: ElixirCharToken): ElixirAst {
             (tokenized.psi as? EscapeSequence)?.codePoint()
         }
 
-    return codePoint?.let { ElixirAst.Literal.Integer(meta(charToken), it.toBigInteger()) } ?: unlowered(charToken)
+    return codePoint?.let { ElixirAst.Literal.Integer(meta(charToken), it.toBigInteger()) } ?: broken(charToken)
 }
 
 // Atoms and aliases
@@ -166,8 +166,8 @@ private fun Lowering.alias(alias: ElixirAlias): ElixirAst =
 /** `Left.Right`: one alias of both, at `Left`, when `Left` is one; otherwise at the `.`. */
 private fun Lowering.qualifiedAlias(qualifiedAlias: QualifiedAlias): ElixirAst {
     val children = qualifiedAlias.children
-    val left = children.firstOrNull()?.let { lower(it) } ?: return unlowered(qualifiedAlias)
-    val right = children.lastOrNull() as? ElixirAlias ?: return unlowered(qualifiedAlias)
+    val left = children.firstOrNull()?.let { lower(it) } ?: return broken(qualifiedAlias)
+    val right = children.lastOrNull() as? ElixirAlias ?: return broken(qualifiedAlias)
     val segment = ElixirAst.Literal.Atom(meta(right), right.text)
     val last = last(right.textRange.startOffset)
 
@@ -182,7 +182,7 @@ private fun Lowering.qualifiedAlias(qualifiedAlias: QualifiedAlias): ElixirAst {
 
         ElixirAst.Alias(meta(qualifiedAlias, *keys.toTypedArray()), left.segments + segment)
     } else {
-        val dot = children.getOrNull(1) as? Operator ?: return unlowered(qualifiedAlias)
+        val dot = children.getOrNull(1) as? Operator ?: return broken(qualifiedAlias)
         ElixirAst.Alias(meta(qualifiedAlias, last, location(dot.operatorTokenNode())), listOf(left, segment))
     }
 }
@@ -370,7 +370,7 @@ private fun Lowering.quote(element: PsiElement, isCharList: Boolean, delimiter: 
 
 /** A string or charlist, line or heredoc. */
 private fun Lowering.quote(element: PsiElement, isCharList: Boolean, doubleQuote: String, pieces: List<Piece>): ElixirAst {
-    val content = content(element, pieces) ?: return unlowered(element)
+    val content = content(element, pieces) ?: return broken(element)
     val delimiter = if (isCharList) doubleQuote.replace('"', '\'') else doubleQuote
     val indentation = (element as? HeredocLiteral)
         ?.takeIf { isAvailable(INDENTATION_ON_HEREDOC) }
@@ -400,7 +400,7 @@ private fun Lowering.quote(element: PsiElement, isCharList: Boolean, doubleQuote
 /** A quoted atom or keyword key, whose text becomes the atom's name, `:erlang.binary_to_atom` when interpolated. */
 internal fun Lowering.quotedAtom(element: PsiElement, line: ElixirLine, keys: List<Meta.Key?>): ElixirAst {
     val content = content(line, line.lineBody?.node?.getChildren(null)?.toList().orEmpty().pieces())
-        ?: return unlowered(element)
+        ?: return broken(element)
 
     return when (content) {
         is Content.Empty -> ElixirAst.Literal.Atom(meta(element), "")
@@ -460,9 +460,9 @@ private fun Lowering.sigil(sigil: Sigil): ElixirAst {
     val pieces = when (sigil) {
         is SigilHeredocLiteral -> heredocPieces(sigil)
         is SigilLine -> sigil.body.node.getChildren(null).toList().pieces()
-        else -> return unlowered(sigil)
+        else -> return broken(sigil)
     }
-    val content = content(sigil, pieces) ?: return unlowered(sigil)
+    val content = content(sigil, pieces) ?: return broken(sigil)
     val parts = when (content) {
         is Content.Empty -> listOf(binary(sigil, ""))
         is Content.Literal -> listOf(binary(sigil, content.codePoints))
@@ -514,8 +514,8 @@ private fun Lowering.keywordKey(keywordKey: ElixirKeywordKey): ElixirAst {
 
 private fun Lowering.tuple(tuple: ElixirTuple): ElixirAst {
     val node = tuple.node
-    val opening = node.findChildByType(ElixirTypes.OPENING_CURLY) ?: return unlowered(tuple)
-    val closing = node.findChildByType(ElixirTypes.CLOSING_CURLY) ?: return unlowered(tuple)
+    val opening = node.findChildByType(ElixirTypes.OPENING_CURLY) ?: return broken(tuple)
+    val closing = node.findChildByType(ElixirTypes.CLOSING_CURLY) ?: return broken(tuple)
 
     return ElixirAst.Tuple(
         meta(tuple, newlines(opening.textRange.endOffset), closing(closing.startOffset), location(opening)),
@@ -525,8 +525,8 @@ private fun Lowering.tuple(tuple: ElixirTuple): ElixirAst {
 
 private fun Lowering.bitString(bitString: ElixirBitString): ElixirAst {
     val node = bitString.node
-    val opening = node.findChildByType(ElixirTypes.OPENING_BIT) ?: return unlowered(bitString)
-    val closing = node.findChildByType(ElixirTypes.CLOSING_BIT) ?: return unlowered(bitString)
+    val opening = node.findChildByType(ElixirTypes.OPENING_BIT) ?: return broken(bitString)
+    val closing = node.findChildByType(ElixirTypes.CLOSING_BIT) ?: return broken(bitString)
 
     return ElixirAst.Call(
         meta(bitString, newlines(opening.textRange.endOffset), closing(closing.startOffset), location(opening)),
@@ -540,8 +540,8 @@ private fun Lowering.map(map: ElixirMapOperation): ElixirAst = mapArguments(map.
 /** `%{...}`, at its `%` from 1.17 unless a struct's, and at its `{` before. */
 private fun Lowering.mapArguments(mapArguments: ElixirMapArguments, map: ElixirMapOperation?): ElixirAst {
     val node = mapArguments.node
-    val opening = node.findChildByType(ElixirTypes.OPENING_CURLY) ?: return unlowered(mapArguments)
-    val closing = node.findChildByType(ElixirTypes.CLOSING_CURLY) ?: return unlowered(mapArguments)
+    val opening = node.findChildByType(ElixirTypes.OPENING_CURLY) ?: return broken(mapArguments)
+    val closing = node.findChildByType(ElixirTypes.CLOSING_CURLY) ?: return broken(mapArguments)
     val at = if (map != null && isAvailable(MAP_COLUMN_AT_PERCENT)) location(map) else location(opening)
     val update = mapArguments.mapUpdateArguments
     val arguments =
@@ -560,9 +560,9 @@ private fun Lowering.mapArguments(mapArguments: ElixirMapArguments, map: ElixirM
 
 private fun Lowering.struct(struct: ElixirStructOperation): ElixirAst {
     val children = struct.children
-    val operator = children.getOrNull(0) as? Operator ?: return unlowered(struct)
-    val name = children.getOrNull(1) ?: return unlowered(struct)
-    val mapArguments = children.getOrNull(2) as? ElixirMapArguments ?: return unlowered(struct)
+    val operator = children.getOrNull(0) as? Operator ?: return broken(struct)
+    val name = children.getOrNull(1) ?: return broken(struct)
+    val mapArguments = children.getOrNull(2) as? ElixirMapArguments ?: return broken(struct)
 
     return ElixirAst.Call(
         meta(struct, location(operator.operatorTokenNode())),
@@ -574,7 +574,7 @@ private fun Lowering.struct(struct: ElixirStructOperation): ElixirAst {
 /** `%{map | updates}`'s one argument, `{:|, meta, [map, updates]}`. */
 private fun Lowering.mapUpdate(mapUpdate: ElixirMapUpdateArguments): ElixirAst {
     val children = mapUpdate.children
-    val pipe = children.getOrNull(1) as? Operator ?: return unlowered(mapUpdate)
+    val pipe = children.getOrNull(1) as? Operator ?: return broken(mapUpdate)
     val pipeToken = pipe.operatorTokenNode()
     val newlines = operatorNewlines(children[0].node, pipeToken)
 
@@ -594,8 +594,8 @@ private fun Lowering.associations(associationsBase: ElixirAssociationsBase): Eli
 /** `key => value`, whose key carries where its `=>` is from 1.18. */
 private fun Lowering.association(association: ElixirContainerAssociationOperation): ElixirAst {
     val children = association.children
-    if (children.size != 2) return unlowered(association)
-    val operator = association.node.findChildByType(ElixirTypes.ASSOCIATION_OPERATOR) ?: return unlowered(association)
+    if (children.size != 2) return broken(association)
+    val operator = association.node.findChildByType(ElixirTypes.ASSOCIATION_OPERATOR) ?: return broken(association)
     val key = lower(children[0]).let { key ->
         if (isAvailable(ASSOC_ON_MAP_KEY)) {
             decorate(key, Meta.Key.Entry("assoc", Meta.Value.Keywords(listOf(location(operator))), tokenMetadata = true))

@@ -1,5 +1,6 @@
 package org.elixir_lang.psi.walk
 
+import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.PsiFile
 import org.elixir_lang.annotator.ParameterWalk
 import org.elixir_lang.lowering.Lowering
@@ -51,7 +52,7 @@ object ShapeTable {
             typeDescent = TypeDescent.Bucket.STAB_NO_PARENTHESES_SIGNATURE,
             typeAscent = TypeAscent.Bucket.PARENT,
             destructure = Destructure.Bucket.OPAQUE,
-            lowering = Lowering.Bucket.CLAUSE,
+            lowering = Lowering.Bucket.BY_PARENT,
         ),
         Row(
             ElixirStabOperation::class.java,
@@ -75,7 +76,7 @@ object ShapeTable {
             typeDescent = TypeDescent.Bucket.STAB_PARENTHESES_SIGNATURE,
             typeAscent = TypeAscent.Bucket.PARENT,
             destructure = Destructure.Bucket.OPAQUE,
-            lowering = Lowering.Bucket.CLAUSE,
+            lowering = Lowering.Bucket.BY_PARENT,
         ),
         Row(
             InMatch::class.java,
@@ -809,6 +810,9 @@ object ShapeTable {
         leaf(ElixirBlockIdentifier::class.java, Lowering.Bucket.CALL),
         leaf(ElixirEmptyParentheses::class.java, Lowering.Bucket.LITERAL),
         leaf(ElixirEndOfExpression::class.java, Lowering.Bucket.NOT_ALONE),
+
+        // where the parser recovered from broken code
+        Row(PsiErrorElement::class.java, lowering = Lowering.Bucket.ERROR),
 
         // the file
         Row(

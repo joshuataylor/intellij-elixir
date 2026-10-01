@@ -92,6 +92,7 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             DECIMAL_NUMBER_ENDS_BEFORE_WORD to ("1.11.4" to "1.12.0-rc.0"),
             SOLITARY_UNARY_WRAPPED_IN_EVERY_BLOCK to ("1.14.5" to "1.15.0-rc.0"),
             ENCLOSING_PARENS_MERGE_BLOCK_METADATA to ("1.16.3" to "1.17.0-rc.0"),
+            END_OF_EXPRESSION_ON_STAB_OPERATOR to ("1.16.3" to "1.17.0-rc.0"),
             GRAPHEME_CLUSTER_CRASH_IN_QUOTED_CALL_NAME to ("1.17.3" to "1.18.0-rc.0"),
             OPERATOR_ON_NOT_IN to ("1.11.4" to "1.12.0-rc.0"),
         )

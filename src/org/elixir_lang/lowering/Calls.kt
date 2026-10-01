@@ -17,6 +17,8 @@ import org.elixir_lang.language_level.ElixirLanguageFeature.NESTED_PARENTHESES_D
 import org.elixir_lang.language_level.ElixirLanguageFeature.REMOTE_CALL_ON_NAME_LINE
 import org.elixir_lang.language_level.ElixirLanguageFeature.UNESCAPED_QUOTED_REMOTE_CALL_NAME
 import org.elixir_lang.psi.AtOperation
+import org.elixir_lang.psi.AtUnqualifiedBracketOperation
+import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.BracketOperation
 import org.elixir_lang.psi.DotCall
 import org.elixir_lang.psi.ElixirAtomKeyword
@@ -70,7 +72,7 @@ internal fun Lowering.call(element: PsiElement): ElixirAst =
         }
         is UnqualifiedNoParenthesesCall<*> -> {
             val arguments = PsiTreeUtil.getChildOfType(element, ElixirNoParenthesesOneArgument::class.java)
-                ?: return unlowered(element)
+                ?: return broken(element)
             noParenthesesCall(element, element.firstChild, arguments, doBlock(element))
         }
         is ElixirUnqualifiedNoParenthesesManyArgumentsCall -> {
@@ -84,7 +86,7 @@ internal fun Lowering.call(element: PsiElement): ElixirAst =
             qualifiedCall(element)
         is DotCall<*> -> dotCall(element)
         is UnqualifiedBracketOperation -> {
-            val bracketArguments = element.bracketArguments as? ElixirBracketArguments ?: return unlowered(element)
+            val bracketArguments = element.bracketArguments as? ElixirBracketArguments ?: return broken(element)
             access(element, variable(element.firstChild), bracketArguments, BracketForm.IDENTIFIER)
         }
         is QualifiedBracketOperation -> qualifiedBracketOperation(element)
@@ -92,10 +94,10 @@ internal fun Lowering.call(element: PsiElement): ElixirAst =
             val container = element.firstChild
             val form =
                 if (container.stripAccessExpression() is AtOperation) BracketForm.IDENTIFIER else BracketForm.EXPRESSION
-            val bracketArguments = element.bracketArguments as? ElixirBracketArguments ?: return unlowered(element)
+            val bracketArguments = element.bracketArguments as? ElixirBracketArguments ?: return broken(element)
             access(element, lower(container), bracketArguments, form)
         }
-        is ElixirBracketArguments -> element.children.singleOrNull()?.let { lower(it) } ?: unlowered(element)
+        is ElixirBracketArguments -> element.children.singleOrNull()?.let { lower(it) } ?: broken(element)
         is QualifiedMultipleAliases -> qualifiedMultipleAliases(element)
         is ElixirNoParenthesesKeywords ->
             ElixirAst.ListNode(
@@ -105,9 +107,9 @@ internal fun Lowering.call(element: PsiElement): ElixirAst =
         is ElixirNoParenthesesKeywordPair ->
             ElixirAst.Tuple(meta(element), listOf(lower(element.keywordKey), lower(element.keywordValue)))
         is ElixirNoParenthesesManyStrictNoParenthesesExpression ->
-            element.children.singleOrNull()?.let { lower(it) } ?: unlowered(element)
+            element.children.singleOrNull()?.let { lower(it) } ?: broken(element)
         is ElixirIdentifier -> ElixirAst.Literal.Atom(meta(element), identifier(element.text))
-        is ElixirRelativeIdentifier -> relativeIdentifier(element) ?: unlowered(element)
+        is ElixirRelativeIdentifier -> relativeIdentifier(element) ?: broken(element)
         is ElixirVariable -> nameAlone(element, element)
         is ElixirBlockItem -> blockItem(element)
         is ElixirBlockIdentifier -> ElixirAst.Literal.Atom(meta(element), element.text)
@@ -131,8 +133,8 @@ internal fun Lowering.access(
     form: BracketForm,
 ): ElixirAst {
     val node = bracketArguments.node
-    val opening = node.findChildByType(ElixirTypes.OPENING_BRACKET) ?: return unlowered(access)
-    val closing = node.findChildByType(ElixirTypes.CLOSING_BRACKET) ?: return unlowered(access)
+    val opening = node.findChildByType(ElixirTypes.OPENING_BRACKET) ?: return broken(access)
+    val closing = node.findChildByType(ElixirTypes.CLOSING_BRACKET) ?: return broken(access)
     val fromBrackets = isAvailable(
         when (form) {
             BracketForm.EXPRESSION -> FROM_BRACKETS_ON_BRACKETED_EXPRESSION
@@ -222,8 +224,8 @@ private fun Lowering.nameAlone(element: PsiElement, identifier: PsiElement): Eli
 
 /**
  * The `...` in [expression], outside its nested blocks, that from 1.17 is a unary operator: a call of `...` with
- * parentheses or arguments, brackets or a `do` block, or a lone `...` before a `+` or `-`, even across a `\` ending
- * the line. Its operand is still grouped as before 1.17.
+ * parentheses or arguments, brackets or a `do` block, the attribute `@... 1` or `@...[0]`, or a lone `...` before a
+ * `+` or `-`, even across a `\` ending the line. Its operand is still grouped as before 1.17.
  */
 internal fun Lowering.unaryEllipsis(expression: PsiElement): PsiElement? {
     if (!isAvailable(ELLIPSIS_NULLARY_CALL) || !expression.textContains('.')) return null
@@ -233,15 +235,18 @@ internal fun Lowering.unaryEllipsis(expression: PsiElement): PsiElement? {
         .firstOrNull { call ->
             val name = call.firstChild
 
-            name?.text == "..." &&
-                when (call) {
-                    is UnqualifiedNoArgumentsCall<*> ->
-                        doBlock(call) != null ||
-                            nextTokenText(name, skipsLineContinuations = true).let { it == "+" || it == "-" }
-                    is UnqualifiedParenthesesCall<*>, is UnqualifiedNoParenthesesCall<*>,
-                    is ElixirUnqualifiedNoParenthesesManyArgumentsCall, is UnqualifiedBracketOperation -> true
-                    else -> false
-                }
+            when (call) {
+                is UnqualifiedNoArgumentsCall<*> ->
+                    name?.text == "..." &&
+                        (doBlock(call) != null ||
+                            nextTokenText(name, skipsLineContinuations = true).let { it == "+" || it == "-" })
+                is UnqualifiedParenthesesCall<*>, is UnqualifiedNoParenthesesCall<*>,
+                is ElixirUnqualifiedNoParenthesesManyArgumentsCall, is UnqualifiedBracketOperation -> name?.text == "..."
+                is AtUnqualifiedNoParenthesesCall<*> ->
+                    call.atIdentifier.node.findChildByType(ElixirTypes.IDENTIFIER_TOKEN)?.text == "..."
+                is AtUnqualifiedBracketOperation -> call.node.findChildByType(ElixirTypes.IDENTIFIER_TOKEN)?.text == "..."
+                else -> false
+            }
         }
 }
 
@@ -272,7 +277,7 @@ private fun nextTokenText(element: PsiElement, skipsLineContinuations: Boolean):
 
 /** `qualifier.name`, `qualifier.name arguments` and `qualifier.name(arguments)`. */
 private fun Lowering.qualifiedCall(call: PsiElement): ElixirAst {
-    val remote = remote(call) ?: return unlowered(call)
+    val remote = remote(call) ?: return broken(call)
     val doBlock = doBlock(call)
     val parentheses = PsiTreeUtil.getChildOfType(call, ElixirMatchedParenthesesArguments::class.java)
     val arguments = PsiTreeUtil.getChildOfType(call, ElixirNoParenthesesOneArgument::class.java)
@@ -332,13 +337,18 @@ private fun Lowering.remote(call: PsiElement): Remote? {
     )
 }
 
-/** A remote call's name: an identifier, operator or reserved word, or quoted. */
+/**
+ * A remote call's name: an identifier, operator or reserved word, or quoted without interpolation, which Elixir's
+ * tokenizer rejects in a name.
+ */
 private fun Lowering.relativeIdentifier(relativeIdentifier: ElixirRelativeIdentifier): ElixirAst? =
     when (val child = relativeIdentifier.children.singleOrNull()) {
         null ->
             ElixirAst.Literal.Atom(meta(relativeIdentifier), identifier(relativeIdentifier.node.firstChildNode.text))
         is ElixirLine ->
-            if (isAvailable(UNESCAPED_QUOTED_REMOTE_CALL_NAME)) {
+            if (child.lineBody?.interpolationList.orEmpty().isNotEmpty()) {
+                null
+            } else if (isAvailable(UNESCAPED_QUOTED_REMOTE_CALL_NAME)) {
                 quotedAtom(relativeIdentifier, child, emptyList()) as? ElixirAst.Literal.Atom
             } else {
                 ElixirAst.Literal.Atom(
@@ -386,8 +396,8 @@ private fun Lowering.dotCallee(
 
 private fun Lowering.dotCall(call: DotCall<*>): ElixirAst {
     val children = call.children
-    val qualifier = children.getOrNull(0) ?: return unlowered(call)
-    val dot = children.getOrNull(1) as? ElixirDotInfixOperator ?: return unlowered(call)
+    val qualifier = children.getOrNull(0) ?: return broken(call)
+    val dot = children.getOrNull(1) as? ElixirDotInfixOperator ?: return broken(call)
     val dotLocation = location(dot.operatorTokenNode())
     val range = TextRange(qualifier.textRange.startOffset, dot.textRange.endOffset)
     val callee = dotCallee(range, dot, dotLocation, listOf(lower(qualifier)))
@@ -407,7 +417,7 @@ private fun Lowering.parenthesesCall(
     parentheses: List<ElixirParenthesesArguments>,
     doBlock: ElixirDoBlock?,
 ): ElixirAst {
-    if (parentheses.isEmpty()) return unlowered(call)
+    if (parentheses.isEmpty()) return broken(call)
     var called = callee
     var calledKeys = keys + location
 
@@ -487,8 +497,8 @@ private fun parenthesesArguments(call: PsiElement): List<ElixirParenthesesArgume
 
 /** `qualifier.name[key]`, whose container is the remote call without parentheses. */
 private fun Lowering.qualifiedBracketOperation(operation: QualifiedBracketOperation): ElixirAst {
-    val remote = remote(operation) ?: return unlowered(operation)
-    val bracketArguments = operation.bracketArguments as? ElixirBracketArguments ?: return unlowered(operation)
+    val remote = remote(operation) ?: return broken(operation)
+    val bracketArguments = operation.bracketArguments as? ElixirBracketArguments ?: return broken(operation)
 
     return access(operation, noParentheses(remote), bracketArguments, BracketForm.IDENTIFIER)
 }
@@ -496,9 +506,9 @@ private fun Lowering.qualifiedBracketOperation(operation: QualifiedBracketOperat
 /** `qualifier.{A, B}`, a call of `{}` on the qualifier. */
 private fun Lowering.qualifiedMultipleAliases(qualifiedMultipleAliases: QualifiedMultipleAliases): ElixirAst {
     val children = qualifiedMultipleAliases.children
-    val qualifier = children.getOrNull(0) ?: return unlowered(qualifiedMultipleAliases)
-    val dot = children.getOrNull(1) as? ElixirDotInfixOperator ?: return unlowered(qualifiedMultipleAliases)
-    val multipleAliases = children.getOrNull(2) as? ElixirMultipleAliases ?: return unlowered(qualifiedMultipleAliases)
+    val qualifier = children.getOrNull(0) ?: return broken(qualifiedMultipleAliases)
+    val dot = children.getOrNull(1) as? ElixirDotInfixOperator ?: return broken(qualifiedMultipleAliases)
+    val multipleAliases = children.getOrNull(2) as? ElixirMultipleAliases ?: return broken(qualifiedMultipleAliases)
     val aliases = multipleAliases.children.map { lower(it) }
     val node = multipleAliases.node
     val opening = node.firstChildNode

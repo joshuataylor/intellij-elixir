@@ -223,6 +223,7 @@ public abstract class ParsingTestCase extends com.intellij.testFramework.Parsing
         List<PsiElement> errorElementList = localErrors();
 
         assertFalse("No PsiErrorElements found in parsed file PSI", errorElementList.isEmpty());
+        SnippetDifferential.assertLowersErrorsToPlaceholders(myFile);
     }
 
     protected void assertWithoutLocalError() {
