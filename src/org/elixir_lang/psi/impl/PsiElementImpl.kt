@@ -80,7 +80,6 @@ tailrec fun PsiElement.selfOrEnclosingMacroCall(): Call? =
         is ElixirMapConstructionArguments,
         is ElixirMapOperation,
         is ElixirMatchedParenthesesArguments,
-        is ElixirMatchedWhenOperation,
         is ElixirNoParenthesesManyStrictNoParenthesesExpression,
         is ElixirParentheticalStab,
         is ElixirStab,

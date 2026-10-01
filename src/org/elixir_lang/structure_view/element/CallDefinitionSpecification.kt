@@ -7,10 +7,10 @@ import com.intellij.psi.PsiElement
 import com.intellij.usageView.UsageViewTypeLocation
 import org.elixir_lang.navigation.item_presentation.Parent
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
-import org.elixir_lang.psi.ElixirMatchedWhenOperation
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.operation.Type
+import org.elixir_lang.psi.operation.When
 import org.elixir_lang.structure_view.element.modular.Modular
 import org.jetbrains.annotations.Contract
 
@@ -85,14 +85,14 @@ class CallDefinitionSpecification(
         fun specificationType(specification: Call): Call? =
                 when (specification) {
                     is Type -> type(specification)
-                    is ElixirMatchedWhenOperation -> type(specification)
+                    is When -> type(specification)
                     else -> null
                 }
 
         fun type(typeOperation: Type): Call? = (typeOperation.leftOperand() as? Call)
 
-        fun type(matchedWhenOperation: ElixirMatchedWhenOperation): Call? =
-                (matchedWhenOperation.leftOperand() as? Type)?.let { type(it) }
+        fun type(whenOperation: When): Call? =
+                (whenOperation.leftOperand() as? Type)?.let { type(it) }
 
         /**
          * `null` when [type] has no function name, as for the `foo.()` and `bar not in baz` heads

@@ -564,7 +564,7 @@ internal class ModuleAttribute : Annotator, DumbAware {
                         ElixirSyntaxHighlighter.TYPE
                     )
                 }
-            } else if (grandChild is ElixirMatchedWhenOperation) {
+            } else if (grandChild is When) {
                 val rightOperand: PsiElement? = grandChild.rightOperand()
                 val typeParameterNameSet: Set<String?>
                 typeParameterNameSet = rightOperand?.let { specificationTypeParameterNameSet(it) } ?: emptySet<String>()

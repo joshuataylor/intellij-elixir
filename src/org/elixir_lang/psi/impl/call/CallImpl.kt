@@ -360,16 +360,16 @@ fun Call.macroDefinitionClauseForArgument(): Call? {
     var macroDefinitionClause: Call? = null
     val parent = parent
 
-    if (parent is ElixirMatchedWhenOperation) {
-        val grandParent = parent.getParent()
+    if (parent is When) {
+        val definer = when (val grandParent = parent.parent) {
+            is ElixirNoParenthesesOneArgument -> grandParent.parent
+            is ElixirParenthesesArguments -> (grandParent.parent as? ElixirMatchedParenthesesArguments)?.parent
+            else -> null
+        }
 
-        if (grandParent is ElixirNoParenthesesOneArgument) {
-            val greatGrandParent = grandParent.getParent()
-
-            if (greatGrandParent is Call) {
-                if (CallDefinitionClause.capabilities(greatGrandParent)?.quotesArguments == true) {
-                    macroDefinitionClause = greatGrandParent
-                }
+        if (definer is Call) {
+            if (CallDefinitionClause.capabilities(definer)?.quotesArguments == true) {
+                macroDefinitionClause = definer
             }
         }
     }
