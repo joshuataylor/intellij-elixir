@@ -14,6 +14,7 @@ import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.ENTRANCE
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
+import org.elixir_lang.psi.scope.Recording
 import org.elixir_lang.psi.scope.reachedThroughInjection
 
 /**
@@ -33,9 +34,15 @@ object Use {
     ): Boolean {
         var accumulatedKeepProcessing = true
 
-        // don't descend back into `use` when the entrance is the alias to the `use` like `MyAlias` in `use MyAlias`.
-        if (!useCall.isAncestor(resolveState.get(ENTRANCE))) {
-            val useCallResolveState = resolveState.putVisitedElement(useCall).reachedThroughInjection(useCall)
+        if (walks(useCall, resolveState)) {
+            val reached: (ResolveState) -> ResolveState = { it.reachedThroughInjection(useCall) }
+            val useCallResolveState = Recording
+                .enter(
+                    resolveState, "USE", useCall, stops = true, absorbs = false,
+                    gate = { walks(useCall, it) }, reach = reached
+                )
+                .putVisitedElement(useCall)
+                .let(reached)
 
             outer@ for (modular in modulars(useCall)) {
                 ProgressManager.checkCanceled()
@@ -75,6 +82,9 @@ object Use {
 
         return accumulatedKeepProcessing
     }
+
+    /** Don't descend back into `use` when the entrance is the alias to the `use` like `MyAlias` in `use MyAlias`. */
+    private fun walks(useCall: Call, resolveState: ResolveState): Boolean = !useCall.isAncestor(resolveState.get(ENTRANCE))
 
     fun elementDescription(@Suppress("UNUSED_PARAMETER") call: Call, location: ElementDescriptionLocation): String? {
         var elementDescription: String? = null

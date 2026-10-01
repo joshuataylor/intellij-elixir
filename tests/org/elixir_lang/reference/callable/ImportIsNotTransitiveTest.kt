@@ -3,13 +3,14 @@ package org.elixir_lang.reference.callable
 import com.intellij.psi.PsiPolyVariantReference
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.scope.CallableTable
 
 /**
  * `import` is not transitive and `require` imports nothing, so neither makes a name callable without a qualifier in a
  * module that reached it only second-hand. The implicit `import Kernel` counterpart is in
  * [org.elixir_lang.psi.scope.ImplicitImportIndexTest].
  */
-class ImportIsNotTransitiveTest : PlatformTestCase() {
+open class ImportIsNotTransitiveTest : PlatformTestCase() {
     fun testImportDoesNotReExportWhatTheImportedModuleImported() {
         assertUnqualifiedCallDoesNotResolve(
             middleBody = "import Deep",
@@ -105,5 +106,21 @@ class ImportIsNotTransitiveTest : PlatformTestCase() {
         return (reference as PsiPolyVariantReference)
             .multiResolve(false)
             .filter { it.isValidResult }
+    }
+}
+
+/** The same answers walking the module, without its table. */
+class ImportIsNotTransitiveWithoutTableTest : ImportIsNotTransitiveTest() {
+    override fun setUp() {
+        super.setUp()
+        CallableTable.enabled = false
+    }
+
+    override fun tearDown() {
+        try {
+            CallableTable.enabled = true
+        } finally {
+            super.tearDown()
+        }
     }
 }

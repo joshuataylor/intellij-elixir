@@ -24,11 +24,35 @@ object WalkProbe {
 
         /** Expressions the previous-sibling walk classifies as creating a scope of their own or not. */
         SIBLING_FILTER,
+
+        /** Calls `DeclaringForm` classifies. */
+        CLASSIFY,
+
+        /** `CallableTable` builds. */
+        TABLE_BUILD,
+
+        /** Times a module's `CallableTable` was asked for while it was being built, which walks live instead. */
+        TABLE_REENTRY,
+
+        /** Live nodes a replay's selection examines, and 1 per lookup by range. */
+        LIVE_EXAMINED,
+
+        /** Live nodes a replay re-runs. */
+        LIVE_REDISPATCH,
+
+        /** Runs of a module's implicit `import Kernel` and `import Kernel.SpecialForms`. */
+        IMPLICIT_IMPORTS,
     }
 
     enum class CancelPoint {
         /** Each clause of an implicit-import name index build. */
         KERNEL_INDEX,
+
+        /** Each of a module's calls a `CallableTable` build walks. */
+        TABLE_BUILD,
+
+        /** Each node an outermost replay reaches. */
+        REPLAY,
     }
 
     @Volatile

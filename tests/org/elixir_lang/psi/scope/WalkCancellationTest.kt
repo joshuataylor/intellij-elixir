@@ -1,7 +1,6 @@
 package org.elixir_lang.psi.scope
 
 import com.intellij.openapi.progress.ProcessCanceledException
-import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiPolyVariantReference
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.IdempotenceChecker
@@ -10,10 +9,12 @@ import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.scope.WalkProbe.CancelPoint
 import org.elixir_lang.psi.scope.WalkProbe.Counter
 import org.elixir_lang.psi.scope.WalkTestSupport.location
+import org.elixir_lang.psi.stub.type.call.Stub.isModular
 
 /**
  * A resolve cancelled part-way through building what the walk caches: the caller gets the
- * [ProcessCanceledException] itself, nothing half-built is kept, and the next resolve answers as a fresh one does.
+ * [ProcessCanceledException] itself, nothing half-built is kept, a table already built is kept, and the next resolve
+ * answers as a fresh one does.
  */
 class WalkCancellationTest : PlatformTestCase() {
     override fun setUp() {
@@ -38,6 +39,40 @@ class WalkCancellationTest : PlatformTestCase() {
             assertTrue("index builds by the retry: $builds", builds >= 2)
         }
     }
+
+    fun testTableBuild() {
+        big()
+        assertTableBuildCancelled()
+    }
+
+    fun testTableBuildWithKernel() = withKernel(::assertTableBuildCancelled)
+
+    fun testReplay() {
+        big()
+        assertReplayCancelled()
+    }
+
+    fun testReplayWithKernel() = withKernel(::assertReplayCancelled)
+
+    private fun assertTableBuildCancelled() =
+        assertCancelled(CancelPoint.TABLE_BUILD, cancelled = {
+            assertFalse("a table cached by the cancelled build", CallableTable.isCached(modular()))
+        }) { before, after ->
+            assertTrue("tables built by the retry", after.getValue(Counter.TABLE_BUILD) > before.getValue(Counter.TABLE_BUILD))
+        }
+
+    private fun assertReplayCancelled() {
+        // Built here, so the resolve cancelled is replaying a cached table.
+        CallableTable.ofOrNull(modular())
+
+        assertCancelled(CancelPoint.REPLAY, cancelled = {
+            assertTrue("the cached table dropped by the cancelled replay", CallableTable.isCached(modular()))
+        }) { before, after ->
+            assertEquals("tables built by the retry", before.getValue(Counter.TABLE_BUILD), after.getValue(Counter.TABLE_BUILD))
+        }
+    }
+
+    private fun modular(): Call = PsiTreeUtil.findChildrenOfType(myFixture.file, Call::class.java).first { isModular(it) }
 
     /** One module, its first definition calling `target`, then [CLAUSES] `target/1` clauses. */
     private fun big() {
@@ -68,7 +103,11 @@ class WalkCancellationTest : PlatformTestCase() {
         }
     }
 
-    private fun assertCancelled(point: CancelPoint, retried: (Map<Counter, Long>, Map<Counter, Long>) -> Unit) {
+    private fun assertCancelled(
+        point: CancelPoint,
+        cancelled: () -> Unit = {},
+        retried: (Map<Counter, Long>, Map<Counter, Long>) -> Unit
+    ) {
         WalkProbe.armCancel(point, K)
         val thrown = try {
             WalkProbe.counting { answers() }
@@ -79,12 +118,16 @@ class WalkCancellationTest : PlatformTestCase() {
 
         assertTrue("$point was never reached", WalkProbe.disarmCancel())
         assertEquals(ProcessCanceledException::class.java, thrown?.javaClass)
+        assertEquals("modules still being built", emptySet<Call>(), CallableTable.buildingOnThisThread())
+        assertEquals("replays still open", 0, CallDefinitionClause.replayDepth())
+        cancelled()
 
         val before = WalkProbe.snapshot()
         val retry = WalkProbe.counting { answers() }
         retried(before, WalkProbe.snapshot())
 
-        PsiManager.getInstance(project).dropPsiCaches()
+        // A file added is a PSI change, so every cached walk, table and index is computed afresh.
+        myFixture.addFileToProject("fresh.ex", "")
         assertEquals("the retry against a fresh resolve", answers(), retry)
     }
 

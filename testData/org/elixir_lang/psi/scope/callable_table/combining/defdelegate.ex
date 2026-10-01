@@ -1,0 +1,12 @@
+defmodule Src.Defdelegate.W4 do
+  defdelegate src_defdelegate_w4_snoc(q, x), to: Src.Defdelegate.W4.Target
+  defdelegate src_defdelegate_w4_snoc(q), to: Src.Defdelegate.W4.Target
+  defdelegate src_defdelegate_w4_snoc(q, x, y), to: Src.Defdelegate.W4.Target
+  defdelegate src_defdelegate_w4_xsnoc(q, x), to: Src.Defdelegate.W4.Target
+  defdelegate src_defdelegate_w4_snoc_x(q, x), to: Src.Defdelegate.W4.Target
+  defdelegate src_defdelegate_w4_snoc?(q, x), to: Src.Defdelegate.W4.Target
+  defdelegate src_defdelegate_w4_snoc!(q, x), to: Src.Defdelegate.W4.Target
+  defdelegate src_defdelegate_w4_snoć(q, x), to: Src.Defdelegate.W4.Target
+
+  def local_site(a, b), do: src_defdelegate_w4_snoc(a, b) # @local
+end

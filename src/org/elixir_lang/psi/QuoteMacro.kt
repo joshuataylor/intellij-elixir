@@ -11,19 +11,43 @@ import org.elixir_lang.psi.call.name.Function.TRY
 import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.call.macroChildCallSequence
 import org.elixir_lang.psi.impl.call.whileInStabBodyChildExpressions
+import org.elixir_lang.psi.scope.Recording
 import org.elixir_lang.psi.scope.WhileIn.whileIn
 
 object QuoteMacro {
+    /** [unvisited]: also skip [quoteCall] when it has been visited, as the walk's dispatcher does. */
     @RequiresReadLock
-    fun treeWalkUp(quoteCall: Call, resolveState: ResolveState, keepProcessing: (PsiElement, ResolveState) -> Boolean): Boolean =
-            if (!resolveState.containsAncestorUnquote(quoteCall)) {
+    @JvmOverloads
+    fun treeWalkUp(
+        quoteCall: Call,
+        resolveState: ResolveState,
+        keepProcessing: (PsiElement, ResolveState) -> Boolean,
+        unvisited: Boolean = false
+    ): Boolean =
+            if (walks(quoteCall, resolveState, unvisited)) {
                 quoteCall
                         .macroChildCallSequence()
-                        .filter { !resolveState.hasBeenVisited(it) }
-                        .let { treeWalkUp(it, resolveState.putVisitedElement(quoteCall), keepProcessing) }
+                        .filter { walksChild(resolveState, it) }
+                        .let {
+                            treeWalkUp(
+                                it,
+                                Recording
+                                    .enter(
+                                        resolveState, "QUOTE", quoteCall, stops = true, absorbs = false,
+                                        gate = { state -> walks(quoteCall, state, unvisited) }, childGate = ::walksChild
+                                    )
+                                    .putVisitedElement(quoteCall),
+                                keepProcessing
+                            )
+                        }
             } else {
                 true
             }
+
+    private fun walks(quoteCall: Call, resolveState: ResolveState, unvisited: Boolean): Boolean =
+        !(unvisited && resolveState.hasBeenVisited(quoteCall)) && !resolveState.containsAncestorUnquote(quoteCall)
+
+    private fun walksChild(resolveState: ResolveState, child: PsiElement): Boolean = !resolveState.hasBeenVisited(child)
 
     @RequiresReadLock
     fun treeWalkUp(childCallSequence: Sequence<Call>,
@@ -36,13 +60,17 @@ object QuoteMacro {
             accumulatorKeepProcessing = when {
                 If.`is`(childCall) || Unless.`is`(childCall) -> {
                     val branches = Branches(childCall)
+                    // Both branches run, then `primary && alternative`; each branch stops at its own `false`.
+                    val ifResolveState = Recording.enter(resolveState, "QUOTE_IF", childCall, stops = false, absorbs = false)
+                    val primaryResolveState = Recording.enter(ifResolveState, "BRANCH", childCall, stops = true, absorbs = false)
+                    val alternativeResolveState = Recording.enter(ifResolveState, "BRANCH", childCall, stops = true, absorbs = false)
 
                     val primaryKeepProcessing = whileIn(branches.primaryChildExpressions) {
-                        keepProcessing(it, resolveState)
+                        keepProcessing(it, primaryResolveState)
                     }
 
                     val alternativeKeepProcessing = whileIn(branches.alternativeChildExpressions) {
-                        keepProcessing(it, resolveState)
+                        keepProcessing(it, alternativeResolveState)
                     }
 
                     primaryKeepProcessing && alternativeKeepProcessing

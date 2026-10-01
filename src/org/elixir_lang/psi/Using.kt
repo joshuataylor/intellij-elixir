@@ -19,6 +19,7 @@ import org.elixir_lang.psi.impl.childExpressions
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Match
+import org.elixir_lang.psi.scope.Recording
 import org.elixir_lang.psi.scope.WhileIn.whileIn
 import org.elixir_lang.psi.stub.index.ModularName
 import org.elixir_lang.util.AccumulatorContinue
@@ -176,9 +177,14 @@ object Using {
                                 )
 
                                 var accumlatedKeepProcessing = true
+                                // A `false` doesn't end the loop: the next modular is still walked, and the last answers.
+                                val applyResolveState = Recording.enter(
+                                    resolveState, "APPLY", lastChildCall, stops = false, absorbs = false, answersLast = true
+                                )
 
                                 for (modular in modulars) {
-                                    val modularResolveState = resolveState.putVisitedElement(modular)
+                                    val modularResolveState = Recording.enter(applyResolveState, "APPLIED", modular, stops = true, absorbs = false)
+                                        .putVisitedElement(modular)
 
                                     val name = useCall?.finalArguments()?.let { arguments ->
                                         if (arguments.size == 2) {

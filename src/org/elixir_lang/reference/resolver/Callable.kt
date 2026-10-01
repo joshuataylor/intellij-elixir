@@ -22,6 +22,7 @@ import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.qualification.Qualified
 import org.elixir_lang.psi.impl.functionNameAtomValue
 import org.elixir_lang.psi.impl.call.qualification.qualifiedToModulars
+import org.elixir_lang.psi.scope.CallableTable
 import org.elixir_lang.psi.scope.VisitedElementSetResolveResult
 import org.elixir_lang.structure_view.element.Delegation
 import org.jetbrains.annotations.TestOnly
@@ -41,26 +42,43 @@ object Callable : ResolveCache.PolyVariantResolver<org.elixir_lang.reference.Cal
         Key<CachedValue<List<VisitedElementSetResolveResult>>>("org.elixir_lang.reference.resolver.Callable.INCOMPLETE_CODE_WALK")
     private val walks = AtomicInteger()
 
+    /** The calls whose walk is under way on this thread, for complete or incomplete code. */
+    private val walking: ThreadLocal<MutableSet<Call>> = ThreadLocal.withInitial { mutableSetOf() }
+
     /** What the walk finds for [call] before `Resolver.preferred` narrows it, which `multiResolve` and the candidates share. */
     @RequiresReadLock
     fun walk(call: Call, incompleteCode: Boolean): List<VisitedElementSetResolveResult> {
         ThreadingAssertions.assertReadAccess()
 
-        return CachedValuesManager.getManager(call.project).getCachedValue(
-            call,
-            if (incompleteCode) INCOMPLETE_CODE_WALK else WALK,
-            {
-                walks.incrementAndGet()
+        val walking = walking.get()
+        val started = walking.add(call)
 
-                // The file as well: a non-physical file's edits do not move MODIFICATION_COUNT.
-                CachedValueProvider.Result.create(
-                    resolveAll(call, call.resolvedPrimaryArity() ?: 0, incompleteCode),
-                    PsiModificationTracker.MODIFICATION_COUNT,
-                    call.containingFile
-                )
-            },
-            false
-        )
+        if (!started) {
+            // This call is already being resolved here, so a table built now would record it unresolved.
+            CallableTable.abandonBuild()
+        }
+
+        try {
+            return CachedValuesManager.getManager(call.project).getCachedValue(
+                call,
+                if (incompleteCode) INCOMPLETE_CODE_WALK else WALK,
+                {
+                    walks.incrementAndGet()
+
+                    // The file as well: a non-physical file's edits do not move MODIFICATION_COUNT.
+                    CachedValueProvider.Result.create(
+                        resolveAll(call, call.resolvedPrimaryArity() ?: 0, incompleteCode),
+                        PsiModificationTracker.MODIFICATION_COUNT,
+                        call.containingFile
+                    )
+                },
+                false
+            )
+        } finally {
+            if (started) {
+                walking.remove(call)
+            }
+        }
     }
 
     /** How many walks [walk] has run, rather than served from its cache. */
