@@ -42,7 +42,7 @@ object ElixirClausePresentation {
         return if (Implementation.`is`(enclosingModular)) {
             Implementation.forText(enclosingModular) ?: Implementation.protocolName(enclosingModular)
         } else if (Module.`is`(enclosingModular)) {
-            SyntacticCall.of(enclosingModular).canonicalName()
+            SyntacticCall.of(enclosingModular).canonicalName()?.let { org.elixir_lang.Module.inspect(it) }
         } else {
             null
         }

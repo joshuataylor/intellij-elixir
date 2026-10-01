@@ -33,8 +33,15 @@ public abstract class StubbicBase<T extends PsiElement> extends StubBase<T> impl
     public StubbicBase(@NotNull StubElement parentStub,
                        @NotNull ModuleElementType moduleElementType,
                        @NotNull String name) {
+        this(parentStub, moduleElementType, name, name);
+    }
+
+    public StubbicBase(@NotNull StubElement parentStub,
+                       @NotNull ModuleElementType moduleElementType,
+                       @NotNull String name,
+                       @NotNull String canonicalName) {
         super(parentStub, moduleElementType);
-        this.canonicalNameSet = Collections.singleton(name);
+        this.canonicalNameSet = Collections.singleton(canonicalName);
         this.name = name;
     }
 

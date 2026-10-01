@@ -136,7 +136,7 @@ class TypeReference(
             val resolveResults = mutableListOf<ResolveResult>()
             StubIndex.getInstance().processElements(
                 ModularName.KEY,
-                ":erlang",
+                org.elixir_lang.Module.indexName("erlang"),
                 project,
                 GlobalSearchScope.allScope(project),
                 NamedElement::class.java

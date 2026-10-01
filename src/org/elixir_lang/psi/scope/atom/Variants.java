@@ -1,18 +1,21 @@
 package org.elixir_lang.psi.scope.atom;
 
+import com.intellij.codeInsight.completion.InsertHandler;
+import com.intellij.codeInsight.completion.InsertionContext;
 import com.intellij.codeInsight.lookup.LookupElement;
 import com.intellij.codeInsight.lookup.LookupElementBuilder;
+import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiElement;
 import com.intellij.psi.search.GlobalSearchScope;
 import com.intellij.psi.stubs.StubIndex;
-import com.intellij.util.containers.ContainerUtil;
+import org.elixir_lang.Module;
 import org.elixir_lang.psi.NamedElement;
 import org.elixir_lang.psi.scope.Atom;
-import org.elixir_lang.psi.stub.index.AllName;
+import org.elixir_lang.psi.stub.index.ModularName;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -28,17 +31,23 @@ public class Variants extends Atom {
         Project project = entrance.getProject();
         /* getAllKeys is not the actual keys in the actual project.  They need to be checked.
            See https://intellij-support.jetbrains.com/hc/en-us/community/posts/207930789-StubIndex-persisting-between-test-runs-leading-to-incorrect-completions */
-        Collection<String> indexedNameCollection = StubIndex.getInstance().getAllKeys(AllName.KEY, project);
+        Collection<String> indexedNameCollection = StubIndex.getInstance().getAllKeys(ModularName.KEY, project);
         GlobalSearchScope scope = GlobalSearchScope.allScope(project);
 
-        Collection<String> atomNameCollection = atomNameCollection(indexedNameCollection);
         String prefix = prefix(entrance);
-        Collection<String> prefixedNameCollection = prefixedNameCollection(atomNameCollection, prefix);
+        InsertHandler<LookupElement> insertHandler =
+                entrance.getText().startsWith(":\"") ? Variants::removeReplacedClosingQuote : null;
         List<LookupElement> lookupElementList = new ArrayList<>();
 
-        for (String atomName : prefixedNameCollection) {
+        for (String atomName : indexedNameCollection) {
+            String atom = Module.atom(atomName);
+
+            if (atom == null || !atom.startsWith(prefix)) {
+                continue;
+            }
+
             Collection<NamedElement> atomNamedElementCollection = StubIndex.getElements(
-                    AllName.KEY,
+                    ModularName.KEY,
                     atomName,
                     project,
                     scope,
@@ -48,7 +57,10 @@ public class Variants extends Atom {
             for (NamedElement atomNamedElement : atomNamedElementCollection) {
                 PsiElement navigationElement = atomNamedElement.getNavigationElement();
                 lookupElementList.add(
-                        LookupElementBuilder.createWithSmartPointer(atomName, navigationElement)
+                        LookupElementBuilder
+                                .createWithSmartPointer(Module.inspect(atomName), navigationElement)
+                                .withLookupStrings(List.of(":" + atom, ":\"" + atom + "\""))
+                                .withInsertHandler(insertHandler)
                 );
             }
         }
@@ -56,26 +68,24 @@ public class Variants extends Atom {
         return lookupElementList;
     }
 
-    @Contract(pure = true)
-    @NotNull
-    private Collection<String> prefixedNameCollection(Collection<String> atomNameCollection, String prefix) {
-        return ContainerUtil.filter(atomNameCollection, atomName -> atomName.startsWith(prefix));
+    /** Completion replaces a quoted atom only up to the caret, so its closing quote would follow the inserted atom. */
+    private static void removeReplacedClosingQuote(@NotNull InsertionContext context, @NotNull LookupElement item) {
+        Document document = context.getDocument();
+        int tailOffset = context.getTailOffset();
+
+        if (tailOffset < document.getTextLength() && document.getCharsSequence().charAt(tailOffset) == '"') {
+            document.deleteString(tailOffset, tailOffset + 1);
+        }
     }
 
+    /** The atom typed so far, however it is quoted. */
     @Contract(pure = true)
     @NotNull
     private static String prefix(PsiElement atom) {
-        return atom.getText().replace("IntellijIdeaRulezzz", "");
-    }
+        String text = atom.getText();
+        int caret = text.indexOf("IntellijIdeaRulezzz");
+        String typed = caret < 0 ? text : text.substring(0, caret);
 
-    @Contract(pure = true)
-    @NotNull
-    private static Collection<String> atomNameCollection(@NotNull Collection<String> indexedNameCollection) {
-        return ContainerUtil.filter(indexedNameCollection, Variants::isAtomName);
-    }
-
-    @Contract(value = "null -> false", pure = true)
-    private static boolean isAtomName(@Nullable String indexedName) {
-        return indexedName != null && indexedName.startsWith(":");
+        return StringUtil.trimStart(StringUtil.trimStart(typed, ":"), "\"");
     }
 }
