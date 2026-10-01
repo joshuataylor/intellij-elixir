@@ -8,11 +8,11 @@ import com.intellij.find.usages.impl.buildQuery
 import com.intellij.find.usages.impl.searchTargets
 import com.intellij.model.Symbol
 import com.intellij.model.psi.impl.targetSymbols
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.project.Project
 import com.intellij.psi.search.GlobalSearchScope
 import com.intellij.refactoring.rename.api.RenameTarget
+import org.elixir_lang.junit.onPooledThread
 import java.util.concurrent.Callable
 
 /**
@@ -30,10 +30,10 @@ class ResolveUsagesAgreementTest : SnapshotTestCase() {
         val snapshot = ResolutionSnapshot(root)
         val references = snapshot.rows(files).filterIsInstance<ResolutionSnapshot.Reference>()
         // Off the EDT, as the Find Usages action searches.
-        val disagreements = ApplicationManager.getApplication().executeOnPooledThread(Callable {
+        val disagreements = onPooledThread {
             ReadAction.nonBlocking(Callable { Agreement(project, snapshot, references).disagreements() })
                 .executeSynchronously()
-        }).get()
+        }
 
         assertGolden(golden, listOf("# ${disagreements.size} disagreements") + HEADER, disagreements, REGENERATE)
     }

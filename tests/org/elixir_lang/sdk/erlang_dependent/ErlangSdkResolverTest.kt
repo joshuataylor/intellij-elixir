@@ -8,11 +8,11 @@ import com.intellij.openapi.projectRoots.SdkType
 import com.intellij.openapi.projectRoots.impl.ProjectJdkImpl
 import com.intellij.testFramework.registerOrReplaceServiceInstance
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.sdk.wsl.MockWslCompatService
 import org.elixir_lang.sdk.wsl.WslCompatService
 import org.jdom.Element
 import org.junit.Assume
-import java.util.concurrent.Callable
 import org.elixir_lang.sdk.elixir.Type as ElixirSdkType
 import org.elixir_lang.sdk.erlang.Type as ErlangSdkType
 
@@ -97,9 +97,9 @@ class ErlangSdkResolverTest : PlatformTestCase() {
     fun testResolvingWithoutReadAccessIsRejected() {
         val elixirSdk = createElixirSdk { sdk -> SdkAdditionalData(sdk) }
 
-        val failure = ApplicationManager.getApplication().executeOnPooledThread(Callable {
+        val failure = onPooledThread {
             runCatching { resolver.resolveErlangSdkResult(elixirSdk, sdkModel()) }.exceptionOrNull()
-        }).get()
+        }
 
         assertTrue(
             "the resolver reads the SDK table, so it must refuse to run without read access; failed with $failure",

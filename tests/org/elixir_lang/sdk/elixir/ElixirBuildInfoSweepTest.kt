@@ -1,7 +1,7 @@
 package org.elixir_lang.sdk.elixir
 
-import com.intellij.openapi.application.ApplicationManager
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.sdk.SdkVersionsFiller
 import org.elixir_lang.sdk.SdkVersionsStore
@@ -9,7 +9,6 @@ import org.elixir_lang.beam.BeamBytes
 import com.intellij.openapi.util.io.FileUtil
 import org.elixir_lang.sdk.wsl.wslCompat
 import java.io.File
-import java.util.concurrent.Callable
 
 /**
  * SDK-wide coverage for [ElixirBuildInfo.elixirOtpRelease] and for the homes overload of
@@ -284,5 +283,5 @@ class ElixirBuildInfoSweepTest : PlatformTestCase() {
         System.getenv("ELIXIR_LANG_ELIXIR_PATH").also { assertNotNull("ELIXIR_LANG_ELIXIR_PATH not set for the test JVM", it) }!!
 
     private fun <T> onBackgroundThread(block: () -> T): T =
-        ApplicationManager.getApplication().executeOnPooledThread(Callable { block() }).get()
+        onPooledThread { block() }
 }

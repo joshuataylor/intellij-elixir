@@ -1,11 +1,11 @@
 package org.elixir_lang.sdk.wsl
 
 import com.intellij.execution.wsl.WSLDistribution
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.util.system.OS
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito
 import org.mockito.Mockito.*
@@ -199,7 +199,7 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
         val real = WslCompatServiceImpl()
         // Must run on a pooled thread: test methods themselves run on the EDT, and the EDT's
         // implicit write-intent read access does not register as holdsReadLock().
-        val threw = ApplicationManager.getApplication().executeOnPooledThread(Callable {
+        val threw = onPooledThread {
             try {
                 ReadAction.nonBlocking(Callable {
                     real.canonicalizePath("C:\\sdk-a")
@@ -208,7 +208,7 @@ class WslCompatServiceExtensionsTest : PlatformTestCase() {
             } catch (_: IllegalStateException) {
                 true
             }
-        }).get()
+        }
 
         assertTrue("Expected canonicalizePath to throw when called under a read lock", threw)
     }

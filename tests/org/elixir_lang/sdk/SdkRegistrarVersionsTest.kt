@@ -7,6 +7,7 @@ import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.testFramework.registerOrReplaceServiceInstance
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.sdk.SdkFixtures.elixirHome
 import org.elixir_lang.sdk.SdkFixtures.erlangHome
@@ -18,7 +19,6 @@ import org.elixir_lang.sdk.wsl.WslCompatService
 import org.elixir_lang.sdk.wsl.wslCompat
 import java.io.File
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.Callable
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditionalData
 import com.intellij.util.concurrency.annotations.RequiresEdt
 
@@ -61,9 +61,9 @@ class SdkRegistrarVersionsTest : PlatformTestCase() {
         val elixirHome = System.getenv("ELIXIR_LANG_ELIXIR_PATH")
         assertNotNull("ELIXIR_LANG_ELIXIR_PATH not set for the test JVM", elixirHome)
         val erlangSdk = registerErlang(erlangHome("27", "27.3.4"))
-        val expectedOtpMajor = ApplicationManager.getApplication().executeOnPooledThread(Callable {
+        val expectedOtpMajor = onPooledThread {
             ElixirBuildInfo.elixirOtpRelease(wslCompat.canonicalizePath(elixirHome!!))
-        }).get()
+        }
         assertNotNull("the resolved Elixir SDK must report its OTP major", expectedOtpMajor)
 
         val elixirSdk = registerElixir(elixirHome!!, erlangSdk)

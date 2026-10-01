@@ -1,11 +1,11 @@
 package org.elixir_lang.mix
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.util.concurrency.annotations.RequiresBackgroundThread
 import com.intellij.util.execution.ParametersListUtil
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import java.util.concurrent.Callable
 
 class InstallMixDependenciesRunConfigurationTest : PlatformTestCase() {
@@ -14,13 +14,11 @@ class InstallMixDependenciesRunConfigurationTest : PlatformTestCase() {
         val projectDir = myFixture.tempDirFixture.findOrCreateDir("mix_install")
         myFixture.tempDirFixture.createFile("mix_install/mix.exs", "defmodule MixInstall.MixProject do\nend\n")
 
-        val settings = ApplicationManager.getApplication()
-            .executeOnPooledThread(Callable {
-                ReadAction.nonBlocking(Callable {
-                    createInstallMixDependenciesRunConfiguration(project, projectDir)
-                }).executeSynchronously()
-            })
-            .get()
+        val settings = onPooledThread {
+            ReadAction.nonBlocking(Callable {
+                createInstallMixDependenciesRunConfiguration(project, projectDir)
+            }).executeSynchronously()
+        }
         assertNotNull("Expected run configuration to be created", settings)
 
         val configuration = settings!!.configuration as Configuration
@@ -36,13 +34,11 @@ class InstallMixDependenciesRunConfigurationTest : PlatformTestCase() {
         val projectDir = myFixture.tempDirFixture.findOrCreateDir("mix_status")
         myFixture.tempDirFixture.createFile("mix_status/mix.exs", "defmodule MixStatus.MixProject do\nend\n")
 
-        val settings = ApplicationManager.getApplication()
-            .executeOnPooledThread(Callable {
-                ReadAction.nonBlocking(Callable {
-                    createMixDepsStatusRunConfiguration(project, projectDir)
-                }).executeSynchronously()
-            })
-            .get()
+        val settings = onPooledThread {
+            ReadAction.nonBlocking(Callable {
+                createMixDepsStatusRunConfiguration(project, projectDir)
+            }).executeSynchronously()
+        }
         assertNotNull("Expected run configuration to be created", settings)
 
         val configuration = settings!!.configuration as Configuration

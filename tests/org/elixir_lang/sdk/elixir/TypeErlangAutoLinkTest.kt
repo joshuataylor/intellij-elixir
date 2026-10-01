@@ -1,6 +1,5 @@
 package org.elixir_lang.sdk.elixir
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.runReadActionBlocking
 import com.intellij.openapi.application.WriteAction
@@ -12,6 +11,7 @@ import com.intellij.openapi.util.Disposer
 import com.intellij.util.concurrency.annotations.RequiresEdt
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.beam.BeamBytes
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.mix.sync.MixSyncTestHelpers.runSuspendOnPooledThread
 import org.elixir_lang.sdk.SdkFixtures
 import org.elixir_lang.sdk.SdkFixtures.fakeHome
@@ -64,10 +64,10 @@ class TypeErlangAutoLinkTest : PlatformTestCase() {
 
         runSuspendOnPooledThread { ElixirSdkPathConfigurator.configure(elixirSdk) }
 
-        val paired = ApplicationManager.getApplication().executeOnPooledThread(Callable {
+        val paired = onPooledThread {
             ReadAction.nonBlocking(Callable { (elixirSdk.sdkAdditionalData as? SdkAdditionalData)?.getErlangSdk() })
                 .executeSynchronously()
-        }).get()
+        }
         assertEquals(
             "the build was compiled against OTP $major, so ${lower.name}, registered first, must not win",
             matching.name,

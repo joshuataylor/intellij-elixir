@@ -1117,6 +1117,9 @@ tasks.named<Test>("test") {
     // Keeps the other bundled plugins' platform noise out of the tests. The list also keeps IJent out; see
     // `testLoadedPlugins` in gradle.properties.
     systemProperty("idea.load.plugins.id", providers.gradleProperty("testLoadedPlugins").get())
+    // Headless as on CI. With a display (WSLg exports WAYLAND_DISPLAY), the JBR starts a real toolkit whose
+    // WLKeyboard.KeyRepeatManager thread the platform's leak check reports against whichever test is running.
+    systemProperty("java.awt.headless", "true")
     // With it, `assertSameLinesWithFile` rewrites each committed golden from the actual output before comparing. The
     // goldens are in `testData`, a declared input, so a repeat run would otherwise be up to date or from the cache and
     // rewrite nothing.

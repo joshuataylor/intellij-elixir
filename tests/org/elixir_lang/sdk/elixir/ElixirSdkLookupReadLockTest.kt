@@ -1,10 +1,10 @@
 package org.elixir_lang.sdk.elixir
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.PsiFile
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.junit.logs.expectErrors
+import org.elixir_lang.junit.onPooledThread
 import java.util.concurrent.Callable
 
 /**
@@ -24,9 +24,6 @@ class ElixirSdkLookupReadLockTest : PlatformTestCase() {
     private fun elixirFile(): PsiFile =
         myFixture.configureByText("read_lock.ex", "defmodule ReadLock do\nend\n")
 
-    private fun <T> onPooledThread(callable: Callable<T>): T =
-        ApplicationManager.getApplication().executeOnPooledThread(callable).get()
-
     // The pool logs what the call throws and returns null, so the logged error is the evidence.
     private fun assertRequiresReadAccess(callable: Callable<*>) {
         var result: Any? = Unit
@@ -34,7 +31,7 @@ class ElixirSdkLookupReadLockTest : PlatformTestCase() {
         expectErrors(
             "#com.intellij.openapi.application.impl.ApplicationImpl",
             Regex("^Read access is allowed from inside read-action only"),
-        ) { result = onPooledThread(callable) }
+        ) { result = onPooledThread { callable.call() } }
 
         assertNull(result)
     }

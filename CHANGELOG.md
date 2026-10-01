@@ -4,6 +4,10 @@
 
 ### Breaking changes
 
+- [#4193](https://github.com/intellij-elixir/intellij-elixir/pull/4193) [@sh41](https://github.com/sh41)
+  - **The minimum supported IDE is now 2026.1.5 (build 261.27258.48).** Update a 2026.1 IDE to 2026.1.5 or
+    newer to keep receiving plugin updates.
+
 - [#4038](https://github.com/intellij-elixir/intellij-elixir/pull/4038) [@joshuataylor](https://github.com/joshuataylor)
   - **The minimum supported IDE is now 2026.1 (build 261.22158.277), raised from 2025.3.** The plugin
     ships against 2026.1.5 and supports 2026.1 through 2026.2. Update to a 2026.1 or newer IDE to keep

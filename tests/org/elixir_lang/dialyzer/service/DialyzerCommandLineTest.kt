@@ -4,10 +4,10 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.projectRoots.Sdk
 import com.intellij.testFramework.registerOrReplaceServiceInstance
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.sdk.SdkFixtures
 import org.elixir_lang.sdk.wsl.MockWslCompatService
 import org.elixir_lang.sdk.wsl.WslCompatService
-import java.util.concurrent.Callable
 import org.elixir_lang.sdk.erlang_dependent.SdkAdditionalData as ElixirSdkAdditionalData
 import com.intellij.util.concurrency.annotations.RequiresEdt
 
@@ -31,9 +31,9 @@ class DialyzerCommandLineTest : PlatformTestCase() {
         val elixirSdk = register(SdkFixtures.elixirSdk("Dialyzer Elixir", "/fake/elixir/dialyzer"))
         SdkFixtures.commit(elixirSdk, ElixirSdkAdditionalData(erlangSdk, elixirSdk))
 
-        val failure = ApplicationManager.getApplication().executeOnPooledThread(Callable {
+        val failure = onPooledThread {
             runCatching { DialyzerServiceImpl().commandLine("/fake/project", elixirSdk, project) }.exceptionOrNull()
-        }).get()
+        }
 
         // The command line may still fail on the fake homes; it must not fail for want of a read lock.
         assertFalse(

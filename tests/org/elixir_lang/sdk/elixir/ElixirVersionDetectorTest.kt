@@ -4,11 +4,11 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.testFramework.registerOrReplaceServiceInstance
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.junit.onPooledThread
 import org.elixir_lang.sdk.wsl.MockWslCompatService
 import org.elixir_lang.sdk.wsl.WslCompatService
 import java.io.File
 import java.nio.file.Files
-import java.util.concurrent.Callable
 
 /**
  * Tests for [ElixirVersionDetector]'s `elixir.app` parsing.
@@ -117,9 +117,7 @@ class ElixirVersionDetectorTest : PlatformTestCase() {
     // ---------------------------------------------------------------
 
     private fun read(sdkHome: String): String? =
-        ApplicationManager.getApplication()
-            .executeOnPooledThread(Callable { ElixirVersionDetector.readElixirAppVersion(sdkHome) })
-            .get()
+        onPooledThread { ElixirVersionDetector.readElixirAppVersion(sdkHome) }
 
     /**
      * Creates a temp SDK home with the given [version] in a standard `elixir.app` file.

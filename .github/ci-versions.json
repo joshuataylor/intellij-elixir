@@ -32,6 +32,8 @@
     "    the tests, so an Elixir the toolchain or the quoter cannot handle still cannot block a merge.",
     "    Delete the flag once the leg is green - the version is then supported, and any later change",
     "    that breaks it fails the pipeline.",
+    "  continue-on-error on an idea entry makes that version's test leg informational the same way; it",
+    "    does not cover the version's verification legs.",
     "  Check OTP support against https://elixir.hexdocs.pm/compatibility-and-deprecations.html, which",
     "    is patch-aware: 1.14 is '23 - 25 (and Erlang/OTP 26 from v1.14.5)'. Do NOT use otpVersions from",
     "    elixir-lang.github.com's src/content/elixir-versions to decide the range - it is per-MINOR,",
@@ -51,7 +53,8 @@
   "idea": {
     "minimumSupported": { "version": "2026.1.5", "java": "21", "verify": [ "ideaIU", "rubymine" ] },
     "additionalToTest": [
-      { "version": "2026.2.2", "java": "25", "verify": [ "ideaIU", "rubymine" ] }
+      { "version": "2026.2.2", "java": "25", "verify": [ "ideaIU", "rubymine" ] },
+      { "version": "LATEST-EAP-SNAPSHOT", "java": "25", "verify": [ "ideaIU", "rubymine" ], "continue-on-error": true }
     ]
   },
   "beam": {
