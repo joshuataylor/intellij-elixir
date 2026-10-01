@@ -192,6 +192,7 @@ class CallDefinition(val modular: Modular, private val time: Timed.Time, private
             when (callDefinitionHead.visibility()) {
                 Visibility.PRIVATE -> privateCount++
                 Visibility.PUBLIC -> publicCount++
+                Visibility.UNDECIDED -> Unit
             }
         }
 
@@ -199,6 +200,7 @@ class CallDefinition(val modular: Modular, private val time: Timed.Time, private
             when (callDefinitionClause.visibility()) {
                 Visibility.PRIVATE -> privateCount++
                 Visibility.PUBLIC -> publicCount++
+                Visibility.UNDECIDED -> Unit
             }
         }
 

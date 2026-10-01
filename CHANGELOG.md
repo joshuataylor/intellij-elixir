@@ -525,6 +525,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4291](https://github.com/intellij-elixir/intellij-elixir/pull/4291) [@sh41](https://github.com/sh41)
+  - **What a call can reach and what completion offers are answered from one place, over the existing resolver, which no feature uses yet.** Fixes [#4278](https://github.com/intellij-elixir/intellij-elixir/issues/4278).
 - [#4274](https://github.com/intellij-elixir/intellij-elixir/pull/4274) [@sh41](https://github.com/sh41)
   - **`fn`, `->` clauses and module attributes lower to the typed Elixir AST, and broken code lowers to placeholders; nothing uses it yet.** Fixes [#4248](https://github.com/intellij-elixir/intellij-elixir/issues/4248).
 - [#4267](https://github.com/intellij-elixir/intellij-elixir/pull/4267) [@sh41](https://github.com/sh41)

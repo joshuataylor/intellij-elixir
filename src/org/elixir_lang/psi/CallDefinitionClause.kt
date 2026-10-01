@@ -232,20 +232,21 @@ object CallDefinitionClause {
     fun declaration(call: Call, state: ResolveState): Declaration? {
         val capabilities = capabilities(call) ?: return null
         val (name, arityInterval) = nameArityInterval(call, state) ?: return null
+
+        return Declaration(name, arityInterval.arityKnowledge(), capabilities, Declared.Source(Form.CLAUSE, sourceOrigin(call)))
+    }
+
+    /** Where [call] declares, in the compiled file when it is in that file's decompiled text. */
+    @RequiresReadLock
+    fun sourceOrigin(call: Call): SourceOrigin {
+        ThreadingAssertions.assertReadAccess()
+
         val file = call.containingFile
         val viewProvider =
             (file.originalFile as? PsiCompiledFile)?.takeIf { it.decompiledPsiFile == file }?.viewProvider
                 ?: file.viewProvider
 
-        return Declaration(
-            name,
-            arityInterval.arityKnowledge(),
-            capabilities,
-            Declared.Source(
-                Form.CLAUSE,
-                SourceOrigin(viewProvider.virtualFile, viewProvider.modificationStamp, call.textRange)
-            )
-        )
+        return SourceOrigin(viewProvider.virtualFile, viewProvider.modificationStamp, call.textRange)
     }
 
     /**

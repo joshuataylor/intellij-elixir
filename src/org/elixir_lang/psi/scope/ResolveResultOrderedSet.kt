@@ -9,11 +9,24 @@ class ResolveResultOrderedSet {
         name: String,
         validResult: Boolean,
         visitedElementSet: Set<PsiElement>,
-        reach: Reach? = null
+        reach: Reach? = null,
+        reached: List<ReachedDeclaration> = emptyList()
     ) {
-        if (element !in psiElementSet) {
-            psiElementSet.add(element)
-            val visitedElementSetResolveResult = VisitedElementSetResolveResult(element, validResult, visitedElementSet, reach)
+        val existing = resultByElement[element]
+        val routed = if (reached.isEmpty()) {
+            reached
+        } else {
+            reached.map { if (it.reach == null) it.copy(reach = reach, visitedElementSet = visitedElementSet) else it }
+                .distinct()
+        }
+
+        if (existing != null) {
+            // Only the first result for an element is kept, but each declaration reached at it is, with its own route.
+            existing.addReached(routed)
+        } else {
+            val visitedElementSetResolveResult =
+                VisitedElementSetResolveResult(element, validResult, visitedElementSet, reach, routed)
+            resultByElement[element] = visitedElementSetResolveResult
             val existingVisitedElementSetResolveResultList = visitedElementSetResolveResultListByName[name]
 
             if (existingVisitedElementSetResolveResultList != null) {
@@ -35,7 +48,8 @@ class ResolveResultOrderedSet {
                         name,
                         visitedElementSetResolveResult.isValidResult,
                         visitedElementSetResolveResult.visitedElementSet,
-                        visitedElementSetResolveResult.reach
+                        visitedElementSetResolveResult.reach,
+                        visitedElementSetResolveResult.reached
                 )
             }
         }
@@ -49,7 +63,7 @@ class ResolveResultOrderedSet {
                         visitedElementSetResolveResultListByName[name]!!
                     }
 
-    private val psiElementSet = mutableSetOf<PsiElement>()
+    private val resultByElement = mutableMapOf<PsiElement, VisitedElementSetResolveResult>()
     private val visitedElementSetResolveResultListByName = mutableMapOf<String, MutableList<VisitedElementSetResolveResult>>()
     private val nameOrder = mutableListOf<String>()
 

@@ -10,9 +10,9 @@ import com.intellij.codeInsight.template.impl.TextExpression
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
-import org.elixir_lang.EEx
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.code_insight.Signature
+import org.elixir_lang.declaration.Form
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.CallDefinitionClause as CallDefinitionClausePsi
 import org.elixir_lang.psi.ElixirAtom
@@ -21,12 +21,11 @@ import org.elixir_lang.psi.Exception as ElixirException
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.stripAccessExpression
-import org.elixir_lang.psi.mix.Generator as MixGenerator
 import org.elixir_lang.psi.operation.InMatch
 import org.elixir_lang.psi.operation.Type
+import org.elixir_lang.psi.scope.call_definition_clause.DeclaringForm
 import org.elixir_lang.structure_view.element.Callback
 import org.elixir_lang.structure_view.element.CallDefinitionHead
-import org.elixir_lang.structure_view.element.Delegation
 
 /**
  * Inserts a call-definition-clause completion's target as `name(a, b)`, with each parameter a live
@@ -105,19 +104,15 @@ object CallDefinitionClause : InsertHandler<LookupElement> {
             else -> null
         }
 
-    /**
-     * Mirrors [org.elixir_lang.psi.scope.CallDefinitionClause]'s own private `execute(element: Call,
-     * ...)` dispatch order - a given [call] can only be one of these shapes, so the first match wins.
-     */
     private fun callParameters(call: Call, lookupString: String): List<String>? =
-        when {
-            CallDefinitionClausePsi.`is`(call) -> callDefinitionClauseParameters(call)
-            Callback.`is`(call) -> callbackParameters(call)
-            Delegation.`is`(call) -> delegationParameters(call)
-            ElixirException.`is`(call) -> exceptionParameters(lookupString)
-            EEx.isFunctionFrom(call, ResolveState.initial()) -> eexFunctionFromParameters(call)
-            MixGenerator.isEmbed(call, ResolveState.initial()) -> embedParameters(call)
-            else -> null
+        when (DeclaringForm.syntacticForm(call) ?: DeclaringForm.resolvingForm(call, ResolveState.initial())) {
+            Form.CLAUSE -> callDefinitionClauseParameters(call)
+            Form.CALLBACK -> callbackParameters(call)
+            Form.DELEGATION -> delegationParameters(call)
+            Form.EXCEPTION -> exceptionParameters(lookupString)
+            Form.EEX_FUNCTION_FROM -> eexFunctionFromParameters(call)
+            Form.GENERATOR_EMBED -> embedParameters(call)
+            null -> null
         }
 
     /**

@@ -1,5 +1,7 @@
 package org.elixir_lang.declaration
 
+import org.elixir_lang.call.Visibility
+
 /** How resolution reached a declaration from the module a use is in. */
 enum class Reach {
     /** Declared in that module. */
@@ -40,6 +42,11 @@ enum class Reach {
     fun remotelyReaches(capabilities: Capabilities, runtime: Boolean = false): Boolean =
         remote && callableFromAnotherModule(capabilities, runtime)
 
+    // An undecided visibility counts as public, so that the near misses of a call it may serve are still reported.
     private fun callableFromAnotherModule(capabilities: Capabilities, runtime: Boolean): Boolean =
-        if (runtime) capabilities.remoteCallable else capabilities.public
+        when {
+            capabilities.visibility == Visibility.UNDECIDED -> !runtime || capabilities.runtimeFunction
+            runtime -> capabilities.remoteCallable
+            else -> capabilities.public
+        }
 }

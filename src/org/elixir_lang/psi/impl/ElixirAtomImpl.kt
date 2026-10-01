@@ -1,6 +1,5 @@
 package org.elixir_lang.psi.impl
 
-import com.ericsson.otp.erlang.OtpErlangAtom
 import com.intellij.psi.*
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager.getCachedValue
@@ -39,9 +38,4 @@ fun PsiReference.maybeModularNameToModulars(incompleteCode: Boolean): Set<PsiNam
  * interpolated or longer than the 255 characters an atom can hold.
  */
 @RequiresReadLock
-fun ElixirAtom.indexName(): String? =
-    try {
-        QuotableImpl.quote(this) as? OtpErlangAtom
-    } catch (_: IllegalArgumentException) {
-        null
-    }?.let { org.elixir_lang.Module.indexName(it.atomValue()) }
+fun ElixirAtom.indexName(): String? = quotedAtomValue(this)?.let(org.elixir_lang.Module::indexName)

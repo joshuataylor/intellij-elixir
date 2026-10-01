@@ -5,13 +5,20 @@ import com.intellij.codeInsight.lookup.LookupElement
 import com.intellij.codeInsight.lookup.LookupElementBuilder
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.util.concurrency.ThreadingAssertions
+import com.intellij.util.concurrency.annotations.RequiresReadLock
+import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.beam.psi.Module as BeamModule
 import org.elixir_lang.code_insight.preferFunctionHeads
+import org.elixir_lang.declaration.Declaration
+import org.elixir_lang.declaration.Form
+import org.elixir_lang.declaration.Visible
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.code_insight.lookup.element.CallDefinitionClause as CallDefinitionClauseLookupElement
 import org.elixir_lang.code_insight.lookup.element_renderer.CallDefinitionClause as CallDefinitionClauseRenderer
 import com.intellij.psi.ResolveState
 import org.elixir_lang.psi.impl.call.finalArguments
+import org.elixir_lang.psi.scope.call_definition_clause.Declarations
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 import org.elixir_lang.structure_view.element.Delegation
 import org.elixir_lang.psi.CallDefinitionClause as CallDefinitionClausePsi
@@ -38,11 +45,7 @@ import org.elixir_lang.code_insight.completion.insert_handler.CallDefinitionClau
 fun callDefinitionClauseLookupElements(
     scope: PsiElement,
     appendParentheses: Boolean = true
-): Iterable<LookupElement> = when (scope) {
-    is Call -> callDefinitionClauseLookupElements(scope, appendParentheses)
-    is BeamModule -> callDefinitionClauseLookupElements(scope, appendParentheses)
-    else -> emptyList()
-}
+): Iterable<LookupElement> = offers(scope).map { it.lookupElement(appendParentheses) }
 
 /**
  * The remote-completion [LookupElement]s offered by the set of [modulars] a modular name resolved to
@@ -54,44 +57,78 @@ fun callDefinitionClauseLookupElements(
 fun callDefinitionClauseLookupElements(
     modulars: Collection<PsiElement>,
     appendParentheses: Boolean = true
-): List<LookupElement> {
+): List<LookupElement> = offers(modulars).map { it.lookupElement(appendParentheses) }
+
+/** What [callDefinitionClauseLookupElements] offers for [modulars], each entry with what it declares. */
+@RequiresReadLock
+fun callDefinitionClauseVisible(modulars: Collection<PsiElement>): List<Visible> {
+    ThreadingAssertions.assertReadAccess()
+
+    return offers(modulars).map(Offer::visible)
+}
+
+/** One function name a modular offers, from the [element] that declares it: [form] is `null` for a `.beam` export. */
+private class Offer(val name: String, val element: PsiElement, val form: Form?) {
+    fun lookupElement(appendParentheses: Boolean): LookupElement =
+        if (form == Form.DELEGATION) {
+            LookupElementBuilder
+                .createWithSmartPointer(name, element.inOriginalFile())
+                .withRenderer(DelegationRenderer(name))
+                .let { if (appendParentheses) it.withInsertHandler(CallDefinitionClauseInsertHandler) else it }
+        } else {
+            lookupElement(name, element, appendParentheses)
+        }
+
+    @RequiresReadLock
+    fun visible(): Visible {
+        ThreadingAssertions.assertReadAccess()
+
+        val declaration: Declaration? = when (form) {
+            null -> (element as BeamCallDefinition).declaration()
+            else -> Declarations.of(form, element as Call, ResolveState.initial()).firstOrNull { it.text == name }?.declaration
+        }
+
+        return Visible(name, declaration?.name, declaration, element)
+    }
+}
+
+private fun offers(modulars: Collection<PsiElement>): List<Offer> {
     val sourceModulars = modulars.filterIsInstance<Call>()
     val effectiveModulars = if (sourceModulars.isNotEmpty()) sourceModulars else modulars
 
-    return effectiveModulars.flatMap { callDefinitionClauseLookupElements(it, appendParentheses) }
+    return effectiveModulars.flatMap(::offers)
 }
 
-private fun callDefinitionClauseLookupElements(scope: Call, appendParentheses: Boolean): Iterable<LookupElement> {
+private fun offers(scope: PsiElement): List<Offer> = when (scope) {
+    is Call -> offers(scope)
+    is BeamModule -> offers(scope)
+    else -> emptyList()
+}
+
+private fun offers(scope: Call): List<Offer> {
     val childCalls = CallDefinitionClausePsi.modularChildCalls(scope)
 
     val publicClauses = childCalls
         .filter { CallDefinitionClausePsi.`is`(it) }
         .filter { CallDefinitionClausePsi.capabilities(it)?.public == true }
 
-    val clauseLookupElements = preferFunctionHeads(publicClauses).map { (name, bestClause) ->
-        name to lookupElement(name, bestClause, appendParentheses)
-    }
-    val clauseNames = clauseLookupElements.map { (name, _) -> name }.toSet()
+    val clauseOffers = preferFunctionHeads(publicClauses).map { (name, bestClause) -> Offer(name, bestClause, Form.CLAUSE) }
+    val clauseNames = clauseOffers.map(Offer::name).toSet()
 
-    return clauseLookupElements.map { (_, lookupElement) -> lookupElement } +
-        delegationLookupElements(childCalls, clauseNames, appendParentheses)
+    return clauseOffers + delegationOffers(childCalls, clauseNames)
 }
 
 /**
- * The [LookupElement]s for functions this module declares only with `defdelegate`.
+ * The functions this module declares only with `defdelegate`.
  *
  * `Delegation.is` and `CallDefinitionClause.is` are disjoint, so delegates need their own pass or they
  * are never offered. Names already in [clauseNames] are skipped so a `def` keeps its richer
  * presentation; visibility is not filtered because there is no `defdelegatep`.
  *
- * [appendParentheses] is threaded through so a delegate inserts `Mod.values()` and opens parameter
- * info like a `def`, and stays a bare name for an MFA atom, where a name is not a call.
+ * A delegate's insert handler appends parentheses like a `def`'s, so it inserts `Mod.values()` and opens
+ * parameter info, and stays a bare name for an MFA atom, where a name is not a call.
  */
-private fun delegationLookupElements(
-    childCalls: List<Call>,
-    clauseNames: Set<String>,
-    appendParentheses: Boolean
-): List<LookupElement> =
+private fun delegationOffers(childCalls: List<Call>, clauseNames: Set<String>): List<Offer> =
     childCalls
         .filter { Delegation.`is`(it) }
         .mapNotNull { delegation ->
@@ -104,19 +141,14 @@ private fun delegationLookupElements(
                 ?.let { name -> name to delegation }
         }
         .distinctBy { (name, _) -> name }
-        .map { (name, delegation) ->
-            LookupElementBuilder
-                .createWithSmartPointer(name, delegation.inOriginalFile())
-                .withRenderer(DelegationRenderer(name))
-                .let { if (appendParentheses) it.withInsertHandler(CallDefinitionClauseInsertHandler) else it }
-        }
+        .map { (name, delegation) -> Offer(name, delegation, Form.DELEGATION) }
 
-private fun callDefinitionClauseLookupElements(moduleImpl: BeamModule, appendParentheses: Boolean): Iterable<LookupElement> =
+private fun offers(moduleImpl: BeamModule): List<Offer> =
     moduleImpl.callDefinitions()
         .filter { it.isExported }
         .mapNotNull { callDefinition ->
             // MaybeExported documents exportedName() as null only when isExported() is false.
-            callDefinition.exportedName()?.let { lookupElement(it, callDefinition, appendParentheses) }
+            callDefinition.exportedName()?.let { Offer(it, callDefinition, null) }
         }
 
 private fun lookupElement(name: String, element: PsiElement, appendParentheses: Boolean): LookupElement =
