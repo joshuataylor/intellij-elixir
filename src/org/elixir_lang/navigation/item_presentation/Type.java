@@ -5,8 +5,8 @@ import com.intellij.psi.PsiElement;
 import com.intellij.ui.RowIcon;
 import org.elixir_lang.Icons;
 import org.elixir_lang.call.Visibility;
-import org.elixir_lang.psi.ElixirMatchedWhenOperation;
 import org.elixir_lang.psi.call.Call;
+import org.elixir_lang.psi.operation.When;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,8 +35,8 @@ public class Type implements ItemPresentation {
 
         if (type instanceof org.elixir_lang.psi.operation.Type) {
             head = head((org.elixir_lang.psi.operation.Type) type);
-        } else if (type instanceof ElixirMatchedWhenOperation) {
-            head = head((ElixirMatchedWhenOperation) type);
+        } else if (type instanceof When) {
+            head = head((When) type);
         }
 
         return head;
@@ -48,7 +48,7 @@ public class Type implements ItemPresentation {
     }
 
     @Nullable
-    private static PsiElement head(@NotNull ElixirMatchedWhenOperation whenOperation) {
+    private static PsiElement head(@NotNull When whenOperation) {
         PsiElement head = null;
 
         PsiElement parameterizedType = whenOperation.leftOperand();

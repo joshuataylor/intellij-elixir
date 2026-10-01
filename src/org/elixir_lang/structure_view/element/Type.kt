@@ -9,9 +9,9 @@ import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.call.Visibility
 import org.elixir_lang.navigation.item_presentation.Parent
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
-import org.elixir_lang.psi.ElixirMatchedWhenOperation
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil
+import org.elixir_lang.psi.operation.When
 import org.elixir_lang.structure_view.element.modular.Modular
 
 class Type(
@@ -112,7 +112,7 @@ class Type(
         private fun specificationType(specification: Call): Call? =
             when (specification) {
                 is org.elixir_lang.psi.operation.Type -> CallDefinitionSpecification.type(specification)
-                is ElixirMatchedWhenOperation -> CallDefinitionSpecification.type(specification)
+                is When -> CallDefinitionSpecification.type(specification)
                 else -> null
             }
 

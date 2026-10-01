@@ -13,10 +13,10 @@ import org.elixir_lang.call.Visibility
 import org.elixir_lang.navigation.item_presentation.NameArity
 import org.elixir_lang.navigation.item_presentation.Parent
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
-import org.elixir_lang.psi.ElixirMatchedWhenOperation
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.operation.Type
+import org.elixir_lang.psi.operation.When
 import org.elixir_lang.structure_view.element.CallDefinitionClause.Companion.enclosingModular
 import org.elixir_lang.structure_view.element.Timed.Time
 import org.elixir_lang.structure_view.element.modular.Modular
@@ -165,7 +165,7 @@ class Callback(private val modular: Modular, navigationItem: Call, private val k
                 CallDefinitionHead.nameIdentifier(headCall)
             }
 
-        private fun parameterizedTypeHeadCall(whenOperation: ElixirMatchedWhenOperation): Call? =
+        private fun parameterizedTypeHeadCall(whenOperation: When): Call? =
             (whenOperation.leftOperand() as? Type)?.let { type ->
                 typeHeadCall(type)
             }
@@ -173,7 +173,7 @@ class Callback(private val modular: Modular, navigationItem: Call, private val k
         private fun specificationHeadCall(specification: PsiElement): Call? =
             when (specification) {
                 is Type -> typeHeadCall(specification)
-                is ElixirMatchedWhenOperation -> parameterizedTypeHeadCall(specification)
+                is When -> parameterizedTypeHeadCall(specification)
                 else -> null
             }
 

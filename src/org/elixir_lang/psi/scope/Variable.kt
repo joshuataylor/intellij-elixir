@@ -55,7 +55,7 @@ abstract class Variable : PsiScopeProcessor {
                         execute(element as ElixirContainerAssociationOperation, state)
                     VariableDescent.Bucket.MAP_ARGUMENTS -> execute(element as ElixirMapArguments, state)
                     VariableDescent.Bucket.MAP_OPERATION -> execute(element as ElixirMapOperation, state)
-                    VariableDescent.Bucket.WHEN -> execute(element as ElixirMatchedWhenOperation, state)
+                    VariableDescent.Bucket.WHEN -> execute(element as When, state)
                     VariableDescent.Bucket.STAB_OPERATION -> execute(element as ElixirStabOperation, state)
                     VariableDescent.Bucket.STAB_NO_PARENTHESES_SIGNATURE ->
                         execute(element as ElixirStabNoParenthesesSignature, state)
@@ -289,7 +289,7 @@ abstract class Variable : PsiScopeProcessor {
     private fun execute(match: ElixirMapOperation, state: ResolveState): Boolean =
             execute(match.mapArguments, state)
 
-    private fun execute(match: ElixirMatchedWhenOperation, state: ResolveState): Boolean =
+    private fun execute(match: When, state: ResolveState): Boolean =
             executeLeftOperand(match, state)
 
     private fun execute(match: ElixirStabNoParenthesesSignature, state: ResolveState): Boolean =

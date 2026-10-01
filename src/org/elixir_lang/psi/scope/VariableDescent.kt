@@ -31,7 +31,7 @@ object VariableDescent {
         MAP_ARGUMENTS(ElixirMapArguments::class.java),
         MAP_OPERATION(ElixirMapOperation::class.java),
         /** `pattern when guard`: only the pattern declares. */
-        WHEN(ElixirMatchedWhenOperation::class.java),
+        WHEN(When::class.java),
         STAB_OPERATION(ElixirStabOperation::class.java),
         STAB_NO_PARENTHESES_SIGNATURE(ElixirStabNoParenthesesSignature::class.java),
         STAB_PARENTHESES_SIGNATURE(ElixirStabParenthesesSignature::class.java),
