@@ -29,12 +29,14 @@ import kotlin.time.TimeSource
  * and at each probe either delivers, the variables fall into the same classes and the env's other fields are equal. A
  * case the expander doesn't cover is not compiled.
  *
- * Each variable and `_` of a pattern, each `^` and each non-literal bitstring size in one, is wrapped in an identity
- * probe, which the expander matches when it enters that node.
+ * Each variable and `_` of a pattern, each `^` and each non-literal bitstring size in one, and each variable of a
+ * clause's guard, is wrapped in an identity probe, which the expander matches when it enters that node. Each statement
+ * of a body nested in a clause, such as a `->` clause's, is followed by a probe, which the expander matches when it
+ * leaves that statement.
  */
 internal class ExpansionProbes(private val harness: ProbeHarness, private val parse: (String) -> ElixirFile) {
     /** What the expander saw at the probe [tag], whose `case` is always 0. */
-    class Step(val tag: Tag, val read: Map<Variable, Int>, val env: Env)
+    class Step(val tag: Tag, val read: Map<Variable, Int>, val env: Env, val stacktrace: Boolean)
 
     /**
      * [case] expanded from the start of an empty module body.
@@ -54,19 +56,41 @@ internal class ExpansionProbes(private val harness: ProbeHarness, private val pa
         }
 
         check(statements.none(::hasPlaceholder)) { "a case body must lower without placeholders: $body" }
+        // The module body runs when it compiles, and a `receive` waits for its timeout, or for ever without one.
+        check(statements.none(::hasReceiveWithoutAfterZero)) { "a case's receive must wait after 0: $body" }
 
         val sites = statements.flatMap { identitySites(it, false) }.sortedBy { it.meta.origin.startOffset }
         val identities = sites.withIndex().associate { (index, site) -> site.meta.origin to index + 1 }
+        val bodies = statements.flatMap(::nestedBodies).sortedBy { it.first().meta.origin.startOffset }
+        val nested = bodies.withIndex()
+            .flatMap { (block, body) ->
+                body.withIndex().map { (statement, node) -> node.meta.origin to Tag(0, block + 1, statement + 1) }
+            }
+            .toMap()
         var state = ExState.empty(level)
         var env = Env.empty(level, legKernel)
-        val steps = mutableListOf(Step(Tag(0, 0, 0), state.read, env))
+        val steps = mutableListOf(Step(Tag(0, 0, 0), state.read, env, state.stacktrace))
         var outcome: Expansion = Expansion.Expanded(state, env)
 
         for ((index, statement) in statements.withIndex()) {
             val entered = mutableSetOf<TextRange>()
-            val observer = ExpansionObserver { node, s, e ->
-                identities[node.meta.origin]?.let { identity ->
-                    if (entered.add(node.meta.origin)) steps.add(Step(Tag(0, 0, index + 1, identity), s.read, e))
+            val left = mutableSetOf<TextRange>()
+            val observer = object : ExpansionObserver {
+                override fun entering(node: ElixirAst, state: ExState, env: Env) {
+                    identities[node.meta.origin]?.let { identity ->
+                        if (entered.add(node.meta.origin)) {
+                            steps.add(Step(Tag(0, 0, index + 1, identity), state.read, env, state.stacktrace))
+                        }
+                    }
+                }
+
+                // Nodes that share an origin, such as a block of one expression and that expression, leave with one state.
+                override fun left(node: ElixirAst, expansion: Expansion) {
+                    val tag = nested[node.meta.origin]
+
+                    if (tag != null && expansion is Expansion.Expanded && left.add(node.meta.origin)) {
+                        steps.add(Step(tag, expansion.state.read, expansion.env, expansion.state.stacktrace))
+                    }
                 }
             }
 
@@ -76,13 +100,17 @@ internal class ExpansionProbes(private val harness: ProbeHarness, private val pa
                 is Expansion.Expanded -> {
                     state = expansion.state
                     env = expansion.env
-                    steps.add(Step(Tag(0, 0, index + 1), state.read, env))
+                    steps.add(Step(Tag(0, 0, index + 1), state.read, env, state.stacktrace))
                 }
                 is Expansion.Error, is Expansion.Unported -> break
             }
         }
 
-        return CaseExpansion(ProbeHarness.Case(body, sites.map { it.meta.origin }), steps, outcome)
+        return CaseExpansion(
+            ProbeHarness.Case(body, sites.map { it.meta.origin }, bodies.map { it.map { node -> node.meta.origin } }),
+            steps,
+            outcome
+        )
     }
 
     /**
@@ -207,7 +235,7 @@ internal class ExpansionProbes(private val harness: ProbeHarness, private val pa
             name,
             steps.map { it.tag },
             VariableClasses.canonical(steps.map { it.read }),
-            steps.map { ProbedEnvNormaliser.render(ProbedEnvNormaliser.projected(it.env)) }
+            steps.map { ProbedEnvNormaliser.render(ProbedEnvNormaliser.projected(it.env, it.stacktrace, legLevel())) }
         )
 
     private fun render(name: String, observations: List<ProbeHarness.Observation>, probeModule: String): String =
@@ -258,7 +286,9 @@ internal class ExpansionProbes(private val harness: ProbeHarness, private val pa
 
         /**
          * The nodes of [node] to wrap in an identity probe: in a pattern, each variable and `_` outside a `^`, a map
-         * key and a bitstring spec, each `^` outside a map key, and each non-literal bitstring size.
+         * key and a bitstring spec, each `^` outside a map key, and each non-literal bitstring size; and each variable
+         * of a clause's guard. A `rescue` head's only site is the variable left of an `in` other than `in _`: wrapped, a
+         * variable is a call, which neither a bare `rescue` nor `in _` takes.
          */
         fun identitySites(node: ElixirAst, pattern: Boolean): List<ElixirAst> =
             when {
@@ -267,7 +297,15 @@ internal class ExpansionProbes(private val harness: ProbeHarness, private val pa
 
                     identitySites(left, true) + identitySites(right, pattern)
                 }
-                !pattern -> children(node).flatMap { identitySites(it, false) }
+                !pattern ->
+                    parts(node)?.flatMap { (kind, value) ->
+                        when (kind) {
+                            Part.EXPRESSION, Part.BODY -> identitySites(value, false)
+                            else -> clauses(value).flatMap { (args, body) ->
+                                headSites(kind, args) + identitySites(body, false)
+                            }
+                        }
+                    } ?: children(node).flatMap { identitySites(it, false) }
                 isVariable(node) || isCall(node, "^", 1) -> listOf(node)
                 isMap(node) ->
                     (node as ElixirAst.Call).arguments!!.flatMap { pair ->
@@ -314,5 +352,162 @@ internal class ExpansionProbes(private val harness: ProbeHarness, private val pa
                 is ElixirAst.Block -> node.expressions
                 is ElixirAst.Alias, is ElixirAst.Literal, is ElixirAst.Placeholder -> emptyList()
             }
+
+        /** How a part of a `case`, `cond`, `receive`, `try` or `fn` is expanded. */
+        enum class Part {
+            EXPRESSION,
+            BODY,
+
+            /** `->` clauses whose heads are patterns, with an optional guard. */
+            PATTERN_CLAUSES,
+
+            /** `->` clauses whose heads are expressions. */
+            EXPRESSION_CLAUSES,
+            RESCUE_CLAUSES,
+        }
+
+        /** [node]'s parts, when it is one of the constructs whose clauses are expanded, in source order. */
+        fun parts(node: ElixirAst): List<Pair<Part, ElixirAst>>? {
+            if (node !is ElixirAst.Call || node.arguments == null) return null
+
+            val arguments = node.arguments
+            val options = arguments.lastOrNull() as? ElixirAst.ListNode
+
+            fun keyword(each: (String) -> Part): List<Pair<Part, ElixirAst>>? =
+                options?.elements?.map { option ->
+                    val pair = option as? ElixirAst.Tuple
+                    val key = (pair?.elements?.firstOrNull() as? ElixirAst.Literal.Atom)?.name
+                    if (pair == null || pair.elements.size != 2 || key == null) return null
+
+                    val kind = each(key)
+
+                    (if (kind != Part.EXPRESSION && kind != Part.BODY && !isClauses(pair.elements[1])) Part.EXPRESSION else kind) to
+                        pair.elements[1]
+                }
+
+            return when ((node.callee as? ElixirAst.Literal.Atom)?.name) {
+                "fn" -> listOf(Part.PATTERN_CLAUSES to ElixirAst.ListNode(node.meta, arguments))
+                "case" ->
+                    if (arguments.size == 2) {
+                        keyword { if (it == "do") Part.PATTERN_CLAUSES else Part.EXPRESSION }
+                            ?.let { listOf(Part.EXPRESSION to arguments[0]) + it }
+                    } else {
+                        null
+                    }
+                "cond" -> if (arguments.size == 1) keyword { if (it == "do") Part.EXPRESSION_CLAUSES else Part.EXPRESSION } else null
+                "receive" ->
+                    if (arguments.size == 1) {
+                        keyword {
+                            when (it) {
+                                "do" -> Part.PATTERN_CLAUSES
+                                "after" -> Part.EXPRESSION_CLAUSES
+                                else -> Part.EXPRESSION
+                            }
+                        }
+                    } else {
+                        null
+                    }
+                "try" ->
+                    if (arguments.size == 1) {
+                        keyword {
+                            when (it) {
+                                "do", "after" -> Part.BODY
+                                "else", "catch" -> Part.PATTERN_CLAUSES
+                                "rescue" -> Part.RESCUE_CLAUSES
+                                else -> Part.EXPRESSION
+                            }
+                        }
+                    } else {
+                        null
+                    }
+                else -> null
+            }
+        }
+
+        fun hasReceiveWithoutAfterZero(node: ElixirAst): Boolean {
+            val options = (node as? ElixirAst.Call)?.arguments?.singleOrNull() as? ElixirAst.ListNode
+            val isReceive = isNamedCall(node, "receive") &&
+                !options?.elements.isNullOrEmpty() &&
+                options!!.elements.none { option ->
+                    val (key, value) = (option as? ElixirAst.Tuple)?.elements?.takeIf { it.size == 2 } ?: return@none false
+
+                    (key as? ElixirAst.Literal.Atom)?.name == "after" && isZeroTimeout(value)
+                }
+
+            return isReceive || children(node).any(::hasReceiveWithoutAfterZero)
+        }
+
+        /** Whether the first `after` clause of [clauses] waits for `0`, or for `pattern = 0`. */
+        private fun isZeroTimeout(clauses: ElixirAst): Boolean {
+            val first = (clauses as? ElixirAst.ListNode)?.elements?.firstOrNull()?.takeIf { isCall(it, "->", 2) }
+            val timeout = ((first as ElixirAst.Call?)?.arguments?.first() as? ElixirAst.ListNode)?.elements?.firstOrNull()
+                ?.let(::expandedShape)
+            val value = timeout?.takeIf { isCall(it, "=", 2) }?.let { (it as ElixirAst.Call).arguments!![1] } ?: timeout
+
+            return (value as? ElixirAst.Literal.Integer)?.value?.signum() == 0
+        }
+
+        /** Whether [node] is a non-empty list of `->` clauses. */
+        fun isClauses(node: ElixirAst): Boolean =
+            node is ElixirAst.ListNode && node.elements.isNotEmpty() && node.elements.all { isCall(it, "->", 2) }
+
+        /** Each `->` clause of [clauses] as its arguments' list and its body. */
+        fun clauses(clauses: ElixirAst): List<Pair<ElixirAst, ElixirAst>> =
+            (clauses as ElixirAst.ListNode).elements.map { clause ->
+                val (args, body) = (clause as ElixirAst.Call).arguments!!
+
+                args to body
+            }
+
+        fun headSites(kind: Part, args: ElixirAst): List<ElixirAst> {
+            val elements = (args as? ElixirAst.ListNode)?.elements ?: return identitySites(args, false)
+            val guarded = elements.singleOrNull()?.takeIf { isNamedCall(it, "when") } as ElixirAst.Call?
+
+            return when {
+                kind == Part.EXPRESSION_CLAUSES -> identitySites(args, false)
+                kind == Part.RESCUE_CLAUSES -> elements.singleOrNull()?.let(::rescueSites) ?: emptyList()
+                guarded != null ->
+                    guarded.arguments!!.dropLast(1).flatMap { identitySites(it, true) } +
+                        guardSites(guarded.arguments.last())
+                else -> elements.flatMap { identitySites(it, true) }
+            }
+        }
+
+        fun rescueSites(head: ElixirAst): List<ElixirAst> =
+            if (isCall(head, "in", 2)) {
+                val (left, right) = (head as ElixirAst.Call).arguments!!
+
+                listOf(left).filter { isVariable(it) && !isUnderscore(right) } + identitySites(right, false)
+            } else {
+                emptyList()
+            }
+
+        fun guardSites(guard: ElixirAst): List<ElixirAst> =
+            if (isVariable(guard)) listOf(guard) else children(guard).flatMap(::guardSites)
+
+        /** The bodies nested in [node]'s clauses and `try` parts, each as its statements, outermost first. */
+        fun nestedBodies(node: ElixirAst): List<List<ElixirAst>> {
+            val parts = parts(node) ?: return children(node).flatMap(::nestedBodies)
+
+            return parts.flatMap { (kind, value) ->
+                when (kind) {
+                    Part.EXPRESSION -> nestedBodies(value)
+                    Part.BODY -> bodies(value)
+                    else -> clauses(value).flatMap { (args, body) -> nestedBodies(args) + bodies(body) }
+                }
+            }
+        }
+
+        /** [body]'s statements, unless it has none, and the bodies nested in them. */
+        fun bodies(body: ElixirAst): List<List<ElixirAst>> {
+            val statements = when {
+                body is ElixirAst.Block -> body.expressions
+                // A `->` without a body lowers to `nil` at the arrow.
+                body is ElixirAst.Literal.Atom && body.name == "nil" && body.meta.origin.length == 2 -> emptyList()
+                else -> listOf(body)
+            }
+
+            return listOfNotNull(statements.takeIf { it.isNotEmpty() }) + statements.flatMap(::nestedBodies)
+        }
     }
 }

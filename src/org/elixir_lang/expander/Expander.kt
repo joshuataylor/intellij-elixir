@@ -24,10 +24,14 @@ object Expander {
         ProgressManager.checkCanceled()
         run.observer.entering(ast, state, env)
 
-        return Clause.entries
+        val expansion = Clause.entries
             .firstOrNull { it.matches(ast, state, env, run.level) }
             ?.expand(ast, state, env, run)
             ?: Expansion.Unported(ast)
+
+        run.observer.left(ast, expansion)
+
+        return expansion
     }
 }
 
@@ -130,6 +134,14 @@ internal fun isNamedCall(node: ElixirAst, name: String): Boolean =
 /** `{name, meta, context}` with an atom context: a variable, `_` included. */
 internal fun isVariable(node: ElixirAst): Boolean =
     node is ElixirAst.Call && node.callee is ElixirAst.Literal.Atom && node.arguments == null
+
+/** `{'_', meta, context}`. */
+internal fun isUnderscore(node: ElixirAst): Boolean =
+    isVariable(node) && ((node as ElixirAst.Call).callee as ElixirAst.Literal.Atom).name == "_"
+
+/** The arguments of `{'when', meta, args}`, the guard last, if [node] is one. */
+internal fun whenArguments(node: ElixirAst): List<ElixirAst>? =
+    (node as? ElixirAst.Call)?.takeIf { isNamedCall(it, "when") }?.arguments
 
 /**
  * [node] in the shape its expansion has, as far as a ported clause's check reads it: a block of one expression is that

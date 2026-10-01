@@ -535,6 +535,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4309](https://github.com/intellij-elixir/intellij-elixir/pull/4309) [@sh41](https://github.com/sh41)
+  - **The expander expands `case`, `cond`, `receive`, `try` and `fn`, as each Elixir release does; nothing uses it yet.** Fixes [#4302](https://github.com/intellij-elixir/intellij-elixir/issues/4302).
 - [#4306](https://github.com/intellij-elixir/intellij-elixir/pull/4306) [@sh41](https://github.com/sh41)
   - **Setting a breakpoint in an Elixir file, filtering the "Decompiled BEAM" Go to Related popup, and opening Recent
     Locations from the Switcher read module and function names under a read lock.** Fixes

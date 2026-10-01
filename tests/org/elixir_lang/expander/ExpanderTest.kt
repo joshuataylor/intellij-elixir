@@ -214,7 +214,7 @@ class ExpanderTest : ExpanderTestCase() {
     }
 
     fun testTheEnvironmentNamesAreNotVariables() {
-        for (name in listOf("__MODULE__", "__DIR__", "__CALLER__", "__STACKTRACE__", "__ENV__")) {
+        for (name in listOf("__MODULE__", "__DIR__", "__CALLER__", "__ENV__")) {
             assertEvery("$name = :a", "unported `$name`")
             assertEvery("l = [1]; [$name | t] = l", "unported `$name`")
             assertEvery(name, "unported `$name`")

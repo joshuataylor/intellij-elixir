@@ -352,7 +352,7 @@ private fun unpackSpecs(spec: ElixirAst): List<Unpacked> {
         val (size, unit) = (spec as ElixirAst.Call).arguments!!
         val unitSpec = Unpacked.Builtin(spec, "unit", unit)
 
-        return if (isVariable(size) && variable(size).name == "_") {
+        return if (isUnderscore(size)) {
             listOf(unitSpec)
         } else {
             listOf(Unpacked.Builtin(spec, "size", size), unitSpec)

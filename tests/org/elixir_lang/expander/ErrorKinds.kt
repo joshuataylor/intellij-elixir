@@ -23,8 +23,26 @@ object ErrorKinds {
         "unhandled_cons_op" to """^misplaced operator \|/2\n\nThe \| operator is typically used between brackets""",
         "__cursor__" to """^reserved special form __cursor__ cannot be expanded""",
         "invalid_call" to """^invalid call """,
+        "missing_option" to """^missing :\S+ option in "\w+"$""",
+        "invalid_args" to """^invalid arguments for "\w+"$""",
+        "invalid_pattern_in_match" to """^invalid pattern in match, \S+ is not allowed in matches$""",
+        "stacktrace_not_allowed" to
+            """^__STACKTRACE__ is available only inside catch and rescue clauses of try expressions$""",
+        "underscore_in_cond" to """^invalid use of _ inside "cond"\. If you want the last clause to always match""",
         // elixir_clauses
         "recursive" to """^(recursive|cyclic) variable definition in patterns:\n\n""",
+        "bad_or_missing_clauses" to
+            """^(expected -> clauses for :\w+ in "\w+"|invalid "\w+" block in "\w+", it expects "pattern -> expr" clauses)$""",
+        "duplicated_clauses" to """^duplicated? (:\w+|"\w+") clauses given for "\w+"$""",
+        "unexpected_option" to """^unexpected option :\w+ in "\w+"$""",
+        "wrong_number_of_args_for_clause" to
+            """^expected (one argument|one or two args) for (:\w+|"\w+") clauses \(->\) in "\w+"$""",
+        "multiple_after_clauses_in_receive" to """^expected a single -> clause for :after in "receive"$""",
+        "invalid_rescue_clause" to
+            """^invalid "rescue" clause\. The clause should match on an alias, a variable or be in the "var in \[alias\]" format""",
+        // elixir_fn
+        "defaults_in_args" to """^anonymous functions cannot have optional arguments$""",
+        "clauses_with_different_arities" to """^cannot mix clauses with different arities in anonymous functions$""",
         // elixir_map
         "repeated_key" to """^key .+ will be overridden in map$""",
         "update_syntax_in_wrong_context" to """^cannot use map/struct update syntax in (match|guard), got: """,
