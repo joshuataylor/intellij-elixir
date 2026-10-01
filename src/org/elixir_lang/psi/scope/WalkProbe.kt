@@ -18,6 +18,9 @@ object WalkProbe {
 
         /** Implicit-import name index builds. */
         KERNEL_INDEX_BUILD,
+
+        /** Steps the module arm takes to decide whether the entrance is at compile-time level of the module's body. */
+        GATE,
     }
 
     enum class CancelPoint {

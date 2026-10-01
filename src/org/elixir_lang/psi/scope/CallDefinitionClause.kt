@@ -199,10 +199,9 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
                     element.macroChildCallSequence()
                 }
 
-                // If the entrance is at compile time level of `childCalls`, then only previous siblings could possibly define
+                // If the entrance is at compile time level of the body, then only previous siblings could possibly define
                 // this call and those will be handled by ElixirStabBody's processDeclarations.
-                // `childCalls` reaches into nested blocks and can hold the entrance itself, so this reads direct children.
-                if (!containsCompileTimeEntranceAncestorOrSelf(element.macroChildCallSequence(), state)) {
+                if (!isAtCompileTimeLevel(element, state.get(ENTRANCE))) {
                     for (childCall in childCalls) {
                         ProgressManager.checkCanceled()
                         execute(childCall, state)
@@ -450,34 +449,80 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             state: ResolveState
         ): Boolean =
             state.get(ENTRANCE).let { entrance ->
-                containsCompileTimeAncestorOrSelf(childCalls, entrance)
+                val ancestors = compileTimeAncestors(entrance).toList()
+
+                childCalls.any { it.isEquivalentTo(entrance) || it in ancestors }
             }
 
-        private fun containsCompileTimeAncestorOrSelf(childCalls: Sequence<Call>, entrance: PsiElement): Boolean =
-            childCalls.any { isCompileTimeAncestorOrSelf(it, entrance) }
+        /**
+         * Whether [entrance] or one of its [compileTimeAncestors] is among [modular]'s `macroChildCallList`, found by
+         * walking up from [entrance], so the cost is its depth rather than the size of [modular]'s body.
+         */
+        private fun isAtCompileTimeLevel(modular: Call, entrance: PsiElement): Boolean =
+            (sequenceOf(entrance) + compileTimeAncestors(entrance)).any {
+                WalkProbe.count(WalkProbe.Counter.GATE)
+                isMacroChild(modular, it)
+            }
 
-        private fun isCompileTimeAncestorOrSelf(call: Call, entrance: PsiElement): Boolean =
-            call.isEquivalentTo(entrance) || isCompileTimeAncestor(call, entrance.parent)
+        /** The `if`s and `unless`es that [entrance] is directly in, innermost first, through any blocks between. */
+        private fun compileTimeAncestors(entrance: PsiElement): Sequence<Call> = sequence {
+            var ancestor: PsiElement? = entrance.parent
 
-        private fun isCompileTimeAncestor(stop: Call, ancestor: PsiElement?): Boolean =
-            when (ancestor) {
-                is ElixirDoBlock,
-                is ElixirBlockList, is ElixirBlockItem,
-                is ElixirStab, is ElixirStabBody,
-                is ElixirAccessExpression, is ElixirParentheticalStab ->
-                    isCompileTimeAncestor(stop, ancestor.parent)
-                is QuotableKeywordPair -> isCompileTimeAncestor(stop, ancestor.selfOrEnclosingMacroCall())
-                is Call -> when {
-                    If.`is`(ancestor) || Unless.`is`(ancestor) ->
-                        // the `stop` is an `if` or `unless`
-                        ancestor.isEquivalentTo(stop) ||
-                                // there is an `if` or `unless` wrapping the original `ancestor`, but need to
-                                // confirm all levels above are also `if` or `unless` until `stop`.
-                                isCompileTimeAncestor(stop, ancestor.parent)
-                    else -> false
+            while (ancestor != null) {
+                ancestor = when (ancestor) {
+                    is ElixirDoBlock,
+                    is ElixirBlockList, is ElixirBlockItem,
+                    is ElixirStab, is ElixirStabBody,
+                    is ElixirAccessExpression, is ElixirParentheticalStab -> ancestor.parent
+                    is QuotableKeywordPair -> ancestor.selfOrEnclosingMacroCall()
+                    is Call ->
+                        if (If.`is`(ancestor) || Unless.`is`(ancestor)) {
+                            yield(ancestor)
+                            ancestor.parent
+                        } else {
+                            null
+                        }
+                    else -> null
                 }
-                else -> false
+            }
+        }
+
+        /** Whether `modular.macroChildCallList()` holds [candidate]. */
+        private fun isMacroChild(modular: Call, candidate: PsiElement): Boolean {
+            if (candidate !is Call) return false
+
+            val doBlock = modular.doBlock
+
+            return if (doBlock != null) {
+                (doBlock.stab?.children?.singleOrNull() as? ElixirStabBody)
+                    ?.let { stabBody -> isTraversed(candidate.parent, stabBody) }
+                    ?: false
+            } else {
+                (modular.finalArguments()?.lastOrNull() as? QuotableKeywordList)
+                    ?.quotableKeywordPairList()
+                    ?.firstOrNull()
+                    ?.takeIf { it.keywordKey.text == "do" }
+                    ?.keywordValue == candidate
+            }
+        }
+
+        /**
+         * Whether `macroChildCallList` takes the calls directly in [container] when it reads [stabBody]: the stab body
+         * itself, or a list that is the first child of access expressions in a container it takes.
+         */
+        private fun isTraversed(container: PsiElement?, stabBody: ElixirStabBody): Boolean {
+            if (container == stabBody) return true
+            if (container !is ElixirList) return false
+
+            var child: PsiElement = container
+            var parent = container.parent
+
+            while (parent is ElixirAccessExpression && parent.firstChild == child) {
+                child = parent
+                parent = parent.parent
             }
 
+            return child != container && isTraversed(parent, stabBody)
+        }
     }
 }
