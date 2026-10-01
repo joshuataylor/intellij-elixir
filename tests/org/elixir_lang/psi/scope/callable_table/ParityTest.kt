@@ -39,6 +39,7 @@ class ParityTest : PlatformTestCase() {
     fun testReentryUnimported() = assertParity("psi/scope/callable_table/reentry_unimported")
     fun testReentryImported() = assertParity("psi/scope/callable_table/reentry_imported")
     fun testSites() = assertParity("psi/scope/callable_table/sites")
+    fun testImportOptions() = assertParity("psi/scope/callable_table/import_options")
     fun testCombining() = assertParity("psi/scope/callable_table/combining")
     fun testForeign() = withHeexInjection { assertParity("psi/scope/callable_table/foreign", injected = true) }
     fun testReachInjected() = withHeexInjection { assertParity("psi/scope/callable_table/reach", injected = true) }

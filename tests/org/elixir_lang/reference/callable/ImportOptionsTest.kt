@@ -2,6 +2,7 @@ package org.elixir_lang.reference.callable
 
 import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.PsiPolyVariantReference
+import com.intellij.psi.ResolveResult
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.psi.scope.WalkTestSupport
@@ -46,9 +47,37 @@ class ImportOptionsTest : PlatformTestCase() {
         assertResolves("import M, only: [f: 2]", "f(1, 2)")
     }
 
-    fun testExceptOneArityOfADefaultedFunctionLeavesOutTheDefinition() {
+    fun testExceptOneArityOfADefaultedFunctionLeavesOutThatArity() {
         assertDoesNotResolve("import M, except: [f: 1]", "f(1)")
     }
+
+    fun testExceptOneArityOfADefaultedFunctionBringsInItsOtherArity() {
+        assertResolves("import M, except: [f: 1]", "f(1, 2)")
+    }
+
+    fun testAnArityOnlyLeavesOutReachesTheDefinitionAsAWrongArity() {
+        assertWrongArity("import M, only: [f: 1]", "f(1, 2)")
+    }
+
+    fun testAnArityExceptLeavesOutReachesTheDefinitionAsAWrongArity() {
+        assertWrongArity("import M, except: [f: 1]", "f(1)")
+    }
+
+    fun testADefinitionOnlyLeavesOutAtEveryArityIsNotReached() {
+        assertEmpty(definitionResults("import M, only: [g: 1]", "f(1)"))
+    }
+
+    fun testAnArityOnlyLeavesOutReachesTheCompiledDefinitionAsAWrongArity() =
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_logger", LOGGER) {
+            val import = "import Logger, only: [debug: 1]"
+            val use = "debug(1, [])"
+            myFixture.configureByText("u.ex", user(import, "<caret>$use"))
+            val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
+            val results = reference.multiResolve(false).filter { it.element is BeamCallDefinition }
+
+            assertTrue("`$use` under `$import` reaches no compiled definition", results.isNotEmpty())
+            assertTrue("`$use` under `$import` resolves to a compiled definition", results.none { it.isValidResult })
+        }
 
     fun testExceptOfAnAttributeInAFunctionKeepsOtherNames() {
         assertTrue(
@@ -136,6 +165,41 @@ class ImportOptionsTest : PlatformTestCase() {
         )
     }
 
+    fun testExceptOneArityOfADelegationWithDefaultsLeavesOutOnlyThatArity() {
+        val delegations = """
+            defmodule Target do
+              def snoc(q, x), do: [x | q]
+            end
+
+            defmodule D do
+              defdelegate snoc(q, x \\ nil), to: Target
+            end
+        """.trimIndent()
+
+        assertEmpty(validTargets(delegations, "import D, except: [snoc: 1]", "snoc(1)"))
+        assertContainsElements(
+            validTargets(delegations, "import D, except: [snoc: 1]", "snoc(1, 2)"),
+            """defdelegate snoc(q, x \\ nil), to: Target"""
+        )
+    }
+
+    fun testAnArityExceptLeavesOutReachesTheDelegationAsAWrongArity() {
+        val delegations = """
+            defmodule Target do
+              def snoc(q, x), do: [x | q]
+            end
+
+            defmodule D do
+              defdelegate snoc(q, x \\ nil), to: Target
+            end
+        """.trimIndent()
+
+        assertContainsElements(
+            invalidTargets(delegations, "import D, except: [snoc: 1]", "snoc(1)"),
+            """defdelegate snoc(q, x \\ nil), to: Target"""
+        )
+    }
+
     fun testADelegationOfAnotherArityDoesNotHideTheTarget() {
         val delegations = """
             defmodule Target do
@@ -155,7 +219,16 @@ class ImportOptionsTest : PlatformTestCase() {
     }
 
     /** The first line of each valid result for [use] under [import], after the modules [delegations] declares. */
-    private fun validTargets(delegations: String, import: String, use: String): List<String> {
+    private fun validTargets(delegations: String, import: String, use: String): List<String> =
+        firstLines(results(delegations, import, use).filter { it.isValidResult })
+
+    private fun invalidTargets(delegations: String, import: String, use: String): List<String> =
+        firstLines(results(delegations, import, use).filterNot { it.isValidResult })
+
+    private fun firstLines(results: List<ResolveResult>): List<String> =
+        results.mapNotNull { it.element?.text?.lines()?.first() }
+
+    private fun results(delegations: String, import: String, use: String): List<ResolveResult> {
         val user = """
             defmodule U do
               $import
@@ -168,7 +241,7 @@ class ImportOptionsTest : PlatformTestCase() {
         myFixture.configureByText("u.ex", "$delegations\n\n$user")
         val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
 
-        return reference.multiResolve(false).filter { it.isValidResult }.mapNotNull { it.element?.text?.lines()?.first() }
+        return reference.multiResolve(false).toList()
     }
 
     fun testUnderscoredNamesAreNotImported() {
@@ -256,12 +329,24 @@ class ImportOptionsTest : PlatformTestCase() {
             """.trimIndent()
         )
 
-    private fun resolvesToDefinition(text: String): Boolean {
+    private fun resolvesToDefinition(text: String): Boolean = definitionResults(text).any { it.isValidResult }
+
+    private fun assertWrongArity(import: String, use: String) {
+        val results = definitionResults(import, use)
+
+        assertTrue("`$use` under `$import` reaches no definition", results.isNotEmpty())
+        assertTrue("`$use` under `$import` resolves to a definition", results.none { it.isValidResult })
+    }
+
+    private fun definitionResults(import: String, use: String): List<ResolveResult> =
+        definitionResults(user(import, "<caret>$use"))
+
+    private fun definitionResults(text: String): List<ResolveResult> {
         myFixture.configureByText("u.ex", text)
         val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
 
         // The `import` line is a result of its own, so only a definition in `m.ex` counts.
-        return reference.multiResolve(false).any { it.isValidResult && it.element?.containingFile?.name == "m.ex" }
+        return reference.multiResolve(false).filter { it.element?.containingFile?.name == "m.ex" }
     }
 
     override fun setUp() {

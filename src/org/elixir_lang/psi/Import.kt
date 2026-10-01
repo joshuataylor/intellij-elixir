@@ -6,6 +6,7 @@ import com.ericsson.otp.erlang.OtpErlangObject
 import com.ericsson.otp.erlang.OtpErlangString
 import com.ericsson.otp.erlang.OtpErlangTuple
 import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.util.Key
 import com.intellij.psi.ElementDescriptionLocation
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
@@ -46,6 +47,12 @@ import org.elixir_lang.structure_view.element.Delegation
  * An `import` call
  */
 object Import {
+    /**
+     * The options of the `import` a definition was reached through. The walk admits a definition when any arity it
+     * covers is admitted; a use of one arity checks that arity against this.
+     */
+    val FILTER = Key<Filter>("Import.FILTER")
+
     /** What a module exports, or what an `import` of it brings in: its functions and its macros. */
     data class Imports(val functions: Set<NameArity>, val macros: Set<NameArity>) {
         fun of(macro: Boolean): Set<NameArity> = if (macro) macros else functions
@@ -118,11 +125,6 @@ object Import {
 
                 return selected && nameArity !in except.orEmpty()
             }
-
-            /** A definition covering an arity `except:` names is left out whole: a use's arity is not known here. */
-            override fun admits(name: Name, arityInterval: ArityInterval, macro: Boolean): Boolean =
-                super.admits(name, arityInterval, macro) &&
-                    except.orEmpty().none { it.name == name && it.arity in arityInterval }
 
             override fun namedArities(name: Name): Collection<Arity> =
                 (except.orEmpty() + prior?.functions.orEmpty() + prior?.macros.orEmpty())
@@ -274,13 +276,17 @@ object Import {
                 val filter =
                     Filter.of(importCall, ElixirLanguageLevelResolver.languageLevelFor(importCall), prior = null)
 
+                val filtered = { state: ResolveState -> state.put(FILTER, filter) }
+
                 for (modular in modulars) {
                     ProgressManager.checkCanceled()
                     // One imported module stops at a `false` and answers `true` (`takeWhile { it }.lastOrNull() ?: true`).
-                    val childResolveState = Recording.enter(
-                        importCallResolveState.putVisitedElement(modular), "IMPORTED", modular, stops = true,
-                        absorbs = true, childGate = if (modular is Call) ::walksChild else null
-                    )
+                    val childResolveState = Recording
+                        .enter(
+                            importCallResolveState.putVisitedElement(modular), "IMPORTED", modular, stops = true,
+                            absorbs = true, childGate = if (modular is Call) ::walksChild else null, reach = filtered
+                        )
+                        .let(filtered)
 
                     accumulatedKeepProcessing =
                         treeWalkUpImportedModular(modular, filter, childResolveState, keepProcessing)

@@ -120,6 +120,9 @@
 
 - [#4313](https://github.com/intellij-elixir/intellij-elixir/pull/4313) [@sh41](https://github.com/sh41)
   - **Kernel's private functions are no longer offered in completion or resolved from an unqualified call.**
+  - **`import M, except: [f: 1]` now leaves out only `f/1`, so a call to `f/2` of a function with a default
+    argument resolves; a call at an arity an `import` doesn't bring in no longer resolves through it.** Fixes
+    [#4217](https://github.com/intellij-elixir/intellij-elixir/issues/4217).
 - [#4306](https://github.com/intellij-elixir/intellij-elixir/pull/4306) [@sh41](https://github.com/sh41)
   - **Functions and modules are named by the atom Elixir gives them, so a name written as a quoted atom
     (`def unquote(:"a-b")()`, `defmodule :"my-mod"`, `defmodule :"Elixir.Foo"`), with a combining mark or a micro
