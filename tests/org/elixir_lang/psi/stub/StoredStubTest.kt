@@ -1,7 +1,13 @@
 package org.elixir_lang.psi.stub
 
+import com.intellij.psi.PsiElement
+import com.intellij.psi.stubs.IStubElementType
+import com.intellij.psi.stubs.IndexSink
 import com.intellij.psi.stubs.StubElement
+import com.intellij.psi.stubs.StubIndexKey
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.language_level.ElixirLanguageLevel
+import org.elixir_lang.language_level.ElixirLanguageLevelResolver
 import org.elixir_lang.psi.stub.call.Stubbic
 import org.elixir_lang.psi.stub.type.File
 
@@ -142,7 +148,7 @@ class StoredStubTest : PlatformTestCase() {
 
     fun testModuleNamedWithAQuotedAtom() = assertStored(
         "defmodule :\"a.b\" do\nend\n",
-        "MODULE :\"a.b\" Kernel.defmodule/2 do [:a.b] -",
+        "MODULE :a.b Kernel.defmodule/2 do [:a.b] -",
     )
 
     fun testModuleNamedWithAnAtom() = assertStored(
@@ -159,24 +165,24 @@ class StoredStubTest : PlatformTestCase() {
     fun testModuleNamedWithAnElixirPrefixedAtomInAModule() = assertStored(
         "defmodule Outer do\n  defmodule :\"Elixir.Foo\" do\n  end\nend\n",
         "MODULE Outer Kernel.defmodule/2 do [Outer] -",
-        "MODULE :\"Elixir.Foo\" Kernel.defmodule/2 do [Foo] -",
+        "MODULE Foo Kernel.defmodule/2 do [Foo] -",
     )
 
     fun testModuleNamedWithACharListQuotedAtom() = assertStored(
         "defmodule :'a.b' do\nend\n",
-        "MODULE :'a.b' Kernel.defmodule/2 do [:a.b] -",
+        "MODULE :a.b Kernel.defmodule/2 do [:a.b] -",
     )
 
     fun testModuleNamedWithAnInterpolatedAtomInAModule() = assertStored(
         "defmodule Outer do\n  defmodule :\"#{x}\" do\n  end\nend\n",
         "MODULE Outer Kernel.defmodule/2 do [Outer] -",
-        "MODULE :\"#{x}\" Kernel.defmodule/2 do [?] -",
+        "MODULE ? Kernel.defmodule/2 do [?] -",
     )
 
     fun testModuleNamedWithAnAtomLongerThanAnAtomCanBe() = "a".repeat(256).let { name ->
         assertStored(
             "defmodule :\"$name\" do\nend\n",
-            "MODULE :\"$name\" Kernel.defmodule/2 do [?] -",
+            "MODULE ? Kernel.defmodule/2 do [?] -",
         )
     }
 
@@ -255,6 +261,156 @@ class StoredStubTest : PlatformTestCase() {
         "MODULE_ATTRIBUTE @c Module.put_attribute/3 - [@c] -",
     )
 
+    fun testModuleNamedWithAnElixirPrefixedAlias() = assertStored(
+        "defmodule Elixir.Foo do\nend\n",
+        "MODULE Foo Kernel.defmodule/2 do [Foo] -",
+    )
+
+    fun testModuleNamedWithAnElixirPrefixedAliasInAModule() = assertStored(
+        "defmodule Outer do\n  defmodule Elixir.Inner do\n  end\nend\n",
+        "MODULE Outer Kernel.defmodule/2 do [Outer] -",
+        "MODULE Inner Kernel.defmodule/2 do [Inner] -",
+    )
+
+    fun testModuleNamedWithAnElixirPrefixedAtom() = assertStored(
+        "defmodule :\"Elixir.Foo\" do\nend\n",
+        "MODULE Foo Kernel.defmodule/2 do [Foo] -",
+    )
+
+    fun testModuleNamedWithAnAliasWithAnElixirSegment() = assertStored(
+        "defmodule Foo.Elixir.Bar do\nend\n",
+        "MODULE Foo.Elixir.Bar Kernel.defmodule/2 do [Foo.Elixir.Bar] -",
+    )
+
+    fun testModuleNamedWithSpacesAroundTheDot() = assertStored(
+        "defmodule Foo . Bar do\nend\n",
+        "MODULE Foo.Bar Kernel.defmodule/2 do [Foo.Bar] -",
+    )
+
+    fun testModuleNamedWithANewlineAfterTheDot() = assertStored(
+        "defmodule Foo.\n  Bar do\nend\n",
+        "MODULE Foo.Bar Kernel.defmodule/2 do [Foo.Bar] -",
+    )
+
+    fun testDefimplForAnElixirPrefixedAlias() = assertStored(
+        "defimpl P, for: Elixir.Integer do\nend\n",
+        "IMPLEMENTATION P.Integer Kernel.defimpl/3 do [P.Integer] P",
+    )
+
+    fun testDefimplOfAProtocolWithAnElixirSegment() = assertStored(
+        "defimpl Foo.Elixir.Bar, for: X do\nend\n",
+        "IMPLEMENTATION Foo.Elixir.Bar.X Kernel.defimpl/3 do [Foo.Elixir.Bar.X] Foo.Elixir.Bar",
+    )
+
+    fun testDefimplOfAnElixirPrefixedAtomProtocol() = assertStored(
+        "defimpl :\"Elixir.Outer.P\", for: BitString do\nend\n",
+        "IMPLEMENTATION Outer.P.BitString Kernel.defimpl/3 do [Outer.P.BitString] Outer.P",
+    )
+
+    fun testDefinitionsNamedByUnquotedAtoms() = assertStored(
+        "defmodule Q do\n" +
+            "  def unquote(:\"a\\x62\")(), do: 1\n" +
+            "  def unquote(:in)(x, _y), do: x\n" +
+            "  defmacro unquote(:!)(value), do: value\n" +
+            "  @spec unquote(:\"foo bar\")(integer) :: integer\n" +
+            "end\n",
+        "MODULE Q Kernel.defmodule/2 do [Q] -",
+        "PUBLIC_FUNCTION ab Kernel.def/2 do [ab] -",
+        "PUBLIC_FUNCTION in Kernel.def/2 do [in] -",
+        "PUBLIC_MACRO ! Kernel.defmacro/2 do [!] -",
+        "MODULE_ATTRIBUTE foo bar null.null/1 - [foo bar] -",
+    )
+
+    fun testDefinitionNamedByADecomposedIdentifierIsComposed() = assertStored(
+        "defmodule N do\n  def $DECOMPOSED(), do: 1\nend\n",
+        "MODULE N Kernel.defmodule/2 do [N] -",
+        "PUBLIC_FUNCTION $PRECOMPOSED Kernel.def/2 do [$PRECOMPOSED] -",
+    )
+
+    /** Below 1.14 Elixir rejects a decomposed identifier, and the quoter keeps it as written. */
+    fun testDefinitionNamedByADecomposedIdentifierBeforeNormalizedIdentifiers() {
+        ElixirLanguageLevelResolver.overrideLanguageLevel(project, ElixirLanguageLevel.of("1.13.4"))
+
+        try {
+            assertStored(
+                "defmodule N do\n  def $DECOMPOSED(), do: 1\nend\n",
+                "MODULE N Kernel.defmodule/2 do [N] -",
+                "PUBLIC_FUNCTION $DECOMPOSED Kernel.def/2 do [$DECOMPOSED] -",
+            )
+        } finally {
+            ElixirLanguageLevelResolver.overrideLanguageLevel(project, null)
+        }
+    }
+
+    fun testModuleWithNoValueAndModuleNamedByTheNoValueSpellingDoNotShareAKey() =
+        assertNoSharedKey("defmodule :\"#{x}\" do\nend\n", "defmodule :\"Elixir.?\" do\nend\n")
+
+    fun testElixirPrefixedAtomNamingAnAtomAndThatAtomDoNotShareAKey() =
+        assertNoSharedKey("defmodule :\"Elixir.:foo\" do\nend\n", "defmodule :foo do\nend\n")
+
+    fun testModuleNamedByAnInterpolatedAtomWritesNoNameKey() = assertKeys(
+        "defmodule :\"#{x}\" do\nend\n",
+        "MODULE ? []",
+    )
+
+    fun testModulesNamedInsideAModuleNamedAtRunTimeWriteNoNameKey() = assertKeys(
+        "defmodule unquote(n) do\n  defmodule Inner do\n  end\nend\n",
+        "MODULE unquote(n) []",
+        "MODULE Inner []",
+    )
+
+    fun testDefimplWithoutForKeepsItsProtocolKey() = assertKeys(
+        "defimpl P do\nend\n",
+        "IMPLEMENTATION ? [elixir.implemented_protocol.name:P]",
+    )
+
+    fun testModuleNamedByTheNoValueSpellingKeepsItsKey() = assertKeys(
+        "defmodule :\"Elixir.?\" do\nend\n",
+        "MODULE :Elixir.? [elixir.all.name::Elixir.?, elixir.modular.name::Elixir.?]",
+    )
+
+    fun testDefinitionNamedWithTheNoValueSpellingKeepsItsKey() = assertKeys(
+        "defmodule M do\n  def unquote(:\"a.?\")(), do: 1\nend\n",
+        "MODULE M [elixir.all.name:M, elixir.modular.name:M]",
+        "PUBLIC_FUNCTION a.? [elixir.all.name:a.?]",
+    )
+
+    private fun assertKeys(source: String, vararg expected: String) {
+        val root = File.INSTANCE.builder.buildStubTree(myFixture.configureByText("stored.ex", source))
+
+        assertEquals(
+            expected.joinToString("\n"),
+            stubbics(root).joinToString("\n") { stubbic ->
+                listOf(stubbic.definition?.name ?: "-", stubbic.name, occurrences(stubbic as StubElement<*>)).joinToString(" ")
+            },
+        )
+    }
+
+    private fun occurrences(stub: StubElement<*>): String {
+        val occurrences = mutableListOf<String>()
+        val sink = object : IndexSink {
+            override fun <Psi : PsiElement, K : Any> occurrence(indexKey: StubIndexKey<K, Psi>, value: K) {
+                occurrences.add("${indexKey.name}:$value")
+            }
+        }
+        @Suppress("UNCHECKED_CAST")
+        (stub.stubType as IStubElementType<StubElement<*>, *>).indexStub(stub, sink)
+
+        return occurrences.sorted().joinToString(", ", "[", "]")
+    }
+
+    private fun assertNoSharedKey(source: String, otherSource: String) {
+        val keys = keys(source)
+        val otherKeys = keys(otherSource)
+
+        assertEquals("$keys and $otherKeys", emptySet<String>(), keys intersect otherKeys)
+    }
+
+    private fun keys(source: String): Set<String> =
+        stubbics(File.INSTANCE.builder.buildStubTree(myFixture.configureByText("stored.ex", source)))
+            .flatMap { it.canonicalNameSet() }
+            .toSet()
+
     private fun assertStored(source: String, vararg expected: String) {
         val file = myFixture.configureByText("stored.ex", source)
         val root = File.INSTANCE.builder.buildStubTree(file)
@@ -274,4 +430,9 @@ class StoredStubTest : PlatformTestCase() {
             stubbic.canonicalNameSet().sorted().joinToString(", ", "[", "]"),
             stubbic.implementedProtocolName ?: "-",
         ).joinToString(" ")
+
+    private companion object {
+        const val DECOMPOSED = "café"
+        const val PRECOMPOSED = "café"
+    }
 }

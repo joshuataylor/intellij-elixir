@@ -2,6 +2,8 @@ package org.elixir_lang.structure_view.element.call_definition_by_name_arity
 
 
 import com.intellij.ide.util.treeView.smartTree.TreeElement
+import com.intellij.psi.ResolveState
+import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.structure_view.element.*
@@ -22,6 +24,7 @@ class FunctionByNameArity(size: Int, treeElementList: MutableList<TreeElement>, 
     fun addDelegationToTreeElementList(delegationCall: Call) =
             addToTreeElementList(Delegation(modular, delegationCall))
 
+    @RequiresReadLock
     fun addSpecificationToCallDefinition(moduleAttributeDefinition: Call) {
         assert(moduleAttributeDefinition is AtUnqualifiedNoParenthesesCall<*>)
 
@@ -41,7 +44,7 @@ class FunctionByNameArity(size: Int, treeElementList: MutableList<TreeElement>, 
     }
 
     private fun addHeadToCallDefinition(call: Call): CallDefinition {
-        val name = call.functionName()!!
+        val name = CallDefinitionHead.nameArityInterval(call, ResolveState.initial())?.name ?: call.functionName()!!
         val arity = call.resolvedFinalArity()
         val nameArity = NameArity(name, arity)
 

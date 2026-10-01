@@ -105,7 +105,7 @@ object Declarations {
         }
 
         return listOf(
-            spelled(call, atom.node.lastChildNode.text, quotedAtomValue(atom), arity, capabilities, Form.EEX_FUNCTION_FROM)
+            spelled(call, quotedAtomValue(atom) ?: atom.node.lastChildNode.text, quotedAtomValue(atom), arity, capabilities, Form.EEX_FUNCTION_FROM)
         )
     }
 
@@ -122,7 +122,7 @@ object Declarations {
         return listOf(
             spelled(
                 call,
-                "${atom.node.lastChildNode.text}_$suffix",
+                quotedAtomValue(atom)?.let { "${it}_$suffix" } ?: "${atom.node.lastChildNode.text}_$suffix",
                 quotedAtomValue(atom)?.let { "${it}_$suffix" },
                 arity,
                 PRIVATE_RUNTIME,

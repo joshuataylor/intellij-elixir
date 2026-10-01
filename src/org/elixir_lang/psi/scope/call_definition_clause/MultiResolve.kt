@@ -82,9 +82,11 @@ private constructor(
                     element.keywordArgument("to")?.takeIf { headValidResult || incompleteCode }?.let { definingModuleName ->
                         val modulars = definingModuleName.maybeModularNameToModulars(element.containingFile, useCall = null, incompleteCode = incompleteCode)
 
-                        if (modulars.isNotEmpty()) {
-                            val asAtom = element.keywordArgument("as")?.let { it as? ElixirAtom }
-                            val nameInDefiningModule = asAtom?.node?.lastChildNode?.text ?: headName
+                        val asAtom = element.keywordArgument("as")?.let { it as? ElixirAtom }
+                        // An interpolated `as:` names a function that only evaluation finds.
+                        val nameInDefiningModule = if (asAtom != null) quotedAtomValue(asAtom) else headName
+
+                        if (modulars.isNotEmpty() && nameInDefiningModule != null) {
                             val nameInDefiningModuleAtom = if (asAtom != null) quotedAtomValue(asAtom) else headAtomValue(head)
                             val headNamed = this.name == null || headName == this.name
 
@@ -135,7 +137,7 @@ private constructor(
 
     override fun executeOnEExFunctionFrom(element: Call, state: ResolveState): Boolean =
             element.finalArguments()?.let { arguments ->
-                        arguments[1].stripAccessExpression().let { it as? ElixirAtom }?.node?.lastChildNode?.text?.let { name ->
+                        arguments[1].stripAccessExpression().let { it as? ElixirAtom }?.let { quotedAtomValue(it) }?.let { name ->
                             if (this.name != null && name.startsWith(this.name)) {
                                 val arity = if (arguments.size >= 4) {
                                     // function_from_file(kind, name, file, args)
@@ -167,7 +169,7 @@ private constructor(
             }
 
     override fun executeOnMixGeneratorEmbed(element: Call, state: ResolveState): Boolean =
-            element.finalArguments()?.first()?.stripAccessExpression()?.let { it as? ElixirAtom }?.node?.lastChildNode?.text?.let { prefix ->
+            element.finalArguments()?.first()?.stripAccessExpression()?.let { it as? ElixirAtom }?.let { quotedAtomValue(it) }?.let { prefix ->
                 val suffix = element.functionName()!!.removePrefix("embed_")
                 val name = "${prefix}_${suffix}"
                 val arityRange = when (suffix) {
@@ -321,7 +323,7 @@ private constructor(
                            entrance: PsiElement,
                            resolveState: ResolveState = ResolveState.initial(),
                            nameAtom: String? = null): List<VisitedElementSetResolveResult> {
-            val multiResolve = MultiResolve(name, resolvedFinalArity, incompleteCode, nameAtom)
+            val multiResolve = MultiResolve(nameAtom ?: name, resolvedFinalArity, incompleteCode, nameAtom)
             val maxScope = maxScope(entrance)
 
             val entranceResolveState = resolveState

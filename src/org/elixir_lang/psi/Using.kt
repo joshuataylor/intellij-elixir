@@ -17,6 +17,7 @@ import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.call.stabBodyChildExpressions
 import org.elixir_lang.psi.impl.childExpressions
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
+import org.elixir_lang.psi.impl.quotedAtomValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Match
 import org.elixir_lang.psi.scope.Recording
@@ -189,11 +190,7 @@ object Using {
                                     val name = useCall?.finalArguments()?.let { arguments ->
                                         if (arguments.size == 2) {
                                             when (val which = arguments[1].stripAccessExpression()) {
-                                                is ElixirAtom -> if (which.line == null) {
-                                                    which.lastChild.text
-                                                } else {
-                                                    null
-                                                }
+                                                is ElixirAtom -> quotedAtomValue(which)
                                                 else -> null
                                             }
                                         } else {

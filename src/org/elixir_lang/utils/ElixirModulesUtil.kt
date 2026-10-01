@@ -6,7 +6,7 @@ object ElixirModulesUtil {
     // Matches a valid Elixir alias after stripping the "Elixir." prefix,
     // e.g. "Foo", "Foo.Bar", "Foo.Bar.Baz" — each segment starts with [A-Z]
     // and contains only [a-zA-Z0-9_].
-    private val elixirAliasSegmentsRegex = Regex("([A-Z][a-zA-Z0-9_]*)(\\.[A-Z][a-zA-Z0-9_]*)*")
+    internal val elixirAliasSegmentsRegex = Regex("([A-Z][a-zA-Z0-9_]*)(\\.[A-Z][a-zA-Z0-9_]*)*")
 
     fun elixirModuleNameToErlang(moduleName: String): String =
             when {

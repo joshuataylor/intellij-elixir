@@ -169,7 +169,8 @@ open class ChooseByNameContributor(private val stubIndexKey: StubIndexKey<String
             val modular = enclosingModularByCall.putNew(delegationCall)
 
             if (modular != null) {
-                val callDefinitionName = call.functionName()
+                val callDefinitionName =
+                    CallDefinitionHead.nameArityInterval(call, ResolveState.initial())?.name ?: call.functionName()
 
                 if (callDefinitionName != null) {
                     val callDefinitionArity = call.resolvedFinalArity()

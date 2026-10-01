@@ -14,7 +14,7 @@ import org.elixir_lang.psi.call.name.Function
 import org.elixir_lang.psi.impl.call.CanonicallyNamedImpl
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.keywordValue
-import org.elixir_lang.psi.impl.stripAccessExpression
+import org.elixir_lang.psi.impl.moduleName
 import org.elixir_lang.psi.stub.index.ModularName
 
 object Implementation {
@@ -103,7 +103,7 @@ object Implementation {
         forNameElement.name?.let { listOf(it) }
 
     private fun forNameCollection(forNameElement: QualifiableAlias): Collection<String>? =
-        forNameElement.name?.let { listOf(it) }
+        (moduleName(forNameElement)?.name ?: forNameElement.name)?.let { listOf(it) }
 
     @RequiresReadLock
     fun forNameElement(call: Call): PsiElement? =
@@ -134,24 +134,9 @@ object Implementation {
     @RequiresReadLock
     @JvmStatic
     fun protocolName(call: SyntacticCall): String? =
-        call.protocolAliasText()?.let { CanonicallyNamedImpl.expandModule(it, call) }?.replace("Elixir.", "")
+        call.protocolAliasText()?.let { CanonicallyNamedImpl.expandModule(it, call) }
 
     @RequiresReadLock
     @JvmStatic
     fun implementedProtocolName(call: SyntacticCall): String? = if (`is`(call)) protocolName(call) else null
-
-    @RequiresReadLock
-    fun protocolNameElement(call: Call): QualifiableAlias? {
-        val finalArguments = call.finalArguments()
-
-        return if (finalArguments != null && finalArguments.isNotEmpty()) {
-            when (val firstFinalArgument = finalArguments[0]) {
-                is ElixirAccessExpression -> firstFinalArgument.stripAccessExpression() as? QualifiableAlias
-                is QualifiableAlias -> firstFinalArgument
-                else -> null
-            }
-        } else {
-            null
-        }
-    }
 }

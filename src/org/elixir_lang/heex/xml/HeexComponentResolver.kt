@@ -8,6 +8,8 @@ import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.xml.XmlTag
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.ElixirLanguage
+import org.elixir_lang.language_level.ElixirLanguageLevelResolver.languageLevelFor
+import org.elixir_lang.lowering.identifierAtomName
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.ElixirFile
 import org.elixir_lang.psi.Implementation
@@ -55,8 +57,9 @@ import org.elixir_lang.reference.resolver.Module as ModuleResolver
         val elixirRoot = elixirRoot(tag) ?: return null
 
         return when (component) {
-            is ComponentTagName.Local -> resolveLocalCall(component.functionName, elixirRoot)
-            is ComponentTagName.Remote -> resolveRemoteCall(component.aliasChain, component.functionName, elixirRoot)
+            is ComponentTagName.Local -> resolveLocalCall(atomName(component.functionName, elixirRoot), elixirRoot)
+            is ComponentTagName.Remote ->
+                resolveRemoteCall(component.aliasChain, atomName(component.functionName, elixirRoot), elixirRoot)
             // A slot is declared by the `slot` macro, not a def/defp.
             is ComponentTagName.Slot -> null
         }
@@ -66,6 +69,9 @@ import org.elixir_lang.reference.resolver.Module as ModuleResolver
     // otherwise.
     private fun elixirRoot(tag: XmlTag): ElixirFile? =
         tag.containingFile.originalFile.viewProvider.getPsi(ElixirLanguage) as? ElixirFile
+
+    private fun atomName(functionName: String, elixirRoot: ElixirFile): String =
+        identifierAtomName(functionName) { languageLevelFor(elixirRoot) }
 
     private fun resolveLocalCall(functionName: String, entrance: PsiElement): Call? =
         MultiResolve

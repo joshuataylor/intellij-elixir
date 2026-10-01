@@ -31,11 +31,11 @@ import org.elixir_lang.language_level.ElixirLanguageFeature.*
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver.isAvailable
 import org.elixir_lang.language_level.ElixirLanguageLevelResolver.languageLevelFor
+import org.elixir_lang.lowering.identifierAtomName
 import org.jetbrains.annotations.Contract
 import java.lang.Double
 import java.lang.Long
 import java.math.BigInteger
-import java.text.Normalizer
 import java.util.*
 
 val UNQUOTED_TYPES = arrayOf<Class<*>>(ElixirEndOfExpression::class.java, PsiComment::class.java, PsiWhiteSpace::class.java)
@@ -1526,13 +1526,7 @@ object QuotableImpl {
 
     @RequiresReadLock
     private fun identifierAtom(identifier: String, element: PsiElement): OtpErlangAtom =
-        OtpErlangAtom(
-            if (identifier.any { it.code > 0x7F } && isAvailable(NORMALIZED_IDENTIFIERS, element)) {
-                Normalizer.normalize(identifier, Normalizer.Form.NFC).replace('µ', 'μ')
-            } else {
-                identifier
-            }
-        )
+        OtpErlangAtom(identifierAtomName(identifier) { languageLevelFor(element) })
 
     @JvmStatic
     fun quote(decimalFloat: ElixirDecimalFloat): OtpErlangObject {

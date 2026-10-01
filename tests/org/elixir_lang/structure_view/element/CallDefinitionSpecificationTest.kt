@@ -74,4 +74,18 @@ class CallDefinitionSpecificationTest : PlatformTestCase() {
 
         walkStructureView()
     }
+
+    /** A spec is listed with the clauses of the function its head names, by the atom both quote to. */
+    fun testSpecIsListedWithTheClausesItSpecifies() {
+        myFixture.configureByText(
+            "spec_decomposed.ex",
+            "defmodule A do\n  @spec snoc\u0301(integer) :: integer\n  def snoc\u0301(x), do: x\nend\n"
+        )
+        val module = Model(myFixture.file as ElixirFile, null).root.children.single()
+
+        assertEquals(
+            listOf("sno\u0107/1"),
+            module.children.filterIsInstance<CallDefinition>().map { it.presentation.presentableText },
+        )
+    }
 }

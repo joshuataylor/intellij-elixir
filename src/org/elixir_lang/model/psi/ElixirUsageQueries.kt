@@ -56,6 +56,7 @@ import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.moduleAttributeName
 import org.elixir_lang.psi.impl.identifierTextRange
 import org.elixir_lang.psi.impl.call.finalArguments
+import org.elixir_lang.psi.impl.functionNameAtomValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.scope.ancestorTypeSpec
 import org.elixir_lang.reference.Callable
@@ -707,7 +708,10 @@ internal object ElixirUsageQueries {
          */
         @RequiresReadLock
         private fun matchesCallSite(call: Call, symbol: FunctionSymbol): Boolean =
-            if (call.isCalling(symbol.moduleName, symbol.name, symbol.arity)) {
+            if (call.resolvedModuleName() == symbol.moduleName &&
+                (functionNameAtomValue(call) ?: call.functionName()) == symbol.name &&
+                call.resolvedFinalArity() == symbol.arity
+            ) {
                 true
             } else {
                 Callable(call).multiResolve(false)

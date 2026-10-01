@@ -10,12 +10,11 @@ import org.elixir_lang.psi.ElixirAtom
 import org.elixir_lang.psi.Use
 import org.elixir_lang.psi.Using
 import org.elixir_lang.psi.call.Call
-import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil
-import org.elixir_lang.psi.impl.call.CanonicallyNamedImpl
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.indexName
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
+import org.elixir_lang.psi.impl.moduleName as quotedModuleName
 import org.elixir_lang.psi.impl.stripAccessExpression
 
 /**
@@ -53,14 +52,11 @@ object BehaviourMembership {
     }
 
     /**
-     * The name a `defmodule`/`defimpl`/`defprotocol` [call] is matched and looked up by as a behaviour, or `null`: an
-     * atom-named module's index name, otherwise the name as written.
+     * The name a `defmodule`/`defimpl`/`defprotocol` [call] is matched and looked up by as a behaviour, or `null`.
      */
     @RequiresReadLock
     fun moduleName(call: Call): String? =
-        runCatching {
-            CanonicallyNamedImpl.atomIndexName(SyntacticCall.of(call)) ?: org.elixir_lang.psi.Module.name(call)
-        }
+        runCatching { org.elixir_lang.psi.Module.name(call) }
             .getOrElse { if (it is ProcessCanceledException) throw it else null }
 
     @RequiresReadLock
@@ -117,7 +113,7 @@ object BehaviourMembership {
 
         val names = when (val stripped = value.stripAccessExpression()) {
             is ElixirAtom -> stripped.indexName()?.let { linkedSetOf(it) } ?: linkedSetOf()
-            else -> linkedSetOf(valueText)
+            else -> linkedSetOf(quotedModuleName(stripped)?.name ?: valueText)
         }
         value
             .maybeModularNameToModulars(maxScope = value.containingFile, useCall = null, incompleteCode = false)
