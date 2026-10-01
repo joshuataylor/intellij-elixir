@@ -111,9 +111,9 @@ object ShapeTable {
             descent = VariableDescent.Bucket.TYPE,
             typeAscent = TypeAscent.Bucket.PARENT,
         ),
-        Row(When::class.java, parameter = ParameterWalk.Bucket.RECURSE),
         Row(
-            ElixirMatchedWhenOperation::class.java,
+            When::class.java,
+            parameter = ParameterWalk.Bucket.RECURSE,
             descent = VariableDescent.Bucket.WHEN,
             destructure = Destructure.Bucket.OPAQUE
         ),

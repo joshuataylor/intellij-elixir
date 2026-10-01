@@ -114,8 +114,8 @@
 ### Bug Fixes
 
 - [#4290](https://github.com/intellij-elixir/intellij-elixir/pull/4290) [@sh41](https://github.com/sh41)
-  - **A definition whose guard is written inside its parentheses, such as `defguard(g(x) when is_list(x))` or
-    `def(h(x) when is_list(x), do: x)`, is found by Go to Declaration and named after its function, not `when/2`.**
+  - **A guard written inside parentheses no longer breaks Go to Declaration: `def(h(x) when is_list(x), do: x)` is
+    found and named `h/1`, not `when/2`, and `y` in `fn(x when x > y) -> y end` resolves to where it was bound.**
     Fixes [#4287](https://github.com/intellij-elixir/intellij-elixir/issues/4287).
 - [#4285](https://github.com/intellij-elixir/intellij-elixir/pull/4285) [@sh41](https://github.com/sh41)
   - **Definitions written in the `else:`, `after:`, `rescue:` or `catch:` keyword of a module-level `if`, `unless`,
