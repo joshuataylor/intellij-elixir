@@ -1,0 +1,57 @@
+package org.elixir_lang.expander
+
+/**
+ * The message Elixir gives for each error [Expansion.Error] can name, as one pattern matching every supported
+ * release's wording.
+ */
+object ErrorKinds {
+    private val PATTERNS = mapOf(
+        // elixir_expand
+        "undefined_var" to """^undefined variable "[^"]+"( \(context [^)]+\))?$""",
+        "undefined_var_pin" to
+            """^undefined variable \^\S+\. No variable "[^"]+"( \(context [^)]+\))? has been defined before the current pattern$""",
+        "invalid_arg_for_pin" to """^invalid argument for unary operator \^, expected an existing variable, got: \^""",
+        "pin_outside_of_match" to
+            """^(cannot use \^.* outside of match clauses|misplaced operator \^.*The pin operator \^ is supported only inside matches)""",
+        "unbound_underscore" to """^invalid use of _\. ("_" represents a value to be ignored|_ can only be used inside patterns)""",
+        "invalid_expr_in_guard" to """^invalid expression in guards?, .+ is not allowed in guards\. To learn more about guards""",
+        "invalid_expr_in_bitsize" to
+            """^.+ is not allowed (inside a |in )?bitstring size specifier\. The size specifier in matches works like guards\.""",
+        "parallel_bitstring_match" to """^binary patterns cannot be matched in parallel using "=", excess pattern: """,
+        "unhandled_arrow_op" to """^(unhandled|misplaced) operator ->""",
+        "unhandled_type_op" to """^misplaced operator ::/2\n\nThe :: operator is typically used in bitstrings""",
+        "unhandled_cons_op" to """^misplaced operator \|/2\n\nThe \| operator is typically used between brackets""",
+        "__cursor__" to """^reserved special form __cursor__ cannot be expanded""",
+        "invalid_call" to """^invalid call """,
+        // elixir_clauses
+        "recursive" to """^(recursive|cyclic) variable definition in patterns:\n\n""",
+        // elixir_map
+        "repeated_key" to """^key .+ will be overridden in map$""",
+        "update_syntax_in_wrong_context" to """^cannot use map/struct update syntax in (match|guard), got: """,
+        "not_kv_pair" to """^expected key-value pairs in a map, got: """,
+        "invalid_variable_in_map_key_match" to
+            """^cannot use variable \S+ as map key inside a pattern\. Map keys in patterns can only be literals""",
+        "invalid_pin_in_map_key_match" to
+            """^cannot use pin operator \^\S+ inside a data structure as a map key in a pattern\.""",
+        // elixir_bitstring
+        "unsized_binary" to
+            """^a binary field without size is only allowed at the end of a binary pattern, at the right side of binary concatenation and (and )?never allowed in binary generators""",
+        "unaligned_binary" to """^expected .+ to be a binary but its number of bits is not divisible by 8$""",
+        "unknown_match" to """^a bitstring only accepts binaries, numbers, and variables inside a match, got: """,
+        "nested_match" to """^cannot pattern match inside a bitstring that is already in match, got: """,
+        "bittype_mismatch" to """^conflicting \w+ specification for bit field: ".*" and ".*"$""",
+        "undefined_bittype" to """^unknown bitstring specifier: """,
+        "bad_unit_argument" to """^unit in bitstring expects an integer as argument, got: """,
+        "bittype_literal_bitstring" to """^literal <<>> in bitstring supports only type specifiers""",
+        "bittype_literal_string" to """^literal string in bitstring supports only endianness and type specifiers""",
+        "bittype_utf" to """^size and unit are not supported on utf types$""",
+        "bittype_signed" to """^signed and unsigned specifiers are supported only on integer and float types$""",
+        "bittype_float_size" to """^float requires size\*unit to be (16, 32, or 64|32 or 64) \(default\), got: """,
+        "bittype_unit" to """^integer and float types require a size specifier if the unit specifier is given$""",
+        "invalid_literal" to """^invalid literal .+ in <<>>$""",
+        "bad_size_argument" to """^size in bitstring expects an integer or a variable as argument, got: """,
+        "undefined_var_in_spec" to """^undefined variable ".+" in bitstring segment\. If the size of the binary is a variable""",
+    ).mapValues { (_, pattern) -> Regex(pattern, RegexOption.DOT_MATCHES_ALL) }
+
+    fun pattern(kind: String): Regex = PATTERNS[kind] ?: throw AssertionError("no message pattern for error $kind")
+}

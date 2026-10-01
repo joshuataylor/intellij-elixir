@@ -2,6 +2,7 @@ package org.elixir_lang.expander
 
 import com.intellij.openapi.application.ReadAction
 import org.elixir_lang.language_level.ElixirLanguageLevel
+import org.elixir_lang.lowering.ElixirAst
 import org.elixir_lang.lowering.Lowering
 import org.elixir_lang.parser_definition.ParsingTestCase
 import org.elixir_lang.psi.ElixirFile
@@ -9,17 +10,20 @@ import org.elixir_lang.psi.ElixirFile
 /** Expands snippets at chosen language levels, without Elixir, from the start of an empty module body. */
 abstract class ExpanderTestCase : ParsingTestCase() {
     /** [code], lowered and expanded at [version], from the empty env and an empty [ExState]. */
-    protected fun expand(code: String, version: String): Expansion {
-        val level = ElixirLanguageLevel.of(version)
-        val file = createPsiFile(getTestName(false), code) as ElixirFile
-        val ast = ReadAction.computeBlocking<_, Throwable> { Lowering.lower(file, level) }
+    protected fun expand(code: String, version: String, observer: ExpansionObserver = ExpansionObserver.NONE) =
+        ElixirLanguageLevel.of(version).let { level ->
+            Expander.expand(lower(code, level), ExState.empty(level), Env.empty(level, NO_KERNEL), level, observer)
+        }
 
-        return Expander.expand(ast, ExState.EMPTY, Env.empty(level, NO_KERNEL), level)
+    protected fun lower(code: String, level: ElixirLanguageLevel): ElixirAst {
+        val file = createPsiFile(getTestName(false), code) as ElixirFile
+
+        return ReadAction.computeBlocking<_, Throwable> { Lowering.lower(file, level) }
     }
 
     /**
      * [expansion] as text: the read variables sorted by name with their versions and then the next version, or the
-     * source of the node that isn't ported.
+     * error's kind and the source of its node, or the source of the node that isn't ported.
      */
     protected fun render(code: String, expansion: Expansion): String =
         when (expansion) {
@@ -31,6 +35,7 @@ abstract class ExpanderTestCase : ParsingTestCase() {
 
                 "expanded {$read} next ${state.version}"
             }
+            is Expansion.Error -> "error ${expansion.kind} `${expansion.at.meta.origin.substring(code)}`"
             is Expansion.Unported -> "unported `${expansion.at.meta.origin.substring(code)}`"
         }
 
@@ -64,6 +69,10 @@ abstract class ExpanderTestCase : ParsingTestCase() {
                 }
         )
     }
+
+    /** Whether [version] is a release before [boundary]. */
+    protected fun isBefore(version: String, boundary: String) =
+        ElixirLanguageLevel.of(version).elixir < ElixirLanguageLevel.of(boundary).elixir
 
     /** [code] expands to what [expected] gives each of [versions]. */
     protected fun assertLevels(code: String, versions: List<String>, expected: (String) -> String) =

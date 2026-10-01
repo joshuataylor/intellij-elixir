@@ -1,10 +1,18 @@
 package org.elixir_lang.expander
 
+import com.ericsson.otp.erlang.OtpErlangAtom
+import com.ericsson.otp.erlang.OtpErlangBinary
+import com.ericsson.otp.erlang.OtpErlangDouble
+import com.ericsson.otp.erlang.OtpErlangList
+import com.ericsson.otp.erlang.OtpErlangLong
+import com.ericsson.otp.erlang.OtpErlangObject
+import com.ericsson.otp.erlang.OtpErlangString
+import com.ericsson.otp.erlang.OtpErlangTuple
 import org.elixir_lang.expander.ExState.Prematch.Dependency
 import org.elixir_lang.expander.ExState.Prematch.InMatch
 import org.elixir_lang.expander.ExState.Write
-import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.lowering.ElixirAst
+import java.math.BigDecimal
 
 /**
  * `elixir_clauses:match/6`: [pattern] expanded as a pattern, after the right side took [before] to [after].
@@ -16,14 +24,14 @@ internal fun match(
     after: ExState,
     before: ExState,
     env: Env,
-    level: ElixirLanguageLevel,
+    run: Run,
     at: ElixirAst,
 ): Expansion {
     val callState = after.copy(prematch = InMatch(before.read, after.version, emptyMap(), emptyList()))
 
-    return Expander.expand(pattern, callState, env.copy(context = Env.Context.MATCH), level).then { state, patternEnv ->
+    return Expander.expand(pattern, callState, env.copy(context = Env.Context.MATCH), run).then { state, patternEnv ->
         if (isCyclic(state.prematch as InMatch)) {
-            Expansion.Unported(at)
+            Expansion.Error("recursive", at)
         } else {
             Expansion.Expanded(state.copy(prematch = before.prematch), patternEnv.copy(context = env.context))
         }
@@ -34,11 +42,11 @@ internal fun match(
  * `elixir_clauses:parallel_match/4`: each side of a match inside a pattern, left to right, with its own write half, so
  * the variables each side binds feed the cycle check.
  */
-internal fun parallelMatch(node: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel): Expansion {
+internal fun parallelMatch(node: ElixirAst, state: ExState, env: Env, run: Run): Expansion {
     val writes = mutableListOf<Map<Variable, Int>>()
 
     return mapfold(unpackMatch(node, emptyList()), state, env) { side, sideState, sideEnv ->
-        Expander.expand(side, sideState.copy(write = Write.Writing(emptyMap())), sideEnv, level).then { s, e ->
+        Expander.expand(side, sideState.copy(write = Write.Writing(emptyMap())), sideEnv, run).then { s, e ->
             writes.add((s.write as Write.Writing).vars)
             Expansion.Expanded(s, e)
         }
@@ -56,6 +64,124 @@ internal fun parallelMatch(node: ElixirAst, state: ExState, env: Env, level: Eli
         )
     }
 }
+
+/**
+ * `elixir_expand:refute_parallel_bitstring_match/4`, before 1.18: two bitstrings matched in parallel, as the sides of
+ * a `=` inside a pattern are, raise at the right one.
+ */
+internal fun refuteParallelBitstringMatch(
+    left: ElixirAst,
+    right: ElixirAst,
+    parallel: Boolean,
+    state: ExState,
+    env: Env,
+): Expansion = parallelBitstring(expandedShape(left), expandedShape(right), parallel) ?: Expansion.Expanded(state, env)
+
+/** The error, or the `Unported`, that matching [left] and [right] in parallel gives, if any. */
+private fun parallelBitstring(left: ElixirAst, right: ElixirAst, parallel: Boolean): Expansion? {
+    fun each(lefts: List<ElixirAst>, rights: List<ElixirAst>) =
+        lefts.zip(rights).firstNotNullOfOrNull { (l, r) ->
+            parallelBitstring(expandedShape(l), expandedShape(r), parallel)
+        }
+
+    return when {
+        isBitstring(left) && isBitstring(right) && parallel -> Expansion.Error("parallel_bitstring_match", right)
+        isCall(right, "=", 2) -> {
+            val (matchLeft, matchRight) = (right as ElixirAst.Call).arguments!!
+
+            parallelBitstring(left, expandedShape(matchLeft), true)
+                ?: parallelBitstring(left, expandedShape(matchRight), parallel)
+        }
+        left is ElixirAst.ListNode && right is ElixirAst.ListNode -> each(left.elements, right.elements)
+        left is ElixirAst.Tuple && right is ElixirAst.Tuple && (left.elements.size == 2) == (right.elements.size == 2) ->
+            each(left.elements, right.elements)
+        isMap(left) && isMap(right) -> {
+            val leftFields = fields(left)
+            val rightFields = fields(right)
+            val rightNonLiteral = rightFields.filterNot { (key, _) -> isLiteral(key) }
+
+            // A non-literal key's term carries its metadata, so whether two pair up depends on where they sit.
+            if (leftFields.any { (key, value) ->
+                    !isLiteral(key) && rightNonLiteral.any { (_, other) ->
+                        parallelBitstring(expandedShape(value), expandedShape(other), parallel) != null
+                    }
+                }
+            ) {
+                Expansion.Unported(right)
+            } else {
+                val rightValues = literalKeyed(rightFields).toMap()
+
+                // `lists:sort/1` puts the fields in key order.
+                literalKeyed(leftFields).sortedWith { (key, _), (otherKey, _) -> compareTerms(key, otherKey) }
+                    .firstNotNullOfOrNull { (key, value) ->
+                        rightValues[key]?.let { parallelBitstring(expandedShape(value), expandedShape(it), parallel) }
+                    }
+            }
+        }
+        else -> null
+    }
+}
+
+private fun fields(map: ElixirAst): List<Pair<ElixirAst, ElixirAst>> =
+    (map as ElixirAst.Call).arguments!!
+        .mapNotNull { field -> (expandedShape(field) as? ElixirAst.Tuple)?.elements?.takeIf { it.size == 2 } }
+        .map { (key, value) -> key to value }
+
+/** The fields whose keys are literals, by the key's term. */
+private fun literalKeyed(fields: List<Pair<ElixirAst, ElixirAst>>): List<Pair<OtpErlangObject, ElixirAst>> =
+    fields.filter { (key, _) -> isLiteral(key) }.map { (key, value) -> literalShape(key).toOtp() to value }
+
+/**
+ * Erlang's term order over the terms a literal key can be: numbers, then atoms, tuples, lists and binaries.
+ */
+private fun compareTerms(left: OtpErlangObject, right: OtpErlangObject): Int {
+    val ranks = compareValues(rank(left), rank(right))
+    if (ranks != 0) return ranks
+
+    return when (left) {
+        is OtpErlangLong, is OtpErlangDouble -> number(left).compareTo(number(right))
+        is OtpErlangAtom -> left.atomValue().compareTo((right as OtpErlangAtom).atomValue())
+        is OtpErlangTuple -> {
+            val other = right as OtpErlangTuple
+
+            compareValues(left.arity(), other.arity()).takeIf { it != 0 } ?: compareElements(left.elements(), other.elements())
+        }
+        is OtpErlangBinary -> {
+            val bytes = left.binaryValue().map { it.toInt() and 0xFF }
+            val otherBytes = (right as OtpErlangBinary).binaryValue().map { it.toInt() and 0xFF }
+
+            bytes.zip(otherBytes).firstNotNullOfOrNull { (a, b) -> compareValues(a, b).takeIf { it != 0 } }
+                ?: compareValues(bytes.size, otherBytes.size)
+        }
+        else -> compareElements(elements(left), elements(right))
+    }
+}
+
+private fun rank(term: OtpErlangObject) =
+    when (term) {
+        is OtpErlangLong, is OtpErlangDouble -> 0
+        is OtpErlangAtom -> 1
+        is OtpErlangTuple -> 2
+        is OtpErlangList, is OtpErlangString -> 3
+        is OtpErlangBinary -> 4
+        else -> throw IllegalArgumentException("not a literal key's term: $term")
+    }
+
+private fun number(term: OtpErlangObject): BigDecimal =
+    when (term) {
+        is OtpErlangLong -> BigDecimal(term.bigIntegerValue())
+        else -> BigDecimal((term as OtpErlangDouble).doubleValue())
+    }
+
+private fun elements(list: OtpErlangObject): Array<OtpErlangObject> =
+    when (list) {
+        is OtpErlangString -> list.stringValue().codePoints().toArray().map { OtpErlangLong(it.toLong()) }.toTypedArray()
+        else -> (list as OtpErlangList).elements()
+    }
+
+private fun compareElements(left: Array<OtpErlangObject>, right: Array<OtpErlangObject>): Int =
+    left.zip(right).firstNotNullOfOrNull { (a, b) -> compareTerms(a, b).takeIf { it != 0 } }
+        ?: compareValues(left.size, right.size)
 
 /** `elixir_clauses:unpack_match/4`: a chain of matches as its sides, left to right. */
 private fun unpackMatch(node: ElixirAst, acc: List<ElixirAst>): List<ElixirAst> {

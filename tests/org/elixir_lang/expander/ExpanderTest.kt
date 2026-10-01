@@ -40,31 +40,35 @@ class ExpanderTest : ExpanderTestCase() {
     fun testUnderscoreTakesAVersionInAPatternFrom1_20() =
         assertSplit("_ = 1", "1.20.0-rc.5", "expanded {} next 0", "expanded {} next 1")
 
-    fun testUnderscoreOutsideAPatternIsUnported() = assertEvery("_", "unported `_`")
+    fun testUnderscoreOutsideAPatternIsAnError() = assertEvery("_", "error unbound_underscore `_`")
 
     fun testAPinReadsTheVariableFromBeforeTheMatch() =
         assertEvery("x = 1; {x, ^x} = {2, 1}", "expanded {x:1} next 2")
 
-    fun testAPinOfAVariableBoundInTheSameMatchIsUnported() =
-        assertEvery("{x, ^x} = {1, 1}", "unported `x`")
+    fun testAPinOfAVariableBoundInTheSameMatchIsAnError() =
+        assertEvery("{x, ^x} = {1, 1}", "error undefined_var_pin `x`")
 
-    fun testAPinReadsTheVariablesFromBeforeTheRightSide() = assertEvery("^y = (y = 1)", "unported `y`")
+    fun testAPinReadsTheVariablesFromBeforeTheRightSide() =
+        assertEvery("^y = (y = 1)", "error undefined_var_pin `y`")
 
-    fun testAPinOfAnUndefinedVariableIsUnported() = assertEvery("^x = 1", "unported `x`")
+    fun testAPinOfAnUndefinedVariableIsAnError() = assertEvery("^x = 1", "error undefined_var_pin `x`")
 
-    fun testAPinOfANonVariableIsUnported() = assertEvery("^1 = 1", "unported `^1`")
+    fun testAnErrorEndsTheExpansion() = assertEvery("{^y, w} = {1, 2}", "error undefined_var_pin `y`")
 
-    fun testAPinOutsideAMatchIsUnported() = assertEvery("x = 1; ^x", "unported `^x`")
+    fun testAPinOfANonVariableIsAnError() = assertEvery("^1 = 1", "error invalid_arg_for_pin `^1`")
+
+    fun testAPinOutsideAMatchIsAnError() = assertEvery("x = 1; ^x", "error pin_outside_of_match `^x`")
 
     fun testAPinnedVariable() = assertEvery("x = 1; ^x = 1", "expanded {x:0} next 1")
 
     fun testAPinnedMapKey() =
         assertEvery("key = :k; %{^key => v} = %{key => 1}", "expanded {key:0 v:1} next 2")
 
-    fun testAMatchInsideAPatternTakesTheLeftSideFirst() =
-        assertEvery("y = 1; (x = y) = 1", "expanded {x:1 y:2} next 3")
+    fun testAMatchInsideAPatternTakesTheLeftSideFirstFrom1_18() =
+        assertSplit("y = 1; (x = y) = 1", "1.18.0-rc.0", "expanded {x:2 y:1} next 3", "expanded {x:1 y:2} next 3")
 
-    fun testAMatchInsideATuplePattern() = assertEvery("{a = b, c} = {1, 2}", "expanded {a:0 b:1 c:2} next 3")
+    fun testAMatchInsideATuplePattern() =
+        assertSplit("{a = b, c} = {1, 2}", "1.18.0-rc.0", "expanded {a:1 b:0 c:2} next 3", "expanded {a:0 b:1 c:2} next 3")
 
     fun testABindingInATupleElementShowsAfterTheTuple() =
         assertEvery("t = {x = 1, 2}", "expanded {t:1 x:0} next 2")
@@ -74,7 +78,8 @@ class ExpanderTest : ExpanderTestCase() {
     fun testBindingsInSiblingElementsAllShowAfterTheTuple() =
         assertEvery("{x = 1, y = 2}", "expanded {x:0 y:1} next 2")
 
-    fun testABindingIsNotVisibleToItsSiblingElement() = assertEvery("{x = 1, x}", "unported `x`")
+    fun testABindingIsNotVisibleToItsSiblingElement() =
+        assertSplit("{x = 1, x}", "1.15.0-rc.0", "unported `x`", "error undefined_var `x`")
 
     fun testABindingInAMapValueShowsAfterTheMap() = assertEvery("%{k: x = 1}", "expanded {x:0} next 1")
 
@@ -83,47 +88,52 @@ class ExpanderTest : ExpanderTestCase() {
 
     fun testAMapUpdate() = assertEvery("m = %{k: 1}; y = %{m | k: 2}", "expanded {m:0 y:1} next 2")
 
-    fun testAMapUpdateInAPatternIsUnported() =
-        assertEvery("m = %{k: 1}; %{m | k: v} = m", "unported `%{m | k: v}`")
+    fun testAMapUpdateInAPatternIsAnError() =
+        assertEvery("m = %{k: 1}; %{m | k: v} = m", "error update_syntax_in_wrong_context `%{m | k: v}`")
 
     fun testAMapPattern() = assertEvery("%{k: x} = %{k: 1}", "expanded {x:0} next 1")
 
-    fun testARepeatedKeyInAMapPatternIsUnported() =
-        assertEvery("%{k: a, k: b} = %{k: 1}", "unported `%{k: a, k: b}`")
+    fun testARepeatedKeyInAMapPatternIsAnError() =
+        assertEvery("%{k: a, k: b} = %{k: 1}", "error repeated_key `%{k: a, k: b}`")
 
     fun testARepeatedKeyInAMapPatternIsComparedAsExpanded() =
-        assertEvery("%{{(), 1} => a, {nil, 1} => b} = %{}", "unported `%{{(), 1} => a, {nil, 1} => b}`")
+        assertEvery(
+            "%{{(), 1} => a, {nil, 1} => b} = %{}",
+            "error repeated_key `%{{(), 1} => a, {nil, 1} => b}`"
+        )
 
     fun testARepeatedKeyInAMapPatternIsComparedAsExpandedInsideAList() =
-        assertEvery("%{[()] => a, [nil] => b} = %{}", "unported `%{[()] => a, [nil] => b}`")
+        assertEvery("%{[()] => a, [nil] => b} = %{}", "error repeated_key `%{[()] => a, [nil] => b}`")
 
     fun testARepeatedKeyOutsideAPatternOnlyWarns() = assertEvery("%{k: 1, k: 2}", "expanded {} next 0")
 
-    fun testAVariableAsAMapKeyInAPatternIsUnported() =
-        assertEvery("x = 1; %{x => 1} = %{1 => 1}", "unported `%{x => 1}`")
+    fun testAVariableAsAMapKeyInAPatternIsAnError() =
+        assertEvery("x = 1; %{x => 1} = %{1 => 1}", "error invalid_variable_in_map_key_match `%{x => 1}`")
+
+    fun testANonPairInAMapIsAnErrorFrom1_17() =
+        assertLevels("%{1}", LEVELS.filterNot { isBefore(it, "1.17.0") }) { "error not_kv_pair `%{1}`" }
 
     fun testAPinnedMapKeyOfABoundVariable() =
         assertEvery("x = 1; %{^x => v} = %{1 => 2}", "expanded {v:1 x:0} next 2")
 
-    fun testAPinNestedInAMapKeyInAPatternIsPortedFrom1_14() =
+    fun testAPinNestedInAMapKeyInAPatternIsAllowedFrom1_14() =
         assertSplit(
             "a = 1; %{{^a, 1} => v} = %{{1, 1} => 2}",
             "1.14.0-rc.0",
-            "unported `%{{^a, 1} => v}`",
+            "error invalid_pin_in_map_key_match `%{{^a, 1} => v}`",
             "expanded {a:0 v:1} next 2"
         )
 
-    fun testAZeroFloatInAPatternIsUnportedFrom1_16() =
-        assertSplit("0.0 = 0.0", "1.16.0-rc.0", "expanded {} next 0", "unported `0.0`")
+    fun testAZeroFloatInAPattern() = assertEvery("0.0 = 0.0", "expanded {} next 0")
 
-    fun testRecursiveVariablesInAPatternAreUnportedFrom1_18() {
+    fun testRecursiveVariablesInAPatternAreAnErrorFrom1_18() {
         val code = "{x = y, x = {:ok, y}} = {{:ok, 1}, {:ok, 1}}"
 
-        assertSplit(code, "1.18.0-rc.0", "expanded {x:0 y:1} next 2", "unported `$code`")
+        assertSplit(code, "1.18.0-rc.0", "expanded {x:1 y:0} next 2", "error recursive `$code`")
     }
 
     fun testAMatchOfAVariableWithItselfInAPatternIsRecursiveFrom1_18() =
-        assertSplit("(x = x) = 1", "1.18.0-rc.0", "expanded {x:0} next 1", "unported `(x = x) = 1`")
+        assertSplit("(x = x) = 1", "1.18.0-rc.0", "expanded {x:0} next 1", "error recursive `(x = x) = 1`")
 
     fun testAVariableRepeatedInAPatternInAnElementIsWrittenAtTheNextVersionOn1_18And1_19() =
         assertWindow(
@@ -135,9 +145,73 @@ class ExpanderTest : ExpanderTestCase() {
         )
 
     fun testVariablesDefinedTogetherAreNotACycle() =
-        assertEvery("(foo = {bar = {baz, bat}}) = {{1, 2}}", "expanded {bar:1 bat:3 baz:2 foo:0} next 4")
+        assertSplit(
+            "(foo = {bar = {baz, bat}}) = {{1, 2}}",
+            "1.18.0-rc.0",
+            "expanded {bar:2 bat:1 baz:0 foo:3} next 4",
+            "expanded {bar:1 bat:3 baz:2 foo:0} next 4"
+        )
 
-    fun testAnUndefinedVariableIsUnported() = assertEvery("x", "unported `x`")
+    fun testAnUndefinedVariableIsALocalCallBefore1_15AndAnErrorFrom() =
+        assertSplit("x", "1.15.0-rc.0", "unported `x`", "error undefined_var `x`")
+
+    fun testAStrayArrowIsAnError() = assertEvery("(x -> y)", "error unhandled_arrow_op `x -> y`")
+
+    fun testAStrayTypeOperatorIsAnErrorFrom1_15() =
+        assertSplit("(1 :: 2)", "1.15.0-rc.0", "unported `1 :: 2`", "error unhandled_type_op `1 :: 2`")
+
+    fun testAStrayConsOperatorIsAnErrorFrom1_15() =
+        assertSplit("(1 | 2)", "1.15.0-rc.0", "unported `1 | 2`", "error unhandled_cons_op `1 | 2`")
+
+    fun testACallOfACallIsInvalid() = assertEvery("unquote(1)(2)", "error invalid_call `unquote(1)(2)`")
+
+    fun testARemoteCallOnALiteralIsInvalid() {
+        assertEvery("1.foo()", "error invalid_call `1.foo()`")
+        assertEvery("\"a\".foo()", "error invalid_call `\"a\".foo()`")
+    }
+
+    fun testACursorIsAnErrorFrom1_17() =
+        assertSplit("__cursor__()", "1.17.0-rc.0", "unported `__cursor__()`", "error __cursor__ `__cursor__()`")
+
+    fun testParallelBitstringPatternsAreAnErrorBefore1_18() =
+        assertSplit(
+            "<<x>> = <<y>> = <<1>>",
+            "1.18.0-rc.0",
+            "error parallel_bitstring_match `<<y>>`",
+            "expanded {x:1 y:0} next 2"
+        )
+
+    fun testParallelBitstringPatternsInsideAPatternAreAnErrorBefore1_18() =
+        assertSplit(
+            "{<<x>> = <<y>>} = {<<1>>}",
+            "1.18.0-rc.0",
+            "error parallel_bitstring_match `<<y>>`",
+            "expanded {x:0 y:1} next 2"
+        )
+
+    fun testParallelMapPatternsWithPinnedKeysAreUnportedBefore1_18() =
+        assertSplit(
+            "k = 1; %{^k => <<x>>} = %{^k => <<y>>} = %{1 => <<1>>}",
+            "1.18.0-rc.0",
+            "unported `%{^k => <<y>>}`",
+            "expanded {k:0 x:2 y:1} next 3"
+        )
+
+    fun testParallelMapPatternsWithPinnedKeysAndNoBitstringsExpand() =
+        assertEvery("k = 1; %{^k => x} = %{^k => y} = %{1 => 1}", "expanded {k:0 x:2 y:1} next 3")
+
+    fun testParallelMapPatternsPairTheirFieldsInKeyOrder() =
+        assertSplit(
+            "%{b: <<x>>,\na: <<y>>} = %{b: <<z>>,\na: <<w>>} = %{a: <<1>>, b: <<2>>}",
+            "1.18.0-rc.0",
+            "error parallel_bitstring_match `<<w>>`",
+            "expanded {w:1 x:2 y:3 z:0} next 4"
+        )
+
+    fun testABitstringSpecInAMapKeyPatternIsNotAVariable() {
+        assertEvery("%{<<1::integer>> => v} = %{<<1>> => 2}", "expanded {v:0} next 1")
+        assertEvery("%{<<1::size(8)-unit(1)>> => v} = %{<<1>> => 2}", "expanded {v:0} next 1")
+    }
 
     fun testTheEnvironmentNamesAreNotVariables() {
         for (name in listOf("__MODULE__", "__DIR__", "__CALLER__", "__STACKTRACE__", "__ENV__")) {
