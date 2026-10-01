@@ -20,6 +20,7 @@ import org.elixir_lang.Arity
 import org.elixir_lang.Name
 import org.elixir_lang.NameArity
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
+import org.elixir_lang.beam.psi.isCompilerAdded
 import org.elixir_lang.beam.psi.Module as BeamModule
 import org.elixir_lang.declaration.Capabilities
 import org.elixir_lang.declaration.Reach
@@ -417,7 +418,7 @@ object Import {
     /** [definition]'s capabilities when an `import` of its module brings it in, else `null`. */
     @RequiresReadLock
     internal fun importedCapabilities(definition: BeamCallDefinition): Capabilities? =
-        definition.capabilities.takeIf { it.public }
+        definition.capabilities.takeIf { it.public && !definition.isCompilerAdded }
 
     fun elementDescription(call: Call, location: ElementDescriptionLocation): String? =
         when {

@@ -274,6 +274,38 @@ class ImportOptionsTest : PlatformTestCase() {
             )
         }
 
+    fun testOnlyNamingInfoOfACompiledModuleDoesNotBringItIn() =
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_logger", LOGGER) {
+            assertTrue(
+                "`level()` under `import Logger, only: [level: 0, __info__: 1]` resolves to no compiled definition",
+                resolvesToCompiled("import Logger, only: [level: 0, __info__: 1]", "level()")
+            )
+            assertFalse(
+                "`__info__(:functions)` under `import Logger, only: [level: 0, __info__: 1]` resolves to a compiled definition",
+                resolvesToCompiled("import Logger, only: [level: 0, __info__: 1]", "__info__(:functions)")
+            )
+        }
+
+    fun testACompiledModulesImportLeavesOutModuleInfo() =
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_queue", QUEUE) {
+            assertTrue("`new()` under `import :queue` resolves to no compiled definition", resolvesToCompiled("import :queue", "new()"))
+            assertFalse(
+                "`module_info()` under `import :queue` resolves to a compiled definition",
+                resolvesToCompiled("import :queue", "module_info()")
+            )
+            assertFalse(
+                "`module_info(:exports)` under `import :queue` resolves to a compiled definition",
+                resolvesToCompiled("import :queue", "module_info(:exports)")
+            )
+            assertNotOffered("import :queue", "module_", "module_info")
+        }
+
+    fun testACompiledKernelsImplicitImportLeavesOutModuleInfoAndInfo() = withCompiledKernel {
+        assertFalse("`__info__(:functions)` resolves to a compiled definition", resolvesToCompiled("", "__info__(:functions)"))
+        assertFalse("`module_info()` resolves to a compiled definition", resolvesToCompiled("", "module_info()"))
+        assertFalse("`module_info(:exports)` resolves to a compiled definition", resolvesToCompiled("", "module_info(:exports)"))
+    }
+
     fun testACompiledKernelsImplicitImportLeavesOutPrivateDefinitions() = withCompiledKernel {
         assertTrue("`is_atom(1)` resolves to no compiled definition", resolvesToCompiled("", "is_atom(1)"))
         assertFalse(
@@ -295,6 +327,16 @@ class ImportOptionsTest : PlatformTestCase() {
         val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
 
         return reference.multiResolve(false).any { it.isValidResult && it.element is BeamCallDefinition }
+    }
+
+    /** One lookup is inserted without a list, so nothing offered must also leave the document as it was. */
+    private fun assertNotOffered(import: String, prefix: String, name: String) {
+        myFixture.configureByText("u.ex", user(import, "$prefix<caret>"))
+        val before = myFixture.editor.document.text
+        val offered = myFixture.completeBasic()?.map { it.lookupString }.orEmpty()
+
+        assertEquals("completing `$prefix` under `$import` inserted a lookup", before, myFixture.editor.document.text)
+        assertDoesntContain(offered, name)
     }
 
     private fun user(import: String, use: String): String =
@@ -356,5 +398,6 @@ class ImportOptionsTest : PlatformTestCase() {
 
     private companion object {
         val LOGGER = File("testData/org/elixir_lang/mockSdk-1.0.4/lib/logger/ebin")
+        val QUEUE = File("testData/org/elixir_lang/psi/scope/callable_table/library_roots/lib")
     }
 }
