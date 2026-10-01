@@ -535,6 +535,10 @@
 
 ### Threading / Platform Hygiene
 
+- [#4306](https://github.com/intellij-elixir/intellij-elixir/pull/4306) [@sh41](https://github.com/sh41)
+  - **Setting a breakpoint in an Elixir file, filtering the "Decompiled BEAM" Go to Related popup, and opening Recent
+    Locations from the Switcher read module and function names under a read lock.** Fixes
+    [#4299](https://github.com/intellij-elixir/intellij-elixir/issues/4299).
 - [#4305](https://github.com/intellij-elixir/intellij-elixir/pull/4305) [@sh41](https://github.com/sh41)
   - **The expander expands bitstrings and guards, and reports the expansion errors each Elixir release raises, as each release does; nothing uses it yet.** Fixes [#4298](https://github.com/intellij-elixir/intellij-elixir/issues/4298).
 - [#4297](https://github.com/intellij-elixir/intellij-elixir/pull/4297) [@sh41](https://github.com/sh41)

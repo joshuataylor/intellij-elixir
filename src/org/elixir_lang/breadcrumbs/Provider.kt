@@ -1,6 +1,7 @@
 package org.elixir_lang.breadcrumbs
 
 import com.intellij.lang.Language
+import com.intellij.openapi.application.ReadAction
 import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
 import com.intellij.ui.breadcrumbs.BreadcrumbsProvider
@@ -31,11 +32,6 @@ private const val DEFIMPL = "defimpl"
  *
  * Sticky lines render the underlying source line verbatim, so [getElementInfo] only affects breadcrumb text.
  *
- * All accessors are invoked by the platform inside a read action (see
- * `com.intellij.openapi.editor.impl.stickyLines.StickyLinesCollector.collectLines`, which is
- * `@RequiresReadLock`/`@RequiresBackgroundThread`), so the `@RequiresReadLock` predicates below are safe to
- * call without additional wrapping.
- *
  * The sticky-lines hook (`acceptStickyElement`) is still `@ApiStatus.Experimental`, so this provider relies on
  * its default behaviour (delegating to [acceptElement]) rather than overriding it - the same hook the bundled
  * Kotlin/Python/YAML providers build on.
@@ -43,20 +39,23 @@ private const val DEFIMPL = "defimpl"
 internal class Provider : BreadcrumbsProvider {
     override fun getLanguages(): Array<Language> = LANGUAGES
 
-    override fun acceptElement(element: PsiElement): Boolean = element is Call && isStructural(element)
+    // Recent Locations opened from the Switcher asks for both on the EDT without a read lock.
+    override fun acceptElement(element: PsiElement): Boolean =
+        ReadAction.computeBlocking<Boolean, RuntimeException> { element is Call && isStructural(element) }
 
-    override fun getElementInfo(element: PsiElement): String {
-        val call = element as? Call ?: return element.text.substringBefore('\n')
+    override fun getElementInfo(element: PsiElement): String =
+        ReadAction.computeBlocking<String, RuntimeException> {
+            val call = element as? Call ?: return@computeBlocking element.text.substringBefore('\n')
 
-        return when {
-            Module.`is`(call) || Protocol.`is`(call) -> Module.name(call)
-            Implementation.`is`(call) -> Implementation.name(call) ?: DEFIMPL
-            CallDefinitionClause.`is`(call) -> callDefinitionInfo(call)
-            Describe.hasNameArity(call) -> exUnitInfo("describe", call)
-            Test.hasNameArity(call) -> exUnitInfo("test", call)
-            else -> call.text.substringBefore('\n')
+            when {
+                Module.`is`(call) || Protocol.`is`(call) -> Module.name(call)
+                Implementation.`is`(call) -> Implementation.name(call) ?: DEFIMPL
+                CallDefinitionClause.`is`(call) -> callDefinitionInfo(call)
+                Describe.hasNameArity(call) -> exUnitInfo("describe", call)
+                Test.hasNameArity(call) -> exUnitInfo("test", call)
+                else -> call.text.substringBefore('\n')
+            }
         }
-    }
 }
 
 /**
@@ -96,7 +95,7 @@ private fun callDefinitionInfo(call: Call): String {
 }
 
 /**
- * Mirrors the structure-view presentation (`describe "…"` / `test "…"`) by appending the block's first argument
+ * Mirrors the structure-view presentation (`describe "..."` / `test "..."`) by appending the block's first argument
  * (its description string).
  */
 @RequiresReadLock

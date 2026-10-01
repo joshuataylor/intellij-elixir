@@ -67,8 +67,6 @@ import org.elixir_lang.debugger.node.ProcessSnapshot
 import org.elixir_lang.debugger.node.event.Listener
 import org.elixir_lang.debugger.node.ok_error_reason.ErrorReason
 import org.elixir_lang.debugger.node.ok_error_reason.OK
-import org.elixir_lang.psi.ElixirFile
-import org.elixir_lang.psi.impl.getModuleName
 import org.elixir_lang.run.Configuration
 import org.elixir_lang.run.ensureWorkingDirectory
 import org.elixir_lang.util.ElixirCoroutineService
@@ -103,7 +101,7 @@ class Process(session: XDebugSession, private val executionEnvironment: Executio
     /**
      * Cached WSL distribution for the project, used for converting Linux file paths
      * reported by the Erlang VM back to Windows UNC paths for source navigation.
-     * `null` for non-WSL projects (fast path — no overhead).
+     * `null` for non-WSL projects (fast path - no overhead).
      */
     internal val wslDistribution: WSLDistribution? by lazy {
         org.elixir_lang.sdk.wsl.wslCompat.getDistributionByWindowsUncPath(session.project.basePath)
@@ -339,15 +337,11 @@ class Process(session: XDebugSession, private val executionEnvironment: Executio
         val virtualFile = breakpointPosition.file
         val project = debuggableConfiguration.getProject()
 
-        return PsiManager
+        return breakpointModuleNames(project, virtualFile, breakpointPosition.sourcePosition.offset) ?: PsiManager
             .getInstance(project)
             .findFile(virtualFile)
             ?.let { psiFile ->
-                val element = psiFile.findElementAt(breakpointPosition.sourcePosition.offset)
-
                 when (psiFile) {
-                    is ElixirFile -> // TODO allow multiple module names for `defimpl`
-                        element?.getModuleName()?.let { setOf(it) } ?: emptySet()
                     is org.elixir_lang.eex.File -> {
                         val module = ModuleUtilCore.findModuleForPsiElement(psiFile)
                         val rootDirectory = ensureWorkingDirectory(project, module)
