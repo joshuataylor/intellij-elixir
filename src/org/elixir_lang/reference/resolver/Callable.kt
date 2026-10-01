@@ -219,14 +219,15 @@ object Callable : ResolveCache.PolyVariantResolver<org.elixir_lang.reference.Cal
             resolveResultList.addAll(variableResolveList)
         }
 
+        val atom = functionNameAtomValue(element)
         val callDefinitionClauseResolveResultList =
             org.elixir_lang.psi.scope.call_definition_clause.MultiResolve.resolveResults(
-                name,
+                atom ?: name,
                 resolvedPrimaryArity,
                 incompleteCode,
                 element,
                 ResolveState.initial(),
-                functionNameAtomValue(element)
+                atom != null
             )
 
         resolveResultList.addAll(callDefinitionClauseResolveResultList)
@@ -244,15 +245,16 @@ object Callable : ResolveCache.PolyVariantResolver<org.elixir_lang.reference.Cal
 
         return if (modulars.isNotEmpty()) {
             val resolvableName = name.takeUnless { Unquote.isQualified(element, it) }
+            val atom = resolvableName?.let { functionNameAtomValue(element) }
 
             modulars.flatMap { modular ->
                 org.elixir_lang.psi.scope.call_definition_clause.MultiResolve.resolveResults(
-                    resolvableName,
+                    atom ?: resolvableName,
                     arity,
                     incompleteCode,
                     modular,
                     ResolveState.initial(),
-                    resolvableName?.let { functionNameAtomValue(element) }
+                    atom != null
                 )
             }
         } else {

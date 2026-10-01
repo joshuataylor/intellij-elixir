@@ -27,7 +27,7 @@ import org.elixir_lang.structure_view.element.Callback
 object Declarations {
     /**
      * A declaration beside [text], the walk's spelling of its name, which it matches the use and keys completion by.
-     * [declaration] is named by the name's atom value, and is `null` when the name has none.
+     * [declaration] is `null` when the name has no atom value; otherwise [text] is that atom.
      */
     data class Spelled(val text: String, val declaration: Declaration?)
 
@@ -53,7 +53,7 @@ object Declarations {
         val declaration = CallDefinitionClause.declaration(call, state) ?: return emptyList()
         val atom = CallDefinitionClause.head(call)?.let(::headAtomValue)
 
-        return listOf(Spelled(declaration.name, atom?.let { declaration.copy(name = it) }))
+        return listOf(Spelled(declaration.name, declaration.takeIf { atom != null }))
     }
 
     private fun callback(call: Call, state: ResolveState): List<Spelled> {
@@ -65,7 +65,7 @@ object Declarations {
             spelled(
                 call,
                 name,
-                headAtomValue(head),
+                headAtomValue(head) != null,
                 arityInterval.arityKnowledge(),
                 Capabilities(quotesArguments = macro, compileTime = macro, usableInGuards = false, Visibility.PUBLIC),
                 Form.CALLBACK
@@ -78,13 +78,13 @@ object Declarations {
         val (name, arityInterval) = CallDefinitionHead.nameArityInterval(head, state) ?: return emptyList()
 
         return listOf(
-            spelled(call, name, headAtomValue(head), arityInterval.arityKnowledge(), PUBLIC_RUNTIME, Form.DELEGATION)
+            spelled(call, name, headAtomValue(head) != null, arityInterval.arityKnowledge(), PUBLIC_RUNTIME, Form.DELEGATION)
         )
     }
 
     private fun exception(call: Call): List<Spelled> =
         Exception.NAME_ARITY_LIST.map { (name, arity) ->
-            spelled(call, name, name, ArityKnowledge.Exact(arity), PUBLIC_RUNTIME, Form.EXCEPTION)
+            spelled(call, name, true, ArityKnowledge.Exact(arity), PUBLIC_RUNTIME, Form.EXCEPTION)
         }
 
     private fun eexFunctionFrom(call: Call): List<Spelled> {
@@ -104,8 +104,10 @@ object Declarations {
             else -> UNDECIDED_RUNTIME
         }
 
+        val name = quotedAtomValue(atom)
+
         return listOf(
-            spelled(call, quotedAtomValue(atom) ?: atom.node.lastChildNode.text, quotedAtomValue(atom), arity, capabilities, Form.EEX_FUNCTION_FROM)
+            spelled(call, name ?: atom.node.lastChildNode.text, name != null, arity, capabilities, Form.EEX_FUNCTION_FROM)
         )
     }
 
@@ -119,11 +121,13 @@ object Declarations {
             else -> return emptyList()
         }
 
+        val name = quotedAtomValue(atom)
+
         return listOf(
             spelled(
                 call,
-                quotedAtomValue(atom)?.let { "${it}_$suffix" } ?: "${atom.node.lastChildNode.text}_$suffix",
-                quotedAtomValue(atom)?.let { "${it}_$suffix" },
+                "${name ?: atom.node.lastChildNode.text}_$suffix",
+                name != null,
                 arity,
                 PRIVATE_RUNTIME,
                 Form.GENERATOR_EMBED
@@ -137,15 +141,14 @@ object Declarations {
     private fun spelled(
         call: Call,
         text: String,
-        atom: String?,
+        atom: Boolean,
         arity: ArityKnowledge,
         capabilities: Capabilities,
         form: Form
     ): Spelled =
         Spelled(
             text,
-            atom?.let {
-                Declaration(it, arity, capabilities, Declared.Source(form, CallDefinitionClause.sourceOrigin(call)))
-            }
+            Declaration(text, arity, capabilities, Declared.Source(form, CallDefinitionClause.sourceOrigin(call)))
+                .takeIf { atom }
         )
 }
