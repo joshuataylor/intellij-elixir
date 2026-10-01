@@ -13,9 +13,9 @@ import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.isAncestor
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.EEx
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.beam.psi.Module as BeamModule
+import org.elixir_lang.declaration.Form
 import org.elixir_lang.declaration.MacroRole
 import org.elixir_lang.declaration.Reach
 import org.elixir_lang.ecto.query.WindowAPI
@@ -38,10 +38,9 @@ import org.elixir_lang.psi.impl.call.*
 import org.elixir_lang.psi.impl.keywordValue
 import org.elixir_lang.psi.impl.siblingExpressions
 import org.elixir_lang.psi.scope.WhileIn.whileIn
+import org.elixir_lang.psi.scope.call_definition_clause.DeclaringForm
 import org.elixir_lang.psi.stub.type.call.Stub.isModular
 import org.elixir_lang.reference.resolver.narrowedScope
-import org.elixir_lang.structure_view.element.Callback
-import org.elixir_lang.structure_view.element.Delegation
 
 abstract class CallDefinitionClause : PsiScopeProcessor {
     /*
@@ -127,11 +126,22 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
     @RequiresReadLock
     private fun execute(element: Call, state: ResolveState): Boolean =
+        (DeclaringForm.syntacticForm(element) ?: DeclaringForm.resolvingForm(element, state))
+            ?.let { form -> executeOnDeclaring(form, element, state) }
+            ?: executeOnNonDeclaring(element, state)
+
+    private fun executeOnDeclaring(form: Form, element: Call, state: ResolveState): Boolean =
+        when (form) {
+            Form.CLAUSE -> executeOnCallDefinitionClause(element, state)
+            Form.CALLBACK -> executeOnCallback(element as AtUnqualifiedNoParenthesesCall<*>, state)
+            Form.DELEGATION -> executeOnDelegation(element, state)
+            Form.EXCEPTION -> executeOnException(element, state)
+            Form.EEX_FUNCTION_FROM -> executeOnEExFunctionFrom(element, state)
+            Form.GENERATOR_EMBED -> executeOnMixGeneratorEmbed(element, state)
+        }
+
+    private fun executeOnNonDeclaring(element: Call, state: ResolveState): Boolean =
         when {
-            org.elixir_lang.psi.CallDefinitionClause.`is`(element) -> executeOnCallDefinitionClause(element, state)
-            Callback.`is`(element) -> executeOnCallback(element as AtUnqualifiedNoParenthesesCall<*>, state)
-            Delegation.`is`(element) -> executeOnDelegation(element, state)
-            Exception.`is`(element) -> executeOnException(element, state)
             For.`is`(element) -> For.treeWalkDown(element, state, ::execute)
             If.`is`(element) || Unless.`is`(element) -> {
                 // If the entrance is at compile time level of a branch, then only previous siblings could
@@ -222,8 +232,6 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             WindowAPI.`is`(element, state) -> {
                 WindowAPI.treeWalkUp(element, state, ::execute)
             }
-            EEx.isFunctionFrom(element, state) -> executeOnEExFunctionFrom(element, state)
-            org.elixir_lang.psi.mix.Generator.isEmbed(element, state) -> executeOnMixGeneratorEmbed(element, state)
             hasDoBlockOrKeyword(element) -> executeOnUnknownMacroCall(element, state)
             else -> true
         }
@@ -414,13 +422,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
          * the [ResolveState] that [execute] has.
          */
         private fun isTakenFromExpansionDependentBlock(call: Call): Boolean =
-            org.elixir_lang.psi.CallDefinitionClause.`is`(call) ||
-                    Callback.`is`(call) ||
-                    Delegation.`is`(call) ||
-                    Exception.`is`(call) ||
-                    Use.`is`(call) ||
-                    EEx.isFunctionFromShaped(call) ||
-                    org.elixir_lang.psi.mix.Generator.isEmbedShaped(call)
+            DeclaringForm.shapedForm(call) != null || Use.`is`(call)
 
         /**
          * The `state.get(ENTRANCE)` is one of the `childCalls` OR any calls in the way are compile-time conditional

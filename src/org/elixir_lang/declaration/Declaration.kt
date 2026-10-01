@@ -15,7 +15,7 @@ data class Declaration(
 }
 
 /** The syntactic form a source declaration takes. */
-enum class Form { CLAUSE }
+enum class Form { CLAUSE, CALLBACK, DELEGATION, EXCEPTION, EEX_FUNCTION_FROM, GENERATOR_EMBED }
 
 /** Where a declaration came from. */
 sealed class Declared {
