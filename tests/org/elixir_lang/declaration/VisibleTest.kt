@@ -154,7 +154,7 @@ class VisibleTest : PlatformTestCase() {
 
     private companion object {
         const val LIBRARY = "visible_test_kernel"
-        const val KERNEL = 310
+        const val KERNEL = 171
         const val SPECIAL_FORMS = 33
         const val DECOMPILED_UNQUOTE = "unquote(unquote("
     }

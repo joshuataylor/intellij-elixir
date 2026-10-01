@@ -474,10 +474,17 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             whileIn(sourceFirstNamedElements(project, scope, moduleName)) { namedElement ->
                 when (namedElement) {
                     is Call -> implicitImport(namedElement, state.putVisitedElement(namedElement))
-                    is BeamModule -> execute(namedElement, state)
+                    is BeamModule -> implicitImport(namedElement, state)
                     else -> true
                 }
             }
+        }
+
+    /** What an implicit `import` of [module] brings in. */
+    private fun implicitImport(module: BeamModule, state: ResolveState): Boolean =
+        whileIn(module.callDefinitions()) {
+            ProgressManager.checkCanceled()
+            Import.importedCapabilities(it) == null || execute(it, state)
         }
 
     /** [modular]'s own clauses that this processor can reach, as an implicit `import` of it brings them in. */
@@ -487,7 +494,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
         for (clause in targetName()?.let(index::startingWith) ?: index.clauses) {
             ProgressManager.checkCanceled()
 
-            if (!state.hasBeenVisited(clause)) {
+            if (Import.importedCapabilities(clause) != null && !state.hasBeenVisited(clause)) {
                 WalkProbe.count(WalkProbe.Counter.CLAUSE_HANDLER_KERNEL)
 
                 if (!executeOnCallDefinitionClause(clause, state.putVisitedElement(clause))) {

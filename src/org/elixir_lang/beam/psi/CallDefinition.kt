@@ -49,6 +49,12 @@ interface CallDefinition : BeamSymbol, MaybeExported {
         )
 }
 
+/** `module_info/0,1` or `__info__/1`, which the compiler adds to a module and no `import` of it brings in. */
+val CallDefinition.isCompilerAdded: Boolean
+    get() = nameArityInterval.let { (name, arityInterval) ->
+        (name == "module_info" && arityInterval.minimum in 0..1) || (name == "__info__" && arityInterval.minimum == 1)
+    }
+
 /** The definition of this origin's name and arity; a module cannot define both a function and a macro of one. */
 @RequiresReadLock
 fun CompiledOrigin.callDefinition(project: Project): CallDefinition? =

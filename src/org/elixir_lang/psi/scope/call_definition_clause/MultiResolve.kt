@@ -7,6 +7,7 @@ import org.elixir_lang.NameArityInterval
 import org.elixir_lang.declaration.Form
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.psi.*
+import org.elixir_lang.psi.CallDefinitionClause.capabilities
 import org.elixir_lang.psi.CallDefinitionClause.nameArityInterval
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.Named
@@ -48,16 +49,24 @@ private constructor(
         private val atom: Boolean) : org.elixir_lang.psi.scope.CallDefinitionClause() {
     override fun executeOnCallDefinitionClause(element: Call, state: ResolveState): Boolean =
             nameArityInterval(element, state)
-                    ?.let { addIfNameOrArityToResolveResults(element, it, state, Form.CLAUSE) }
+                    ?.let { nameArityInterval ->
+                        addIfNameOrArityToResolveResults(
+                            element, nameArityInterval, state, Form.CLAUSE,
+                            importAdmits(state, nameArityInterval.name) { capabilities(element)?.compileTime == true }
+                        )
+                    }
                     ?: true
 
     override fun execute(element: BeamCallDefinition, state: ResolveState): Boolean =
-        addIfNameOrArityToResolveResults(element, element.nameArityInterval, state)
+        addIfNameOrArityToResolveResults(
+            element, element.nameArityInterval, state,
+            importAdmits(state, element.nameArityInterval.name) { element.capabilities.compileTime }
+        )
 
     override fun executeOnCallback(element: AtUnqualifiedNoParenthesesCall<*>, state: ResolveState): Boolean =
             Callback.headCall(element)
                     ?.let { CallDefinitionHead.nameArityInterval(it, state) }
-                    ?.let { addIfNameOrArityToResolveResults(element, it, state, Form.CALLBACK) }
+                    ?.let { addIfNameOrArityToResolveResults(element, it, state, Form.CALLBACK, imported = true) }
                     ?: true
 
     override fun executeOnDelegation(element: Call, state: ResolveState): Boolean {
@@ -66,7 +75,8 @@ private constructor(
 
             CallDefinitionHead.nameArityInterval(head, state)?.let { headNameArityInterval ->
                 val headName = headNameArityInterval.name
-                val validArity = resolvedPrimaryArity in headNameArityInterval.arityInterval
+                val validArity =
+                    resolvedPrimaryArity in headNameArityInterval.arityInterval && importAdmits(state, headName) { false }
 
                 if ((this.name == null && (incompleteCode || validArity)) ||
                         (this.name != null && headName.startsWith(this.name))) {
@@ -90,11 +100,14 @@ private constructor(
                         if (modulars.isNotEmpty() && nameInDefiningModule != null) {
                             val headNamed = this.name == null || headName == this.name
 
+                            // A head with defaults calls the target with every argument.
+                            val targetArity = headNameArityInterval.arityInterval.maximum ?: resolvedPrimaryArity
+
                             for (modular in modulars) {
                                 // Call recursively to get all the proper `for` and `use` handling.
                                 val modularResolveResults = resolveResults(
                                     nameInDefiningModule,
-                                    resolvedPrimaryArity,
+                                    targetArity,
                                     incompleteCode,
                                     modular,
                                     ResolveState.initial(),
@@ -187,21 +200,30 @@ private constructor(
                 }
             } ?: true
 
+    /**
+     * Whether the `import` [state] reached a definition through, if any, brings in [name] at the use's arity. An arity
+     * it leaves out is a wrong arity: the definition stays an invalid result.
+     */
+    private inline fun importAdmits(state: ResolveState, name: String, macro: () -> Boolean): Boolean =
+        state.get(Import.FILTER)?.admits(name, resolvedPrimaryArity, macro()) ?: true
+
     private fun addIfNameOrArityToResolveResults(call: Call,
                                                  nameArityInterval: NameArityInterval,
                                                  state: ResolveState,
-                                                 form: Form): Boolean {
+                                                 form: Form,
+                                                 imported: Boolean): Boolean {
         val name = nameArityInterval.name
-        val validArity = resolvedPrimaryArity in nameArityInterval.arityInterval
+        val validArity = resolvedPrimaryArity in nameArityInterval.arityInterval && imported
 
         return addIfNameOrArityToResolveResults(call, name, validArity, state, form)
     }
 
     private fun addIfNameOrArityToResolveResults(callDefinition: BeamCallDefinition,
                                                  nameArityInterval: NameArityInterval,
-                                                 state: ResolveState): Boolean {
+                                                 state: ResolveState,
+                                                 imported: Boolean): Boolean {
         val name = nameArityInterval.name
-        val validArity = resolvedPrimaryArity in nameArityInterval.arityInterval
+        val validArity = resolvedPrimaryArity in nameArityInterval.arityInterval && imported
 
         return addIfNameOrArityToResolveResults(callDefinition, name, validArity, state)
     }

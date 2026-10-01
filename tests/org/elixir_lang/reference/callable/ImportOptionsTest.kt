@@ -1,7 +1,11 @@
 package org.elixir_lang.reference.callable
 
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.PsiPolyVariantReference
+import com.intellij.psi.ResolveResult
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
+import org.elixir_lang.psi.scope.WalkTestSupport
 import java.io.File
 
 /** Whether a call resolves to what an `import`'s options bring in from `m.ex`, the module the import oracle uses. */
@@ -43,8 +47,109 @@ class ImportOptionsTest : PlatformTestCase() {
         assertResolves("import M, only: [f: 2]", "f(1, 2)")
     }
 
-    fun testExceptOneArityOfADefaultedFunctionLeavesOutTheDefinition() {
+    fun testExceptOneArityOfADefaultedFunctionLeavesOutThatArity() {
         assertDoesNotResolve("import M, except: [f: 1]", "f(1)")
+    }
+
+    fun testExceptOneArityOfADefaultedFunctionBringsInItsOtherArity() {
+        assertResolves("import M, except: [f: 1]", "f(1, 2)")
+    }
+
+    fun testAnArityOnlyLeavesOutReachesTheDefinitionAsAWrongArity() {
+        assertWrongArity("import M, only: [f: 1]", "f(1, 2)")
+    }
+
+    fun testAnArityExceptLeavesOutReachesTheDefinitionAsAWrongArity() {
+        assertWrongArity("import M, except: [f: 1]", "f(1)")
+    }
+
+    fun testADefinitionOnlyLeavesOutAtEveryArityIsNotReached() {
+        assertEmpty(definitionResults("import M, only: [g: 1]", "f(1)"))
+    }
+
+    fun testAnArityOnlyLeavesOutReachesTheCompiledDefinitionAsAWrongArity() =
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_logger", LOGGER) {
+            val import = "import Logger, only: [debug: 1]"
+            val use = "debug(1, [])"
+            myFixture.configureByText("u.ex", user(import, "<caret>$use"))
+            val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
+            val results = reference.multiResolve(false).filter { it.element is BeamCallDefinition }
+
+            assertTrue("`$use` under `$import` reaches no compiled definition", results.isNotEmpty())
+            assertTrue("`$use` under `$import` resolves to a compiled definition", results.none { it.isValidResult })
+        }
+
+    fun testReimportWithExceptNarrowsTheEarlierImport() {
+        val imports = "import M, only: [f: 1, g: 1]\nimport M, except: [f: 1]"
+
+        assertResolves(imports, "g(1)")
+        assertResolves(imports, "mac(1)")
+        assertDoesNotResolve(imports, "f(1)")
+        assertDoesNotResolve(imports, "f(1, 2)")
+    }
+
+    fun testReimportWithoutExceptReplacesTheEarlierImport() {
+        val imports = "import M, only: [f: 1]\nimport M, only: [g: 1]"
+
+        assertResolves(imports, "g(1)")
+        assertDoesNotResolve(imports, "f(1)")
+    }
+
+    fun testReimportWithExceptOfAKindTheEarlierImportLeftEmptyBringsInThatKind() {
+        val imports = "import M, only: [mac: 1]\nimport M, except: [f: 1]"
+
+        assertResolves(imports, "g(1)")
+        assertResolves(imports, "f(1, 2)")
+        assertResolves(imports, "mac(1)")
+        assertDoesNotResolve(imports, "is_small(1)")
+    }
+
+    fun testADefinitionBetweenTwoImportsSeesOnlyTheEarlierOne() {
+        assertTrue(
+            "`f(1)` between `import M, only: [f: 1]` and `import M, only: [g: 1]` resolves to no definition",
+            resolvesToDefinition(
+                """
+                defmodule U do
+                  import M, only: [f: 1]
+
+                  def v do
+                    <caret>f(1)
+                  end
+
+                  import M, only: [g: 1]
+                end
+                """.trimIndent()
+            )
+        )
+    }
+
+    fun testABlockUnquotedBetweenTwoImportsInAQuoteSeesTheEarlierOne() {
+        assertTrue(
+            "`f(1)` in a block unquoted between `import M, only: [f: 1]` and `import M, only: [g: 1]` resolves to no definition",
+            resolvesToDefinition(
+                """
+                defmodule Blocks do
+                  defmacro my_block(do: block) do
+                    quote do
+                      import M, only: [f: 1]
+                      unquote(block)
+                      import M, only: [g: 1]
+                    end
+                  end
+                end
+
+                defmodule U do
+                  require Blocks
+
+                  def u do
+                    Blocks.my_block do
+                      <caret>f(1)
+                    end
+                  end
+                end
+                """.trimIndent()
+            )
+        )
     }
 
     fun testExceptOfAnAttributeInAFunctionKeepsOtherNames() {
@@ -133,6 +238,55 @@ class ImportOptionsTest : PlatformTestCase() {
         )
     }
 
+    fun testADelegationWithDefaultsReachesTheTargetsFullArity() {
+        val delegations = """
+            defmodule Target do
+              def f(a, b), do: {a, b}
+            end
+
+            defmodule D do
+              defdelegate f(a, b \\ 1), to: Target
+            end
+        """.trimIndent()
+
+        assertContainsElements(validTargets(delegations, "import D", "f(1)"), "def f(a, b), do: {a, b}")
+    }
+
+    fun testExceptOneArityOfADelegationWithDefaultsLeavesOutOnlyThatArity() {
+        val delegations = """
+            defmodule Target do
+              def snoc(q, x), do: [x | q]
+            end
+
+            defmodule D do
+              defdelegate snoc(q, x \\ nil), to: Target
+            end
+        """.trimIndent()
+
+        assertEmpty(validTargets(delegations, "import D, except: [snoc: 1]", "snoc(1)"))
+        assertContainsElements(
+            validTargets(delegations, "import D, except: [snoc: 1]", "snoc(1, 2)"),
+            """defdelegate snoc(q, x \\ nil), to: Target"""
+        )
+    }
+
+    fun testAnArityExceptLeavesOutReachesTheDelegationAsAWrongArity() {
+        val delegations = """
+            defmodule Target do
+              def snoc(q, x), do: [x | q]
+            end
+
+            defmodule D do
+              defdelegate snoc(q, x \\ nil), to: Target
+            end
+        """.trimIndent()
+
+        assertContainsElements(
+            invalidTargets(delegations, "import D, except: [snoc: 1]", "snoc(1)"),
+            """defdelegate snoc(q, x \\ nil), to: Target"""
+        )
+    }
+
     fun testADelegationOfAnotherArityDoesNotHideTheTarget() {
         val delegations = """
             defmodule Target do
@@ -152,7 +306,16 @@ class ImportOptionsTest : PlatformTestCase() {
     }
 
     /** The first line of each valid result for [use] under [import], after the modules [delegations] declares. */
-    private fun validTargets(delegations: String, import: String, use: String): List<String> {
+    private fun validTargets(delegations: String, import: String, use: String): List<String> =
+        firstLines(results(delegations, import, use).filter { it.isValidResult })
+
+    private fun invalidTargets(delegations: String, import: String, use: String): List<String> =
+        firstLines(results(delegations, import, use).filterNot { it.isValidResult })
+
+    private fun firstLines(results: List<ResolveResult>): List<String> =
+        results.mapNotNull { it.element?.text?.lines()?.first() }
+
+    private fun results(delegations: String, import: String, use: String): List<ResolveResult> {
         val user = """
             defmodule U do
               $import
@@ -165,7 +328,7 @@ class ImportOptionsTest : PlatformTestCase() {
         myFixture.configureByText("u.ex", "$delegations\n\n$user")
         val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
 
-        return reference.multiResolve(false).filter { it.isValidResult }.mapNotNull { it.element?.text?.lines()?.first() }
+        return reference.multiResolve(false).toList()
     }
 
     fun testUnderscoredNamesAreNotImported() {
@@ -185,6 +348,94 @@ class ImportOptionsTest : PlatformTestCase() {
         assertResolves("import M, [only: [g: 1]]", "g(1)")
         assertDoesNotResolve("import M, [only: [g: 1]]", "f(1)")
     }
+
+    fun testOnlyMacrosOfACompiledModuleBringsInItsMacros() =
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_logger", LOGGER) {
+            assertTrue(
+                "`debug(1)` under `import Logger, only: :macros` resolves to no compiled definition",
+                resolvesToCompiled("import Logger, only: :macros", "debug(1)")
+            )
+            assertFalse(
+                "`level()` under `import Logger, only: :macros` resolves to a compiled definition",
+                resolvesToCompiled("import Logger, only: :macros", "level()")
+            )
+        }
+
+    fun testOnlyNamingInfoOfACompiledModuleDoesNotBringItIn() =
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_logger", LOGGER) {
+            assertTrue(
+                "`level()` under `import Logger, only: [level: 0, __info__: 1]` resolves to no compiled definition",
+                resolvesToCompiled("import Logger, only: [level: 0, __info__: 1]", "level()")
+            )
+            assertFalse(
+                "`__info__(:functions)` under `import Logger, only: [level: 0, __info__: 1]` resolves to a compiled definition",
+                resolvesToCompiled("import Logger, only: [level: 0, __info__: 1]", "__info__(:functions)")
+            )
+        }
+
+    fun testACompiledModulesImportLeavesOutModuleInfo() =
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_queue", QUEUE) {
+            assertTrue("`new()` under `import :queue` resolves to no compiled definition", resolvesToCompiled("import :queue", "new()"))
+            assertFalse(
+                "`module_info()` under `import :queue` resolves to a compiled definition",
+                resolvesToCompiled("import :queue", "module_info()")
+            )
+            assertFalse(
+                "`module_info(:exports)` under `import :queue` resolves to a compiled definition",
+                resolvesToCompiled("import :queue", "module_info(:exports)")
+            )
+            assertNotOffered("import :queue", "module_", "module_info")
+        }
+
+    fun testACompiledKernelsImplicitImportLeavesOutModuleInfoAndInfo() = withCompiledKernel {
+        assertFalse("`__info__(:functions)` resolves to a compiled definition", resolvesToCompiled("", "__info__(:functions)"))
+        assertFalse("`module_info()` resolves to a compiled definition", resolvesToCompiled("", "module_info()"))
+        assertFalse("`module_info(:exports)` resolves to a compiled definition", resolvesToCompiled("", "module_info(:exports)"))
+    }
+
+    fun testACompiledKernelsImplicitImportLeavesOutPrivateDefinitions() = withCompiledKernel {
+        assertTrue("`is_atom(1)` resolves to no compiled definition", resolvesToCompiled("", "is_atom(1)"))
+        assertFalse(
+            "`assert_module_scope(1, 2, 3)` resolves to a compiled definition",
+            resolvesToCompiled("", "assert_module_scope(1, 2, 3)")
+        )
+    }
+
+    /** [block] with `Kernel`'s `.beam` alone as a library, so the implicit import reads it and no source `Kernel`. */
+    private fun withCompiledKernel(block: () -> Unit) {
+        val directory = FileUtil.createTempDirectory("compiled_kernel", null)
+        File(WalkTestSupport.DOCS_KERNEL, "Elixir.Kernel.beam").copyTo(File(directory, "Elixir.Kernel.beam"))
+
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_kernel", directory) { block() }
+    }
+
+    private fun resolvesToCompiled(import: String, use: String): Boolean {
+        myFixture.configureByText("u.ex", user(import, "<caret>$use"))
+        val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
+
+        return reference.multiResolve(false).any { it.isValidResult && it.element is BeamCallDefinition }
+    }
+
+    /** One lookup is inserted without a list, so nothing offered must also leave the document as it was. */
+    private fun assertNotOffered(import: String, prefix: String, name: String) {
+        myFixture.configureByText("u.ex", user(import, "$prefix<caret>"))
+        val before = myFixture.editor.document.text
+        val offered = myFixture.completeBasic()?.map { it.lookupString }.orEmpty()
+
+        assertEquals("completing `$prefix` under `$import` inserted a lookup", before, myFixture.editor.document.text)
+        assertDoesntContain(offered, name)
+    }
+
+    private fun user(import: String, use: String): String =
+        """
+        defmodule U do
+          $import
+
+          def u do
+            $use
+          end
+        end
+        """.trimIndent()
 
     private fun assertResolves(import: String, use: String) {
         assertTrue("`$use` under `$import` resolves to no definition", resolvesToDefinition(import, use))
@@ -207,16 +458,33 @@ class ImportOptionsTest : PlatformTestCase() {
             """.trimIndent()
         )
 
-    private fun resolvesToDefinition(text: String): Boolean {
+    private fun resolvesToDefinition(text: String): Boolean = definitionResults(text).any { it.isValidResult }
+
+    private fun assertWrongArity(import: String, use: String) {
+        val results = definitionResults(import, use)
+
+        assertTrue("`$use` under `$import` reaches no definition", results.isNotEmpty())
+        assertTrue("`$use` under `$import` resolves to a definition", results.none { it.isValidResult })
+    }
+
+    private fun definitionResults(import: String, use: String): List<ResolveResult> =
+        definitionResults(user(import, "<caret>$use"))
+
+    private fun definitionResults(text: String): List<ResolveResult> {
         myFixture.configureByText("u.ex", text)
         val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
 
         // The `import` line is a result of its own, so only a definition in `m.ex` counts.
-        return reference.multiResolve(false).any { it.isValidResult && it.element?.containingFile?.name == "m.ex" }
+        return reference.multiResolve(false).filter { it.element?.containingFile?.name == "m.ex" }
     }
 
     override fun setUp() {
         super.setUp()
         myFixture.addFileToProject("m.ex", File("testData/org/elixir_lang/psi/import/oracle/m.ex").readText())
+    }
+
+    private companion object {
+        val LOGGER = File("testData/org/elixir_lang/mockSdk-1.0.4/lib/logger/ebin")
+        val QUEUE = File("testData/org/elixir_lang/psi/scope/callable_table/library_roots/lib")
     }
 }

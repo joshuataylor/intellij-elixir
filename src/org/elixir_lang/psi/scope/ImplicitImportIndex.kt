@@ -19,8 +19,8 @@ import java.util.SortedMap
 import java.util.TreeMap
 
 /**
- * The clauses an implicit `import` of a source module brings in, by the atom each declares. Building it resolves
- * nothing, so a resolve inside the module itself can reach it while it is built.
+ * A source module's clauses by the atom each declares, private ones included, for an implicit `import` of it to admit.
+ * Building it resolves nothing, so a resolve inside the module itself can reach it while it is built.
  */
 class ImplicitImportIndex private constructor(
     /** Every clause, named or not, in `Modular.callDefinitionClauseCallSequence` order. */
