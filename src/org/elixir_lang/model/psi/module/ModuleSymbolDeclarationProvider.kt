@@ -7,7 +7,6 @@ import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.concurrency.annotations.RequiresReadLock
-import org.elixir_lang.psi.Module
 import org.elixir_lang.psi.call.Call
 
 @Suppress("UnstableApiUsage")
@@ -16,7 +15,7 @@ internal class ModuleSymbolDeclarationProvider : PsiSymbolDeclarationProvider {
     override fun getDeclarations(element: PsiElement, offsetInElement: Int): Collection<PsiSymbolDeclaration> {
         val moduleCall = generateSequence(element) { it.parent }
             .filterIsInstance<Call>()
-            .firstOrNull { Module.`is`(it) }
+            .firstOrNull { ModuleSymbol.isDeclaration(it) }
             ?: return emptyList()
 
         val nameElement = ModuleSymbol.moduleNameElement(moduleCall) ?: return emptyList()

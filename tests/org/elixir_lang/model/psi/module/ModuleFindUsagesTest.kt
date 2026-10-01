@@ -11,7 +11,7 @@ import org.elixir_lang.code_insight.nonDeclarationUsageCountAtCaret
  * Each test describes what the user experiences: which caret position routes to Show Usages
  * and how many references appear in the popup for a given source layout.
  *
- * The pipeline is real caret → [com.intellij.find.usages.impl.searchTargets] → [com.intellij.find.usages.impl.buildQuery] → [com.intellij.find.usages.api.PsiUsage]s, identical to
+ * The pipeline is real caret -> [com.intellij.find.usages.impl.searchTargets] -> [com.intellij.find.usages.impl.buildQuery] -> [com.intellij.find.usages.api.PsiUsage]s, identical to
  * what the Find Usages action invokes. No implementation classes (declaration providers,
  * usage mappers, symbol constructors) are called directly.
  */
@@ -32,6 +32,11 @@ class ModuleFindUsagesTest : PlatformTestCase() {
 
     fun testCtrlClickOnQualifiedModuleQualifierShowsUsages() {
         myFixture.configureByFiles("usages_qualified_alias_use_import.ex")
+        myFixture.assertShowUsagesChosenAtCaret()
+    }
+
+    fun testCtrlClickOnDefprotocolNameShowsUsages() {
+        myFixture.configureByFiles("usages_defprotocol.ex")
         myFixture.assertShowUsagesChosenAtCaret()
     }
 
@@ -92,6 +97,16 @@ class ModuleFindUsagesTest : PlatformTestCase() {
     /** Same file, caret on the alias rather than the declaration: still one usage, not two. */
     fun testFindUsagesFromSelfAliasSiteReportsTheAliasOnce() {
         assertEquals(1, nonDeclarationUsageCount("usages_self_alias_from_alias.ex"))
+    }
+
+    /** A `defimpl` of a `defprotocol` and a call through it are usages of the protocol. */
+    fun testFindUsagesOnDefprotocolFindsImplementationAndCallSites() {
+        assertEquals(2, nonDeclarationUsageCount("usages_defprotocol.ex"))
+    }
+
+    /** Same file, caret on the `defimpl`'s protocol alias: the same two usages. */
+    fun testFindUsagesFromDefimplProtocolAliasFindsImplementationAndCallSites() {
+        assertEquals(2, nonDeclarationUsageCount("usages_defprotocol_from_defimpl.ex"))
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────────

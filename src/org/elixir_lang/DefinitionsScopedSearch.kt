@@ -13,6 +13,7 @@ import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.Protocol
 import org.elixir_lang.psi.QualifiableAlias
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.impl.declaringModuleCall
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
 import org.elixir_lang.psi.outerMostQualifiableAlias
 
@@ -30,10 +31,18 @@ internal class DefinitionsScopedSearch :
 
     private fun processQuery(qualifiableAlias: QualifiableAlias, consumer: Processor<in PsiElement>) {
         ProgressManager.checkCanceled()
-        qualifiableAlias.outerMostQualifiableAlias().maybeModularNameToModulars(qualifiableAlias.containingFile)
-            .map { modular ->
-                processQuery(modular, consumer)
-            }
+        val outerMostQualifiableAlias = qualifiableAlias.outerMostQualifiableAlias()
+        // A declaration's name carries no reference, so it cannot resolve to its own declaration.
+        val declaringModuleCall = declaringModuleCall(outerMostQualifiableAlias)
+
+        if (declaringModuleCall != null) {
+            processQuery(declaringModuleCall, consumer)
+        } else {
+            outerMostQualifiableAlias.maybeModularNameToModulars(qualifiableAlias.containingFile)
+                .map { modular ->
+                    processQuery(modular, consumer)
+                }
+        }
     }
 
     private fun processQuery(psiElement: PsiElement, consumer: Processor<in PsiElement>) {

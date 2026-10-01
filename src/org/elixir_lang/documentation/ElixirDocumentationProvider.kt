@@ -23,6 +23,7 @@ import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.ModuleAttribute.isDocumentationName
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.childExpressions
+import org.elixir_lang.psi.impl.declaringModuleCall
 import org.elixir_lang.psi.impl.identifierName
 import org.elixir_lang.psi.operation.capture.NonNumeric
 import org.elixir_lang.psi.stub.type.call.Stub.isModular
@@ -307,6 +308,9 @@ internal class ElixirDocumentationProvider : DocumentationProvider {
                     }
                 }
         }
+
+        contextElement is QualifiableAlias && declaringModuleCall(contextElement) != null ->
+            declaringModuleCall(contextElement)
 
         contextElement is QualifiableAlias && contextElement.getReference() != null ->
             contextElement.getReference()!!

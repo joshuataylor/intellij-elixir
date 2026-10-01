@@ -5,6 +5,8 @@ import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.psi.util.isAncestor
+import com.intellij.util.concurrency.annotations.RequiresReadLock
+import org.elixir_lang.model.psi.module.ModuleSymbol
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.name.Module.KERNEL
@@ -16,8 +18,9 @@ import org.elixir_lang.psi.stub.type.call.Stub.isModular
 import org.elixir_lang.reference.Module
 import org.jetbrains.annotations.Contract
 
+@RequiresReadLock
 fun QualifiableAlias.computeReference(): PsiPolyVariantReference? =
-    if (isDefmoduleDeclarationName(this)) {
+    if (declaringModuleCall(this) != null) {
         null
     } else when (val parent = this.parent) {
         is QualifiableAlias ->
@@ -51,19 +54,20 @@ fun QualifiableAlias.computeReference(): PsiPolyVariantReference? =
     }
 
 /**
- * Whether [alias] is (part of) the declared name of an enclosing `defmodule`/`defprotocol`/`defimpl`.
+ * The enclosing module declaration ([ModuleSymbol.isDeclaration]) whose declared name [alias] is (part of).
  * Declaration names are anchored by `ModuleSymbolDeclarationProvider` and must not carry references -
  * an (even unresolving) reference over a declaration anchor shadows the declaration in the platform's
  * declaration-or-reference arbitration.
  */
-internal fun isDefmoduleDeclarationName(alias: QualifiableAlias): Boolean {
+@RequiresReadLock
+internal fun declaringModuleCall(alias: QualifiableAlias): Call? {
     val moduleCall = generateSequence(alias as PsiElement) { it.parent }
         .filterIsInstance<Call>()
-        .firstOrNull { org.elixir_lang.psi.Module.`is`(it) }
-        ?: return false
-    val firstPrimaryArgument = moduleCall.primaryArguments()?.firstOrNull() ?: return false
+        .firstOrNull { ModuleSymbol.isDeclaration(it) }
+        ?: return null
+    val firstPrimaryArgument = moduleCall.primaryArguments()?.firstOrNull() ?: return null
 
-    return PsiTreeUtil.isAncestor(firstPrimaryArgument, alias, false)
+    return moduleCall.takeIf { PsiTreeUtil.isAncestor(firstPrimaryArgument, alias, false) }
 }
 
 fun QualifiableAlias.cachedReference(): PsiPolyVariantReference? =

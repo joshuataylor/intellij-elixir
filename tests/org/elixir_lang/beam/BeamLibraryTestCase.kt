@@ -31,7 +31,7 @@ abstract class BeamLibraryTestCase : PlatformTestCase() {
      *
      * Every caller currently passes `queue.beam`, so the IDE reports [beamName] as always the same value.
      * Do not inline it: subclasses ship different fixtures - `BeamModuleGotoDeclarationTest` has only
-     * `Elixir.Code.beam`, and the type suites also carry `erlang.beam`.
+     * `Elixir.Code.beam` and `Elixir.Inspect.beam`, and the type suites also carry `erlang.beam`.
      */
     protected fun openBeam(beamName: String) {
         val beamIo = File(ebinDirectory, beamName)
