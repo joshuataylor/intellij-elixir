@@ -51,6 +51,7 @@ import sdk.resolveMixEnv
 import sdk.versionWithoutBuildTag
 import sdk.elixirTestEnvironment
 import testing.CheckUnexpectedLogs
+import testing.configureJul
 import testing.keepWinpHelpersIn
 import testing.recordTimeline
 import testing.reportUnexpectedLogs
@@ -1195,6 +1196,7 @@ tasks.named<Test>("test") {
     providers.gradleProperty("testTimeline").orNull?.let { recordTimeline(layout.projectDirectory.file(it).asFile) }
 
     reportUnexpectedLogs(unexpectedLogsDir, unexpectedLogsMode, checkUnexpectedLogs)
+    configureJul(layout.projectDirectory.file("testResources/logging.properties").asFile)
 
     // Add Mockito as javaagent to avoid dynamic loading warnings (root project only)
     jvmArgs("-javaagent:${mockitoAgent.asPath}")

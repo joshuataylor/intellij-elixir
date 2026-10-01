@@ -592,6 +592,8 @@
 
 ### Build / CI
 
+- [#4310](https://github.com/intellij-elixir/intellij-elixir/pull/4310) [@sh41](https://github.com/sh41)
+  - **Test logs no longer end with the IDE's INFO messages from shutting down each test JVM.**
 - [#4275](https://github.com/intellij-elixir/intellij-elixir/pull/4275) [@sh41](https://github.com/sh41)
   - **A parser test checks that each spelling of a name, such as `:a`, `:"a"`, `:'a'` or `Elixir.Foo`, quotes as Elixir quotes it on every supported Elixir.** Fixes [#4272](https://github.com/intellij-elixir/intellij-elixir/issues/4272).
 - [#4268](https://github.com/intellij-elixir/intellij-elixir/pull/4268) [@sh41](https://github.com/sh41)
