@@ -257,6 +257,58 @@ class ModuleBodyReadersTest : PlatformTestCase() {
     fun testCallInRouteFindsLaterDefp() =
         assertCallFindsLaterDefp("get \"/\" do\n    helper<caret>()\n  end")
 
+    /** Elixir compiles a module-level block's branches before any `def` after it, so the `def` is not yet defined. */
+    fun testCallInElseDoesNotFindLaterDefControl() =
+        assertCallDoesNotFindLaterDef("if true do\n    nil\n  else\n    helper<caret>()\n  end")
+
+    fun testCallInKeywordElseDoesNotFindLaterDef() =
+        assertCallDoesNotFindLaterDef("if true, do: nil, else: helper<caret>()")
+
+    fun testCallInKeywordDoDoesNotFindLaterDef() = assertCallDoesNotFindLaterDef("if true, do: helper<caret>()")
+
+    fun testCallInParenthesizedKeywordElseDoesNotFindLaterDef() =
+        assertCallDoesNotFindLaterDef("if true, do: nil, else: (x = 1; helper<caret>())")
+
+    fun testCallInParenthesizedBlockDoesNotFindLaterDef() =
+        assertCallDoesNotFindLaterDef("if true do\n    (x = 1; helper<caret>())\n  end")
+
+    /** The `else:` branch's `def` is a statement of the module, but the guard on the `do:` branch still applies. */
+    fun testCallInKeywordDoDoesNotFindDefInKeywordElse() =
+        assertCallDoesNotFind("if true, do: helper<caret>(), else: def(helper, do: 1)")
+
+    fun testCallInParenthesizedKeywordDoDoesNotFindDefInKeywordElse() =
+        assertCallDoesNotFind("if true, do: (x = 1; helper<caret>()), else: def(helper, do: 1)")
+
+    fun testCallInKeywordElseDoesNotFindDefInKeywordDo() =
+        assertCallDoesNotFind("if true, do: def(helper, do: 1), else: helper<caret>()")
+
+    private fun assertCallDoesNotFindLaterDef(block: String) = assertCallDoesNotFind("$block\n\n  def helper, do: 1")
+
+    private fun assertCallDoesNotFind(body: String) {
+        myFixture.configureByText("x.ex", "defmodule M do\n  $body\nend\n")
+
+        assertEquals(emptyList<String>(), validTexts())
+    }
+
+    fun testUseOfQuotedIfInjectsDefinitionsControl() =
+        assertUseOfQuotedIfInjects("if true do\n        def f, do: 1\n      end", "def f, do: 1")
+
+    fun testUseOfQuotedKeywordIfInjectsDefinitions() =
+        assertUseOfQuotedIfInjects("if true, do: def(f, do: 1)", "def(f, do: 1)")
+
+    fun testUseOfQuotedKeywordElseInjectsDefinitions() =
+        assertUseOfQuotedIfInjects("if true, do: nil, else: def(f, do: 1)", "def(f, do: 1)")
+
+    private fun assertUseOfQuotedIfInjects(block: String, definition: String) {
+        myFixture.configureByText(
+            "x.ex",
+            "defmodule Injector do\n  defmacro __using__(_) do\n    quote do\n      $block\n    end\n  end\nend\n\n" +
+                "defmodule User do\n  use Injector\n\n  def caller, do: f<caret>()\nend\n"
+        )
+
+        assertContainsElements(validTexts(), definition)
+    }
+
     fun testImportFindsDefControl() = assertImportFindsDef(inIf = false)
 
     fun testImportFindsDefInIf() = assertImportFindsDef(inIf = true)

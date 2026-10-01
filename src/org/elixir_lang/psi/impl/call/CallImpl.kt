@@ -204,6 +204,11 @@ fun Call.keywordArgument(keywordKeyText: String): PsiElement? = keywordArguments
 fun Call.body(): PsiElement? =
     doBlock ?: keywordArguments()?.quotableKeywordPairList()?.lastOrNull { it.blockKeyword() == "do" }?.keywordValue
 
+/** The keyword pairs that are this call's block bodies, as `do:` and `else:` in `if c, do: a, else: b`, in order. */
+@RequiresReadLock
+fun Call.blockKeywordPairs(): List<QuotableKeywordPair> =
+    keywordArguments()?.quotableKeywordPairList()?.filter { it.selfOrEnclosingMacroCall() == this }.orEmpty()
+
 /**
  * The keyword arguments for `call`.
  * @receiver the call to search for keyword arguments.

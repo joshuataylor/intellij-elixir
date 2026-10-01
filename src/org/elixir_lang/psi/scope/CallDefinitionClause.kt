@@ -1,5 +1,6 @@
 package org.elixir_lang.psi.scope
 
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
@@ -31,6 +32,7 @@ import org.elixir_lang.psi.ex_unit.Case
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.ENTRANCE
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.hasDoBlockOrKeyword
 import org.elixir_lang.psi.impl.ancestorSequence
+import org.elixir_lang.psi.impl.selfOrEnclosingMacroCall
 import org.elixir_lang.psi.impl.enclosingMacroCall
 import org.elixir_lang.psi.impl.call.*
 import org.elixir_lang.psi.impl.keywordValue
@@ -51,6 +53,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
      * @param state   current state of resolver.
      * @return false to stop processing.
      */
+    @RequiresReadLock
     override fun execute(element: PsiElement, state: ResolveState): Boolean =
         when (element) {
             is Call -> execute(element, state)
@@ -122,6 +125,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
      * Private Instance Methods
      */
 
+    @RequiresReadLock
     private fun execute(element: Call, state: ResolveState): Boolean =
         when {
             org.elixir_lang.psi.CallDefinitionClause.`is`(element) -> executeOnCallDefinitionClause(element, state)
@@ -142,6 +146,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
                 if (walkPrimary && walkAlternative) {
                     for (childCall in blockChildCalls(element, ::modularCallsToExecute)) {
+                        ProgressManager.checkCanceled()
                         execute(childCall, state)
                     }
                 }
@@ -179,6 +184,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
                 // `childCalls` reaches into nested blocks and can hold the entrance itself, so this reads direct children.
                 if (!containsCompileTimeEntranceAncestorOrSelf(element.macroChildCallSequence(), state)) {
                     for (childCall in childCalls) {
+                        ProgressManager.checkCanceled()
                         execute(childCall, state)
                     }
                 }
@@ -438,8 +444,10 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             when (ancestor) {
                 is ElixirDoBlock,
                 is ElixirBlockList, is ElixirBlockItem,
-                is ElixirStab, is ElixirStabBody ->
+                is ElixirStab, is ElixirStabBody,
+                is ElixirAccessExpression, is ElixirParentheticalStab ->
                     isCompileTimeAncestor(stop, ancestor.parent)
+                is QuotableKeywordPair -> isCompileTimeAncestor(stop, ancestor.selfOrEnclosingMacroCall())
                 is Call -> when {
                     If.`is`(ancestor) || Unless.`is`(ancestor) ->
                         // the `stop` is an `if` or `unless`
