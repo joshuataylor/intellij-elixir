@@ -525,6 +525,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4297](https://github.com/intellij-elixir/intellij-elixir/pull/4297) [@sh41](https://github.com/sh41)
+  - **The expander tracks which variables each expression binds, as each Elixir release does, and a test harness checks them against Elixir's; nothing uses it yet.** Fixes [#4294](https://github.com/intellij-elixir/intellij-elixir/issues/4294).
 - [#4293](https://github.com/intellij-elixir/intellij-elixir/pull/4293) [@sh41](https://github.com/sh41)
   - **The expander's environment starts from each Elixir release's own default imports and requires, and a test harness checks it against Elixir's; nothing uses it yet.** Fixes [#4292](https://github.com/intellij-elixir/intellij-elixir/issues/4292).
 - [#4291](https://github.com/intellij-elixir/intellij-elixir/pull/4291) [@sh41](https://github.com/sh41)

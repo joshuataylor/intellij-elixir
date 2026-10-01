@@ -76,6 +76,11 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             DELIMITER_ON_QUOTED_REMOTE_CALL to ("1.17.3" to "1.18.0-rc.0"),
             NESTED_PARENTHESES_DROP_INNER_METADATA to ("1.18.4" to "1.19.0-rc.0"),
             CLOSING_ON_EMPTY_MULTIPLE_ALIASES to ("1.19.0-rc.0" to "1.19.0-rc.1"),
+            PIN_IN_MAP_KEY_PATTERN to ("1.13.4" to "1.14.0-rc.0"),
+            ZERO_FLOAT_MATCH_WARNS to ("1.15.8" to "1.16.0-rc.0"),
+            PARALLEL_MATCH to ("1.17.3" to "1.18.0-rc.0"),
+            REPEATED_PATTERN_VARIABLE_WRITTEN_AT_NEXT_VERSION to ("1.17.3" to "1.18.0-rc.0"),
+            UNDERSCORE_TAKES_VERSION to ("1.20.0-rc.4" to "1.20.0-rc.5"),
         )
 
         assertEquals(entries.filter { it.sinceElixir != null }.toSet(), boundaries.keys)
@@ -96,6 +101,7 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             GRAPHEME_CLUSTER_CRASH_IN_QUOTED_CALL_NAME to ("1.17.3" to "1.18.0-rc.0"),
             OPERATOR_ON_NOT_IN to ("1.11.4" to "1.12.0-rc.0"),
             KERNEL_TYPESPEC_REQUIRED_BY_DEFAULT to ("1.16.3" to "1.17.0-rc.0"),
+            REPEATED_PATTERN_VARIABLE_WRITTEN_AT_NEXT_VERSION to ("1.20.0-rc.4" to "1.20.0-rc.5"),
         )
 
         assertEquals(entries.filter { it.removedInElixir != null }.toSet(), removals.keys)

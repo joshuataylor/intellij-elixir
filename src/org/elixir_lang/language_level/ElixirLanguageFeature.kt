@@ -647,7 +647,49 @@ enum class ElixirLanguageFeature(
      * Removed by `elixir-lang/elixir@9973a2ede` ("Remove typespec from default requires"), first released in
      * v1.17.0-rc.0.
      */
-    KERNEL_TYPESPEC_REQUIRED_BY_DEFAULT(removedInElixir = "1.17.0-rc.0");
+    KERNEL_TYPESPEC_REQUIRED_BY_DEFAULT(removedInElixir = "1.17.0-rc.0"),
+
+    /**
+     * A map key in a pattern may hold a pinned variable at any depth. Before it, `elixir_map:validate_kv/4` skips a key
+     * that is a pin, and a pin nested inside a key raises `invalid_pin_in_map_key_match`.
+     *
+     * `elixir-lang/elixir@953c730cc` ("EEP 52: Allow pins inside map keys in matches", #11544), first released
+     * in v1.14.0-rc.0.
+     */
+    PIN_IN_MAP_KEY_PATTERN(sinceElixir = "1.14.0-rc.0"),
+
+    /**
+     * `0.0` in a pattern has a clause of its own, ahead of the other literals, which warns.
+     *
+     * `elixir-lang/elixir@9c0fa3cfe` ("Warn when matching on 0.0 and generate erl AST for +/-0.0", #12949), first
+     * released in v1.16.0-rc.0.
+     */
+    ZERO_FLOAT_MATCH_WARNS(sinceElixir = "1.16.0-rc.0"),
+
+    /**
+     * A `=` inside a pattern is unpacked into its sides (`elixir_clauses:parallel_match/4`), each expanded with a write
+     * half of its own, and a pattern whose variables depend on each other raises `recursive`.
+     *
+     * `elixir-lang/elixir@860f485bd` ("Inference of patterns", #13909), first released in v1.18.0-rc.0.
+     */
+    PARALLEL_MATCH(sinceElixir = "1.18.0-rc.0"),
+
+    /**
+     * A variable that the pattern being expanded has already bound is written to the write half at the version the
+     * next new variable will take, not at its own. So inside a tuple or list element, `{x, x} = {1, 1}` leaves `x`,
+     * once the element's scope closes, at the version the next variable bound is given.
+     *
+     * `elixir-lang/elixir@860f485bd` ("Inference of patterns", #13909), first released in v1.18.0-rc.0. Removed by
+     * `elixir-lang/elixir@603602e67` ("Implement reverse arrows for case", #15260), first released in v1.20.0-rc.5.
+     */
+    REPEATED_PATTERN_VARIABLE_WRITTEN_AT_NEXT_VERSION(sinceElixir = "1.18.0-rc.0", removedInElixir = "1.20.0-rc.5"),
+
+    /**
+     * `_` in a pattern takes a version, which advances the next variable's.
+     *
+     * `elixir-lang/elixir@603602e67` ("Implement reverse arrows for case", #15260), first released in v1.20.0-rc.5.
+     */
+    UNDERSCORE_TAKES_VERSION(sinceElixir = "1.20.0-rc.5");
 
 
     /** The first Elixir release with this behaviour, or `null` when every supported release has it. */
