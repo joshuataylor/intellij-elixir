@@ -11,7 +11,11 @@ import com.intellij.psi.ElementDescriptionLocation
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiNamedElement
 import com.intellij.psi.ResolveState
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
+import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.util.isAncestor
+import com.intellij.psi.util.parents
 import com.intellij.usageView.UsageViewNodeTextLocation
 import com.intellij.usageView.UsageViewTypeLocation
 import com.intellij.util.concurrency.ThreadingAssertions
@@ -19,6 +23,7 @@ import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.Arity
 import org.elixir_lang.Name
 import org.elixir_lang.NameArity
+import org.elixir_lang.NameArityInterval
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.beam.psi.isCompilerAdded
 import org.elixir_lang.beam.psi.Module as BeamModule
@@ -38,6 +43,7 @@ import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.call.keywordArguments
 import org.elixir_lang.psi.impl.hasKeywordKey
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
+import org.elixir_lang.psi.impl.siblingExpressions
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.scope.Recording
 import org.elixir_lang.psi.scope.reachedThrough
@@ -69,12 +75,16 @@ object Import {
 
         protected abstract fun namedArities(name: Name): Collection<Arity>
 
-        open fun admits(name: Name, arityInterval: ArityInterval, macro: Boolean): Boolean {
+        fun admits(name: Name, arityInterval: ArityInterval, macro: Boolean): Boolean =
+            arities(name, arityInterval).any { admits(name, it, macro) }
+
+        /** The arities of [arityInterval] this filter can tell apart. */
+        fun arities(name: Name, arityInterval: ArityInterval): IntRange {
             // Every arity above those the options name and the sigil arity is admitted alike, so the first stands for all.
             val maximum = arityInterval.maximum
                 ?: ((namedArities(name) + arityInterval.minimum + SIGIL_ARITY).max() + 1)
 
-            return (arityInterval.minimum..maximum).any { admits(name, it, macro) }
+            return arityInterval.minimum..maximum
         }
 
         fun imports(exports: Imports): Imports =
@@ -262,7 +272,8 @@ object Import {
         var accumulatedKeepProcessing = true
 
         if (walks(importCall, resolveState)) {
-            val modulars = modulars(importCall)
+            val blockImports = blockImports(importCall)
+            val modulars = blockImports.first { it.call == importCall }.modulars
 
             if (modulars.isNotEmpty()) {
                 val importCallResolveState = Recording
@@ -272,15 +283,13 @@ object Import {
                     )
                     .putVisitedElement(importCall)
                     .let(::reached)
-                // An earlier `import` of the same module is not looked for, so `except:` subtracts from everything the
-                // module exports even where that `import` brought in less.
-                val filter =
-                    Filter.of(importCall, ElixirLanguageLevelResolver.languageLevelFor(importCall), prior = null)
-
-                val filtered = { state: ResolveState -> state.put(FILTER, filter) }
+                val languageLevel = ElixirLanguageLevelResolver.languageLevelFor(importCall)
 
                 for (modular in modulars) {
                     ProgressManager.checkCanceled()
+                    val prior = prior(blockImports, importCall, modular, languageLevel)
+                    val filter = Filter.of(importCall, languageLevel, prior)
+                    val filtered = { state: ResolveState -> state.put(FILTER, filter) }
                     // One imported module stops at a `false` and answers `true` (`takeWhile { it }.lastOrNull() ?: true`).
                     val childResolveState = Recording
                         .enter(
@@ -302,9 +311,82 @@ object Import {
         return accumulatedKeepProcessing
     }
 
-    /** Don't descend back into `import` when the entrance is the alias to the `import` like `MyAlias` in `import MyAlias`. */
-    private fun walks(importCall: Call, resolveState: ResolveState): Boolean =
-        !importCall.isAncestor(resolveState.get(ENTRANCE))
+    /**
+     * Don't descend back into `import` when the entrance is the alias to the `import` like `MyAlias` in `import MyAlias`,
+     * nor when a later `import` of the same module has replaced or narrowed it by the entrance.
+     */
+    private fun walks(importCall: Call, resolveState: ResolveState): Boolean {
+        val entrance = resolveState.get(ENTRANCE)
+
+        return !importCall.isAncestor(entrance) && !isReimportedBefore(importCall, entrance)
+    }
+
+    /**
+     * Decided by where the entrance sits in [importCall]'s block, never by what the walk has reached, as every `import`
+     * in a module body is walked whatever the entrance. An entrance outside the block, such as in a block a macro's
+     * `quote` unquotes, comes after none. So does a callable table's seed, so the table records the `import` and its
+     * replay decides.
+     */
+    private fun isReimportedBefore(importCall: Call, entrance: PsiElement?): Boolean {
+        val block = importCall.parent
+        val anchor = entrance?.parents(withSelf = true)?.firstOrNull { it.parent == block } ?: return false
+        val anchorStart = anchor.textRange.startOffset
+
+        if (anchorStart <= importCall.textRange.startOffset) return false
+
+        val blockImports = blockImports(importCall)
+        val index = blockImports.indexOfFirst { it.call == importCall }
+        val modulars = blockImports[index].modulars
+
+        return blockImports.drop(index + 1).any { later ->
+            later.call.textRange.endOffset <= anchorStart && later.modulars.any { it in modulars }
+        }
+    }
+
+    /** An `import` in a block, with the modules it imports. */
+    private class BlockImport(val call: Call, val modulars: Set<PsiNamedElement>)
+
+    /**
+     * The `import`s in [importCall]'s block, in source order. They are resolved together because a compiled module's
+     * PSI can differ between two resolutions.
+     */
+    private fun blockImports(importCall: Call): List<BlockImport> {
+        val block = importCall.parent
+
+        return CachedValuesManager.getCachedValue(block) {
+            val blockImports = block.firstChild
+                ?.siblingExpressions()
+                .orEmpty()
+                .filterIsInstance<Call>()
+                .filter { `is`(it) }
+                .map { BlockImport(it, modulars(it)) }
+                .toList()
+
+            CachedValueProvider.Result.create(blockImports, PsiModificationTracker.MODIFICATION_COUNT)
+        }
+    }
+
+    /**
+     * What the `import`s of [modular] before [importCall] in [blockImports] bring in, each built from what the one
+     * before left, or `null` when there is none. An `import` in an enclosing block is not looked for, though Elixir
+     * chains it.
+     */
+    private fun prior(
+        blockImports: List<BlockImport>,
+        importCall: Call,
+        modular: PsiNamedElement,
+        languageLevel: ElixirLanguageLevel
+    ): Imports? {
+        val earlier = blockImports.takeWhile { it.call != importCall }.filter { modular in it.modulars }
+
+        if (earlier.isEmpty()) return null
+
+        val exports = exports(modular)
+
+        return earlier.fold(null as Imports?) { prior, blockImport ->
+            Filter.of(blockImport.call, languageLevel, prior).imports(exports)
+        }
+    }
 
     private fun reached(resolveState: ResolveState): ResolveState = resolveState.reachedThrough(Reach.IMPORT)
 
@@ -361,35 +443,9 @@ object Import {
         resolveState: ResolveState,
         keepProcessing: (Call, ResolveState) -> Boolean
     ): Boolean =
-        when {
-            CallDefinitionClause.`is`(importedCall) -> {
-                CallDefinitionClause.nameArityInterval(importedCall, resolveState)?.let { nameArityInterval ->
-                    val capabilities = importedCapabilities(importedCall)
-
-                    if (capabilities != null &&
-                        filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, capabilities.compileTime)
-                    ) {
-                        keepProcessing(importedCall, resolveState)
-                    } else {
-                        true
-                    }
-                }
-            }
-            Delegation.`is`(importedCall) -> {
-                importedCall.finalArguments()?.takeIf { it.size == 2 }?.let { arguments ->
-                    val head = arguments[0]
-
-                    CallDefinitionHead.nameArityInterval(head, resolveState)?.let { headNameArityInterval ->
-                        if (filter.admits(headNameArityInterval.name, headNameArityInterval.arityInterval, false)) {
-                            keepProcessing(importedCall, resolveState)
-                        } else {
-                            true
-                        }
-                    }
-                }
-            }
-            else -> null
-        }
+        export(importedCall, resolveState)
+            ?.takeIf { it.isAdmittedBy(filter) }
+            ?.let { keepProcessing(importedCall, resolveState) }
             ?: true
 
     private fun treeWalkUpImportedModularChildExpression(
@@ -397,18 +453,33 @@ object Import {
         importedCall: BeamCallDefinition,
         resolveState: ResolveState,
         keepProcessing: (PsiElement, ResolveState) -> Boolean
-    ): Boolean {
-        val nameArityInterval = importedCall.nameArityInterval
-        val capabilities = importedCapabilities(importedCall)
+    ): Boolean =
+        export(importedCall)
+            ?.takeIf { it.isAdmittedBy(filter) }
+            ?.let { keepProcessing(importedCall, resolveState) }
+            ?: true
 
-        return if (capabilities != null &&
-            filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, capabilities.compileTime)
-        ) {
-            keepProcessing(importedCall, resolveState)
-        } else {
-            true
-        }
+    /** A definition an `import` of its module can bring in: a public one, with a delegation as a function. */
+    private class Export(val nameArityInterval: NameArityInterval, val macro: Boolean) {
+        fun isAdmittedBy(filter: Filter): Boolean =
+            filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, macro)
     }
+
+    private fun export(child: Call, resolveState: ResolveState): Export? =
+        when {
+            CallDefinitionClause.`is`(child) ->
+                importedCapabilities(child)?.let { capabilities ->
+                    CallDefinitionClause.nameArityInterval(child, resolveState)?.let { Export(it, capabilities.compileTime) }
+                }
+            Delegation.`is`(child) ->
+                child.finalArguments()?.takeIf { it.size == 2 }?.let { arguments ->
+                    CallDefinitionHead.nameArityInterval(arguments[0], resolveState)?.let { Export(it, macro = false) }
+                }
+            else -> null
+        }
+
+    private fun export(definition: BeamCallDefinition): Export? =
+        importedCapabilities(definition)?.let { Export(definition.nameArityInterval, it.compileTime) }
 
     /** [clause]'s capabilities when an `import` of its module brings it in, else `null`. */
     @RequiresReadLock
@@ -419,6 +490,25 @@ object Import {
     @RequiresReadLock
     internal fun importedCapabilities(definition: BeamCallDefinition): Capabilities? =
         definition.capabilities.takeIf { it.public && !definition.isCompilerAdded }
+
+    private fun exports(modular: PsiNamedElement): List<Export> =
+        when (modular) {
+            is Call -> CallDefinitionClause.modularChildCalls(modular).mapNotNull { export(it, ResolveState.initial()) }
+            is BeamModule -> modular.callDefinitions().mapNotNull(::export)
+            else -> emptyList()
+        }
+
+    /** What this filter brings in of [exports], at each arity of each that it can tell apart. */
+    private fun Filter.imports(exports: List<Export>): Imports {
+        fun nameArities(macro: Boolean): Set<NameArity> =
+            exports.filter { it.macro == macro }.flatMapTo(mutableSetOf()) { export ->
+                val (name, arityInterval) = export.nameArityInterval
+
+                arities(name, arityInterval).map { NameArity(name, it) }
+            }
+
+        return imports(Imports(nameArities(macro = false), nameArities(macro = true)))
+    }
 
     fun elementDescription(call: Call, location: ElementDescriptionLocation): String? =
         when {

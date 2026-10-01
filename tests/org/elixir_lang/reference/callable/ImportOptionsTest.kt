@@ -79,6 +79,79 @@ class ImportOptionsTest : PlatformTestCase() {
             assertTrue("`$use` under `$import` resolves to a compiled definition", results.none { it.isValidResult })
         }
 
+    fun testReimportWithExceptNarrowsTheEarlierImport() {
+        val imports = "import M, only: [f: 1, g: 1]\nimport M, except: [f: 1]"
+
+        assertResolves(imports, "g(1)")
+        assertResolves(imports, "mac(1)")
+        assertDoesNotResolve(imports, "f(1)")
+        assertDoesNotResolve(imports, "f(1, 2)")
+    }
+
+    fun testReimportWithoutExceptReplacesTheEarlierImport() {
+        val imports = "import M, only: [f: 1]\nimport M, only: [g: 1]"
+
+        assertResolves(imports, "g(1)")
+        assertDoesNotResolve(imports, "f(1)")
+    }
+
+    fun testReimportWithExceptOfAKindTheEarlierImportLeftEmptyBringsInThatKind() {
+        val imports = "import M, only: [mac: 1]\nimport M, except: [f: 1]"
+
+        assertResolves(imports, "g(1)")
+        assertResolves(imports, "f(1, 2)")
+        assertResolves(imports, "mac(1)")
+        assertDoesNotResolve(imports, "is_small(1)")
+    }
+
+    fun testADefinitionBetweenTwoImportsSeesOnlyTheEarlierOne() {
+        assertTrue(
+            "`f(1)` between `import M, only: [f: 1]` and `import M, only: [g: 1]` resolves to no definition",
+            resolvesToDefinition(
+                """
+                defmodule U do
+                  import M, only: [f: 1]
+
+                  def v do
+                    <caret>f(1)
+                  end
+
+                  import M, only: [g: 1]
+                end
+                """.trimIndent()
+            )
+        )
+    }
+
+    fun testABlockUnquotedBetweenTwoImportsInAQuoteSeesTheEarlierOne() {
+        assertTrue(
+            "`f(1)` in a block unquoted between `import M, only: [f: 1]` and `import M, only: [g: 1]` resolves to no definition",
+            resolvesToDefinition(
+                """
+                defmodule Blocks do
+                  defmacro my_block(do: block) do
+                    quote do
+                      import M, only: [f: 1]
+                      unquote(block)
+                      import M, only: [g: 1]
+                    end
+                  end
+                end
+
+                defmodule U do
+                  require Blocks
+
+                  def u do
+                    Blocks.my_block do
+                      <caret>f(1)
+                    end
+                  end
+                end
+                """.trimIndent()
+            )
+        )
+    }
+
     fun testExceptOfAnAttributeInAFunctionKeepsOtherNames() {
         assertTrue(
             "`g(1)` under `import M, except: @excluded` in a function resolves to no definition",

@@ -127,6 +127,9 @@
     `Kernel`.**
   - **Go to Declaration and Quick Documentation on a call that omits a `defdelegate`'s default argument now reach
     the target function.**
+  - **A second `import` of a module in the same block now replaces the first for the code after it. With `except:`,
+    it takes what it lists away from what the first brought in, or, of the functions or macros the first brought in
+    none of, from all of them.** Fixes [#4173](https://github.com/intellij-elixir/intellij-elixir/issues/4173).
 - [#4306](https://github.com/intellij-elixir/intellij-elixir/pull/4306) [@sh41](https://github.com/sh41)
   - **Functions and modules are named by the atom Elixir gives them, so a name written as a quoted atom
     (`def unquote(:"a-b")()`, `defmodule :"my-mod"`, `defmodule :"Elixir.Foo"`), with a combining mark or a micro
