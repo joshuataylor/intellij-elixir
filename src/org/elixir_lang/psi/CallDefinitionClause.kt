@@ -24,8 +24,7 @@ import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.call.name.Module.KERNEL_SPECIAL_FORMS
-import org.elixir_lang.psi.impl.call.body
-import org.elixir_lang.psi.impl.enclosingMacroCall
+import org.elixir_lang.psi.impl.blockKeyword
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 
 object CallDefinitionClause {
@@ -128,8 +127,8 @@ object CallDefinitionClause {
         return when (parent) {
             is ElixirStabBody -> true
             is ElixirList -> isStatement(parent)
-            // `body` is the `do:` value stripped of its access expression, as `element` is.
-            is QuotableKeywordPair -> element.enclosingMacroCall()?.body() == element
+            // Whether the call is the module's own, not another call's, is the caller's `enclosingModularMacroCall` test.
+            is QuotableKeywordPair -> parent.blockKeyword() != null
             else -> false
         }
     }

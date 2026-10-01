@@ -278,6 +278,18 @@ class HeexComponentReferenceTest : HeexHostTestCase() {
         assertEquals(listOf("button"), names)
     }
 
+    fun testLocalComponentDefinitionsIncludeDefInKeywordElse() {
+        myFixture.configureByFiles("completion_in_else/page_live.html.heex", "completion_in_else/page_live.ex")
+        val tag = PsiTreeUtil.findChildOfType(
+            myFixture.file.viewProvider.getPsi(com.intellij.lang.html.HTMLLanguage.INSTANCE),
+            XmlTag::class.java
+        )!!
+
+        val names = HeexComponentResolver.localComponentDefinitions(tag).mapNotNull { CallDefinitionClause.nameIdentifier(it)?.text }
+
+        assertEquals(listOf("button"), names)
+    }
+
     /**
      * [HTMLInspectionSuppressor] suppresses `HtmlUnknownTag` for a resolved and an unresolved but
      * syntactically valid component tag, and not for a dotted name that is not component syntax.
