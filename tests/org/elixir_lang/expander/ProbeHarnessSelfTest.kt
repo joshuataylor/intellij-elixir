@@ -29,6 +29,10 @@ class ProbeHarnessSelfTest : ProbeTestCase() {
 
         val variable = steps.getValue(1)
         assertSteps(variable, variable[0], variable[0], variable[0])
+        assertEquals(
+            listOf("", "x/nil=0", "x/nil=0"),
+            VariableClasses.canonical(byCase.getValue(1).map { VariableClasses.observed(it.env) })
+        )
 
         val import = steps.getValue(2)
         val functions = (import[0].getValue("functions") as OtpErlangList).elements()

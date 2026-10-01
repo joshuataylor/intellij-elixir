@@ -1,0 +1,31 @@
+package org.elixir_lang.expander
+
+import org.elixir_lang.elixir_surface.LegManifest
+import org.junit.Assert.assertEquals
+import org.junit.Test
+import java.io.File
+
+/** Every head a [Clause] entry declares is a clause of Elixir's expander on some supported version. */
+class PortParityTest {
+    @Test
+    fun `every declared head is in some leg's expander manifest`() {
+        val manifestHeads = File(LegManifest.ROOT)
+            .listFiles { directory -> File(directory, MANIFEST).isFile }
+            .orEmpty()
+            .flatMap { File(it, MANIFEST).readLines() }
+            .filterNot { it.startsWith("#") || it.endsWith(" (absent)") }
+            .map { it.substringBeforeLast(' ') }
+            .toSet()
+
+        assertEquals(
+            emptyList<String>(),
+            Clause.entries.flatMap { clause ->
+                clause.heads.filter { it.toString() !in manifestHeads }.map { "$clause: $it" }
+            }
+        )
+    }
+
+    private companion object {
+        const val MANIFEST = "expander-clauses.txt"
+    }
+}
