@@ -26,10 +26,19 @@ internal fun match(
     env: Env,
     run: Run,
     at: ElixirAst,
+): Expansion = match(after, before, env, at) { state, matchEnv -> Expander.expand(pattern, state, matchEnv, run) }
+
+/** `elixir_clauses:match/6` with [expand] as its `Fun`, given the state and env the pattern starts from. */
+internal fun match(
+    after: ExState,
+    before: ExState,
+    env: Env,
+    at: ElixirAst,
+    expand: (ExState, Env) -> Expansion,
 ): Expansion {
     val callState = after.copy(prematch = InMatch(before.read, after.version, emptyMap(), emptyList()))
 
-    return Expander.expand(pattern, callState, env.copy(context = Env.Context.MATCH), run).then { state, patternEnv ->
+    return expand(callState, env.copy(context = Env.Context.MATCH)).then { state, patternEnv ->
         if (isCyclic(state.prematch as InMatch)) {
             Expansion.Error("recursive", at)
         } else {

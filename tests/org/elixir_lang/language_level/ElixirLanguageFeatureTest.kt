@@ -93,6 +93,9 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             BITSTRING_PATTERN_SEGMENT_VALIDATED to ("1.18.4" to "1.19.0-rc.0"),
             BITSTRING_SIZE_HIDES_ITS_OWN_SEGMENT to ("1.19.0-rc.0" to "1.19.0-rc.1"),
             BARE_SEGMENT_PASSES_BITSTRING_META to ("1.20.0-rc.4" to "1.20.0-rc.5"),
+            STACKTRACE_REFUSED_IN_PATTERN to ("1.12.3" to "1.13.0-rc.0"),
+            CATCH_WHEN_ARITY_CHECKED to ("1.17.3" to "1.18.0-rc.0"),
+            CLAUSES_TAKE_VERSION to ("1.20.0-rc.4" to "1.20.0-rc.5"),
         )
 
         assertEquals(entries.filter { it.sinceElixir != null }.toSet(), boundaries.keys)

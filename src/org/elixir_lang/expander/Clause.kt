@@ -9,6 +9,7 @@ import org.elixir_lang.language_level.ElixirLanguageFeature.MISPLACED_TYPE_AND_C
 import org.elixir_lang.language_level.ElixirLanguageFeature.PARALLEL_MATCH
 import org.elixir_lang.language_level.ElixirLanguageFeature.PIN_IN_BITSTRING_SIZE
 import org.elixir_lang.language_level.ElixirLanguageFeature.REPEATED_PATTERN_VARIABLE_WRITTEN_AT_NEXT_VERSION
+import org.elixir_lang.language_level.ElixirLanguageFeature.STACKTRACE_REFUSED_IN_PATTERN
 import org.elixir_lang.language_level.ElixirLanguageFeature.UNDERSCORE_TAKES_VERSION
 import org.elixir_lang.language_level.ElixirLanguageFeature.ZERO_FLOAT_MATCH_WARNS
 import org.elixir_lang.language_level.ElixirLanguageLevel
@@ -142,9 +143,18 @@ internal enum class Clause(vararg val heads: Head) {
         }
     },
 
+    STACKTRACE(expandHead("{'__STACKTRACE__',_,V1} when is_atom(V1)")) {
+        override fun matches(node: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel) =
+            isVariable(node) && variable(node).name == "__STACKTRACE__"
+
+        override fun expand(node: ElixirAst, state: ExState, env: Env, run: Run) =
+            (if (STACKTRACE_REFUSED_IN_PATTERN.isSufficient(run.level)) noMatchScope(node, env) else null)
+                ?: if (state.stacktrace) Expansion.Expanded(state, env) else Expansion.Error("stacktrace_not_allowed", node)
+    },
+
     /**
-     * `__MODULE__`, `__DIR__`, `__CALLER__`, `__STACKTRACE__` and `__ENV__`, which have a variable's shape and clauses
-     * of their own ahead of the variables'.
+     * `__MODULE__`, `__DIR__`, `__CALLER__` and `__ENV__`, which have a variable's shape and clauses of their own ahead
+     * of the variables'.
      */
     ENVIRONMENT_NAME(*ENVIRONMENT_NAMES.map { expandHead("{'$it',_,V1} when is_atom(V1)") }.toTypedArray()) {
         override fun matches(node: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel) =
@@ -159,6 +169,46 @@ internal enum class Clause(vararg val heads: Head) {
 
         override fun expand(node: ElixirAst, state: ExState, env: Env, run: Run) =
             Expansion.Error("__cursor__", node)
+    },
+
+    FN(expandHead("{fn,_,_}")) {
+        override fun matches(node: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel) =
+            isNamedCall(node, "fn")
+
+        override fun expand(node: ElixirAst, state: ExState, env: Env, run: Run) =
+            noMatchOrGuardScope(node, state, env) ?: expandFn(node as ElixirAst.Call, state, env, run)
+    },
+
+    COND(expandHead("{'cond',_,[_]}")) {
+        override fun matches(node: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel) =
+            isCall(node, "cond", 1)
+
+        override fun expand(node: ElixirAst, state: ExState, env: Env, run: Run) =
+            noMatchOrGuardScope(node, state, env) ?: expandCond(node as ElixirAst.Call, state, env, run)
+    },
+
+    CASE(expandHead("{'case',_,[_,_]}")) {
+        override fun matches(node: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel) =
+            isCall(node, "case", 2)
+
+        override fun expand(node: ElixirAst, state: ExState, env: Env, run: Run) =
+            noMatchOrGuardScope(node, state, env) ?: expandCase(node as ElixirAst.Call, state, env, run)
+    },
+
+    RECEIVE(expandHead("{'receive',_,[_]}")) {
+        override fun matches(node: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel) =
+            isCall(node, "receive", 1)
+
+        override fun expand(node: ElixirAst, state: ExState, env: Env, run: Run) =
+            noMatchOrGuardScope(node, state, env) ?: expandReceive(node as ElixirAst.Call, state, env, run)
+    },
+
+    TRY(expandHead("{'try',_,[_]}")) {
+        override fun matches(node: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel) =
+            isCall(node, "try", 1)
+
+        override fun expand(node: ElixirAst, state: ExState, env: Env, run: Run) =
+            noMatchOrGuardScope(node, state, env) ?: expandTry(node as ElixirAst.Call, state, env, run)
     },
 
     /** `^` while a pattern is being expanded, which reads the variables from before the pattern. */
@@ -356,7 +406,7 @@ internal fun noGuardScope(node: ElixirAst, state: ExState): Expansion.Error =
 
 private fun expandHead(pattern: String) = Clause.Head("elixir_expand", "expand", 1, pattern)
 
-private val ENVIRONMENT_NAMES = listOf("__MODULE__", "__DIR__", "__CALLER__", "__STACKTRACE__", "__ENV__")
+private val ENVIRONMENT_NAMES = listOf("__MODULE__", "__DIR__", "__CALLER__", "__ENV__")
 
 private val EXPAND_LIST = arrayOf(
     Clause.Head("elixir_expand", "expand_list", 1, "[]"),
@@ -395,6 +445,3 @@ private fun isDiscardedFor(node: ElixirAst): Boolean {
 
     return isUnderscore(left) && isFor(right)
 }
-
-private fun isUnderscore(node: ElixirAst) =
-    isVariable(node) && ((node as ElixirAst.Call).callee as ElixirAst.Literal.Atom).name == "_"

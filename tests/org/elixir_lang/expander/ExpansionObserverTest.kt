@@ -30,6 +30,71 @@ class ExpansionObserverTest : ExpanderTestCase() {
         )
     }
 
+    fun testEachNodeIsLeftWithItsExpansionAfterItsChildren() {
+        val code = "{a, b} = {1, 2}"
+
+        assertEquals(
+            LEVELS.joinToString("\n") { "$it: {1, 2} {} | a {a} | b {a b} | {a, b} {a b} | {a, b} = {1, 2} {a b}" },
+            LEVELS.joinToString("\n") { version ->
+                val left = mutableListOf<String>()
+                val observer = object : ExpansionObserver {
+                    override fun entering(node: org.elixir_lang.lowering.ElixirAst, state: ExState, env: Env) {}
+
+                    override fun left(node: org.elixir_lang.lowering.ElixirAst, expansion: Expansion) {
+                        val read = (expansion as Expansion.Expanded).state.read.keys.map { it.name }.sorted()
+
+                        left.add(node.meta.origin.substring(code) + read.joinToString(" ", " {", "}"))
+                    }
+                }
+
+                expand(code, version, observer)
+
+                "$version: " + left.joinToString(" | ")
+            }
+        )
+    }
+
+    fun testAClauseBodysStatementIsLeftWithTheStateAfterIt() {
+        val code = "x = 1\ncase x do\n1 -> y = 2\nend"
+
+        assertEquals(
+            LEVELS.joinToString("\n") { "$it: x y" },
+            LEVELS.joinToString("\n") { version ->
+                var read = ""
+                val observer = object : ExpansionObserver {
+                    override fun entering(node: org.elixir_lang.lowering.ElixirAst, state: ExState, env: Env) {}
+
+                    override fun left(node: org.elixir_lang.lowering.ElixirAst, expansion: Expansion) {
+                        if (node.meta.origin.substring(code) == "y = 2") {
+                            read = (expansion as Expansion.Expanded).state.read.keys.map { it.name }.sorted().joinToString(" ")
+                        }
+                    }
+                }
+
+                expand(code, version, observer)
+
+                "$version: $read"
+            }
+        )
+    }
+
+    fun testAClauseHeadIsEnteredInMatchContextAndItsGuardInGuardContext() {
+        val code = "x = true\ncase x do\ny when y -> y\nend"
+
+        assertEquals(
+            LEVELS.joinToString("\n") { "$it: y MATCH, y GUARD, y NONE" },
+            LEVELS.joinToString("\n") { version ->
+                val entered = mutableListOf<String>()
+
+                expand(code, version) { node, _, env ->
+                    if (isVariable(node) && node.meta.origin.substring(code) == "y") entered.add("y ${env.context}")
+                }
+
+                "$version: " + entered.joinToString()
+            }
+        )
+    }
+
     private fun assertEntered(code: String, versions: List<String>, expected: (String) -> String) =
         assertEquals(
             versions.joinToString("\n") { "$it: ${expected(it)}" },

@@ -802,6 +802,33 @@ enum class ElixirLanguageFeature(
     BARE_SEGMENT_PASSES_BITSTRING_META(sinceElixir = "1.20.0-rc.5"),
 
     /**
+     * `__STACKTRACE__` in a pattern raises `invalid_pattern_in_match`. Before it, it is read there as anywhere else: it
+     * raises `stacktrace_not_allowed` outside a `catch` or `rescue` clause, and binds nothing inside one.
+     *
+     * `elixir-lang/elixir@e4d8b3a31` ("Raise on invalid use of compiler vars in match", #11189), first released in
+     * v1.13.0-rc.0.
+     */
+    STACKTRACE_REFUSED_IN_PATTERN(sinceElixir = "1.13.0-rc.0"),
+
+    /**
+     * A `catch` clause of three or more arguments and a guard raises `wrong_number_of_args_for_clause`. Before it, its
+     * head expands as three arguments, and Elixir fails after expansion.
+     *
+     * `elixir-lang/elixir@0e4aaf00c` ("Correctly validate number of args for clauses with when in for and catch",
+     * #13785), first released in v1.18.0-rc.0.
+     */
+    CATCH_WHEN_ARITY_CHECKED(sinceElixir = "1.18.0-rc.0"),
+
+    /**
+     * `case`, `cond`, `receive`, `try` and `fn` each take a version once their clauses are expanded, which advances the
+     * next variable's.
+     *
+     * `elixir-lang/elixir@603602e67` ("Implement reverse arrows for case", #15260), first released in v1.20.0-rc.5,
+     * which adds the `{version, Counter}` metadata to each of them.
+     */
+    CLAUSES_TAKE_VERSION(sinceElixir = "1.20.0-rc.5"),
+
+    /**
      * A bitstring segment whose value expands to a list or an atom raises `invalid_literal`.
      *
      * Removed by `elixir-lang/elixir@860f485bd` ("Inference of patterns", #13909), first released in v1.18.0-rc.0.
