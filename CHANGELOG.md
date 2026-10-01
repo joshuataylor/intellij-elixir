@@ -118,6 +118,8 @@
 
 ### Bug Fixes
 
+- [#4313](https://github.com/intellij-elixir/intellij-elixir/pull/4313) [@sh41](https://github.com/sh41)
+  - **Kernel's private functions are no longer offered in completion or resolved from an unqualified call.**
 - [#4306](https://github.com/intellij-elixir/intellij-elixir/pull/4306) [@sh41](https://github.com/sh41)
   - **Functions and modules are named by the atom Elixir gives them, so a name written as a quoted atom
     (`def unquote(:"a-b")()`, `defmodule :"my-mod"`, `defmodule :"Elixir.Foo"`), with a combining mark or a micro

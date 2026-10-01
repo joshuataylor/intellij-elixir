@@ -20,6 +20,7 @@ import org.elixir_lang.Name
 import org.elixir_lang.NameArity
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.beam.psi.Module as BeamModule
+import org.elixir_lang.declaration.Capabilities
 import org.elixir_lang.declaration.Reach
 import org.elixir_lang.language_level.ElixirLanguageFeature.DIGITS_IN_SIGIL_NAMES
 import org.elixir_lang.language_level.ElixirLanguageFeature.IMPORT_ONLY_SIGILS
@@ -356,10 +357,9 @@ object Import {
         when {
             CallDefinitionClause.`is`(importedCall) -> {
                 CallDefinitionClause.nameArityInterval(importedCall, resolveState)?.let { nameArityInterval ->
-                    val capabilities = CallDefinitionClause.capabilities(importedCall)
+                    val capabilities = importedCapabilities(importedCall)
 
                     if (capabilities != null &&
-                        capabilities.public &&
                         filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, capabilities.compileTime)
                     ) {
                         keepProcessing(importedCall, resolveState)
@@ -392,9 +392,9 @@ object Import {
         keepProcessing: (PsiElement, ResolveState) -> Boolean
     ): Boolean {
         val nameArityInterval = importedCall.nameArityInterval
-        val capabilities = importedCall.capabilities
+        val capabilities = importedCapabilities(importedCall)
 
-        return if (capabilities.public &&
+        return if (capabilities != null &&
             filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, capabilities.compileTime)
         ) {
             keepProcessing(importedCall, resolveState)
@@ -402,6 +402,16 @@ object Import {
             true
         }
     }
+
+    /** [clause]'s capabilities when an `import` of its module brings it in, else `null`. */
+    @RequiresReadLock
+    internal fun importedCapabilities(clause: Call): Capabilities? =
+        CallDefinitionClause.capabilities(clause)?.takeIf { it.public }
+
+    /** [definition]'s capabilities when an `import` of its module brings it in, else `null`. */
+    @RequiresReadLock
+    internal fun importedCapabilities(definition: BeamCallDefinition): Capabilities? =
+        definition.capabilities.takeIf { it.public }
 
     fun elementDescription(call: Call, location: ElementDescriptionLocation): String? =
         when {

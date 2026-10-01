@@ -1,5 +1,6 @@
 package org.elixir_lang.reference.callable
 
+import com.intellij.openapi.util.io.FileUtil
 import com.intellij.psi.PsiPolyVariantReference
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
@@ -199,6 +200,22 @@ class ImportOptionsTest : PlatformTestCase() {
                 resolvesToCompiled("import Logger, only: :macros", "level()")
             )
         }
+
+    fun testACompiledKernelsImplicitImportLeavesOutPrivateDefinitions() = withCompiledKernel {
+        assertTrue("`is_atom(1)` resolves to no compiled definition", resolvesToCompiled("", "is_atom(1)"))
+        assertFalse(
+            "`assert_module_scope(1, 2, 3)` resolves to a compiled definition",
+            resolvesToCompiled("", "assert_module_scope(1, 2, 3)")
+        )
+    }
+
+    /** [block] with `Kernel`'s `.beam` alone as a library, so the implicit import reads it and no source `Kernel`. */
+    private fun withCompiledKernel(block: () -> Unit) {
+        val directory = FileUtil.createTempDirectory("compiled_kernel", null)
+        File(WalkTestSupport.DOCS_KERNEL, "Elixir.Kernel.beam").copyTo(File(directory, "Elixir.Kernel.beam"))
+
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_kernel", directory) { block() }
+    }
 
     private fun resolvesToCompiled(import: String, use: String): Boolean {
         myFixture.configureByText("u.ex", user(import, "<caret>$use"))

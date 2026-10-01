@@ -28,6 +28,31 @@ class ImplicitImportIndexTest : PlatformTestCase() {
             assertIndexIsTheClauseSequence(kernel(PsiManager.getInstance(project).findFile(root.findChild("Elixir.Kernel.ex")!!)!!))
         }
 
+    fun testKernelsPrivateClauseIsNotImported() {
+        myFixture.copyDirectoryToProject("psi/scope/implicit_import_index", "")
+        myFixture.configureFromTempProjectFile("kernel.ex")
+
+        assertEquals(listOf("kernel.ex:4:3"), valid("kernel_target(1)").map(::location))
+        assertEmpty("kernel_private(1) resolved through the implicit import", valid("kernel_private(1)"))
+    }
+
+    fun testKernelsPrivateClauseIsNotOffered() {
+        myFixture.copyDirectoryToProject("psi/scope/implicit_import_index", "")
+        myFixture.configureByText(
+            "caller.ex",
+            """
+            defmodule Caller do
+              def go, do: kernel_<caret>
+            end
+            """.trimIndent()
+        )
+        val offered = myFixture.completeBasic()?.map { it.lookupString }
+
+        assertNotNull("completing `kernel_` offered no list", offered)
+        assertContainsElements(offered!!, "kernel_target")
+        assertDoesntContain(offered, "kernel_private")
+    }
+
     /** `Kernel`'s own `import` must not reach every module through the implicit import. */
     fun testKernelsImportIsNotReexported() {
         myFixture.addFileToProject(
