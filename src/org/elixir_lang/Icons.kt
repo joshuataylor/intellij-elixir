@@ -54,6 +54,7 @@ object Icons {
                 when (visibility) {
                     org.elixir_lang.call.Visibility.PRIVATE -> icon = PRIVATE
                     org.elixir_lang.call.Visibility.PUBLIC -> icon = PUBLIC
+                    org.elixir_lang.call.Visibility.UNDECIDED -> icon = PUBLIC
                 }
 
                 assert(icon != null)

@@ -4,6 +4,7 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
 import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.NameArityInterval
+import org.elixir_lang.declaration.Form
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.CallDefinitionClause.nameArityInterval
@@ -13,7 +14,10 @@ import org.elixir_lang.psi.impl.ElixirPsiImplUtil.ENTRANCE
 import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.call.keywordArgument
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
+import org.elixir_lang.psi.impl.headAtomValue
+import org.elixir_lang.psi.impl.quotedAtomValue
 import org.elixir_lang.psi.impl.stripAccessExpression
+import org.elixir_lang.psi.scope.ReachedDeclaration
 import org.elixir_lang.psi.scope.ResolveResultOrderedSet
 import org.elixir_lang.psi.scope.VisitedElementSetResolveResult
 import org.elixir_lang.psi.scope.WhileIn.whileIn
@@ -36,10 +40,12 @@ private constructor(
          * found at all.
          */
         private val resolvedPrimaryArity: Int,
-        private val incompleteCode: Boolean) : org.elixir_lang.psi.scope.CallDefinitionClause() {
+        private val incompleteCode: Boolean,
+        /** [name]'s atom value, recorded as what each declaration found here was searched under. */
+        private val nameAtom: String?) : org.elixir_lang.psi.scope.CallDefinitionClause() {
     override fun executeOnCallDefinitionClause(element: Call, state: ResolveState): Boolean =
             nameArityInterval(element, state)
-                    ?.let { addIfNameOrArityToResolveResults(element, it, state) }
+                    ?.let { addIfNameOrArityToResolveResults(element, it, state, Form.CLAUSE) }
                     ?: true
 
     override fun execute(element: BeamCallDefinition, state: ResolveState): Boolean =
@@ -48,7 +54,7 @@ private constructor(
     override fun executeOnCallback(element: AtUnqualifiedNoParenthesesCall<*>, state: ResolveState): Boolean =
             Callback.headCall(element)
                     ?.let { CallDefinitionHead.nameArityInterval(it, state) }
-                    ?.let { addIfNameOrArityToResolveResults(element, it, state) }
+                    ?.let { addIfNameOrArityToResolveResults(element, it, state, Form.CALLBACK) }
                     ?: true
 
     override fun executeOnDelegation(element: Call, state: ResolveState): Boolean {
@@ -66,7 +72,7 @@ private constructor(
                     // the defdelegate is valid or invalid regardless of whether the `to:` (and `:as` resolves as
                     // `defdelegate` still defines a function in the module with the head's name and arity even if it
                     // will fail at runtime to call the delegated function
-                    addToResolveResults(element, headName, headValidResult, state)
+                    addToResolveResults(element, headName, headValidResult, state, Form.DELEGATION)
 
                     // A target reached through a head that does not fit the call would be kept as invalid, and the
                     // first result for an element wins, so it would hide the same target reached through one that fits.
@@ -74,12 +80,21 @@ private constructor(
                         val modulars = definingModuleName.maybeModularNameToModulars(element.containingFile, useCall = null, incompleteCode = incompleteCode)
 
                         if (modulars.isNotEmpty()) {
-                            val nameInDefiningModule = element.keywordArgument("as")?.let { it as? ElixirAtom }?.node?.lastChildNode?.text
-                                    ?: headName
+                            val asAtom = element.keywordArgument("as")?.let { it as? ElixirAtom }
+                            val nameInDefiningModule = asAtom?.node?.lastChildNode?.text ?: headName
+                            val nameInDefiningModuleAtom = if (asAtom != null) quotedAtomValue(asAtom) else headAtomValue(head)
+                            val headNamed = this.name == null || headName == this.name
 
                             for (modular in modulars) {
                                 // Call recursively to get all the proper `for` and `use` handling.
-                                val modularResolveResults = resolveResults(nameInDefiningModule, resolvedPrimaryArity, incompleteCode, modular)
+                                val modularResolveResults = resolveResults(
+                                    nameInDefiningModule,
+                                    resolvedPrimaryArity,
+                                    incompleteCode,
+                                    modular,
+                                    ResolveState.initial(),
+                                    nameInDefiningModuleAtom
+                                )
 
                                 for (modularResultResult in modularResolveResults) {
                                     when (val modularResultResultElement = modularResultResult.element) {
@@ -87,13 +102,15 @@ private constructor(
                                             modularResultResultElement,
                                             nameInDefiningModule,
                                             headValidResult && modularResultResult.isValidResult,
-                                            state.reachedThroughDelegation(element, modularResultResult.reach)
+                                            state.reachedThroughDelegation(element, modularResultResult.reach),
+                                            throughDelegation(modularResultResult.reached, element, headNamed, headValidResult, state, modularResultResultElement)
                                         )
                                         is BeamCallDefinition -> addToResolveResults(
                                             modularResultResultElement,
                                             nameInDefiningModule,
                                             headValidResult && modularResultResult.isValidResult,
-                                            state.reachedThroughDelegation(element, modularResultResult.reach)
+                                            state.reachedThroughDelegation(element, modularResultResult.reach),
+                                            throughDelegation(modularResultResult.reached, element, headNamed, headValidResult, state, modularResultResultElement)
                                         )
                                         // Anything else is not a definition a delegation can target.
                                         else -> Unit
@@ -131,7 +148,7 @@ private constructor(
 
                                 val validResult = (resolvedPrimaryArity == arity) && (name == this.name)
 
-                                addToResolveResults(element, name, validResult, state)
+                                addToResolveResults(element, name, validResult, state, Form.EEX_FUNCTION_FROM)
                             } else {
                                 true
                             }
@@ -143,7 +160,7 @@ private constructor(
                 val name = nameArity.name
                 val validArity = resolvedPrimaryArity == nameArity.arity
 
-                addIfNameOrArityToResolveResults(element, name, validArity, state)
+                addIfNameOrArityToResolveResults(element, name, validArity, state, Form.EXCEPTION)
             }
 
     override fun executeOnMixGeneratorEmbed(element: Call, state: ResolveState): Boolean =
@@ -159,7 +176,7 @@ private constructor(
                 if (this.name != null && name.startsWith(this.name)) {
                     val validResult = (resolvedPrimaryArity in arityRange) && (name == this.name)
 
-                    addToResolveResults(element, name, validResult, state)
+                    addToResolveResults(element, name, validResult, state, Form.GENERATOR_EMBED)
                 } else {
                     true
                 }
@@ -167,11 +184,12 @@ private constructor(
 
     private fun addIfNameOrArityToResolveResults(call: Call,
                                                  nameArityInterval: NameArityInterval,
-                                                 state: ResolveState): Boolean {
+                                                 state: ResolveState,
+                                                 form: Form): Boolean {
         val name = nameArityInterval.name
         val validArity = resolvedPrimaryArity in nameArityInterval.arityInterval
 
-        return addIfNameOrArityToResolveResults(call, name, validArity, state)
+        return addIfNameOrArityToResolveResults(call, name, validArity, state, form)
     }
 
     private fun addIfNameOrArityToResolveResults(callDefinition: BeamCallDefinition,
@@ -183,12 +201,12 @@ private constructor(
         return addIfNameOrArityToResolveResults(callDefinition, name, validArity, state)
     }
 
-    private fun addIfNameOrArityToResolveResults(call: Call, name: String, validArity: Boolean, state: ResolveState): Boolean =
+    private fun addIfNameOrArityToResolveResults(call: Call, name: String, validArity: Boolean, state: ResolveState, form: Form): Boolean =
             if ((this.name == null && (incompleteCode || validArity)) ||
                     (this.name != null && name.startsWith(this.name))) {
                 val validResult = validArity && name == this.name
 
-                addToResolveResults(call, name, validResult, state)
+                addToResolveResults(call, name, validResult, state, form)
             } else {
                 true
             }
@@ -211,12 +229,21 @@ private constructor(
 
     private val resolveResultOrderedSet = ResolveResultOrderedSet()
 
-    private fun addToResolveResults(call: Call, name: String, validResult: Boolean, state: ResolveState): Boolean =
+    private fun addToResolveResults(call: Call, name: String, validResult: Boolean, state: ResolveState, form: Form): Boolean =
+            addToResolveResults(call, name, validResult, state, declared(form, call, name, validResult, state))
+
+    private fun addToResolveResults(
+        call: Call,
+        name: String,
+        validResult: Boolean,
+        state: ResolveState,
+        reached: List<ReachedDeclaration>
+    ): Boolean =
             (call as? Named)?.nameIdentifier?.let { nameIdentifier ->
                 if (PsiTreeUtil.isAncestor(state.get(ENTRANCE), nameIdentifier, false)) {
-                    resolveResultOrderedSet.add(call, name, validResult, emptySet(), state.reached(call))
+                    resolveResultOrderedSet.add(call, name, validResult, emptySet(), state.reached(call), reached)
                 } else {
-                    resolveResultOrderedSet.add(call, name, validResult, state.visitedElementSet(), state.reached(call))
+                    resolveResultOrderedSet.add(call, name, validResult, state.visitedElementSet(), state.reached(call), reached)
                 }
 
                 keepProcessing()
@@ -225,17 +252,61 @@ private constructor(
     private fun addToResolveResults(callDefinition: BeamCallDefinition,
                                     name: String,
                                     validResult: Boolean,
-                                    state: ResolveState): Boolean {
+                                    state: ResolveState): Boolean =
+        addToResolveResults(
+            callDefinition,
+            name,
+            validResult,
+            state,
+            listOf(ReachedDeclaration(callDefinition.declaration(), nameAtom, true, validResult))
+        )
+
+    private fun addToResolveResults(callDefinition: BeamCallDefinition,
+                                    name: String,
+                                    validResult: Boolean,
+                                    state: ResolveState,
+                                    reached: List<ReachedDeclaration>): Boolean {
         resolveResultOrderedSet.add(
             callDefinition,
             name,
             validResult,
             state.visitedElementSet(),
-            state.reached(callDefinition)
+            state.reached(callDefinition),
+            reached
         )
 
         return keepProcessing()
     }
+
+    /** The declaration [call] makes that the walk spells [name], when that name has an atom value. */
+    private fun declared(form: Form, call: Call, name: String, valid: Boolean, state: ResolveState): List<ReachedDeclaration> =
+        Declarations.of(form, call, state)
+            .firstOrNull { it.text == name }
+            ?.declaration
+            ?.let { listOf(ReachedDeclaration(it, nameAtom, true, valid)) }
+            .orEmpty()
+
+    /**
+     * What a delegation [target] recorded where it was found, as reached through [delegation] with [state]: each route
+     * in the target's module continues through it.
+     */
+    private fun throughDelegation(
+        reached: List<ReachedDeclaration>,
+        delegation: Call,
+        headNamed: Boolean,
+        headValidResult: Boolean,
+        state: ResolveState,
+        target: PsiElement
+    ): List<ReachedDeclaration> =
+        reached.map {
+            it.copy(
+                headNamed = headNamed && it.headNamed,
+                valid = headValidResult && it.valid,
+                via = listOf(delegation) + it.via,
+                reach = state.reachedThroughDelegation(delegation, it.reach).reached(target),
+                visitedElementSet = state.visitedElementSet() + it.visitedElementSet
+            )
+        }
 
     companion object {
         @JvmOverloads
@@ -244,8 +315,9 @@ private constructor(
                            resolvedFinalArity: Int,
                            incompleteCode: Boolean,
                            entrance: PsiElement,
-                           resolveState: ResolveState = ResolveState.initial()): List<VisitedElementSetResolveResult> {
-            val multiResolve = MultiResolve(name, resolvedFinalArity, incompleteCode)
+                           resolveState: ResolveState = ResolveState.initial(),
+                           nameAtom: String? = null): List<VisitedElementSetResolveResult> {
+            val multiResolve = MultiResolve(name, resolvedFinalArity, incompleteCode, nameAtom)
             val maxScope = maxScope(entrance)
 
             val entranceResolveState = resolveState

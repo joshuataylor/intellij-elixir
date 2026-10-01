@@ -52,6 +52,9 @@ public class Visibility implements Sorter {
                     visibility2 = visible2.visibility();
                 }
 
+                visibility1 = sortedAs(visibility1);
+                visibility2 = sortedAs(visibility2);
+
                 if (visibility1 == visibility2) {
                     comparison = 0;
                 } else if (visibility1 == org.elixir_lang.call.Visibility.PUBLIC) {
@@ -107,5 +110,10 @@ public class Visibility implements Sorter {
     @Override
     public boolean isVisible() {
         return true;
+    }
+
+    // Sorted where its icon, PUBLIC's, puts it.
+    private static org.elixir_lang.call.Visibility sortedAs(org.elixir_lang.call.Visibility visibility) {
+        return visibility == org.elixir_lang.call.Visibility.UNDECIDED ? org.elixir_lang.call.Visibility.PUBLIC : visibility;
     }
 }

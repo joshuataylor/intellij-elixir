@@ -5,6 +5,7 @@ import com.intellij.openapi.util.RecursionManager
 import com.intellij.psi.PsiCompiledElement
 import com.intellij.psi.PsiElementResolveResult
 import com.intellij.psi.ResolveResult
+import com.intellij.psi.ResolveState
 import com.intellij.psi.impl.source.resolve.ResolveCache
 import com.intellij.psi.util.PsiUtilCore
 import org.elixir_lang.Arity
@@ -12,6 +13,7 @@ import org.elixir_lang.errorreport.Logger
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.qualification.Qualified
+import org.elixir_lang.psi.impl.functionNameAtomValue
 import org.elixir_lang.psi.impl.call.qualification.qualifiedToModulars
 import org.elixir_lang.psi.scope.VisitedElementSetResolveResult
 import org.elixir_lang.structure_view.element.Delegation
@@ -165,7 +167,9 @@ object Callable : ResolveCache.PolyVariantResolver<org.elixir_lang.reference.Cal
                 name,
                 resolvedPrimaryArity,
                 incompleteCode,
-                element
+                element,
+                ResolveState.initial(),
+                functionNameAtomValue(element)
             )
 
         resolveResultList.addAll(callDefinitionClauseResolveResultList)
@@ -189,7 +193,9 @@ object Callable : ResolveCache.PolyVariantResolver<org.elixir_lang.reference.Cal
                     resolvableName,
                     arity,
                     incompleteCode,
-                    modular
+                    modular,
+                    ResolveState.initial(),
+                    resolvableName?.let { functionNameAtomValue(element) }
                 )
             }
         } else {
