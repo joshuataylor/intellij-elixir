@@ -18,6 +18,7 @@ import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.Named
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.ENTRANCE
 import org.elixir_lang.psi.impl.call.finalArguments
+import org.elixir_lang.psi.impl.quotedAtomValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.scope.CallDefinitionClause
 import org.elixir_lang.structure_view.element.CallDefinitionHead
@@ -161,7 +162,7 @@ class Variants(private val appendParentheses: Boolean, private val recordsVisibl
     override fun executeOnEExFunctionFrom(element: Call, state: ResolveState): Boolean {
         recordVisible(Form.EEX_FUNCTION_FROM, element, state) { element }
         element.finalArguments()?.let { arguments ->
-            arguments[1].stripAccessExpression().let { it as? ElixirAtom }?.node?.lastChildNode?.text?.let { name ->
+            arguments[1].stripAccessExpression().let { it as? ElixirAtom }?.let { quotedAtomValue(it) ?: it.node.lastChildNode.text }?.let { name ->
                 lookupElementByPsiElementName.computeIfAbsent(element to name) { (_, name) ->
                     LookupElementBuilder.createWithSmartPointer(
                             name,
@@ -196,7 +197,7 @@ class Variants(private val appendParentheses: Boolean, private val recordsVisibl
 
     override fun executeOnMixGeneratorEmbed(element: Call, state: ResolveState): Boolean {
         recordVisible(Form.GENERATOR_EMBED, element, state) { element }
-        element.finalArguments()?.first()?.stripAccessExpression()?.let { it as? ElixirAtom }?.node?.lastChildNode?.text?.let { prefix ->
+        element.finalArguments()?.first()?.stripAccessExpression()?.let { it as? ElixirAtom }?.let { quotedAtomValue(it) ?: it.node.lastChildNode.text }?.let { prefix ->
             val suffix = element.functionName()!!.removePrefix("embed_")
             val name = "${prefix}_${suffix}"
             // `Generator.isEmbed` admits only these two names.

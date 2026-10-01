@@ -26,6 +26,7 @@ import com.intellij.psi.xml.XmlToken
 import com.intellij.psi.xml.XmlTokenType
 import com.intellij.usages.impl.rules.UsageType
 import com.intellij.util.AbstractQuery
+import com.intellij.util.MergeQuery
 import com.intellij.util.Processor
 import com.intellij.util.Query
 import com.intellij.util.concurrency.annotations.RequiresReadLock
@@ -56,12 +57,14 @@ import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.moduleAttributeName
 import org.elixir_lang.psi.impl.identifierTextRange
 import org.elixir_lang.psi.impl.call.finalArguments
+import org.elixir_lang.psi.impl.functionNameAtomValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.scope.ancestorTypeSpec
 import org.elixir_lang.reference.Callable
 import org.elixir_lang.reference.CaptureNameArity
 import org.elixir_lang.psi.operation.capture.NonNumeric as CaptureNonNumeric
 import org.elixir_lang.structure_view.element.CallDefinitionSpecification
+import java.text.Normalizer
 import java.util.concurrent.Callable as JCallable
 
 /**
@@ -194,36 +197,42 @@ internal object ElixirUsageQueries {
         callback: Callback,
         searchScope: SearchScope
     ): Query<out PsiUsage> =
+        bySpelling(callback.name) { word ->
             SearchService.getInstance()
-                .searchWord(project, callback.name)
+                .searchWord(project, word)
                 .caseSensitive(true) // Elixir function/macro names are case-sensitive
                 .inContexts(SearchContext.inCode())
                 .inScope(searchScope)
                 .buildQuery(ImplementationMapper(callback.createPointer()))
+        }
 
     private fun protocolCallSiteQuery(
         project: Project,
         pf: ProtocolFunction,
         searchScope: SearchScope
     ): Query<out PsiUsage> =
+        bySpelling(pf.name) { word ->
             SearchService.getInstance()
-                .searchWord(project, pf.name)
+                .searchWord(project, word)
                 .caseSensitive(true)
                 .inContexts(SearchContext.inCode())
                 .inScope(searchScope)
                 .buildQuery(ProtocolCallSiteMapper(pf.createPointer()))
+        }
 
     private fun protocolImplementationQuery(
         project: Project,
         pf: ProtocolFunction,
         searchScope: SearchScope
     ): Query<out PsiUsage> =
+        bySpelling(pf.name) { word ->
             SearchService.getInstance()
-                .searchWord(project, pf.name)
+                .searchWord(project, word)
                 .caseSensitive(true)
                 .inContexts(SearchContext.inCode())
                 .inScope(searchScope)
                 .buildQuery(ProtocolImplementationMapper(pf.createPointer()))
+        }
 
     /**
      * Maps each occurrence of the callback name to an implementing definition clause, if any.
@@ -418,13 +427,15 @@ internal object ElixirUsageQueries {
         symbol: FunctionSymbol,
         searchScope: SearchScope
     ): Query<out PsiUsage> =
+        bySpelling(symbol.name) { word ->
             SearchService.getInstance()
-                .searchWord(project, symbol.name)
+                .searchWord(project, word)
                 .caseSensitive(true)
                 .inContexts(SearchContext.inCode())
                 .inScope(searchScope)
                 .includeInjections()
                 .buildQuery(FunctionCallSiteMapper(symbol.createPointer()))
+        }
 
     private fun typeUsageQuery(
         project: Project,
@@ -491,12 +502,14 @@ internal object ElixirUsageQueries {
         symbol: ModuleSymbol,
         searchScope: SearchScope
     ): Query<out PsiUsage> =
-        SearchService.getInstance()
-            .searchWord(project, symbol.searchText)
-            .caseSensitive(true)
-            .inContexts(SearchContext.inCode())
-            .inScope(searchScope)
-            .buildQuery(ModuleUsageMapper(symbol.createPointer()))
+        bySpelling(symbol.searchText) { word ->
+            SearchService.getInstance()
+                .searchWord(project, word)
+                .caseSensitive(true)
+                .inContexts(SearchContext.inCode())
+                .inScope(searchScope)
+                .buildQuery(ModuleUsageMapper(symbol.createPointer()))
+        }
 
     private class ModuleUsageMapper(
         private val symbolPointer: Pointer<out ModuleSymbol>
@@ -615,12 +628,36 @@ internal object ElixirUsageQueries {
         symbol: FunctionSymbol,
         searchScope: SearchScope
     ): Query<out PsiUsage> =
+        bySpelling(symbol.name) { word ->
             SearchService.getInstance()
-                .searchWord(project, symbol.name)
+                .searchWord(project, word)
                 .caseSensitive(true)
                 .inContexts(SearchContext.inCode())
                 .inScope(searchScope)
                 .buildQuery(FunctionDeclarationFamilyMapper(symbol.createPointer()))
+        }
+
+    /**
+     * One query per spelling the quoter reads as [word]'s atom, so a use written decomposed, or with a micro sign for
+     * a mu, is found.
+     */
+    private fun <T> bySpelling(word: String, query: (String) -> Query<out T>): Query<out T> =
+        spellings(word).map(query).reduce { merged, next -> MergeQuery(merged, next) }
+
+    private fun spellings(word: String): Set<String> {
+        val spellings = linkedSetOf(word, Normalizer.normalize(word, Normalizer.Form.NFD))
+
+        if (GREEK_MU in word) {
+            val micro = word.replace(GREEK_MU, MICRO_SIGN)
+            spellings += micro
+            spellings += Normalizer.normalize(micro, Normalizer.Form.NFD)
+        }
+
+        return spellings
+    }
+
+    private const val GREEK_MU = '\u03BC'
+    private const val MICRO_SIGN = '\u00B5'
 
     /**
      * Maps each occurrence of a function name to a matching declaration clause in the same
@@ -707,7 +744,10 @@ internal object ElixirUsageQueries {
          */
         @RequiresReadLock
         private fun matchesCallSite(call: Call, symbol: FunctionSymbol): Boolean =
-            if (call.isCalling(symbol.moduleName, symbol.name, symbol.arity)) {
+            if (call.resolvedModuleName() == symbol.moduleName &&
+                (functionNameAtomValue(call) ?: call.functionName()) == symbol.name &&
+                call.resolvedFinalArity() == symbol.arity
+            ) {
                 true
             } else {
                 Callable(call).multiResolve(false)

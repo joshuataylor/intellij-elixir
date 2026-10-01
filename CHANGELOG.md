@@ -118,6 +118,11 @@
 
 ### Bug Fixes
 
+- [#4306](https://github.com/intellij-elixir/intellij-elixir/pull/4306) [@sh41](https://github.com/sh41)
+  - **Functions and modules are named by the atom Elixir gives them, so a name written as a quoted atom
+    (`def unquote(:"a-b")()`, `defmodule :"my-mod"`, `defmodule :"Elixir.Foo"`), with a combining mark or a micro
+    sign, or as `Foo . Bar` is found under that atom, and distinct modules no longer share an index key.**
+    Fixes [#4299](https://github.com/intellij-elixir/intellij-elixir/issues/4299).
 - [#4290](https://github.com/intellij-elixir/intellij-elixir/pull/4290) [@sh41](https://github.com/sh41)
   - **A guard written inside parentheses no longer breaks Go to Declaration: `def(h(x) when is_list(x), do: x)` is
     found and named `h/1`, not `when/2`, and `y` in `fn(x when x > y) -> y end` resolves to where it was bound.**
@@ -530,6 +535,10 @@
 
 ### Threading / Platform Hygiene
 
+- [#4306](https://github.com/intellij-elixir/intellij-elixir/pull/4306) [@sh41](https://github.com/sh41)
+  - **Setting a breakpoint in an Elixir file, filtering the "Decompiled BEAM" Go to Related popup, and opening Recent
+    Locations from the Switcher read module and function names under a read lock.** Fixes
+    [#4299](https://github.com/intellij-elixir/intellij-elixir/issues/4299).
 - [#4305](https://github.com/intellij-elixir/intellij-elixir/pull/4305) [@sh41](https://github.com/sh41)
   - **The expander expands bitstrings and guards, and reports the expansion errors each Elixir release raises, as each release does; nothing uses it yet.** Fixes [#4298](https://github.com/intellij-elixir/intellij-elixir/issues/4298).
 - [#4297](https://github.com/intellij-elixir/intellij-elixir/pull/4297) [@sh41](https://github.com/sh41)

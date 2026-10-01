@@ -15,6 +15,7 @@ import com.intellij.psi.util.siblings
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function.ALIAS
 import org.elixir_lang.psi.call.name.Function.CREATE
 import org.elixir_lang.psi.call.name.Module.KERNEL
@@ -140,10 +141,17 @@ fun PsiElement.getModuleName(): String? {
     return findParentInFile(withSelf = true) { e ->
         e.children.any(isModuleName)
     }?.let { moduleDefinition ->
-        moduleDefinition.children.firstOrNull(isModuleName)?.let { moduleName ->
-            moduleDefinition.parent.getModuleName()?.let { parentModuleName ->
-                "$parentModuleName.${moduleName.text}"
-            } ?: moduleName.text
+        moduleDefinition.children.firstOrNull(isModuleName)?.let { nameElement ->
+            val name = (moduleDefinition as? Call)?.let { Module.moduleName(SyntacticCall.of(it)) }
+
+            if (name?.absolute == true) {
+                name.name
+            } else {
+                val relative = name?.name ?: nameElement.text
+
+                moduleDefinition.parent.getModuleName()?.let { parentModuleName -> "$parentModuleName.$relative" }
+                    ?: relative
+            }
         }
     }
 }

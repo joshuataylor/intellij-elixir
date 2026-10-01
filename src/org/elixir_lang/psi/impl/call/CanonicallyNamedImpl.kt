@@ -9,6 +9,7 @@ import org.elixir_lang.psi.QuoteMacro
 import org.elixir_lang.psi.call.StubBased
 import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function.__MODULE__
+import org.elixir_lang.psi.impl.ModuleName
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.stub.type.call.Stub.isModular
 
@@ -24,16 +25,11 @@ object CanonicallyNamedImpl {
                 Implementation.name(call)
                     ?: "${Implementation.protocolName(call) ?: NO_VALUE}.${Implementation.forText(call) ?: NO_VALUE}"
             } else {
-                val canonicalNameSuffix = when {
-                    Module.`is`(call) -> Module.name(call)
-                    Protocol.`is`(call) -> Module.name(call)
-                    else -> null
-                }
-
+                val moduleName = moduleName(call)
+                val canonicalNameSuffix = moduleName?.name
                 val enclosing = enclosingModularMacroCall(call)
-                val atomIndexName = atomIndexName(call)
 
-                atomIndexName ?: if (canonicalNameSuffix != null && isModuleRelative(canonicalNameSuffix)) {
+                moduleName?.takeIf { it.absolute }?.name ?: if (canonicalNameSuffix != null && isModuleRelative(canonicalNameSuffix)) {
                     expandModule(canonicalNameSuffix, call) ?: NO_VALUE
                 } else if (enclosing != null) {
                     "${enclosing.canonicalName() ?: NO_VALUE}.${canonicalNameSuffix ?: NO_VALUE}"
@@ -55,11 +51,11 @@ object CanonicallyNamedImpl {
                 Implementation.nameCollection(call)?.toSet()
                     ?: setOf("${Implementation.protocolName(call) ?: NO_VALUE}.$NO_VALUE")
             } else {
-                val canonicalNameSuffix = if (Module.`is`(call) || Protocol.`is`(call)) Module.name(call) else NO_VALUE
-                val atomIndexName = atomIndexName(call)
+                val moduleName = moduleName(call)
+                val canonicalNameSuffix = moduleName?.name ?: NO_VALUE
 
-                if (atomIndexName != null) {
-                    setOf(atomIndexName)
+                if (moduleName?.absolute == true) {
+                    setOf(moduleName.name)
                 } else if (isModuleRelative(canonicalNameSuffix)) {
                     setOf(expandModule(canonicalNameSuffix, call) ?: NO_VALUE)
                 } else {
@@ -86,12 +82,12 @@ object CanonicallyNamedImpl {
         }
 
     /**
-     * The index name of a module or protocol [call] names with an atom, which Elixir does not nest in the module around
-     * it; [NO_VALUE] when the atom has no value, and `null` for any other [call].
+     * The module a module or protocol [call] names, read without expansion; `null` for any other [call], or when its
+     * first argument names no module. An absolute name is not nested in the module around it.
      */
     @RequiresReadLock
-    fun atomIndexName(call: SyntacticCall): String? =
-        if (Module.`is`(call) || Protocol.`is`(call)) call.firstPrimaryArgumentAtomIndexName() else null
+    fun moduleName(call: SyntacticCall): ModuleName? =
+        if (Module.`is`(call) || Protocol.`is`(call)) Module.moduleName(call) else null
 
     private fun isModuleRelative(name: String): Boolean = name == __MODULE__ || name.startsWith("$__MODULE__.")
 

@@ -42,10 +42,10 @@ private constructor(
         private val resolvedPrimaryArity: Int,
         private val incompleteCode: Boolean,
         /**
-         * [name]'s atom value, recorded as what each declaration found here was searched under, and the key it is looked
-         * up by. Without it every declaration is read, and the name's text decides.
+         * Whether [name] is an atom value, recorded as what each declaration found here was searched under, and the key
+         * it is looked up by. Otherwise every declaration is read, and the name's text decides.
          */
-        private val nameAtom: String?) : org.elixir_lang.psi.scope.CallDefinitionClause() {
+        private val atom: Boolean) : org.elixir_lang.psi.scope.CallDefinitionClause() {
     override fun executeOnCallDefinitionClause(element: Call, state: ResolveState): Boolean =
             nameArityInterval(element, state)
                     ?.let { addIfNameOrArityToResolveResults(element, it, state, Form.CLAUSE) }
@@ -82,10 +82,12 @@ private constructor(
                     element.keywordArgument("to")?.takeIf { headValidResult || incompleteCode }?.let { definingModuleName ->
                         val modulars = definingModuleName.maybeModularNameToModulars(element.containingFile, useCall = null, incompleteCode = incompleteCode)
 
-                        if (modulars.isNotEmpty()) {
-                            val asAtom = element.keywordArgument("as")?.let { it as? ElixirAtom }
-                            val nameInDefiningModule = asAtom?.node?.lastChildNode?.text ?: headName
-                            val nameInDefiningModuleAtom = if (asAtom != null) quotedAtomValue(asAtom) else headAtomValue(head)
+                        val asAtom = element.keywordArgument("as")?.let { it as? ElixirAtom }
+                        val targetAtom = if (asAtom != null) quotedAtomValue(asAtom) else headAtomValue(head)
+                        // An interpolated `as:` names a function that only evaluation finds.
+                        val nameInDefiningModule = if (asAtom != null) targetAtom else headName
+
+                        if (modulars.isNotEmpty() && nameInDefiningModule != null) {
                             val headNamed = this.name == null || headName == this.name
 
                             for (modular in modulars) {
@@ -96,7 +98,7 @@ private constructor(
                                     incompleteCode,
                                     modular,
                                     ResolveState.initial(),
-                                    nameInDefiningModuleAtom
+                                    targetAtom != null
                                 )
 
                                 for (modularResultResult in modularResolveResults) {
@@ -135,7 +137,7 @@ private constructor(
 
     override fun executeOnEExFunctionFrom(element: Call, state: ResolveState): Boolean =
             element.finalArguments()?.let { arguments ->
-                        arguments[1].stripAccessExpression().let { it as? ElixirAtom }?.node?.lastChildNode?.text?.let { name ->
+                        arguments[1].stripAccessExpression().let { it as? ElixirAtom }?.let { quotedAtomValue(it) }?.let { name ->
                             if (this.name != null && name.startsWith(this.name)) {
                                 val arity = if (arguments.size >= 4) {
                                     // function_from_file(kind, name, file, args)
@@ -167,7 +169,7 @@ private constructor(
             }
 
     override fun executeOnMixGeneratorEmbed(element: Call, state: ResolveState): Boolean =
-            element.finalArguments()?.first()?.stripAccessExpression()?.let { it as? ElixirAtom }?.node?.lastChildNode?.text?.let { prefix ->
+            element.finalArguments()?.first()?.stripAccessExpression()?.let { it as? ElixirAtom }?.let { quotedAtomValue(it) }?.let { prefix ->
                 val suffix = element.functionName()!!.removePrefix("embed_")
                 val name = "${prefix}_${suffix}"
                 val arityRange = when (suffix) {
@@ -228,7 +230,7 @@ private constructor(
         }
 
     override fun keepProcessing(): Boolean = resolveResultOrderedSet.keepProcessing(incompleteCode)
-    override fun targetName(): String? = nameAtom
+    override fun targetName(): String? = name.takeIf { atom }
     fun resolveResults(): List<VisitedElementSetResolveResult> = resolveResultOrderedSet.toList()
 
     private val resolveResultOrderedSet = ResolveResultOrderedSet()
@@ -262,7 +264,7 @@ private constructor(
             name,
             validResult,
             state,
-            listOf(ReachedDeclaration(callDefinition.declaration(), nameAtom, true, validResult))
+            listOf(ReachedDeclaration(callDefinition.declaration(), this.name.takeIf { atom }, true, validResult))
         )
 
     private fun addToResolveResults(callDefinition: BeamCallDefinition,
@@ -287,7 +289,7 @@ private constructor(
         Declarations.of(form, call, state)
             .firstOrNull { it.text == name }
             ?.declaration
-            ?.let { listOf(ReachedDeclaration(it, nameAtom, true, valid)) }
+            ?.let { listOf(ReachedDeclaration(it, this.name.takeIf { atom }, true, valid)) }
             .orEmpty()
 
     /**
@@ -320,8 +322,8 @@ private constructor(
                            incompleteCode: Boolean,
                            entrance: PsiElement,
                            resolveState: ResolveState = ResolveState.initial(),
-                           nameAtom: String? = null): List<VisitedElementSetResolveResult> {
-            val multiResolve = MultiResolve(name, resolvedFinalArity, incompleteCode, nameAtom)
+                           atom: Boolean = false): List<VisitedElementSetResolveResult> {
+            val multiResolve = MultiResolve(name, resolvedFinalArity, incompleteCode, atom && name != null)
             val maxScope = maxScope(entrance)
 
             val entranceResolveState = resolveState

@@ -5,6 +5,7 @@ import com.intellij.navigation.ItemPresentation
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiErrorElement
 import com.intellij.psi.ResolveState
+import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.NameArityInterval
 import org.elixir_lang.call.Visibility
 import org.elixir_lang.navigation.item_presentation.NameArity
@@ -13,6 +14,7 @@ import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function.UNQUOTE
 import org.elixir_lang.psi.impl.PsiNamedElementImpl.unquoteName
+import org.elixir_lang.psi.impl.headAtomValue
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Normalized.operatorIndex
 import org.elixir_lang.psi.operation.When
@@ -70,6 +72,7 @@ class CallDefinitionHead(val callDefinition: CallDefinition, private val visibil
                 }
             }
 
+        @RequiresReadLock
         fun nameArityInterval(head: PsiElement, state: ResolveState): NameArityInterval? =
             if (head is ElixirMatchedAtOperation) {
                 val name = head.operator().text.trim { it <= ' ' }
@@ -81,7 +84,7 @@ class CallDefinitionHead(val callDefinition: CallDefinition, private val visibil
                     val functionName = stripped.functionName()
 
                     if (functionName != null) {
-                        val name = unquoteName(stripped, functionName)
+                        val name = headAtomValue(stripped) ?: unquoteName(stripped, functionName)
                         // For an `unquote(:name)` head the primary argument list supplies the name, not the
                         // parameters, so the parameters (if any) come solely from the secondary argument list.
                         // A bare `unquote(:name)` head therefore has arity 0 rather than the arity 1 that counting

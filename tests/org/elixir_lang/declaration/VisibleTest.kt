@@ -66,7 +66,6 @@ class VisibleTest : PlatformTestCase() {
                 val notVisible = (lookups - visible).map { it.first }
 
                 assertEquals(emptySet<Pair<String, PsiElement>>(), visible - lookups)
-                assertTrue(notVisible.any { it.startsWith(DECOMPILED_UNQUOTE) })
                 assertEquals(emptyList<String>(), notVisible.filterNot { it == "unquote" || it.startsWith(DECOMPILED_UNQUOTE) })
             }
         }
@@ -155,8 +154,8 @@ class VisibleTest : PlatformTestCase() {
 
     private companion object {
         const val LIBRARY = "visible_test_kernel"
-        const val KERNEL = 280
-        const val SPECIAL_FORMS = 23
+        const val KERNEL = 310
+        const val SPECIAL_FORMS = 33
         const val DECOMPILED_UNQUOTE = "unquote(unquote("
     }
 }

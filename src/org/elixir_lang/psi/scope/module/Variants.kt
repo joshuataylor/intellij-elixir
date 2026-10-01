@@ -13,6 +13,7 @@ import org.elixir_lang.psi.call.CanonicallyNamed
 import org.elixir_lang.psi.call.Named
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
+import org.elixir_lang.psi.impl.moduleName
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Normalized
 import org.elixir_lang.psi.scope.LookupElementByLookupName
@@ -116,7 +117,10 @@ class Variants(private val entrance: PsiElement) : Module() {
                         ?.let { modularsRelativeLookupElements(qualifier.project, it) }
                         ?:
                         // The qualifier is an Alias to namespace that is shared, but never declared in an explicit modular
-                        namespacesRelativeLookupElements(qualifier.project, setOf(qualifier.fullyQualifiedName()))
+                        namespacesRelativeLookupElements(
+                            qualifier.project,
+                            setOf(moduleName(qualifier)?.takeIf { it.absolute }?.name ?: qualifier.fullyQualifiedName())
+                        )
 
         /**
          * Any modules under `modulars` with each `modular` stripped off the final names for the respective nested one

@@ -1,20 +1,27 @@
 package org.elixir_lang.psi.call
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
+import org.elixir_lang.Module.NO_VALUE
 import org.elixir_lang.module.RegisterAttribute
 import org.elixir_lang.psi.*
-import org.elixir_lang.psi.call.name.Function.__MODULE__
-import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil
+import org.elixir_lang.psi.impl.ModuleName
 import org.elixir_lang.psi.impl.PsiNamedElementImpl
-import org.elixir_lang.psi.impl.QualifiableAliasImpl
 import org.elixir_lang.psi.impl.call.CanonicallyNamedImpl
+import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.call.finalArity
 import org.elixir_lang.psi.impl.enclosingMacroCall
 import org.elixir_lang.psi.impl.hasKeywordKey
-import org.elixir_lang.psi.impl.indexName
+import org.elixir_lang.psi.impl.headAtomValue
+import org.elixir_lang.psi.impl.moduleName
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Match
+import org.elixir_lang.structure_view.element.CallDefinitionHead
+import org.elixir_lang.structure_view.element.CallDefinitionSpecification
+import org.elixir_lang.structure_view.element.Callback
+import org.elixir_lang.structure_view.element.Delegation
+import org.elixir_lang.structure_view.element.Type
 
 /**
  * The view of a call that stub building gets: what the call's own text says, so no question asked through it
@@ -56,10 +63,10 @@ interface SyntacticCall {
 
     fun firstPrimaryArgumentText(): String?
 
-    /** The index name of an atom first argument, `?` when the atom has no value, and `null` for any other argument. */
-    fun firstPrimaryArgumentAtomIndexName(): String?
+    /** The module the first argument names, read without expansion, and [NO_VALUE] for an atom with no value. */
+    fun firstPrimaryArgumentModuleName(): ModuleName?
 
-    /** The first argument as an alias, with a `__MODULE__` qualifier as written and any other call qualifier as `?`. */
+    /** The module the first argument names, read without expansion, with a `__MODULE__` head as written. */
     fun protocolAliasText(): String?
 
     /** The names in the `for:` option, `null` without one. */
@@ -154,15 +161,12 @@ private class PsiBacked(val call: Call) : SyntacticCall {
 
     override fun firstPrimaryArgumentText(): String? = call.primaryArguments()?.firstOrNull()?.text
 
-    override fun firstPrimaryArgumentAtomIndexName(): String? =
-        (call.primaryArguments()?.firstOrNull()?.stripAccessExpression() as? ElixirAtom)?.let { it.indexName() ?: org.elixir_lang.Module.NO_VALUE }
-
-    override fun protocolAliasText(): String? =
-        Implementation.protocolNameElement(call)?.let { alias ->
-            QualifiableAliasImpl.selfQualifiedName(alias) { qualifier ->
-                if (qualifier.isCalling(KERNEL, __MODULE__, 0)) __MODULE__ else "?"
-            }
+    override fun firstPrimaryArgumentModuleName(): ModuleName? =
+        call.primaryArguments()?.firstOrNull()?.let { argument ->
+            moduleName(argument) ?: ModuleName(NO_VALUE, absolute = true).takeIf { argument.stripAccessExpression() is ElixirAtom }
         }
+
+    override fun protocolAliasText(): String? = call.finalArguments()?.firstOrNull()?.let { moduleName(it)?.name }
 
     override fun forNames(): Collection<String>? =
         Implementation.forNameElement(call)?.let { Implementation.forNameCollection(it) }
@@ -170,7 +174,29 @@ private class PsiBacked(val call: Call) : SyntacticCall {
     override fun nameIdentifierName(): String? =
         (call as? NamedElement)
             ?.nameIdentifier
-            ?.let { PsiNamedElementImpl.unquoteName(call, it.text) }
+            ?.let { nameIdentifier ->
+                definitionHeadAtomValue(nameIdentifier) ?: PsiNamedElementImpl.unquoteName(call, nameIdentifier.text)
+            }
+
+    /**
+     * The atom the head around [nameIdentifier] names, when [call] defines a function, macro, guard, spec or type, or is
+     * itself a head that `defdelegate` defines.
+     */
+    private fun definitionHeadAtomValue(nameIdentifier: PsiElement): String? =
+        if (CallDefinitionClause.`is`(this) ||
+            CallDefinitionSpecification.`is`(this) ||
+            Callback.`is`(this) ||
+            Delegation.`is`(this) ||
+            Type.`is`(call)
+        ) {
+            PsiTreeUtil.getParentOfType(nameIdentifier, Call::class.java, false)
+                ?.takeUnless { it == call }
+                ?.let(::headAtomValue)
+        } else if (CallDefinitionHead.`is`(this) && CallDefinitionHead.enclosingDelegationCall(this) != null) {
+            headAtomValue(call)
+        } else {
+            null
+        }
 
     override fun attributeAtomName(): String? = (RegisterAttribute.nameIdentifier(call) as? ElixirAtom)?.name
 

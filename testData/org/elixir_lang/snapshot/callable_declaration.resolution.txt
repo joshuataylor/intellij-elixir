@@ -182,7 +182,7 @@ forms.ex:26:21  symbol  VariableReference  `x`  ->  forms.ex:26:7 VariableSymbol
 forms.ex:27:3  psi  Callable  `if`  ->  nothing
 forms.ex:27:3  symbol  FunctionCallReference  `if`  ->  nothing
 forms.ex:27:16  psi  GeneralAtomReference  `:ok`  ->  nothing
-forms.ex:28:3  psi  Callable  `quote`  ->  nothing
+forms.ex:28:3  psi  Callable  `quote`  ->  forms.ex:21:3 `Mix.Generator.embed_text(:"quoted", "Quoted")` (invalid)
 forms.ex:28:3  symbol  FunctionCallReference  `quote`  ->  nothing
 import_only.ex:1:1  module  Errors
 import_only.ex:1:1  psi  Callable  `defmodule`  ->  nothing
@@ -348,8 +348,8 @@ quoted_names.ex:6:17  psi  Callable  `embed_text`  ->  mix_generator.ex:6:3 `def
 quoted_names.ex:6:17  symbol  FunctionCallReference  `embed_text`  ->  mix_generator.ex:6:12 FunctionSymbol(Mix.Generator.embed_text/2, macro=true)
 quoted_names.ex:6:28  psi  GeneralAtomReference  `:"quoted"`  ->  nothing
 quoted_names.ex:7:3  psi  Callable  `defdelegate`  ->  nothing
-quoted_names.ex:7:15  psi  Callable  `count`  ->  quoted_names.ex:7:3 `defdelegate count(x), to: QuotedNamesTarget, as: :"size"`
-quoted_names.ex:7:15  symbol  FunctionCallReference  `count`  ->  quoted_names.ex:7:15 FunctionSymbol(QuotedNames.count/1, macro=false)
+quoted_names.ex:7:15  psi  Callable  `count`  ->  quoted_names.ex:21:3 `def size(x), do: x` | quoted_names.ex:7:3 `defdelegate count(x), to: QuotedNamesTarget, as: :"size"`
+quoted_names.ex:7:15  symbol  FunctionCallReference  `count`  ->  quoted_names.ex:21:7 FunctionSymbol(QuotedNamesTarget.size/1, macro=false)
 quoted_names.ex:7:21  psi  Callable  `x`  ->  quoted_names.ex:7:21 `x`
 quoted_names.ex:7:29  psi  Module  `QuotedNamesTarget`  ->  quoted_names.ex:20:1 `defmodule QuotedNamesTarget do`
 quoted_names.ex:7:29  symbol  ModuleReference  `QuotedNamesTarget`  ->  quoted_names.ex:20:11 ModuleSymbol(QuotedNamesTarget)
@@ -363,12 +363,12 @@ quoted_names.ex:8:37  symbol  ModuleReference  `QuotedNamesTarget`  ->  quoted_n
 quoted_names.ex:8:60  psi  GeneralAtomReference  `:"#{:size}"`  ->  eex.ex:1:1 `defmodule EEx do` (invalid) | forms.ex:1:1 `defmodule Forms do` (invalid) | import_only.ex:1:1 `defmodule Errors do` (invalid) | import_only.ex:6:1 `defmodule OnlyUser do` (invalid) | in_def.ex:1:1 `defmodule InDef do` (invalid) | mix_generator.ex:1:1 `defmodule Mix.Generator do` (invalid) | nameless_query.ex:1:1 `defmodule NamelessQuery do` (invalid) | quoted_names.ex:1:1 `defmodule QuotedNames do` (invalid) | quoted_names.ex:20:1 `defmodule QuotedNamesTarget do` (invalid) | spec_targets.ex:1:1 `defmodule SpecTargets do` (invalid) | through_import.ex:14:1 `defmodule User do` (invalid) | through_import.ex:1:1 `defmodule Views do` (invalid) | through_use.ex:17:1 `defmodule ThroughUse do` (invalid) | through_use.ex:1:1 `defmodule Using do` (invalid) | unknown_arity.ex:1:1 `defmodule UnknownArity do` (invalid)
 quoted_names.ex:8:64  psi  GeneralAtomReference  `:size`  ->  nothing
 quoted_names.ex:10:3  definition  QuotedNames  usage/0  clause  public function runtime
-quoted_names.ex:12:7  psi  Callable  `quoted_from_string`  ->  nothing
+quoted_names.ex:12:7  psi  Callable  `quoted_from_string`  ->  quoted_names.ex:5:3 `EEx.function_from_string(:def, :"quoted_from_string", "<%= a %>", [:a])`
 quoted_names.ex:12:7  symbol  FunctionCallReference  `quoted_from_string`  ->  nothing
-quoted_names.ex:13:7  psi  Callable  `quoted_text`  ->  nothing
+quoted_names.ex:13:7  psi  Callable  `quoted_text`  ->  quoted_names.ex:6:3 `Mix.Generator.embed_text(:"quoted", "Quoted")`
 quoted_names.ex:13:7  symbol  FunctionCallReference  `quoted_text`  ->  nothing
-quoted_names.ex:14:7  psi  Callable  `count`  ->  quoted_names.ex:7:3 `defdelegate count(x), to: QuotedNamesTarget, as: :"size"`
-quoted_names.ex:14:7  symbol  FunctionCallReference  `count`  ->  quoted_names.ex:7:15 FunctionSymbol(QuotedNames.count/1, macro=false)
+quoted_names.ex:14:7  psi  Callable  `count`  ->  quoted_names.ex:21:3 `def size(x), do: x` | quoted_names.ex:7:3 `defdelegate count(x), to: QuotedNamesTarget, as: :"size"`
+quoted_names.ex:14:7  symbol  FunctionCallReference  `count`  ->  quoted_names.ex:21:7 FunctionSymbol(QuotedNamesTarget.size/1, macro=false)
 quoted_names.ex:15:7  psi  Callable  `dynamic_count`  ->  quoted_names.ex:8:3 `defdelegate dynamic_count(x), to: QuotedNamesTarget, as: :"#{:size}"`
 quoted_names.ex:15:7  symbol  FunctionCallReference  `dynamic_count`  ->  quoted_names.ex:8:15 FunctionSymbol(QuotedNames.dynamic_count/1, macro=false)
 quoted_names.ex:20:1  module  QuotedNamesTarget

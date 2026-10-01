@@ -18,12 +18,15 @@ import org.elixir_lang.beam.chunk.beam_documentation.docs.documented.None
 import org.elixir_lang.beam.psi.BeamFileImpl
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
 import org.elixir_lang.declaration.DelegationPrecedence
+import org.elixir_lang.language_level.ElixirLanguageLevelResolver.languageLevelFor
+import org.elixir_lang.lowering.identifierAtomName
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.CallDefinitionClause.enclosingModularMacroCall
 import org.elixir_lang.psi.ModuleAttribute.isDocumentationName
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.childExpressions
 import org.elixir_lang.psi.impl.declaringModuleCall
+import org.elixir_lang.psi.impl.functionNameAtomValue
 import org.elixir_lang.psi.impl.identifierName
 import org.elixir_lang.psi.operation.capture.NonNumeric
 import org.elixir_lang.psi.stub.type.call.Stub.isModular
@@ -109,7 +112,7 @@ internal class ElixirDocumentationProvider : DocumentationProvider {
 
             when (val kind = relativeLinkMatcher.group("kind")) {
                 null -> {
-                    val relative = relativeLinkMatcher.group("relative")
+                    val relative = identifierAtomName(relativeLinkMatcher.group("relative")) { languageLevelFor(context) }
                     val arity = relativeLinkMatcher.group("arity").toInt()
 
                     val resolveResults = if (module != null) {
@@ -146,7 +149,7 @@ internal class ElixirDocumentationProvider : DocumentationProvider {
                 }
 
                 "c" -> {
-                    val relative = relativeLinkMatcher.group("relative")
+                    val relative = identifierAtomName(relativeLinkMatcher.group("relative")) { languageLevelFor(context) }
                     val arity = relativeLinkMatcher.group("arity").toInt()
 
                     val resolveResults = if (module != null) {
@@ -292,7 +295,7 @@ internal class ElixirDocumentationProvider : DocumentationProvider {
                     // multiResolve uses startsWith for name matching (for completion), so we must
                     // filter to exact name matches to avoid showing docs for map_size when hovering map.
                     bestMatch(validElements) ?: run {
-                        val callName = contextElement.functionName()
+                        val callName = functionNameAtomValue(contextElement) ?: contextElement.functionName()
                         val exactNameElements = allResults
                             .mapNotNull(ResolveResult::getElement)
                             .filter { element ->

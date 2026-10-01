@@ -5,10 +5,12 @@ import com.intellij.navigation.ItemPresentation
 import com.intellij.psi.ElementDescriptionLocation
 import com.intellij.psi.PsiElement
 import com.intellij.usageView.UsageViewTypeLocation
+import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.navigation.item_presentation.Parent
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
+import org.elixir_lang.psi.impl.headAtomValue
 import org.elixir_lang.psi.operation.Type
 import org.elixir_lang.psi.operation.When
 import org.elixir_lang.structure_view.element.modular.Modular
@@ -63,12 +65,14 @@ class CallDefinitionSpecification(
         @Contract(pure = true)
         fun `is`(call: SyntacticCall): Boolean = call.moduleAttributeName() == "@spec"
 
+        @RequiresReadLock
         @JvmStatic
         fun moduleAttributeNameArity(
                 atUnqualifiedNoParenthesesCall: AtUnqualifiedNoParenthesesCall<*>
         ): org.elixir_lang.NameArity? =
                 specification(atUnqualifiedNoParenthesesCall)?.let { specificationType(it) }?.let { typeNameArity(it) }
 
+        @RequiresReadLock
         @JvmStatic
         fun moduleAttributeNameArity(call: Call): org.elixir_lang.NameArity? =
             (call as? AtUnqualifiedNoParenthesesCall<*>)?.let { moduleAttributeNameArity(it) }
@@ -99,9 +103,10 @@ class CallDefinitionSpecification(
          * the parser produces from a malformed `@spec`: [Call.functionName] is `@Nullable` and
          * every caller here already treats a missing name as "not a specification".
          */
+        @RequiresReadLock
         @JvmStatic
         fun typeNameArity(type: Call): org.elixir_lang.NameArity? {
-            val name = type.functionName() ?: return null
+            val name = headAtomValue(type) ?: type.functionName() ?: return null
             val arity = type.resolvedFinalArity()
 
             return org.elixir_lang.NameArity(name, arity)

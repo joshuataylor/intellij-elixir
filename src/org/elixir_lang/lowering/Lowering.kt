@@ -183,13 +183,7 @@ class Lowering private constructor(
     internal fun tokenMetadata(name: String, value: Int): Meta.Key =
         Meta.Key.Entry(name, Meta.Value.Integer(value.toLong()), tokenMetadata = true)
 
-    /** An identifier's atom name: from 1.14, normalized as Elixir normalizes identifiers. */
-    internal fun identifier(text: String): String =
-        if (text.any { it.code > 0x7F } && isAvailable(ElixirLanguageFeature.NORMALIZED_IDENTIFIERS)) {
-            Normalizer.normalize(text, Normalizer.Form.NFC).replace('µ', 'μ')
-        } else {
-            text
-        }
+    internal fun identifier(text: String): String = identifierAtomName(text) { languageLevel }
 
     /** Where [decorate] puts a parent's keys among a child's own. */
     internal enum class Placement {
@@ -292,3 +286,11 @@ private fun ElixirAst.withMeta(keys: List<Meta.Key>): ElixirAst {
         is ElixirAst.Placeholder -> ElixirAst.Placeholder(meta, reason)
     }
 }
+
+/** An identifier's atom name: from 1.14, normalized as Elixir normalizes identifiers. */
+fun identifierAtomName(text: String, languageLevel: () -> ElixirLanguageLevel): String =
+    if (text.any { it.code > 0x7F } && ElixirLanguageFeature.NORMALIZED_IDENTIFIERS.isSufficient(languageLevel())) {
+        Normalizer.normalize(text, Normalizer.Form.NFC).replace('µ', 'μ')
+    } else {
+        text
+    }

@@ -33,13 +33,17 @@ object Module {
     }
 
     /**
-     * The name Elixir gives the module [atom] names, which is the name it is indexed by: the alias of an `Elixir.` atom,
-     * otherwise `:` and the atom.
+     * The name Elixir gives the module [atom] names, which is the name it is indexed by: the alias of an `Elixir.` atom
+     * that `inspect` writes as an alias, otherwise `:` and the atom.
      */
     @Contract(pure = true)
     @JvmStatic
     fun indexName(atom: String): String =
-        if (atom.startsWith(ELIXIR_PREFIX)) atom.substring(ELIXIR_PREFIX.length) else ":$atom"
+        atom
+            .takeIf { it.startsWith(ELIXIR_PREFIX) }
+            ?.substring(ELIXIR_PREFIX.length)
+            ?.takeIf { ElixirModulesUtil.elixirAliasSegmentsRegex.matches(it) }
+            ?: ":$atom"
 
     /** Stands in an index name for a name, or an alias in it, that has no value. */
     const val NO_VALUE = "?"
