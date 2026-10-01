@@ -1,0 +1,13 @@
+defmodule Src.Def.W4 do
+  def src_def_w4_snoc(q, x) when is_list(q), do: {q, x}
+  def src_def_w4_snoc(queue, item), do: {queue, item}
+  def src_def_w4_snoc(q), do: {q}
+  def src_def_w4_snoc(q, x, y), do: {q, x, y}
+  def src_def_w4_xsnoc(q, x), do: {q, x}
+  def src_def_w4_snoc_x(q, x), do: {q, x}
+  def src_def_w4_snoc?(q, x), do: {q, x}
+  def src_def_w4_snoc!(q, x), do: {q, x}
+  def src_def_w4_snoć(q, x), do: {q, x}
+
+  def local_site(a, b), do: src_def_w4_snoc(a, b) # @local
+end

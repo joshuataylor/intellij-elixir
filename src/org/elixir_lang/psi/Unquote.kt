@@ -13,6 +13,7 @@ import org.elixir_lang.psi.impl.call.finalArguments
 import org.elixir_lang.psi.impl.childExpressions
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Match
+import org.elixir_lang.psi.scope.Recording
 import org.elixir_lang.psi.scope.WhileIn.whileIn
 
 object Unquote {
@@ -67,7 +68,14 @@ object Unquote {
                     Using.treeWalkUp(unquoted, null, unquotedResolveState, keepProcessing)
                 } else {
                     // The walk's answer is dropped, so a consumer's stop signal does not end the loop here
-                    treeWalkUpUnquotedVariable(unquoted, unquoted, unquotedResolveState, keepProcessing)
+                    treeWalkUpUnquotedVariable(
+                        unquoted,
+                        unquoted,
+                        Recording.enter(
+                            unquotedResolveState, "UNQUOTE_VALUE", unquoted, stops = true, absorbs = true
+                        ),
+                        keepProcessing
+                    )
 
                     true
                 }

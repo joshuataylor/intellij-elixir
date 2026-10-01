@@ -315,6 +315,12 @@ class HeexComponentReferenceTest : HeexHostTestCase() {
         )
     }
 
+    /** `<.src_µ>`, MICRO SIGN, resolves to the definition spelled the same way, which quotes to `src_μ`. */
+    fun testLocalComponentNamedWithAMicroSign() {
+        myFixture.configureByFiles("micro/page_live.html.heex", "micro/page_live.ex")
+        myFixture.assertGotoDeclarationLandsIn("src_\u00b5", "a def clause") { CallDefinitionClause.`is`(it) }
+    }
+
     private fun assertButtonResolves() {
         myFixture.assertGotoDeclarationLandsIn("button", "a def clause") { CallDefinitionClause.`is`(it) }
     }

@@ -10,6 +10,7 @@ import org.elixir_lang.psi.Exception
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.mix.Generator
+import org.elixir_lang.psi.scope.WalkProbe
 import org.elixir_lang.structure_view.element.Callback
 import org.elixir_lang.structure_view.element.Delegation
 
@@ -17,7 +18,11 @@ import org.elixir_lang.structure_view.element.Delegation
 object DeclaringForm {
     /** The forms the call's own syntax decides. */
     @RequiresReadLock
-    fun syntacticForm(call: Call): Form? = syntacticForm(SyntacticCall.of(call))
+    fun syntacticForm(call: Call): Form? {
+        WalkProbe.count(WalkProbe.Counter.CLASSIFY)
+
+        return syntacticForm(SyntacticCall.of(call))
+    }
 
     @RequiresReadLock
     fun syntacticForm(call: SyntacticCall): Form? {
@@ -36,6 +41,7 @@ object DeclaringForm {
     @RequiresReadLock
     fun resolvingForm(call: Call, state: ResolveState): Form? {
         ThreadingAssertions.assertReadAccess()
+        WalkProbe.count(WalkProbe.Counter.CLASSIFY)
 
         return when {
             EEx.isFunctionFrom(call, state) -> Form.EEX_FUNCTION_FROM

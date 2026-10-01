@@ -7,6 +7,7 @@ import com.intellij.psi.PsiWhiteSpace
 import com.intellij.psi.search.LocalSearchScope
 import com.intellij.psi.search.SearchScope
 import com.intellij.util.concurrency.annotations.RequiresReadLock
+import org.elixir_lang.declaration.Form
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.ModuleAttribute.isNonReferencing
 import org.elixir_lang.psi.call.Call
@@ -15,6 +16,7 @@ import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.call.CallImpl.hasDoBlockOrKeyword
 import org.elixir_lang.psi.impl.call.macroDefinitionClauseForArgument
 import org.elixir_lang.psi.impl.moduleWithDependentsScope
+import org.elixir_lang.psi.scope.call_definition_clause.DeclaringForm
 import org.elixir_lang.psi.scope.variable.BindingPattern
 import org.elixir_lang.psi.stub.type.call.Stub.isModular
 import org.elixir_lang.reference.Callable.Companion.isBitStreamSegmentOption
@@ -160,7 +162,7 @@ object UseScopeImpl {
                     element.isCalling(KERNEL, UNLESS) ||
                     element.isCalling(KERNEL, VAR_BANG)) {
                 useScopeSelector = UseScopeSelector.SELF_AND_FOLLOWING_SIBLINGS
-            } else if (CallDefinitionClause.`is`(element) || isModular(element) || hasDoBlockOrKeyword(element)) {
+            } else if (DeclaringForm.syntacticForm(element) == Form.CLAUSE || isModular(element) || hasDoBlockOrKeyword(element)) {
                 useScopeSelector = UseScopeSelector.SELF
             }
         }

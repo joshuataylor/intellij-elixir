@@ -41,6 +41,7 @@ import org.elixir_lang.psi.scope.WhileIn.whileIn
 import org.elixir_lang.psi.scope.call_definition_clause.DeclaringForm
 import org.elixir_lang.psi.stub.type.call.Stub.isModular
 import org.elixir_lang.reference.resolver.narrowedScope
+import org.jetbrains.annotations.TestOnly
 
 abstract class CallDefinitionClause : PsiScopeProcessor {
     /*
@@ -120,6 +121,9 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
      */
     protected abstract fun keepProcessing(): Boolean
 
+    /** The prefix of every atom this processor can reach, or `null` when it needs every declaration. */
+    protected open fun targetName(): String? = null
+
     /*
      * Private Instance Methods
      */
@@ -136,7 +140,10 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
     private fun executeOnDeclaring(form: Form, element: Call, state: ResolveState): Boolean =
         when (form) {
-            Form.CLAUSE -> executeOnCallDefinitionClause(element, state)
+            Form.CLAUSE -> {
+                WalkProbe.count(WalkProbe.Counter.CLAUSE_HANDLER_MODULE)
+                executeOnCallDefinitionClause(element, state)
+            }
             Form.CALLBACK -> executeOnCallback(element as AtUnqualifiedNoParenthesesCall<*>, state)
             Form.DELEGATION -> executeOnDelegation(element, state)
             Form.EXCEPTION -> executeOnException(element, state)
@@ -148,20 +155,14 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
         when {
             For.`is`(element) -> For.treeWalkDown(element, state, ::execute)
             If.`is`(element) || Unless.`is`(element) -> {
-                // If the entrance is at compile time level of a branch, then only previous siblings could
-                // possibly define this call and those will be handled by ElixirStabBody's processDeclarations
-                val branches = Branches(element)
+                if (walksBranches(element, state)) {
+                    // Every child is walked whatever the others answered, and the arm answers `true`.
+                    val ifState =
+                        Recording.enter(state, "IF", element, stops = false, absorbs = true, gate = { walksBranches(element, it) })
 
-                val primaryChildCalls = branches.primaryChildExpressions.filterIsInstance<Call>()
-                val walkPrimary = !containsCompileTimeEntranceAncestorOrSelf(primaryChildCalls, state)
-
-                val alternativeChildCalls = branches.alternativeChildExpressions.filterIsInstance<Call>()
-                val walkAlternative = !containsCompileTimeEntranceAncestorOrSelf(alternativeChildCalls, state)
-
-                if (walkPrimary && walkAlternative) {
                     for (childCall in blockChildCalls(element, ::modularCallsToExecute)) {
                         ProgressManager.checkCanceled()
-                        execute(childCall, state)
+                        execute(childCall, ifState)
                     }
                 }
 
@@ -184,43 +185,49 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
                 true
             }
 
-            (isModular(element) ||
-                    Case.isChild(element, state))
-                    && modularContainsEntrance(element, state) -> {
+            walksModular(element, state) -> {
                 val childCalls = if (isModular(element)) {
                     modularCallsToExecute(element).asSequence()
                 } else {
                     element.macroChildCallSequence()
                 }
+                // Each child's answer is ignored. At replay, a body whose gate is closed is re-dispatched live here.
+                val bodyState = Recording.enter(
+                    state, "MODULAR_BODY", element, stops = false, absorbs = true,
+                    gate = { walksModular(element, it) && !isAtCompileTimeLevel(element, it.get(ENTRANCE)) },
+                    fallThrough = true
+                )
 
-                // If the entrance is at compile time level of `childCalls`, then only previous siblings could possibly define
+                // If the entrance is at compile time level of the body, then only previous siblings could possibly define
                 // this call and those will be handled by ElixirStabBody's processDeclarations.
-                // `childCalls` reaches into nested blocks and can hold the entrance itself, so this reads direct children.
-                if (!containsCompileTimeEntranceAncestorOrSelf(element.macroChildCallSequence(), state)) {
-                    for (childCall in childCalls) {
-                        ProgressManager.checkCanceled()
-                        execute(childCall, state)
+                if (!isAtCompileTimeLevel(element, state.get(ENTRANCE))) {
+                    val table = tableFor(element, state)
+
+                    if (table != null) {
+                        replay(table, state)
+                    } else {
+                        for (childCall in childCalls) {
+                            ProgressManager.checkCanceled()
+                            execute(childCall, bodyState)
+                        }
                     }
                 }
 
-                // Only check MultiResolve.keepProcessing at the end of a Module to all multiple arities
-                keepProcessing() &&
-                        // the implicit `import Kernel` and `import Kernel.SpecialForms`
-                        implicitImports(element, state)
+                Recording.live(bodyState, element, Recording.LiveKind.IMPLICIT_IMPORTS) { call, implicitState ->
+                    afterModularBody(call, implicitState)
+                } || afterModularBody(element, state)
             }
-            QuoteMacro.`is`(element) -> if (!state.hasBeenVisited(element)) {
-                QuoteMacro.treeWalkUp(element, state, ::execute)
-            } else {
-                true
-            }
+            QuoteMacro.`is`(element) -> QuoteMacro.treeWalkUp(element, state, ::execute, unvisited = true)
             Use.`is`(element) -> {
-                Use.treeWalkUp(element, state, ::execute)
+                Use.treeWalkUp(element, Recording.enter(state, "USE_ARM", element, stops = false, absorbs = true), ::execute)
 
                 true
             }
             element.isCalling(KERNEL, TRY) -> {
+                val tryState = Recording.enter(state, "TRY", element, stops = true, absorbs = false)
+
                 element.whileInStabBodyChildExpressions { childExpression ->
-                    execute(childExpression, state)
+                    execute(childExpression, tryState)
                 }
             }
             org.elixir_lang.ecto.Schema.isChild(element, state) -> {
@@ -228,7 +235,8 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             }
             // doesn't declare calls, but if this is the scope, then `Ecto.Query.API` is resolvable
             org.elixir_lang.ecto.Query.isChild(element, state) -> {
-                org.elixir_lang.ecto.Query.walkChild(element, state, ::execute)
+                Recording.live(state, element, Recording.LiveKind.QUERY) { call, liveState -> execute(call, liveState) } ||
+                    org.elixir_lang.ecto.Query.walkChild(element, state, ::execute)
             }
             org.elixir_lang.ecto.query.API.`is`(element, state) -> {
                 org.elixir_lang.ecto.query.API.treeWalkUp(element, state, ::execute)
@@ -236,9 +244,136 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             WindowAPI.`is`(element, state) -> {
                 WindowAPI.treeWalkUp(element, state, ::execute)
             }
-            hasDoBlockOrKeyword(element) -> executeOnUnknownMacroCall(element, state)
+            hasDoBlockOrKeyword(element) ->
+                Recording.live(state, element, Recording.LiveKind.UNKNOWN_MACRO) { call, liveState ->
+                    execute(call, liveState)
+                } || executeOnUnknownMacroCall(element, state)
             else -> true
         }
+
+    /** The modular arm's own test, which decides whether it is the arm for [element] at all. */
+    private fun walksModular(element: Call, state: ResolveState): Boolean =
+        (isModular(element) || Case.isChild(element, state)) && modularContainsEntrance(element, state)
+
+    /** [keepProcessing] is asked only after the whole body, so every arity is collected; then the implicit imports. */
+    private fun afterModularBody(element: PsiElement, state: ResolveState): Boolean =
+        keepProcessing() && implicitImports(element, state)
+
+    /** The table to replay for [modular]'s body, or `null` to walk it, as while recording. */
+    private fun tableFor(modular: Call, state: ResolveState): CallableTable? =
+        if (isModular(modular) && !Recording.isRecording(state)) {
+            CallableTable.ofOrNull(modular, foreign = isForeignEntrance(modular, state.get(ENTRANCE)))
+        } else {
+            null
+        }
+
+    /**
+     * The modular arm's child loop, answered from [table]: in the walk's own order, the nodes of this processor's
+     * name, the live nodes the entrance needs and the first implicit import, each under its sites' own gates.
+     */
+    private fun replay(table: CallableTable, state: ResolveState) = replaying {
+        val entrance = state.get(ENTRANCE)
+        val leaves = targetName()?.let(table::leavesStartingWith) ?: table.leaves
+        val gates = HashMap<Recording.Group, Boolean>()
+        val opens = { group: Recording.Group ->
+            gates.getOrPut(group) {
+                (group.gate?.invoke(state) ?: true) && (group.parent?.childGate?.invoke(state, group.call) ?: true)
+            }
+        }
+        // Every implicit import after the first that runs adds only what the first added, so only that one is replayed.
+        val implicitImport = table.implicitImports.firstOrNull { live ->
+            WalkProbe.count(WalkProbe.Counter.LIVE_EXAMINED)
+            // A closed group that falls through is re-dispatched live, implicit imports and all, from this node.
+            live.group?.chain.orEmpty().firstOrNull { !opens(it) }.let { closed -> closed == null || closed.fallThrough }
+        }
+        val nodes = (leaves + table.livesFor(entrance) + listOfNotNull(implicitImport)).sortedBy { it.order }
+        // Each group's answer so far, and the groups a `false` has ended. A group answers its parent when the replay
+        // leaves it, as its site's loop returns after its last child.
+        val answers = HashMap<Recording.Group, Boolean>()
+        // The last child group that answered each group: a later child with no node here answered `true` live, as a
+        // declaration of another name does.
+        val lastChild = HashMap<Recording.Group, Int>()
+        val ended = HashSet<Recording.Group>()
+        val fellThrough = HashSet<Recording.Group>()
+        val closedAnswered = HashSet<Recording.Group>()
+        // Only the groups a node ran in answer their parents, as only those ran live.
+        val entered = HashSet<Recording.Group>()
+        var open: List<Recording.Group> = emptyList()
+
+        fun answer(group: Recording.Group?, answer: Boolean, child: Recording.Group? = null) {
+            group ?: return
+            if (child != null) lastChild[group] = child.ordinal
+            if (!answer && group.stops) ended.add(group)
+            answers[group] = if (group.answersLast) answer else answers[group] != false && answer
+        }
+
+        fun leave(chain: List<Recording.Group>) {
+            for (group in open.asReversed()) {
+                if (group in chain) break
+                if (group in entered) {
+                    val answer = group.absorbs ||
+                        (group.answersLast && lastChild[group] != group.children - 1) ||
+                        answers[group] != false
+                    answer(group.parent, answer, group)
+                }
+            }
+            open = chain
+        }
+
+        for (node in nodes) {
+            ProgressManager.checkCanceled()
+            replayStep()
+            val nodeChain = node.group?.chain.orEmpty()
+
+            leave(nodeChain)
+            if (nodeChain.any { it in ended }) continue
+
+            val closed = nodeChain.firstOrNull { !opens(it) }
+
+            if (closed != null) {
+                val result = if (closed.fallThrough) {
+                    if (!fellThrough.add(closed)) continue
+                    execute(closed.call, reached(state.putVisitedElements(closed.visited), closed.parent?.chain.orEmpty()))
+                } else {
+                    // The site answers `true` when its gate fails.
+                    if (!closedAnswered.add(closed)) continue
+                    true
+                }
+
+                entered.addAll(closed.parent?.chain.orEmpty())
+                answer(closed.parent, result, closed)
+                continue
+            }
+
+            val element = when (node) {
+                is CallableTable.Leaf -> node.element
+                is CallableTable.Live -> node.call
+            }
+            if (node.group?.childGate?.invoke(state, element) == false) continue
+
+            entered.addAll(nodeChain)
+            val nodeState = replayState(node, nodeChain, state)
+            val result = when (node) {
+                is CallableTable.Leaf -> execute(node.element, nodeState)
+                is CallableTable.Live -> {
+                    WalkProbe.count(WalkProbe.Counter.LIVE_REDISPATCH)
+                    node.rerun(this, node.call, nodeState)
+                }
+            }
+
+            answer(node.group, result)
+        }
+    }
+
+    private fun replayState(node: CallableTable.Node, chain: List<Recording.Group>, state: ResolveState): ResolveState {
+        val nodeState = reached(state.putVisitedElements(node.visited), chain)
+
+        return node.canonical?.let { nodeState.put(MODULAR_CANONICAL_NAME, it) } ?: nodeState
+    }
+
+    /** Each site's own reach step, outermost first, on the replaying state. */
+    private fun reached(state: ResolveState, chain: List<Recording.Group>): ResolveState =
+        chain.fold(state) { acc, group -> group.reach?.invoke(acc) ?: acc }
 
     private fun execute(element: ElixirFile, state: ResolveState): Boolean =
         if (element.viewFile() == null) {
@@ -298,9 +433,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
     private fun modularContainsEntrance(call: Call, state: ResolveState): Boolean =
         state.get(ENTRANCE)?.let { entrance ->
-            val callFile = call.containingFile
-
-            if (callFile == entrance.containingFile) {
+            if (!isForeignEntrance(call, entrance)) {
                 /* Only allow scanning back down in outer nested modules for siblings.  Prevents scanning in sibling
                    nested modules in https://github.com/intellij-elixir/intellij-elixir/issues/1270 */
                 modularContains(call, entrance)
@@ -314,6 +447,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
         contained.ancestorSequence().filterIsInstance<Call>().firstOrNull { isModular(it) } == modular
 
     private fun implicitImports(element: PsiElement, state: ResolveState): Boolean {
+        WalkProbe.count(WalkProbe.Counter.IMPLICIT_IMPORTS)
         val project = element.project
         // Use the entrance element (the call being resolved) for narrowedScope so the search
         // is limited to the SDK / libraries attached to the module that contains the reference.
@@ -339,23 +473,31 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
         } else {
             whileIn(sourceFirstNamedElements(project, scope, moduleName)) { namedElement ->
                 when (namedElement) {
-                    is Call -> {
-                        val namedElementResolveState = state.putVisitedElement(namedElement)
-
-                        Modular.callDefinitionClauseCallWhile(
-                            namedElement, namedElementResolveState
-                        ) { callDefinitionClause, accResolveState ->
-                            executeOnCallDefinitionClause(
-                                callDefinitionClause,
-                                accResolveState
-                            )
-                        }
-                    }
+                    is Call -> implicitImport(namedElement, state.putVisitedElement(namedElement))
                     is BeamModule -> execute(namedElement, state)
                     else -> true
                 }
             }
         }
+
+    /** [modular]'s own clauses that this processor can reach, as an implicit `import` of it brings them in. */
+    private fun implicitImport(modular: Call, state: ResolveState): Boolean {
+        val index = ImplicitImportIndex.of(modular)
+
+        for (clause in targetName()?.let(index::startingWith) ?: index.clauses) {
+            ProgressManager.checkCanceled()
+
+            if (!state.hasBeenVisited(clause)) {
+                WalkProbe.count(WalkProbe.Counter.CLAUSE_HANDLER_KERNEL)
+
+                if (!executeOnCallDefinitionClause(clause, state.putVisitedElement(clause))) {
+                    return false
+                }
+            }
+        }
+
+        return true
+    }
 
     /**
      * Returns the [NamedElement]s for [moduleName] within [scope] to walk, preferring source [Call]s
@@ -389,6 +531,40 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
     companion object {
         val MODULAR_CANONICAL_NAME = Key<String>("MODULAR_CANONICAL_NAME")
+
+        private val replayDepth: ThreadLocal<Int> = ThreadLocal.withInitial { 0 }
+
+        /** [block] as one replay; only an outermost replay's steps are cancellation points. */
+        private fun <T> replaying(block: () -> T): T {
+            replayDepth.set(replayDepth.get() + 1)
+
+            try {
+                return block()
+            } finally {
+                replayDepth.set(replayDepth.get() - 1)
+            }
+        }
+
+        private fun replayStep() {
+            if (replayDepth.get() == 1) WalkProbe.cancelPoint(WalkProbe.CancelPoint.REPLAY)
+        }
+
+        @TestOnly
+        fun replayDepth(): Int = replayDepth.get()
+
+        /**
+         * The `if`/`unless` arm's test: if the entrance is at compile time level of a branch, then only previous
+         * siblings could possibly define this call and those will be handled by ElixirStabBody's processDeclarations.
+         */
+        private fun walksBranches(element: Call, state: ResolveState): Boolean {
+            val branches = Branches(element)
+
+            return !containsCompileTimeEntranceAncestorOrSelf(branches.primaryChildExpressions.filterIsInstance<Call>(), state) &&
+                !containsCompileTimeEntranceAncestorOrSelf(branches.alternativeChildExpressions.filterIsInstance<Call>(), state)
+        }
+
+        /** The entrance is in another file than [call] (an injection or a view file), so [call]'s arm walks it whole. */
+        private fun isForeignEntrance(call: Call, entrance: PsiElement): Boolean = call.containingFile != entrance.containingFile
 
         /**
          * The calls of [modular] to hand to [execute]. A block that runs in place is left out, as its calls are among
@@ -436,34 +612,80 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
             state: ResolveState
         ): Boolean =
             state.get(ENTRANCE).let { entrance ->
-                containsCompileTimeAncestorOrSelf(childCalls, entrance)
+                val ancestors = compileTimeAncestors(entrance).toList()
+
+                childCalls.any { it.isEquivalentTo(entrance) || it in ancestors }
             }
 
-        private fun containsCompileTimeAncestorOrSelf(childCalls: Sequence<Call>, entrance: PsiElement): Boolean =
-            childCalls.any { isCompileTimeAncestorOrSelf(it, entrance) }
+        /**
+         * Whether [entrance] or one of its [compileTimeAncestors] is among [modular]'s `macroChildCallList`, found by
+         * walking up from [entrance], so the cost is its depth rather than the size of [modular]'s body.
+         */
+        private fun isAtCompileTimeLevel(modular: Call, entrance: PsiElement): Boolean =
+            (sequenceOf(entrance) + compileTimeAncestors(entrance)).any {
+                WalkProbe.count(WalkProbe.Counter.GATE)
+                isMacroChild(modular, it)
+            }
 
-        private fun isCompileTimeAncestorOrSelf(call: Call, entrance: PsiElement): Boolean =
-            call.isEquivalentTo(entrance) || isCompileTimeAncestor(call, entrance.parent)
+        /** The `if`s and `unless`es that [entrance] is directly in, innermost first, through any blocks between. */
+        private fun compileTimeAncestors(entrance: PsiElement): Sequence<Call> = sequence {
+            var ancestor: PsiElement? = entrance.parent
 
-        private fun isCompileTimeAncestor(stop: Call, ancestor: PsiElement?): Boolean =
-            when (ancestor) {
-                is ElixirDoBlock,
-                is ElixirBlockList, is ElixirBlockItem,
-                is ElixirStab, is ElixirStabBody,
-                is ElixirAccessExpression, is ElixirParentheticalStab ->
-                    isCompileTimeAncestor(stop, ancestor.parent)
-                is QuotableKeywordPair -> isCompileTimeAncestor(stop, ancestor.selfOrEnclosingMacroCall())
-                is Call -> when {
-                    If.`is`(ancestor) || Unless.`is`(ancestor) ->
-                        // the `stop` is an `if` or `unless`
-                        ancestor.isEquivalentTo(stop) ||
-                                // there is an `if` or `unless` wrapping the original `ancestor`, but need to
-                                // confirm all levels above are also `if` or `unless` until `stop`.
-                                isCompileTimeAncestor(stop, ancestor.parent)
-                    else -> false
+            while (ancestor != null) {
+                ancestor = when (ancestor) {
+                    is ElixirDoBlock,
+                    is ElixirBlockList, is ElixirBlockItem,
+                    is ElixirStab, is ElixirStabBody,
+                    is ElixirAccessExpression, is ElixirParentheticalStab -> ancestor.parent
+                    is QuotableKeywordPair -> ancestor.selfOrEnclosingMacroCall()
+                    is Call ->
+                        if (If.`is`(ancestor) || Unless.`is`(ancestor)) {
+                            yield(ancestor)
+                            ancestor.parent
+                        } else {
+                            null
+                        }
+                    else -> null
                 }
-                else -> false
+            }
+        }
+
+        /** Whether `modular.macroChildCallList()` holds [candidate]. */
+        private fun isMacroChild(modular: Call, candidate: PsiElement): Boolean {
+            if (candidate !is Call) return false
+
+            val doBlock = modular.doBlock
+
+            return if (doBlock != null) {
+                (doBlock.stab?.children?.singleOrNull() as? ElixirStabBody)
+                    ?.let { stabBody -> isTraversed(candidate.parent, stabBody) }
+                    ?: false
+            } else {
+                (modular.finalArguments()?.lastOrNull() as? QuotableKeywordList)
+                    ?.quotableKeywordPairList()
+                    ?.firstOrNull()
+                    ?.takeIf { it.keywordKey.text == "do" }
+                    ?.keywordValue == candidate
+            }
+        }
+
+        /**
+         * Whether `macroChildCallList` takes the calls directly in [container] when it reads [stabBody]: the stab body
+         * itself, or a list that is the first child of access expressions in a container it takes.
+         */
+        private fun isTraversed(container: PsiElement?, stabBody: ElixirStabBody): Boolean {
+            if (container == stabBody) return true
+            if (container !is ElixirList) return false
+
+            var child: PsiElement = container
+            var parent = container.parent
+
+            while (parent is ElixirAccessExpression && parent.firstChild == child) {
+                child = parent
+                parent = parent.parent
             }
 
+            return child != container && isTraversed(parent, stabBody)
+        }
     }
 }

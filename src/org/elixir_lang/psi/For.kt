@@ -8,6 +8,7 @@ import org.elixir_lang.psi.call.SyntacticCall
 import org.elixir_lang.psi.call.name.Function.FOR
 import org.elixir_lang.psi.call.name.Module.KERNEL
 import org.elixir_lang.psi.impl.call.whileInStabBodyChildExpressions
+import org.elixir_lang.psi.scope.Recording
 
 object For {
     /**
@@ -19,16 +20,21 @@ object For {
 
     @RequiresReadLock
     fun treeWalkDown(call: Call, resolveState: ResolveState, function: (PsiElement, ResolveState) -> Boolean): Boolean {
-        if (resolveState.hasBeenVisited(call)) {
+        if (!walks(call, resolveState)) {
             return true
         }
 
-        val forResolveState = resolveState.putVisitedElement(call)
+        val forResolveState = Recording
+            .enter(
+                resolveState, "FOR", call, stops = true, absorbs = false,
+                gate = { walks(call, it) }, childGate = { state, child -> walks(child, state) }
+            )
+            .putVisitedElement(call)
 
         return call.whileInStabBodyChildExpressions { expression ->
-            expression.takeUnlessHasBeenVisited(forResolveState)
-                ?.let { function(it, forResolveState) }
-                ?: true
+            !walks(expression, forResolveState) || function(expression, forResolveState)
         }
     }
+
+    private fun walks(element: PsiElement, resolveState: ResolveState): Boolean = !resolveState.hasBeenVisited(element)
 }

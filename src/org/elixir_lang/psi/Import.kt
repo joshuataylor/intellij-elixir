@@ -36,6 +36,7 @@ import org.elixir_lang.psi.impl.call.keywordArguments
 import org.elixir_lang.psi.impl.hasKeywordKey
 import org.elixir_lang.psi.impl.maybeModularNameToModulars
 import org.elixir_lang.psi.impl.stripAccessExpression
+import org.elixir_lang.psi.scope.Recording
 import org.elixir_lang.psi.scope.reachedThrough
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 import org.elixir_lang.structure_view.element.Delegation
@@ -257,13 +258,17 @@ object Import {
 
         var accumulatedKeepProcessing = true
 
-        // don't descend back into `import` when the entrance is the alis to the `import` like `MyAlias` in
-        // `import MyAlias`.
-        if (!importCall.isAncestor(resolveState.get(ENTRANCE))) {
+        if (walks(importCall, resolveState)) {
             val modulars = modulars(importCall)
 
             if (modulars.isNotEmpty()) {
-                val importCallResolveState = resolveState.putVisitedElement(importCall).reachedThrough(Reach.IMPORT)
+                val importCallResolveState = Recording
+                    .enter(
+                        resolveState, "IMPORT", importCall, stops = false, absorbs = true,
+                        gate = { walks(importCall, it) }, reach = ::reached
+                    )
+                    .putVisitedElement(importCall)
+                    .let(::reached)
                 // An earlier `import` of the same module is not looked for, so `except:` subtracts from everything the
                 // module exports even where that `import` brought in less.
                 val filter =
@@ -271,7 +276,11 @@ object Import {
 
                 for (modular in modulars) {
                     ProgressManager.checkCanceled()
-                    val childResolveState = importCallResolveState.putVisitedElement(modular)
+                    // One imported module stops at a `false` and answers `true` (`takeWhile { it }.lastOrNull() ?: true`).
+                    val childResolveState = Recording.enter(
+                        importCallResolveState.putVisitedElement(modular), "IMPORTED", modular, stops = true,
+                        absorbs = true, childGate = if (modular is Call) ::walksChild else null
+                    )
 
                     accumulatedKeepProcessing =
                         treeWalkUpImportedModular(modular, filter, childResolveState, keepProcessing)
@@ -285,6 +294,14 @@ object Import {
 
         return accumulatedKeepProcessing
     }
+
+    /** Don't descend back into `import` when the entrance is the alias to the `import` like `MyAlias` in `import MyAlias`. */
+    private fun walks(importCall: Call, resolveState: ResolveState): Boolean =
+        !importCall.isAncestor(resolveState.get(ENTRANCE))
+
+    private fun reached(resolveState: ResolveState): ResolveState = resolveState.reachedThrough(Reach.IMPORT)
+
+    private fun walksChild(resolveState: ResolveState, child: PsiElement): Boolean = !resolveState.hasBeenVisited(child)
 
     private fun treeWalkUpImportedModular(
         importedModular: PsiElement,
@@ -306,7 +323,7 @@ object Import {
     ): Boolean =
         CallDefinitionClause.modularChildCalls(importedModular)
             .asSequence()
-            .filter { !resolveState.hasBeenVisited(it) }
+            .filter { walksChild(resolveState, it) }
             .map {
                 ProgressManager.checkCanceled()
                 treeWalkUpImportedModularChildExpression(filter, it, resolveState, keepProcessing)
