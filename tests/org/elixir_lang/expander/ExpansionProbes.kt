@@ -1,0 +1,318 @@
+package org.elixir_lang.expander
+
+import com.ericsson.otp.erlang.OtpErlangAtom
+import com.ericsson.otp.erlang.OtpErlangTuple
+import com.intellij.openapi.application.ReadAction
+import com.intellij.openapi.util.TextRange
+import org.elixir_lang.expander.ProbeHarness.Tag
+import org.elixir_lang.language_level.ElixirLanguageFeature.UNDEFINED_VARIABLE_RAISES
+import org.elixir_lang.language_level.ElixirLanguageLevel
+import org.elixir_lang.lowering.ElixirAst
+import org.elixir_lang.lowering.Lowering
+import org.elixir_lang.lowering.Meta
+import org.elixir_lang.lowering.expressionNodes
+import org.elixir_lang.lowering.inspect
+import org.elixir_lang.psi.ElixirFile
+import org.junit.Assert.assertEquals
+import kotlin.time.Duration
+import kotlin.time.TimeSource
+
+/**
+ * Expands case module bodies statement by statement, as `expand_block` threads them, and compares the expander with
+ * Elixir on the leg's Elixir through a [ProbeHarness]:
+ *
+ * - a case the expander expands is compiled in a batch, and if the batch fails, alone, where it must compile or raise
+ *   only when run;
+ * - a case the expander reports an error for is compiled alone, and must fail at expansion, at the error's line and
+ *   for its reason;
+ *
+ * and at each probe either delivers, the variables fall into the same classes and the env's other fields are equal. A
+ * case the expander doesn't cover is not compiled.
+ *
+ * Each variable and `_` of a pattern, each `^` and each non-literal bitstring size in one, is wrapped in an identity
+ * probe, which the expander matches when it enters that node.
+ */
+internal class ExpansionProbes(private val harness: ProbeHarness, private val parse: (String) -> ElixirFile) {
+    /** What the expander saw at the probe [tag], whose `case` is always 0. */
+    class Step(val tag: Tag, val read: Map<Variable, Int>, val env: Env)
+
+    /**
+     * [case] expanded from the start of an empty module body.
+     *
+     * @property steps the statement probes, and the identity probes the expander entered, in its order, up to [outcome]
+     * @property outcome the last statement's expansion, or the first that isn't [Expansion.Expanded]
+     */
+    class CaseExpansion(val case: ProbeHarness.Case, val steps: List<Step>, val outcome: Expansion)
+
+    fun expand(body: String): CaseExpansion {
+        val level = legLevel()
+        val file = parse(body)
+        val statements = ReadAction.computeBlocking<List<ElixirAst>, Throwable> {
+            val lowering = Lowering.of(file, level)
+
+            expressionNodes(file).map { lowering.lower(it.psi) }
+        }
+
+        check(statements.none(::hasPlaceholder)) { "a case body must lower without placeholders: $body" }
+
+        val sites = statements.flatMap { identitySites(it, false) }.sortedBy { it.meta.origin.startOffset }
+        val identities = sites.withIndex().associate { (index, site) -> site.meta.origin to index + 1 }
+        var state = ExState.empty(level)
+        var env = Env.empty(level, legKernel)
+        val steps = mutableListOf(Step(Tag(0, 0, 0), state.read, env))
+        var outcome: Expansion = Expansion.Expanded(state, env)
+
+        for ((index, statement) in statements.withIndex()) {
+            val entered = mutableSetOf<TextRange>()
+            val observer = ExpansionObserver { node, s, e ->
+                identities[node.meta.origin]?.let { identity ->
+                    if (entered.add(node.meta.origin)) steps.add(Step(Tag(0, 0, index + 1, identity), s.read, e))
+                }
+            }
+
+            outcome = Expander.expand(statement, state, env, level, observer)
+
+            when (val expansion = outcome) {
+                is Expansion.Expanded -> {
+                    state = expansion.state
+                    env = expansion.env
+                    steps.add(Step(Tag(0, 0, index + 1), state.read, env))
+                }
+                is Expansion.Error, is Expansion.Unported -> break
+            }
+        }
+
+        return CaseExpansion(ProbeHarness.Case(body, sites.map { it.meta.origin }), steps, outcome)
+    }
+
+    /**
+     * Compares each of [cases] the expander covers with Elixir, and returns how long the compiles of the erroring
+     * ones took.
+     */
+    fun assertMatchesElixir(cases: Map<String, CaseExpansion>): Duration {
+        assertDefaultCompilerOptions()
+
+        val expanded = cases.filterValues { it.outcome is Expansion.Expanded }
+        val erroring = cases.filterValues { it.outcome is Expansion.Error }
+        val expected = mutableListOf<String>()
+        val actual = mutableListOf<String>()
+
+        compareExpanded(expanded, expected, actual)
+
+        val start = TimeSource.Monotonic.markNow()
+        erroring.forEach { (name, expansion) -> compareError(name, expansion, expected, actual) }
+        val elapsed = start.elapsedNow()
+
+        println("${expanded.size} expanded and ${erroring.size} erroring cases; erroring compiles took $elapsed")
+
+        assertEquals(expected.joinToString("\n"), actual.joinToString("\n"))
+
+        return elapsed
+    }
+
+    private fun compareExpanded(
+        cases: Map<String, CaseExpansion>,
+        expected: MutableList<String>,
+        actual: MutableList<String>,
+    ) {
+        if (cases.isEmpty()) return
+
+        val names = cases.keys.toList()
+        val attempt = harness.attempt(names.map { cases.getValue(it).case })
+
+        if (attempt.compiled.status == OtpErlangAtom("ok")) {
+            assertEquals("probes that reported", attempt.tags.toSet(), attempt.batch.observations.map { it.tag }.toSet())
+
+            val byCase = attempt.batch.observations.groupBy { it.tag.case }
+
+            names.forEachIndexed { index, name ->
+                expected.add(render(name, cases.getValue(name).steps))
+                actual.add(render(name, byCase[index].orEmpty(), attempt.batch.probeModule))
+            }
+        } else {
+            names.forEach { name ->
+                val expansion = cases.getValue(name)
+                val alone = harness.attempt(listOf(expansion.case))
+                val compiled = alone.compiled
+                val status = compiled.status
+                val runTimeRaise = status is OtpErlangTuple &&
+                    status.elementAt(0) == OtpErlangAtom("raise") &&
+                    status.elementAt(1) != OtpErlangAtom(COMPILE_ERROR) &&
+                    errors(compiled.diagnostics).isEmpty() &&
+                    alone.tags.toSet() == alone.batch.observations.map { it.tag }.toSet()
+
+                expected.add(render(name, expansion.steps))
+                actual.add(
+                    if (status == OtpErlangAtom("ok") || runTimeRaise) {
+                        render(name, alone.batch.observations, alone.batch.probeModule)
+                    } else {
+                        "== $name\ncompile failed: ${inspect(compiled.status)} ${compiled.diagnostics.map(::inspect)}"
+                    }
+                )
+            }
+        }
+    }
+
+    private fun compareError(
+        name: String,
+        expansion: CaseExpansion,
+        expected: MutableList<String>,
+        actual: MutableList<String>,
+    ) {
+        val error = expansion.outcome as Expansion.Error
+        val alone = harness.attempt(listOf(expansion.case))
+        val compiled = alone.compiled
+        val bodyLine = alone.bodyLines.single()
+        val line = error.at.meta.keys.filterIsInstance<Meta.Key.Location>().singleOrNull()?.position?.line
+
+        expected.add(
+            render(name, expansion.steps) + "\nerror ${error.kind} at line ${line?.let { it + bodyLine - 1 }}"
+        )
+        actual.add(render(name, alone.batch.observations, alone.batch.probeModule) + "\n" + elixirError(error, compiled))
+    }
+
+    /** The error [compiled] failed with, as `error <kind> at line <n>` when its message is [error]'s kind. */
+    private fun elixirError(error: Expansion.Error, compiled: org.elixir_lang.intellij_elixir.Quoter.Compiled): String {
+        val status = compiled.status as? OtpErlangTuple
+        val failed = status != null &&
+            status.elementAt(0) == OtpErlangAtom("raise") &&
+            status.elementAt(1) == OtpErlangAtom(COMPILE_ERROR)
+
+        if (!failed) return "not a compile error: ${inspect(compiled.status)} ${compiled.diagnostics.map(::inspect)}"
+
+        val (line, message) = if (legLevel().elixir >= DIAGNOSTICS_SINCE.elixir) {
+            val errors = errors(compiled.diagnostics)
+
+            if (errors.size != 1) return "not one :error diagnostic: ${compiled.diagnostics.map(::inspect)}"
+
+            errors.single().line to errors.single().message
+        } else {
+            val match = PREFIXED_MESSAGE.find(utf8(status.elementAt(2)))
+                ?: return "no <file>:<line>: prefix: ${inspect(status.elementAt(2))}"
+
+            match.groupValues[1].toInt() to match.groupValues[2]
+        }
+        val pattern = ErrorKinds.pattern(error.kind)
+
+        return if (pattern.containsMatchIn(message)) {
+            "error ${error.kind} at line $line"
+        } else {
+            "error at line $line: $message"
+        }
+    }
+
+    /** One line per probe: its tag and the variables' classes, numbered across [steps]; then its env's fields. */
+    private fun render(name: String, steps: List<Step>): String =
+        render(
+            name,
+            steps.map { it.tag },
+            VariableClasses.canonical(steps.map { it.read }),
+            steps.map { ProbedEnvNormaliser.render(ProbedEnvNormaliser.projected(it.env)) }
+        )
+
+    private fun render(name: String, observations: List<ProbeHarness.Observation>, probeModule: String): String =
+        render(
+            name,
+            observations.map { it.tag.copy(case = 0) },
+            VariableClasses.canonical(observations.map { VariableClasses.observed(it.env) }),
+            observations.map { ProbedEnvNormaliser.render(ProbedEnvNormaliser.observed(it.env, probeModule)) }
+        )
+
+    private fun render(name: String, tags: List<Tag>, classes: List<String>, envs: List<String>): String =
+        "== $name\n" +
+            tags.indices.joinToString("\n") { "$it ${tags[it]}: ${classes[it]}" } + "\n" +
+            tags.indices.joinToString("\n") { "${tags[it]}\n${envs[it].prependIndent("  ")}" }
+
+    private fun errors(diagnostics: List<com.ericsson.otp.erlang.OtpErlangObject>) =
+        diagnostics.map(Diagnostic::of).filter { it.severity == "error" }
+
+    private fun assertDefaultCompilerOptions() {
+        if (!UNDEFINED_VARIABLE_RAISES.isSufficient(legLevel()) || optionsAsserted) return
+
+        // The expander assumes the default, which makes an undefined variable an error.
+        assertEquals(OtpErlangAtom("raise"), harness.compilerOption("on_undefined_variable"))
+        optionsAsserted = true
+    }
+
+    private companion object {
+        const val COMPILE_ERROR = "Elixir.CompileError"
+
+        /** From 1.15, `Code.with_diagnostics` reports the error, and the exception says only that compiling failed. */
+        val DIAGNOSTICS_SINCE: ElixirLanguageLevel = ElixirLanguageLevel.of("1.15.0-rc.0")
+
+        val PREFIXED_MESSAGE = Regex("""^[^:\n]*:(\d+): (.*)""", RegexOption.DOT_MATCHES_ALL)
+
+        @Volatile
+        var optionsAsserted = false
+
+        fun hasPlaceholder(node: ElixirAst): Boolean =
+            when (node) {
+                is ElixirAst.Placeholder -> true
+                is ElixirAst.Call -> hasPlaceholder(node.callee) || node.arguments.orEmpty().any(::hasPlaceholder)
+                is ElixirAst.Alias -> node.segments.any(::hasPlaceholder)
+                is ElixirAst.Tuple -> node.elements.any(::hasPlaceholder)
+                is ElixirAst.ListNode -> node.elements.any(::hasPlaceholder)
+                is ElixirAst.Block -> node.expressions.any(::hasPlaceholder)
+                is ElixirAst.Literal -> false
+            }
+
+        /**
+         * The nodes of [node] to wrap in an identity probe: in a pattern, each variable and `_` outside a `^`, a map
+         * key and a bitstring spec, each `^` outside a map key, and each non-literal bitstring size.
+         */
+        fun identitySites(node: ElixirAst, pattern: Boolean): List<ElixirAst> =
+            when {
+                isCall(node, "=", 2) -> {
+                    val (left, right) = (node as ElixirAst.Call).arguments!!
+
+                    identitySites(left, true) + identitySites(right, pattern)
+                }
+                !pattern -> children(node).flatMap { identitySites(it, false) }
+                isVariable(node) || isCall(node, "^", 1) -> listOf(node)
+                isMap(node) ->
+                    (node as ElixirAst.Call).arguments!!.flatMap { pair ->
+                        if (pair is ElixirAst.Tuple && pair.elements.size == 2) identitySites(pair.elements[1], true) else emptyList()
+                    }
+                isBitstring(node) ->
+                    (node as ElixirAst.Call).arguments!!.flatMap { segment ->
+                        if (isCall(segment, "::", 2)) {
+                            val (value, spec) = (segment as ElixirAst.Call).arguments!!
+
+                            identitySites(value, true) + sizeSites(spec)
+                        } else {
+                            identitySites(segment, true)
+                        }
+                    }
+                isCall(node, "|", 2) -> (node as ElixirAst.Call).arguments!!.flatMap { identitySites(it, true) }
+                node is ElixirAst.Tuple || node is ElixirAst.ListNode || node is ElixirAst.Block ->
+                    children(node).flatMap { identitySites(it, true) }
+                else -> emptyList()
+            }
+
+        /** The arguments of `size(...)` and the `Size` of `Size*Unit` in [spec] that aren't integer or atom literals. */
+        fun sizeSites(spec: ElixirAst): List<ElixirAst> {
+            fun nonLiteral(size: ElixirAst) =
+                listOf(size).filter { it !is ElixirAst.Literal.Integer && it !is ElixirAst.Literal.Atom }
+
+            return when {
+                isCall(spec, "-", 2) -> (spec as ElixirAst.Call).arguments!!.flatMap(::sizeSites)
+                isCall(spec, "*", 2) -> {
+                    val size = (spec as ElixirAst.Call).arguments!![0]
+
+                    if (isVariable(size) && variable(size).name == "_") emptyList() else nonLiteral(size)
+                }
+                isCall(spec, "size", 1) -> nonLiteral((spec as ElixirAst.Call).arguments!!.single())
+                else -> emptyList()
+            }
+        }
+
+        fun children(node: ElixirAst): List<ElixirAst> =
+            when (node) {
+                is ElixirAst.Call -> node.arguments.orEmpty()
+                is ElixirAst.Tuple -> node.elements
+                is ElixirAst.ListNode -> node.elements
+                is ElixirAst.Block -> node.expressions
+                is ElixirAst.Alias, is ElixirAst.Literal, is ElixirAst.Placeholder -> emptyList()
+            }
+    }
+}
