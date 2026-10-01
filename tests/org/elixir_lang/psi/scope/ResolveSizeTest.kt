@@ -30,13 +30,13 @@ class ResolveSizeTest : PlatformTestCase() {
     fun testKernel() = assertSizeIndependent(SIZES.associateWith(::kernel))
 
     /** Uses after the module's other definitions, as in a large decompiled module. */
-    fun testModuleBody() = assertSizeIndependent(SIZES.associateWith(::moduleBody), Counter.GATE)
+    fun testModuleBody() = assertSizeIndependent(SIZES.associateWith(::moduleBody), Counter.GATE, Counter.SIBLING_FILTER)
 
     /** Uses in `test` blocks, after many others. */
-    fun testExUnit() = assertSizeIndependent(SIZES.associateWith(::exUnit), Counter.GATE)
+    fun testExUnit() = assertSizeIndependent(SIZES.associateWith(::exUnit), Counter.GATE, Counter.SIBLING_FILTER)
 
     /** Uses after many `scope ... do` blocks, as in a router. */
-    fun testRouter() = assertSizeIndependent(SIZES.associateWith(::router), Counter.GATE)
+    fun testRouter() = assertSizeIndependent(SIZES.associateWith(::router), Counter.GATE, Counter.SIBLING_FILTER)
 
     private fun moduleBody(size: Int): List<Map<Counter, Long>> {
         val file = myFixture.addFileToProject(

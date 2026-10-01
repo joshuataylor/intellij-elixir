@@ -1,9 +1,14 @@
 package org.elixir_lang.psi.impl
 
+import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiElement
 import com.intellij.psi.ResolveState
 import com.intellij.psi.scope.PsiScopeProcessor
+import com.intellij.psi.util.CachedValue
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
+import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.ecto.Query
@@ -24,6 +29,7 @@ import org.elixir_lang.psi.operation.*
 import org.elixir_lang.psi.operation.infix.Position
 import org.elixir_lang.psi.operation.infix.Triple
 import org.elixir_lang.psi.scope.Variable
+import org.elixir_lang.psi.scope.WalkProbe
 import org.elixir_lang.psi.scope.WhileIn.whileIn
 import org.elixir_lang.structure_view.element.Callback
 import org.elixir_lang.structure_view.element.Delegation
@@ -376,6 +382,7 @@ object ProcessDeclarationsImpl {
      * @see [](https://github.com/alco/elixir/wiki/Scoping-Rules-in-Elixir-
     ) */
     private fun createsNewScope(element: PsiElement): Boolean {
+        WalkProbe.count(WalkProbe.Counter.SIBLING_FILTER)
         return selector(element) == UseScopeImpl.UseScopeSelector.SELF
     }
 
@@ -422,9 +429,7 @@ object ProcessDeclarationsImpl {
         place: PsiElement
     ): Boolean =
         if (scope.isEquivalentTo(lastParent.parent)) {
-            lastParent
-                .siblingExpressions(forward = false, withSelf = false)
-                .let { processDeclarations(it, processor, state, lastParent, place) }
+            processKept(previousSiblings(scope, lastParent, processor), processor, state, lastParent, place)
         } else {
             if (lastParent !is ElixirFile) {
                 Logger.error(
@@ -437,6 +442,47 @@ object ProcessDeclarationsImpl {
             true
         }
 
+    /** [scope]'s child expressions that do not create a scope of their own, and each child's position. */
+    private class DeclaringChildren(val declaring: List<PsiElement>, val positionByChild: Map<PsiElement, Int>)
+
+    private val DECLARING_CHILDREN = Key<CachedValue<DeclaringChildren>>("DECLARING_CHILDREN")
+
+    private fun declaringChildren(scope: PsiElement): DeclaringChildren =
+        CachedValuesManager.getCachedValue(scope, DECLARING_CHILDREN) {
+            val children = scope.childExpressions().toList()
+
+            CachedValueProvider.Result.create(
+                DeclaringChildren(
+                    children.filter {
+                        ProgressManager.checkCanceled()
+                        !createsNewScope(it)
+                    },
+                    children.withIndex().associate { (position, child) -> child to position }
+                ),
+                PsiModificationTracker.MODIFICATION_COUNT
+            )
+        }
+
+    /**
+     * [lastParent]'s previous siblings, nearest first, that [processDeclarations] keeps for [processor]. A module
+     * attribute's processor keeps every sibling, so only the others read the cached split.
+     */
+    private fun previousSiblings(scope: PsiElement, lastParent: PsiElement, processor: PsiScopeProcessor): Sequence<PsiElement> {
+        val all = { lastParent.siblingExpressions(forward = false, withSelf = false) }
+
+        if (processor is org.elixir_lang.psi.scope.ModuleAttribute) {
+            return all()
+        }
+
+        val declaringChildren = declaringChildren(scope)
+        val lastParentPosition = declaringChildren.positionByChild[lastParent] ?: return all().filterNot(::createsNewScope)
+        val declaring = declaringChildren.declaring
+        val before = declaring.binarySearchBy(lastParentPosition) { declaringChildren.positionByChild.getValue(it) }
+            .let { if (it >= 0) it else -it - 1 }
+
+        return declaring.subList(0, before).asReversed().asSequence()
+    }
+
     fun processDeclarations(
         sequence: Sequence<PsiElement>,
         processor: PsiScopeProcessor,
@@ -444,9 +490,24 @@ object ProcessDeclarationsImpl {
         lastParent: PsiElement,
         place: PsiElement
     ): Boolean =
-        sequence
-            // A block with its own variables can still be part of the module's body, as a DSL's is.
-            .filter { processor is org.elixir_lang.psi.scope.ModuleAttribute || !createsNewScope(it) }
+        // A block with its own variables can still be part of the module's body, as a DSL's is.
+        processKept(
+            sequence.filter { processor is org.elixir_lang.psi.scope.ModuleAttribute || !createsNewScope(it) },
+            processor,
+            state,
+            lastParent,
+            place
+        )
+
+    /** [processDeclarations] over [kept], which holds only what it keeps for [processor]. */
+    private fun processKept(
+        kept: Sequence<PsiElement>,
+        processor: PsiScopeProcessor,
+        state: ResolveState,
+        lastParent: PsiElement,
+        place: PsiElement
+    ): Boolean =
+        kept
             .map {
                 /* A call decides what it declares through its own `processDeclarations`, and so do a template's
                    tags and the alias shapes. A container that is a statement on its own, `[x = 1]` or
