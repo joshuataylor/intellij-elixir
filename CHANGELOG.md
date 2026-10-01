@@ -125,6 +125,8 @@
     [#4217](https://github.com/intellij-elixir/intellij-elixir/issues/4217).
   - **`module_info` and `__info__` are no longer resolved or offered as if imported from a compiled module or
     `Kernel`.**
+  - **Go to Declaration and Quick Documentation on a call that omits a `defdelegate`'s default argument now reach
+    the target function.**
 - [#4306](https://github.com/intellij-elixir/intellij-elixir/pull/4306) [@sh41](https://github.com/sh41)
   - **Functions and modules are named by the atom Elixir gives them, so a name written as a quoted atom
     (`def unquote(:"a-b")()`, `defmodule :"my-mod"`, `defmodule :"Elixir.Foo"`), with a combining mark or a micro

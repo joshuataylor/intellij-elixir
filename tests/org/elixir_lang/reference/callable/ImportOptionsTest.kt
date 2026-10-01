@@ -165,6 +165,20 @@ class ImportOptionsTest : PlatformTestCase() {
         )
     }
 
+    fun testADelegationWithDefaultsReachesTheTargetsFullArity() {
+        val delegations = """
+            defmodule Target do
+              def f(a, b), do: {a, b}
+            end
+
+            defmodule D do
+              defdelegate f(a, b \\ 1), to: Target
+            end
+        """.trimIndent()
+
+        assertContainsElements(validTargets(delegations, "import D", "f(1)"), "def f(a, b), do: {a, b}")
+    }
+
     fun testExceptOneArityOfADelegationWithDefaultsLeavesOutOnlyThatArity() {
         val delegations = """
             defmodule Target do

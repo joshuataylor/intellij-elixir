@@ -100,11 +100,14 @@ private constructor(
                         if (modulars.isNotEmpty() && nameInDefiningModule != null) {
                             val headNamed = this.name == null || headName == this.name
 
+                            // A head with defaults calls the target with every argument.
+                            val targetArity = headNameArityInterval.arityInterval.maximum ?: resolvedPrimaryArity
+
                             for (modular in modulars) {
                                 // Call recursively to get all the proper `for` and `use` handling.
                                 val modularResolveResults = resolveResults(
                                     nameInDefiningModule,
-                                    resolvedPrimaryArity,
+                                    targetArity,
                                     incompleteCode,
                                     modular,
                                     ResolveState.initial(),
