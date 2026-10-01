@@ -24,7 +24,13 @@ class VariableClassProbeTest : ProbeTestCase() {
         val expansions = cases.mapValues { (_, body) -> expandStatements(body) }
         val covered = expansions.filterValues { it.all { expansion -> expansion is Expansion.Expanded } }
         val uncoveredAt = expansions.filterKeys { it !in covered }.values
-            .map { steps -> describe((steps.first { it is Expansion.Unported } as Expansion.Unported).at) }
+            .map { steps ->
+                when (val stop = steps.first { it !is Expansion.Expanded }) {
+                    is Expansion.Unported -> describe(stop.at)
+                    is Expansion.Error -> "error ${stop.kind}"
+                    is Expansion.Expanded -> error("unreachable")
+                }
+            }
             .groupingBy { it }
             .eachCount()
             .entries
@@ -43,7 +49,7 @@ class VariableClassProbeTest : ProbeTestCase() {
 
         assertEquals(
             "",
-            expansions.filterValues { steps -> steps.any { it is Expansion.Unported } }.keys.joinToString("\n")
+            expansions.filterValues { steps -> steps.any { it !is Expansion.Expanded } }.keys.joinToString("\n")
         )
 
         assertMatchesElixir(OWN_CASES.associateWith { it })
@@ -84,7 +90,7 @@ class VariableClassProbeTest : ProbeTestCase() {
 
     /** The state and env before [body]'s first statement and after each, which the case must cover. */
     private fun expandedSteps(body: String): List<Expansion.Expanded> =
-        listOf(Expansion.Expanded(ExState.EMPTY, Env.empty(legLevel(), legKernel))) +
+        listOf(Expansion.Expanded(ExState.empty(legLevel()), Env.empty(legLevel(), legKernel))) +
             expandStatements(body).map { it as Expansion.Expanded }
 
     /**
@@ -99,7 +105,7 @@ class VariableClassProbeTest : ProbeTestCase() {
 
             expressionNodes(file).map { lowering.lower(it.psi) }
         }
-        var state = ExState.EMPTY
+        var state = ExState.empty(level)
         var env = Env.empty(level, legKernel)
         val expansions = mutableListOf<Expansion>()
 
@@ -112,7 +118,7 @@ class VariableClassProbeTest : ProbeTestCase() {
                     state = expansion.state
                     env = expansion.env
                 }
-                is Expansion.Unported -> break
+                is Expansion.Error, is Expansion.Unported -> break
             }
         }
 
@@ -123,7 +129,7 @@ class VariableClassProbeTest : ProbeTestCase() {
     private fun describe(node: ElixirAst): String =
         when {
             node is ElixirAst.Call && node.callee is ElixirAst.Literal.Atom ->
-                (node.callee as ElixirAst.Literal.Atom).name + (node.arguments?.let { "/${it.size}" } ?: " (variable)")
+                node.callee.name + (node.arguments?.let { "/${it.size}" } ?: " (variable)")
             node is ElixirAst.Call -> "remote or anonymous call"
             else -> node.javaClass.simpleName
         }

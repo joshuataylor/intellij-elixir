@@ -1,25 +1,25 @@
 package org.elixir_lang.expander
 
 import com.ericsson.otp.erlang.OtpErlangObject
+import org.elixir_lang.language_level.ElixirLanguageFeature.BITSTRING_SIZE_IN_MAP_KEY_PATTERN
 import org.elixir_lang.language_level.ElixirLanguageFeature.PIN_IN_MAP_KEY_PATTERN
 import org.elixir_lang.language_level.ElixirLanguageLevel
 import org.elixir_lang.lowering.ElixirAst
 
 /** `elixir_map:expand_map/4`. */
-internal fun expandMap(node: ElixirAst.Call, state: ExState, env: Env, level: ElixirLanguageLevel): Expansion {
+internal fun expandMap(node: ElixirAst.Call, state: ExState, env: Env, run: Run): Expansion {
     val args = node.arguments!!
     val update = args.singleOrNull()?.takeIf { isCall(it, "|", 2) } as ElixirAst.Call?
 
     return when {
-        update == null -> expandArgs(args, state, env, level).then { s, e -> validated(node, args, s, e, level) }
-        // `update_syntax_in_wrong_context`
-        env.context != Env.Context.NONE -> Expansion.Unported(node)
+        update == null -> expandArgs(args, state, env, run).then { s, e -> validated(node, args, s, e, run.level) }
+        env.context != Env.Context.NONE -> Expansion.Error("update_syntax_in_wrong_context", node)
         else -> {
             val (map, pairs) = update.arguments!!
 
             if (pairs is ElixirAst.ListNode) {
-                expandArgs(listOf(map) + pairs.elements, state, env, level).then { s, e ->
-                    validated(node, pairs.elements, s, e, level)
+                expandArgs(listOf(map) + pairs.elements, state, env, run).then { s, e ->
+                    validated(node, pairs.elements, s, e, run.level)
                 }
             } else {
                 Expansion.Unported(node)
@@ -29,55 +29,60 @@ internal fun expandMap(node: ElixirAst.Call, state: ExState, env: Env, level: El
 }
 
 private fun validated(node: ElixirAst, kv: List<ElixirAst>, state: ExState, env: Env, level: ElixirLanguageLevel) =
-    if (isValidKv(kv, env.context, level)) Expansion.Expanded(state, env) else Expansion.Unported(node)
+    kvError(kv, env.context, level)?.let { Expansion.Error(it, node) } ?: Expansion.Expanded(state, env)
 
 /**
- * Whether `elixir_map:validate_kv/4` passes without an error: each argument is a pair, and in a pattern each key is
- * one a pattern may have, and no literal key repeats.
+ * The error `elixir_map:validate_kv/4` raises, if any: each argument must be a pair, and in a pattern each key must be
+ * one a pattern may have, and no literal key may repeat.
  */
-private fun isValidKv(args: List<ElixirAst>, context: Env.Context, level: ElixirLanguageLevel): Boolean {
+private fun kvError(args: List<ElixirAst>, context: Env.Context, level: ElixirLanguageLevel): String? {
     val used = mutableSetOf<OtpErlangObject>()
 
     for (arg in args) {
-        // `not_kv_pair`
-        val pair = expandedShape(arg) as? ElixirAst.Tuple ?: return false
-        if (pair.elements.size != 2) return false
+        val pair = expandedShape(arg) as? ElixirAst.Tuple
+        if (pair == null || pair.elements.size != 2) return "not_kv_pair"
 
         val key = expandedShape(pair.elements[0])
 
         if (!PIN_IN_MAP_KEY_PATTERN.isSufficient(level) && isCall(key, "^", 1)) continue
 
-        // `invalid_variable_in_map_key_match`, and before 1.14 `invalid_pin_in_map_key_match`
-        if (context == Env.Context.MATCH && !isValidMatchKey(key, level)) return false
+        if (context == Env.Context.MATCH) matchKeyError(key, level)?.let { return it }
 
-        // `repeated_key`, which outside a pattern only warns
-        if (isLiteral(key) && !used.add(literalShape(key).toOtp()) && context == Env.Context.MATCH) return false
+        // Outside a pattern a repeated key only warns.
+        if (isLiteral(key) && !used.add(literalShape(key).toOtp()) && context == Env.Context.MATCH) return "repeated_key"
     }
 
-    return true
+    return null
 }
 
-/** `elixir_map:validate_match_key/3`, less the 1.15 `::` clause: a key with `::` is unported before it is checked. */
-private fun isValidMatchKey(node: ElixirAst, level: ElixirLanguageLevel): Boolean {
+/** The error `elixir_map:validate_match_key/3` raises for a key in a pattern, if any. */
+private fun matchKeyError(node: ElixirAst, level: ElixirLanguageLevel): String? {
     val key = expandedShape(node)
 
     return when {
+        isVariable(key) -> "invalid_variable_in_map_key_match"
+        isCall(key, "::", 2) && BITSTRING_SIZE_IN_MAP_KEY_PATTERN.isSufficient(level) ->
+            matchKeyError((key as ElixirAst.Call).arguments!!.first(), level)
+        isCall(key, "::", 2) -> {
+            val (value, spec) = (key as ElixirAst.Call).arguments!!
+
+            matchKeyError(value, level) ?: sizeAndUnitArguments(spec).firstNotNullOfOrNull { matchKeyError(it, level) }
+        }
         isCall(key, "^", 1) && isVariable((key as ElixirAst.Call).arguments!!.single()) ->
-            PIN_IN_MAP_KEY_PATTERN.isSufficient(level)
-        isVariable(key) -> false
-        key is ElixirAst.Call && (key.callee as? ElixirAst.Literal.Atom)?.name == "%{}" -> true
+            if (PIN_IN_MAP_KEY_PATTERN.isSufficient(level)) null else "invalid_pin_in_map_key_match"
+        isMap(key) -> null
         key is ElixirAst.Call ->
-            isValidMatchKey(key.callee, level) && key.arguments.orEmpty().all { isValidMatchKey(it, level) }
-        key is ElixirAst.Alias -> key.segments.all { isValidMatchKey(it, level) }
-        key is ElixirAst.Block -> key.expressions.all { isValidMatchKey(it, level) }
-        key is ElixirAst.Tuple -> key.elements.all { isValidMatchKey(it, level) }
-        key is ElixirAst.ListNode -> key.elements.all { isValidMatchKey(it, level) }
-        else -> true
+            matchKeyError(key.callee, level) ?: key.arguments.orEmpty().firstNotNullOfOrNull { matchKeyError(it, level) }
+        key is ElixirAst.Alias -> key.segments.firstNotNullOfOrNull { matchKeyError(it, level) }
+        key is ElixirAst.Block -> key.expressions.firstNotNullOfOrNull { matchKeyError(it, level) }
+        key is ElixirAst.Tuple -> key.elements.firstNotNullOfOrNull { matchKeyError(it, level) }
+        key is ElixirAst.ListNode -> key.elements.firstNotNullOfOrNull { matchKeyError(it, level) }
+        else -> null
     }
 }
 
 /** `elixir_map:is_literal/1`, on the expanded key. */
-private fun isLiteral(node: ElixirAst): Boolean {
+internal fun isLiteral(node: ElixirAst): Boolean {
     val key = expandedShape(node)
 
     return when {
@@ -89,7 +94,7 @@ private fun isLiteral(node: ElixirAst): Boolean {
 }
 
 /** A literal key as its expansion is, at every depth, so equal keys give equal terms. */
-private fun literalShape(node: ElixirAst): ElixirAst =
+internal fun literalShape(node: ElixirAst): ElixirAst =
     when (val key = expandedShape(node)) {
         is ElixirAst.Tuple -> ElixirAst.Tuple(key.meta, key.elements.map(::literalShape))
         is ElixirAst.ListNode -> ElixirAst.ListNode(key.meta, key.elements.map(::literalShape))

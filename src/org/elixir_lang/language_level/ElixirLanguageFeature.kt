@@ -689,7 +689,124 @@ enum class ElixirLanguageFeature(
      *
      * `elixir-lang/elixir@603602e67` ("Implement reverse arrows for case", #15260), first released in v1.20.0-rc.5.
      */
-    UNDERSCORE_TAKES_VERSION(sinceElixir = "1.20.0-rc.5");
+    UNDERSCORE_TAKES_VERSION(sinceElixir = "1.20.0-rc.5"),
+
+    /**
+     * Outside a pattern, an undefined variable raises `undefined_var`, as the `on_undefined_variable` compiler option
+     * defaults to. Before it, the variable warns and is expanded as a local call of no arguments.
+     *
+     * `elixir-lang/elixir@4b5097ca6` ("Add :on_undefined_variable compiler option", #12279), first released in
+     * v1.15.0-rc.0.
+     */
+    UNDEFINED_VARIABLE_RAISES(sinceElixir = "1.15.0-rc.0"),
+
+    /**
+     * `::` and `|` outside a bitstring or a list have clauses of their own, which raise `unhandled_type_op` and
+     * `unhandled_cons_op`. Before it, they reach local dispatch.
+     *
+     * `elixir-lang/elixir@d716c72f6` ("More error handling adjustments"), first released in v1.15.0-rc.0.
+     */
+    MISPLACED_TYPE_AND_CONS_OPERATORS(sinceElixir = "1.15.0-rc.0"),
+
+    /**
+     * `__cursor__(...)` left in the AST raises `'__cursor__'`. Before it, it is a local call.
+     *
+     * `elixir-lang/elixir@203baf36a` ("Raise on left-over __cursor__"), first released in v1.17.0-rc.0.
+     */
+    CURSOR_RAISES(sinceElixir = "1.17.0-rc.0"),
+
+    /**
+     * A bitstring size in a pattern is expanded as a guard, reading only the variables bound before the pattern or by
+     * the bitstring itself, and an expression other than a variable or integer is allowed. Before it, the size is
+     * expanded outside any match, and `elixir_bitstring` then rejects anything but a variable or integer
+     * (`bad_size_argument`) and a variable the pattern bound outside the bitstring (`undefined_var_in_spec`).
+     *
+     * `elixir-lang/elixir@c92724d9b` ("EEP 52: Support for size expression in bitstring matching", #11558) and
+     * `elixir-lang/elixir@00c35ad4d` ("Allow any expression in bitstring size outside of matches/guards"), first
+     * released in v1.14.0-rc.0.
+     */
+    BITSTRING_SIZE_EXPANDED_AS_GUARD(sinceElixir = "1.14.0-rc.0"),
+
+    /**
+     * `^` reads the variables from before the pattern wherever a pattern is being expanded, a bitstring size
+     * included. Before it, `^` needs the `match` context, which a size doesn't have, so `^` in a size raises
+     * `pin_outside_of_match`.
+     *
+     * `elixir-lang/elixir@7454333fd` ("Require pin variable when accessing variable inside binary size in match",
+     * #12588), first released in v1.15.0-rc.1.
+     */
+    PIN_IN_BITSTRING_SIZE(sinceElixir = "1.15.0-rc.1"),
+
+    /**
+     * A map key in a pattern may hold a variable on the right of `::`, as a bitstring size does. Before it, a variable
+     * in the key's values or in a segment's size or unit raises `invalid_variable_in_map_key_match`.
+     *
+     * `elixir-lang/elixir@90c832788` ("Support bitstring specifies as map keys in pattern", #12586), first released in
+     * v1.15.0-rc.1. In v1.15.0-rc.0 alone, `elixir-lang/elixir@7dc718b29` ("Replace inner AST for bitstring
+     * modifiers", #12055) made every expanded spec read as a variable, so any bitstring key raised.
+     */
+    BITSTRING_SIZE_IN_MAP_KEY_PATTERN(sinceElixir = "1.15.0-rc.1"),
+
+    /**
+     * A float segment may be 16 bits wide. Before it, `float-size(16)` raises `bittype_float_size`.
+     *
+     * `elixir-lang/elixir@68661dfa9` ("Support 16bit floats in bitstrings", #10740), backported to v1.11.4 by
+     * `elixir-lang/elixir@99ec7522d`. Elixir checks the OTP it runs on, which supports them from 24; from v1.15.0-rc.0
+     * Elixir requires OTP 24.
+     */
+    HALF_FLOAT_SEGMENT(sinceElixir = "1.11.4", sinceOtp = "24.0-rc1"),
+
+    /**
+     * A pinned `binary` or `bitstring` segment followed by another in a pattern takes its size from the pinned value.
+     * Before it, it raises `unsized_binary`.
+     *
+     * `elixir-lang/elixir@58b8b93ee` ("Auto infer size of matched variable in bitstrings", #13106), first released in
+     * v1.16.0-rc.1.
+     */
+    PINNED_BINARY_SEGMENT_INFERS_SIZE(sinceElixir = "1.16.0-rc.1"),
+
+    /**
+     * A pinned segment infers its size only when another segment follows it in a pattern. Before it, a pinned segment
+     * last in a nested bitstring pattern inferred one too, so that bitstring's last part was sized.
+     *
+     * `elixir-lang/elixir@aea1a47b8` ("Only infer size in pinned variable when needed", #13423), first released in
+     * v1.16.3.
+     */
+    PINNED_SEGMENT_INFERS_SIZE_ONLY_WHEN_SIZED(sinceElixir = "1.16.3"),
+
+    /**
+     * Each segment of a bitstring pattern must be a variable, a bitstring, a pin, a number or a binary, or it raises
+     * `unknown_match` at the segment. Before it, only a `=` anywhere in the pattern's segments raises, as
+     * `nested_match`, at the bitstring.
+     *
+     * `elixir-lang/elixir@e4f7ee448` ("Perform type inference using reverse arrows on all non-branching constructs",
+     * #14145), first released in v1.19.0-rc.0.
+     */
+    BITSTRING_PATTERN_SEGMENT_VALIDATED(sinceElixir = "1.19.0-rc.0"),
+
+    /**
+     * A segment's specs read the variables from before the segment's value, so `<<n::size(n)>>` can't read the `n` it
+     * binds, and a binding in a size outside a pattern is dropped after the segment.
+     *
+     * `elixir-lang/elixir@b3e3e8c6a` ("Do not consider variables from pattern in bitstring modifier", #14738), first
+     * released in v1.19.0-rc.1.
+     */
+    BITSTRING_SIZE_HIDES_ITS_OWN_SEGMENT(sinceElixir = "1.19.0-rc.1"),
+
+    /**
+     * A segment without `::` reports an error at the bitstring when it has no metadata of its own. Before it, at the
+     * last such segment before it that has metadata.
+     *
+     * `elixir-lang/elixir@5d794ab17` ("Pass correct bitstring meta during expansion"), first released in v1.20.0-rc.5.
+     */
+    BARE_SEGMENT_PASSES_BITSTRING_META(sinceElixir = "1.20.0-rc.5"),
+
+    /**
+     * A bitstring segment whose value expands to a list or an atom raises `invalid_literal`.
+     *
+     * Removed by `elixir-lang/elixir@860f485bd` ("Inference of patterns", #13909), first released in v1.18.0-rc.0.
+     */
+    BITSTRING_LIST_OR_ATOM_SEGMENT_REJECTED(removedInElixir = "1.18.0-rc.0");
 
 
     /** The first Elixir release with this behaviour, or `null` when every supported release has it. */

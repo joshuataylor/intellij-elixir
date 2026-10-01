@@ -525,6 +525,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4305](https://github.com/intellij-elixir/intellij-elixir/pull/4305) [@sh41](https://github.com/sh41)
+  - **The expander expands bitstrings and guards, and reports the expansion errors each Elixir release raises, as each release does; nothing uses it yet.** Fixes [#4298](https://github.com/intellij-elixir/intellij-elixir/issues/4298).
 - [#4297](https://github.com/intellij-elixir/intellij-elixir/pull/4297) [@sh41](https://github.com/sh41)
   - **The expander tracks which variables each expression binds, as each Elixir release does, and a test harness checks them against Elixir's; nothing uses it yet.** Fixes [#4294](https://github.com/intellij-elixir/intellij-elixir/issues/4294).
 - [#4293](https://github.com/intellij-elixir/intellij-elixir/pull/4293) [@sh41](https://github.com/sh41)

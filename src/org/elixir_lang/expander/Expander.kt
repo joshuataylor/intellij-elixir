@@ -8,21 +8,36 @@ import org.elixir_lang.lowering.ElixirAst
  * Elixir's expander (`elixir_expand`), ported clause for clause, over [ElixirAst]. It holds no PSI and takes no lock.
  */
 object Expander {
-    /** [ast] expanded from [state] and [env] as Elixir at [level] expands it, or where it reaches what isn't ported. */
-    fun expand(ast: ElixirAst, state: ExState, env: Env, level: ElixirLanguageLevel): Expansion {
+    /**
+     * [ast] expanded from [state] and [env] as Elixir at [level] expands it, up to the first error Elixir raises or
+     * the first node that isn't ported. [observer] is told of each node reached.
+     */
+    fun expand(
+        ast: ElixirAst,
+        state: ExState,
+        env: Env,
+        level: ElixirLanguageLevel,
+        observer: ExpansionObserver = ExpansionObserver.NONE,
+    ): Expansion = expand(ast, state, env, Run(level, observer))
+
+    internal fun expand(ast: ElixirAst, state: ExState, env: Env, run: Run): Expansion {
         ProgressManager.checkCanceled()
+        run.observer.entering(ast, state, env)
 
         return Clause.entries
-            .firstOrNull { it.matches(ast, state, env, level) }
-            ?.expand(ast, state, env, level)
+            .firstOrNull { it.matches(ast, state, env, run.level) }
+            ?.expand(ast, state, env, run)
             ?: Expansion.Unported(ast)
     }
 }
 
+/** What every recursive expansion of one [Expander.expand] call shares. */
+internal class Run(val level: ElixirLanguageLevel, val observer: ExpansionObserver)
+
 internal inline fun Expansion.then(next: (ExState, Env) -> Expansion): Expansion =
     when (this) {
         is Expansion.Expanded -> next(state, env)
-        is Expansion.Unported -> this
+        is Expansion.Error, is Expansion.Unported -> this
     }
 
 /** `mapfold/4`: [nodes] in order, each from the state and env the one before it left. */
@@ -41,7 +56,7 @@ internal inline fun mapfold(
                 accState = expansion.state
                 accEnv = expansion.env
             }
-            is Expansion.Unported -> return expansion
+            is Expansion.Error, is Expansion.Unported -> return expansion
         }
     }
 
@@ -49,13 +64,13 @@ internal inline fun mapfold(
 }
 
 /** `elixir_expand:expand_args/3`: outside a pattern, what an argument binds is readable only after the last one. */
-internal fun expandArgs(args: List<ElixirAst>, state: ExState, env: Env, level: ElixirLanguageLevel): Expansion =
+internal fun expandArgs(args: List<ElixirAst>, state: ExState, env: Env, run: Run): Expansion =
     when {
-        args.size == 1 -> Expander.expand(args.single(), state, env, level)
-        env.context == Env.Context.MATCH -> mapfold(args, state, env) { arg, s, e -> Expander.expand(arg, s, e, level) }
+        args.size == 1 -> Expander.expand(args.single(), state, env, run)
+        env.context == Env.Context.MATCH -> mapfold(args, state, env) { arg, s, e -> Expander.expand(arg, s, e, run) }
         else ->
             argumentScope(state, env) { scope ->
-                mapfold(args, scope, env) { arg, s, e -> expandArg(arg, s, state, e, level) }
+                mapfold(args, scope, env) { arg, s, e -> expandArg(arg, s, state, e, run) }
             }
     }
 
@@ -89,11 +104,11 @@ internal inline fun argumentScope(state: ExState, env: Env, body: (ExState) -> E
     body(state.prepareWrite()).then { s, e -> Expansion.Expanded(s.closeWrite(state), e) }
 
 /** `elixir_expand:expand_arg/3`: an argument reads only what [start], the scope's start, could. */
-internal fun expandArg(arg: ElixirAst, acc: ExState, start: ExState, env: Env, level: ElixirLanguageLevel): Expansion =
+internal fun expandArg(arg: ElixirAst, acc: ExState, start: ExState, env: Env, run: Run): Expansion =
     if (arg is ElixirAst.Literal) {
         Expansion.Expanded(acc, env)
     } else {
-        Expander.expand(arg, acc.resetRead(start), env, level)
+        Expander.expand(arg, acc.resetRead(start), env, run)
     }
 
 /** `{name, meta, args}` with [arity] arguments. */
@@ -101,6 +116,16 @@ internal fun isCall(node: ElixirAst, name: String, arity: Int): Boolean =
     node is ElixirAst.Call &&
         (node.callee as? ElixirAst.Literal.Atom)?.name == name &&
         node.arguments?.size == arity
+
+/** `{'<<>>', meta, args}`. */
+internal fun isBitstring(node: ElixirAst): Boolean = isNamedCall(node, "<<>>")
+
+/** `{'%{}', meta, args}`. */
+internal fun isMap(node: ElixirAst): Boolean = isNamedCall(node, "%{}")
+
+/** `{name, meta, args}` with a list of arguments, of any length. */
+internal fun isNamedCall(node: ElixirAst, name: String): Boolean =
+    node is ElixirAst.Call && (node.callee as? ElixirAst.Literal.Atom)?.name == name && node.arguments != null
 
 /** `{name, meta, context}` with an atom context: a variable, `_` included. */
 internal fun isVariable(node: ElixirAst): Boolean =

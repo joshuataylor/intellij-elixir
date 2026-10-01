@@ -19,8 +19,8 @@ class PortParityTest {
 
         assertEquals(
             emptyList<String>(),
-            Clause.entries.flatMap { clause ->
-                clause.heads.filter { it.toString() !in manifestHeads }.map { "$clause: $it" }
+            (Clause.entries.map { it.toString() to it.heads.toList() } + ("GUARD" to GUARD_HEADS)).flatMap { (owner, heads) ->
+                heads.filter { it.toString() !in manifestHeads }.map { "$owner: $it" }
             }
         )
     }

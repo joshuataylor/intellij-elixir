@@ -81,6 +81,18 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             PARALLEL_MATCH to ("1.17.3" to "1.18.0-rc.0"),
             REPEATED_PATTERN_VARIABLE_WRITTEN_AT_NEXT_VERSION to ("1.17.3" to "1.18.0-rc.0"),
             UNDERSCORE_TAKES_VERSION to ("1.20.0-rc.4" to "1.20.0-rc.5"),
+            UNDEFINED_VARIABLE_RAISES to ("1.14.5" to "1.15.0-rc.0"),
+            MISPLACED_TYPE_AND_CONS_OPERATORS to ("1.14.5" to "1.15.0-rc.0"),
+            CURSOR_RAISES to ("1.16.3" to "1.17.0-rc.0"),
+            BITSTRING_SIZE_EXPANDED_AS_GUARD to ("1.13.4" to "1.14.0-rc.0"),
+            PIN_IN_BITSTRING_SIZE to ("1.15.0-rc.0" to "1.15.0-rc.1"),
+            BITSTRING_SIZE_IN_MAP_KEY_PATTERN to ("1.15.0-rc.0" to "1.15.0-rc.1"),
+            HALF_FLOAT_SEGMENT to ("1.11.3" to "1.11.4"),
+            PINNED_BINARY_SEGMENT_INFERS_SIZE to ("1.16.0-rc.0" to "1.16.0-rc.1"),
+            PINNED_SEGMENT_INFERS_SIZE_ONLY_WHEN_SIZED to ("1.16.2" to "1.16.3"),
+            BITSTRING_PATTERN_SEGMENT_VALIDATED to ("1.18.4" to "1.19.0-rc.0"),
+            BITSTRING_SIZE_HIDES_ITS_OWN_SEGMENT to ("1.19.0-rc.0" to "1.19.0-rc.1"),
+            BARE_SEGMENT_PASSES_BITSTRING_META to ("1.20.0-rc.4" to "1.20.0-rc.5"),
         )
 
         assertEquals(entries.filter { it.sinceElixir != null }.toSet(), boundaries.keys)
@@ -102,6 +114,7 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             OPERATOR_ON_NOT_IN to ("1.11.4" to "1.12.0-rc.0"),
             KERNEL_TYPESPEC_REQUIRED_BY_DEFAULT to ("1.16.3" to "1.17.0-rc.0"),
             REPEATED_PATTERN_VARIABLE_WRITTEN_AT_NEXT_VERSION to ("1.20.0-rc.4" to "1.20.0-rc.5"),
+            BITSTRING_LIST_OR_ATOM_SEGMENT_REJECTED to ("1.17.3" to "1.18.0-rc.0"),
         )
 
         assertEquals(entries.filter { it.removedInElixir != null }.toSet(), removals.keys)
@@ -116,6 +129,7 @@ class ElixirLanguageFeatureTest : LightTestCase() {
     fun testEachOtpFeatureAppliesFromTheOtpReleaseThatShippedIt() {
         val boundaries = mapOf(
             MAYBE_RESERVED to ("26.2.5.21" to "27.0-rc1"),
+            HALF_FLOAT_SEGMENT to ("23.3.4.20" to "24.0-rc1"),
             UNICODE_14_GRAPHEME_CLUSTERS to ("24.3.4.17" to "25.0-rc1"),
             UNICODE_15_GRAPHEME_CLUSTERS to ("26.0-rc1" to "26.0-rc2"),
             INDIC_CONJUNCT_GRAPHEME_CLUSTERS to ("28.0-rc1" to "28.0-rc2"),

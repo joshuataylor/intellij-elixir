@@ -1,5 +1,9 @@
 package org.elixir_lang.expander
 
+import org.elixir_lang.expander.ExState.Prematch.OutsideMatch.Mode
+import org.elixir_lang.language_level.ElixirLanguageFeature.UNDEFINED_VARIABLE_RAISES
+import org.elixir_lang.language_level.ElixirLanguageLevel
+
 /** `{name, context}`, both as atom text: the context is `nil` for a variable written in source. */
 data class Variable(val name: String, val context: String)
 
@@ -25,7 +29,19 @@ data class ExState(
     }
 
     sealed interface Prematch {
-        data object OutsideMatch : Prematch
+        /** Outside a pattern: [mode] says what an undefined variable is. */
+        data class OutsideMatch(val mode: Mode) : Prematch {
+            enum class Mode {
+                /** It warns and is expanded as a local call of no arguments. */
+                Warn,
+
+                /** `undefined_var`. */
+                Raise,
+
+                /** Under `^`: `undefined_var_pin`. */
+                Pin,
+            }
+        }
 
         /**
          * Inside a pattern.
@@ -44,6 +60,14 @@ data class ExState(
             val cycles: Map<Variable, Map<Variable, Dependency>>,
             val skip: List<Set<Variable>>,
         ) : Prematch
+
+        /**
+         * A bitstring size inside [match]'s pattern, from 1.14. A variable bound by the pattern before the bitstring,
+         * one in [original] but not in [match]'s read, can't be read.
+         *
+         * @property original the variables that could be read where the bitstring began
+         */
+        data class Bitsize(val match: InMatch, val original: Map<Variable, Int>) : Prematch
 
         /** Whether a sibling binds the variable on one side of the match, or on more than one. */
         enum class Dependency { ONE_SIDE, REPEATED }
@@ -69,7 +93,12 @@ data class ExState(
     }
 
     companion object {
-        val EMPTY = ExState(emptyMap(), Write.NotWriting, Prematch.OutsideMatch, 0)
+        /** The state a module body starts from, under the default `on_undefined_variable`. */
+        fun empty(level: ElixirLanguageLevel): ExState {
+            val mode = if (UNDEFINED_VARIABLE_RAISES.isSufficient(level)) Mode.Raise else Mode.Warn
+
+            return ExState(emptyMap(), Write.NotWriting, Prematch.OutsideMatch(mode), 0)
+        }
 
         /** `elixir_env:merge_vars/2`: the union, keeping the higher version of a variable in both. */
         fun mergeVars(into: Map<Variable, Int>, from: Map<Variable, Int>): Map<Variable, Int> =
