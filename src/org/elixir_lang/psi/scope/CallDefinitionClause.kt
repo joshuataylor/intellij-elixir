@@ -120,6 +120,9 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
      */
     protected abstract fun keepProcessing(): Boolean
 
+    /** The prefix of every atom this processor can reach, or `null` when it needs every declaration. */
+    protected open fun targetName(): String? = null
+
     /*
      * Private Instance Methods
      */
@@ -136,7 +139,10 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
     private fun executeOnDeclaring(form: Form, element: Call, state: ResolveState): Boolean =
         when (form) {
-            Form.CLAUSE -> executeOnCallDefinitionClause(element, state)
+            Form.CLAUSE -> {
+                WalkProbe.count(WalkProbe.Counter.CLAUSE_HANDLER_MODULE)
+                executeOnCallDefinitionClause(element, state)
+            }
             Form.CALLBACK -> executeOnCallback(element as AtUnqualifiedNoParenthesesCall<*>, state)
             Form.DELEGATION -> executeOnDelegation(element, state)
             Form.EXCEPTION -> executeOnException(element, state)
@@ -339,23 +345,31 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
         } else {
             whileIn(sourceFirstNamedElements(project, scope, moduleName)) { namedElement ->
                 when (namedElement) {
-                    is Call -> {
-                        val namedElementResolveState = state.putVisitedElement(namedElement)
-
-                        Modular.callDefinitionClauseCallWhile(
-                            namedElement, namedElementResolveState
-                        ) { callDefinitionClause, accResolveState ->
-                            executeOnCallDefinitionClause(
-                                callDefinitionClause,
-                                accResolveState
-                            )
-                        }
-                    }
+                    is Call -> implicitImport(namedElement, state.putVisitedElement(namedElement))
                     is BeamModule -> execute(namedElement, state)
                     else -> true
                 }
             }
         }
+
+    /** [modular]'s own clauses that this processor can reach, as an implicit `import` of it brings them in. */
+    private fun implicitImport(modular: Call, state: ResolveState): Boolean {
+        val index = ImplicitImportIndex.of(modular)
+
+        for (clause in targetName()?.let(index::startingWith) ?: index.clauses) {
+            ProgressManager.checkCanceled()
+
+            if (!state.hasBeenVisited(clause)) {
+                WalkProbe.count(WalkProbe.Counter.CLAUSE_HANDLER_KERNEL)
+
+                if (!executeOnCallDefinitionClause(clause, state.putVisitedElement(clause))) {
+                    return false
+                }
+            }
+        }
+
+        return true
+    }
 
     /**
      * Returns the [NamedElement]s for [moduleName] within [scope] to walk, preferring source [Call]s

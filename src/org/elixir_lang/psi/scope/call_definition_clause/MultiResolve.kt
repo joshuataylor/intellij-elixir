@@ -41,7 +41,10 @@ private constructor(
          */
         private val resolvedPrimaryArity: Int,
         private val incompleteCode: Boolean,
-        /** [name]'s atom value, recorded as what each declaration found here was searched under. */
+        /**
+         * [name]'s atom value, recorded as what each declaration found here was searched under, and the key it is looked
+         * up by. Without it every declaration is read, and the name's text decides.
+         */
         private val nameAtom: String?) : org.elixir_lang.psi.scope.CallDefinitionClause() {
     override fun executeOnCallDefinitionClause(element: Call, state: ResolveState): Boolean =
             nameArityInterval(element, state)
@@ -225,6 +228,7 @@ private constructor(
         }
 
     override fun keepProcessing(): Boolean = resolveResultOrderedSet.keepProcessing(incompleteCode)
+    override fun targetName(): String? = nameAtom
     fun resolveResults(): List<VisitedElementSetResolveResult> = resolveResultOrderedSet.toList()
 
     private val resolveResultOrderedSet = ResolveResultOrderedSet()
