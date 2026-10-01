@@ -717,6 +717,25 @@ class ModuleBodyReadersTest : PlatformTestCase() {
     fun testStructureViewNestsDefInRescueClause() =
         assertStructureViewNestsDef("try do\n    :ok\n  rescue\n    _ -> def h, do: 3\n  end", "def h, do: 3")
 
+    fun testStructureViewNestsDefInKeywordElse() =
+        assertStructureViewNestsDef("if true, do: nil, else: def(f, do: 1)", "def(f, do: 1)")
+
+    fun testStructureViewNestsDefInKeywordRescueClause() =
+        assertStructureViewNestsDef("try do: :ok, rescue: (_ -> def h, do: 3)", "def h, do: 3")
+
+    fun testStructureViewNestsDefInKeywordElseList() =
+        assertStructureViewNestsDef("if true, do: nil, else: [def(f, do: 1)]", "def(f, do: 1)")
+
+    fun testStructureViewNestsDefInQuoteWithOptions() {
+        myFixture.configureByText(
+            "x.ex",
+            "defmodule M do\n  defmacro m do\n    quote location: :keep, do: def(f, do: 1)\n  end\nend\n"
+        )
+        val module = Model(myFixture.file as ElixirFile, null).root.children.single()
+
+        assertContainsElements(descendantTexts(module), "def(f, do: 1)")
+    }
+
     /** The block keeps its own node, as written, with the definition under it. */
     private fun assertStructureViewNestsDef(block: String, definition: String = "def f, do: 1") {
         myFixture.configureByText("x.ex", "defmodule M do\n  $block\nend\n")

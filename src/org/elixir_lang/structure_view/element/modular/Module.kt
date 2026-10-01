@@ -14,10 +14,11 @@ import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.NameArity
 import org.elixir_lang.navigation.item_presentation.Parent
 import org.elixir_lang.psi.ArityInterval
+import org.elixir_lang.psi.ElixirParentheticalStab
 import org.elixir_lang.psi.ElixirStab
 import org.elixir_lang.psi.call.Call
 import org.elixir_lang.psi.impl.ElixirPsiImplUtil.ENTRANCE
-import org.elixir_lang.psi.impl.call.macroChildCalls
+import org.elixir_lang.psi.impl.call.blockKeywordPairs
 import org.elixir_lang.psi.impl.enclosingMacroCall
 import org.elixir_lang.psi.impl.locationString
 import org.elixir_lang.psi.impl.macroChildCallList
@@ -84,7 +85,7 @@ open class Module(protected val parent: Modular?, call: Call) : Element<Call>(ca
 
         @RequiresReadLock
         fun callChildren(modular: Modular, call: Call): Array<TreeElement> {
-            val childCalls = blockChildCalls(call) ?: call.macroChildCalls()
+            val childCalls = blockChildCalls(call) ?: keywordBlockChildCalls(call)
             return childCallTreeElements(modular, childCalls, ResolveState.initial().put(ENTRANCE, call).putInitialVisitedElement(call))
         }
 
@@ -98,6 +99,17 @@ open class Module(protected val parent: Modular?, call: Call) : Element<Call>(ca
                     .flatMap(::stabCalls)
                     .toTypedArray()
             }
+
+        private fun keywordBlockChildCalls(call: Call): Array<Call> =
+            call.blockKeywordPairs()
+                .flatMap { pair ->
+                    when (val value = pair.keywordValue) {
+                        is Call -> listOf(value)
+                        is ElixirParentheticalStab -> value.stab?.let(::stabCalls).orEmpty()
+                        else -> value.macroChildCallList()
+                    }
+                }
+                .toTypedArray()
 
         private fun stabCalls(stab: ElixirStab): List<Call> =
             stab.stabBody?.macroChildCallList()
