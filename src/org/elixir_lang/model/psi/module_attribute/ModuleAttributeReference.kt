@@ -4,6 +4,7 @@ import com.intellij.model.Symbol
 import com.intellij.model.psi.PsiSymbolReference
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
+import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.call.Call
@@ -25,14 +26,19 @@ class ModuleAttributeReference(
     companion object {
         @RequiresReadLock
         fun resolveSymbols(call: Call): List<ModuleAttributeSymbol> {
-            val name = call.functionName() ?: return emptyList()
-            val value = "@$name"
-            val declaration = MultiResolve.resolveResultOrderedSet(value, call)
+            val declaration = resolveDeclaration(call) ?: return emptyList()
+            return ModuleAttributeSymbol.fromDeclaration(declaration)?.let { listOf(it) } ?: emptyList()
+        }
+
+        @RequiresReadLock
+        fun resolveDeclaration(call: Call): AtUnqualifiedNoParenthesesCall<*>? {
+            ThreadingAssertions.assertReadAccess()
+
+            val name = call.functionName() ?: return null
+            return MultiResolve.resolveResultOrderedSet("@$name", call)
                 .toList()
                 .firstOrNull { it.isValidResult }
                 ?.element as? AtUnqualifiedNoParenthesesCall<*>
-                ?: return emptyList()
-            return ModuleAttributeSymbol.fromDeclaration(declaration)?.let { listOf(it) } ?: emptyList()
         }
     }
 }

@@ -145,6 +145,15 @@ object CallDefinitionClause {
         return accumulator
     }
 
+    /** Whether nothing written in [call]'s block belongs to the module [call] is in. */
+    @RequiresReadLock
+    @JvmStatic
+    fun startsNewScope(call: Call): Boolean {
+        ThreadingAssertions.assertReadAccess()
+
+        return startsNewScope(SyntacticCall.of(call))
+    }
+
     private fun startsNewScope(call: SyntacticCall, block: MacroRole.Block = macroRole(call).block): Boolean =
         block == MacroRole.Block.BOUNDARY || Module.`is`(call)
 

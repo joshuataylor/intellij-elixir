@@ -8,9 +8,10 @@ import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.FoldingGroup
 import com.intellij.openapi.util.TextRange
 import com.intellij.psi.PsiElement
-import com.intellij.psi.PsiReference
 import com.intellij.psi.search.PsiElementProcessor
 import com.intellij.psi.util.PsiTreeUtil
+import org.elixir_lang.model.psi.module_attribute.ImplementationAttributeReference
+import org.elixir_lang.model.psi.module_attribute.ModuleAttributeReference
 import org.elixir_lang.psi.*
 import org.elixir_lang.psi.ModuleAttribute.isDocumentationName
 import org.elixir_lang.psi.ModuleAttribute.isTypeName
@@ -210,11 +211,26 @@ internal class Builder : FoldingBuilderEx() {
                                             return last
                                         }
 
-                                        private fun slowExecute(atNonNumericOperation: AtOperation): Boolean =
-                                            atNonNumericOperation
-                                                .reference
-                                                ?.let { slowExecute(atNonNumericOperation, it) }
-                                                ?: true
+                                        private fun slowExecute(atNonNumericOperation: AtOperation): Boolean {
+                                            val usage = (atNonNumericOperation.operand() as? Call)
+                                                ?.takeIf { it.isModuleAttributeNameElement() }
+                                                ?: return true
+
+                                            val implementation = usage
+                                                .takeIf { it.functionName() in ImplementationAttributeReference.NAMES }
+                                                ?.let { ImplementationAttributeReference.implementation(it) }
+                                            val implementationValueText =
+                                                implementation?.let { ImplementationAttributeReference.valueText(usage, it) }
+
+                                            return if (implementationValueText != null) {
+                                                slowExecute(atNonNumericOperation, implementation, implementationValueText)
+                                            } else {
+                                                ModuleAttributeReference
+                                                    .resolveDeclaration(usage)
+                                                    ?.let { slowExecute(atNonNumericOperation, it) }
+                                                    ?: true
+                                            }
+                                        }
 
                                         private fun slowExecute(
                                             atNonNumericOperation: AtOperation,
@@ -224,43 +240,6 @@ internal class Builder : FoldingBuilderEx() {
                                             atUnqualifiedNoParenthesesCall,
                                             atUnqualifiedNoParenthesesCall.noParenthesesOneArgument.text
                                         )
-
-                                        private fun slowExecute(
-                                            atNonNumericOperation: AtOperation,
-                                            target: PsiElement
-                                        ): Boolean =
-                                            when (target) {
-                                                is AtUnqualifiedNoParenthesesCall<*> -> {
-                                                    slowExecute(
-                                                        atNonNumericOperation,
-                                                        target
-                                                    )
-                                                }
-                                                is QualifiableAlias -> {
-                                                    slowExecute(
-                                                        atNonNumericOperation,
-                                                        target
-                                                    )
-                                                }
-                                                else -> {
-                                                    true
-                                                }
-                                            }
-
-                                        private fun slowExecute(
-                                            atNonNumericOperation: AtOperation,
-                                            reference: PsiReference
-                                        ): Boolean =
-                                            reference
-                                                .resolve()
-                                                ?.let { slowExecute(atNonNumericOperation, it) }
-                                                ?: true
-
-                                        private fun slowExecute(
-                                            atNonNumericOperation: AtOperation,
-                                            qualifiableAlias: QualifiableAlias
-                                        ): Boolean =
-                                            slowExecute(atNonNumericOperation, qualifiableAlias, qualifiableAlias.name)
 
                                         private fun slowExecute(
                                             atNonNumericOperation: AtOperation,

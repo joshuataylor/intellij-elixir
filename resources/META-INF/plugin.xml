@@ -374,6 +374,11 @@
                                      hostLanguage="Elixir"
                                      implementationClass="org.elixir_lang.model.psi.module_attribute.ModuleAttributeReferenceProvider"
                                      targetClass="org.elixir_lang.model.psi.module_attribute.ModuleAttributeSymbol"/>
+        <!-- Symbol-API: `@for` and `@protocol`, which `defimpl` defines. -->
+        <psi.symbolReferenceProvider hostElementClass="org.elixir_lang.psi.call.Call"
+                                     hostLanguage="Elixir"
+                                     implementationClass="org.elixir_lang.model.psi.module_attribute.ImplementationAttributeReferenceProvider"
+                                     targetClass="org.elixir_lang.model.psi.module.ModuleSymbol"/>
         <!-- Symbol-API: local variables and parameters. -->
         <psi.declarationProvider
                 implementation="org.elixir_lang.model.psi.variable.VariableSymbolDeclarationProvider"/>
