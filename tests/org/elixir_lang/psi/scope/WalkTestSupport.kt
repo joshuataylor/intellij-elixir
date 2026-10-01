@@ -1,5 +1,6 @@
 package org.elixir_lang.psi.scope
 
+import com.intellij.lang.injection.InjectedLanguageManager
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.WriteAction
 import com.intellij.openapi.module.Module
@@ -11,8 +12,13 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.newvfs.impl.VfsRootAccess
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiLanguageInjectionHost
+import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.testFramework.IndexingTestUtil
 import org.elixir_lang.beam.BeamLibraryFixture
+import org.elixir_lang.injection.ElixirSigilInjector
+import org.elixir_lang.settings.ElixirExperimentalSettings
 import java.io.File
 
 /** Fixtures shared by the tests of the call walk's cost. */
@@ -48,6 +54,38 @@ object WalkTestSupport {
                 }
             }
         }
+    }
+
+    /** [block] with `~H` sigils injected as HEEx, as the HEEx host fixtures set it up. */
+    fun <T> withHeexInjection(project: Project, disposable: Disposable, block: () -> T): T {
+        val settings = ElixirExperimentalSettings.instance
+        val original = settings.state.enableHtmlInjection
+        settings.state.enableHtmlInjection = true
+        InjectedLanguageManager.getInstance(project).registerMultiHostInjector(ElixirSigilInjector(), disposable)
+
+        return try {
+            block()
+        } finally {
+            settings.state.enableHtmlInjection = original
+        }
+    }
+
+    /** Every file injected into [file]'s hosts, and into theirs, breadth first. */
+    fun injectedFiles(file: PsiFile): List<PsiFile> {
+        val manager = InjectedLanguageManager.getInstance(file.project)
+        val found = mutableListOf<PsiFile>()
+        val pending = ArrayDeque(file.viewProvider.allFiles)
+
+        while (pending.isNotEmpty()) {
+            for (host in PsiTreeUtil.findChildrenOfType(pending.removeFirst(), PsiLanguageInjectionHost::class.java)) {
+                manager.enumerateEx(host, host.containingFile, false) { injected, _ ->
+                    found += injected.viewProvider.allFiles
+                    pending += injected.viewProvider.allFiles
+                }
+            }
+        }
+
+        return found
     }
 
     /** `file:line:column` of [element]. */

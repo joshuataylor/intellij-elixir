@@ -7,8 +7,9 @@ import org.elixir_lang.PlatformTestCase
 
 /**
  * Where each kind of call places its declarations: a `use`d module's quoted definitions before and inside its
- * `schema`, an imported query macro's API, a definition in an ExUnit `describe` seen from its `test`, and a definition
- * injected by an unknown macro, seen only from inside it.
+ * `schema`, an imported query macro's API, a definition in an ExUnit `describe` seen from its `test` and from the
+ * module's template, a nested module's definition seen from that template, and a definition injected by an unknown
+ * macro, seen only from inside it.
  */
 class PlacementTest : PlatformTestCase() {
     override fun setUp() {
@@ -36,6 +37,15 @@ class PlacementTest : PlatformTestCase() {
 
     fun testUnknownMacroDefinitionFromOutsideIt() =
         assertFound("unknown_macro.ex:17:20")
+
+    fun testOwnDefinitionFromATemplate() =
+        assertFound("case_live.html.leex:1:5", "case_live.ex:4:3 helper/Exact(arity=1) OWN VALID")
+
+    fun testDescribeDefinitionFromATemplate() =
+        assertFound("case_live.html.leex:2:5", "case_live.ex:7:5 in_describe/Exact(arity=1) OWN VALID")
+
+    fun testNestedModuleDefinitionFromATemplate() =
+        assertFound("case_live.html.leex:3:5", "case_live.ex:11:5 nested_helper/Exact(arity=1) OWN VALID")
 
     /** [use]'s candidates, in both modes, with the table and walking the module, are [expected]. */
     private fun assertFound(use: String, vararg expected: String) {

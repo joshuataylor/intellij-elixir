@@ -259,10 +259,10 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
     private fun afterModularBody(element: PsiElement, state: ResolveState): Boolean =
         keepProcessing() && implicitImports(element, state)
 
-    /** The table to replay for [modular]'s body, or `null` to walk it: while recording, and for an entrance in another file. */
+    /** The table to replay for [modular]'s body, or `null` to walk it, as while recording. */
     private fun tableFor(modular: Call, state: ResolveState): CallableTable? =
-        if (isModular(modular) && !Recording.isRecording(state) && !isForeignEntrance(modular, state.get(ENTRANCE))) {
-            CallableTable.ofOrNull(modular)
+        if (isModular(modular) && !Recording.isRecording(state)) {
+            CallableTable.ofOrNull(modular, foreign = isForeignEntrance(modular, state.get(ENTRANCE)))
         } else {
             null
         }

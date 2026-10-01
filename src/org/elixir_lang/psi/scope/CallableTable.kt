@@ -6,6 +6,7 @@ import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.util.Key
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiFile
+import com.intellij.psi.PsiFileFactory
 import com.intellij.psi.ResolveState
 import com.intellij.psi.util.CachedValue
 import com.intellij.psi.util.CachedValueProvider
@@ -16,6 +17,7 @@ import com.intellij.psi.util.isAncestor
 import com.intellij.util.concurrency.ThreadingAssertions
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
+import org.elixir_lang.ElixirLanguage
 import org.elixir_lang.declaration.Form
 import org.elixir_lang.psi.AtUnqualifiedNoParenthesesCall
 import org.elixir_lang.psi.call.Call
@@ -106,26 +108,31 @@ class CallableTable private constructor(nodes: List<Node>) {
         var enabled = true
 
         private val KEY = Key<CachedValue<CallableTable>>("CallableTable")
+        private val FOREIGN_KEY = Key<CachedValue<CallableTable>>("CallableTable.foreign")
 
-        private val buildingOnThisThread: ThreadLocal<MutableSet<Call>> = ThreadLocal.withInitial { mutableSetOf() }
+        private val buildingOnThisThread: ThreadLocal<MutableSet<Pair<Call, Boolean>>> =
+            ThreadLocal.withInitial { mutableSetOf() }
 
         /**
          * `null` while [modular]'s own table is being built on this thread, while dumb, or when building it needs a
-         * resolve already under way on this thread.
+         * resolve already under way on this thread. [foreign]: the table for an entrance in another file than
+         * [modular], such as a template's, for which the walk also enters the module's nested modules and the bodies of
+         * its `test`s and `describe`s.
          */
         @RequiresReadLock
-        fun ofOrNull(modular: Call): CallableTable? {
+        @JvmOverloads
+        fun ofOrNull(modular: Call, foreign: Boolean = false): CallableTable? {
             ThreadingAssertions.assertReadAccess()
 
             return when {
                 !enabled || DumbService.isDumb(modular.project) -> null
-                modular in buildingOnThisThread.get() -> {
+                (modular to foreign) in buildingOnThisThread.get() -> {
                     WalkProbe.count(WalkProbe.Counter.TABLE_REENTRY)
                     null
                 }
                 else -> try {
-                    CachedValuesManager.getCachedValue(modular, KEY) {
-                        CachedValueProvider.Result.create(build(modular), PsiModificationTracker.MODIFICATION_COUNT)
+                    CachedValuesManager.getCachedValue(modular, if (foreign) FOREIGN_KEY else KEY) {
+                        CachedValueProvider.Result.create(build(modular, foreign), PsiModificationTracker.MODIFICATION_COUNT)
                     }
                 } catch (_: AbandonedBuild) {
                     null
@@ -146,16 +153,21 @@ class CallableTable private constructor(nodes: List<Node>) {
         /** Unwinds an abandoned build to [ofOrNull], which keeps nothing. */
         private class AbandonedBuild : RuntimeException(null, null, false, false), ControlFlowException
 
-        private fun build(modular: Call): CallableTable {
+        private fun build(modular: Call, foreign: Boolean): CallableTable {
             val building = buildingOnThisThread.get()
-            building.add(modular)
+            building.add(modular to foreign)
 
             try {
                 WalkProbe.count(WalkProbe.Counter.TABLE_BUILD)
                 val recorder = Recorder()
                 // An entrance that no call in the module holds, as `Import` and `Use` compare it with `isAncestor`.
+                val seed: PsiElement = if (foreign) {
+                    PsiFileFactory.getInstance(modular.project).createFileFromText("seed.ex", ElixirLanguage, "")
+                } else {
+                    modular.containingFile
+                }
                 val state = ResolveState.initial()
-                    .put(ENTRANCE, modular.containingFile)
+                    .put(ENTRANCE, seed)
                     .put(Recording.RECORDER, recorder)
 
                 for (child in CallDefinitionClause.modularCallsToExecute(modular)) {
@@ -166,7 +178,7 @@ class CallableTable private constructor(nodes: List<Node>) {
 
                 return CallableTable(recorder.nodes)
             } finally {
-                building.remove(modular)
+                building.remove(modular to foreign)
             }
         }
 
@@ -179,13 +191,14 @@ class CallableTable private constructor(nodes: List<Node>) {
             }
 
         @TestOnly
-        fun buildingOnThisThread(): Set<Call> = buildingOnThisThread.get().toSet()
+        fun buildingOnThisThread(): Set<Call> = buildingOnThisThread.get().mapTo(mutableSetOf()) { it.first }
 
         /** Whether [modular]'s table is cached and up to date, without building one. */
         @TestOnly
-        fun isCached(modular: Call): Boolean =
+        fun isCached(modular: Call, foreign: Boolean = false): Boolean =
             // `getCachedValue(holder, key, provider)` keeps a parameterized cached value under the key.
-            (modular.getUserData(KEY as Key<*>) as? ParameterizedCachedValue<*, *>)?.hasUpToDateValue() == true
+            (modular.getUserData((if (foreign) FOREIGN_KEY else KEY) as Key<*>) as? ParameterizedCachedValue<*, *>)
+                ?.hasUpToDateValue() == true
     }
 
     /** Records every node the dispatch reaches, and answers `true` so the build reaches everything. */

@@ -40,6 +40,8 @@ class ParityTest : PlatformTestCase() {
     fun testReentryImported() = assertParity("psi/scope/callable_table/reentry_imported")
     fun testSites() = assertParity("psi/scope/callable_table/sites")
     fun testCombining() = assertParity("psi/scope/callable_table/combining", AnswerChangeTest.COMBINING_CHANGED)
+    fun testForeign() = withHeexInjection { assertParity("psi/scope/callable_table/foreign", injected = true) }
+    fun testReachInjected() = withHeexInjection { assertParity("psi/scope/callable_table/reach", injected = true) }
 
     fun testInputsWithKernel() = withKernel { assertParity("snapshot/inputs") }
     fun testCallableDeclarationWithKernel() = withKernel { assertParity("psi/callable_declaration") }
@@ -47,20 +49,27 @@ class ParityTest : PlatformTestCase() {
     fun testPlacementWithKernel() = withKernel { assertParity("psi/scope/callable_table/placement") }
     fun testReachWithKernel() = withKernel { assertParity("psi/scope/callable_table/reach") }
     fun testReentryWithKernel() = withKernel { assertParity("psi/scope/callable_table/reentry") }
+    fun testForeignWithKernel() =
+        withKernel { withHeexInjection { assertParity("psi/scope/callable_table/foreign", injected = true) } }
+
+    private fun withHeexInjection(block: () -> Unit) = WalkTestSupport.withHeexInjection(project, testRootDisposable, block)
 
     private fun withKernel(block: () -> Unit) =
         WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, LIBRARY, WalkTestSupport.DOCS_KERNEL) { block() }
 
-    /** [changed]: the locations of uses whose resolution the table changes on purpose. */
-    private fun assertParity(directory: String, changed: Set<String> = emptySet()) {
+    /**
+     * [changed]: the locations of uses whose resolution the table changes on purpose. [injected]: also the uses in what
+     * the files inject.
+     */
+    private fun assertParity(directory: String, changed: Set<String> = emptySet(), injected: Boolean = false) {
         val root = myFixture.copyDirectoryToProject(directory, "")
         val files = mutableListOf<VirtualFile>()
         VfsUtilCore.iterateChildrenRecursively(root, null) { if (!it.isDirectory) files += it; true }
         val dump = WalkDump(project, root)
 
-        val live = dump.lines(myFixture, files, table = false)
+        val live = dump.lines(myFixture, files, table = false, injected)
         WalkProbe.reset()
-        val tabled = WalkProbe.counting { dump.lines(myFixture, files, table = true) }
+        val tabled = WalkProbe.counting { dump.lines(myFixture, files, table = true, injected) }
         val counts = WalkProbe.snapshot()
 
         assertTrue("no table was built, so the table run walked live", counts.getValue(Counter.TABLE_BUILD) > 0)

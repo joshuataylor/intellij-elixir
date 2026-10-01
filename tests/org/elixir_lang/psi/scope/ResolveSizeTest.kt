@@ -47,6 +47,14 @@ class ResolveSizeTest : PlatformTestCase() {
     /** Uses in `test` blocks, after many others. */
     fun testExUnit() = assertSizeIndependent(SIZES.associateWith(::exUnit))
 
+    /** [testExUnit]'s module, with the uses in an `.html.leex` template: in another file than the module. */
+    fun testExUnitTemplate() = assertSizeIndependent(SIZES.associateWith(::exUnitTemplate))
+
+    /** Uses in `~H` fragments of a nested module, after many `test`s, with the target after the nested module. */
+    fun testHeex() = WalkTestSupport.withHeexInjection(project, testRootDisposable) {
+        assertSizeIndependent(SIZES.associateWith(::heex))
+    }
+
     /** Uses after many `scope ... do` blocks, as in a router. */
     fun testRouter() = assertSizeIndependent(SIZES.associateWith(::router))
 
@@ -121,6 +129,51 @@ class ResolveSizeTest : PlatformTestCase() {
         )
 
         return measure(file, USE)
+    }
+
+    private fun exUnitTemplate(size: Int): List<Map<Counter, Long>> {
+        if (size == SIZES.first()) myFixture.addFileToProject("ex_unit_case.ex", EX_UNIT_CASE)
+        myFixture.addFileToProject(
+            "ex_unit_template_$size.ex",
+            buildString {
+                appendLine("defmodule ExUnitTemplate$size do")
+                appendLine("  use ExUnit.Case")
+                appendLine("  def target(a), do: a")
+                for (i in 0 until size) appendLine("  test \"unrelated $i\" do\n    :ok\n  end")
+                appendLine("end")
+            }
+        )
+        val template = myFixture.addFileToProject(
+            "ex_unit_template_$size.html.leex",
+            buildString { for (i in 0 until USES) appendLine("<%= target($i) %>") }
+        )
+
+        return measure(template, USE)
+    }
+
+    private fun heex(size: Int): List<Map<Counter, Long>> {
+        if (size == SIZES.first()) myFixture.addFileToProject("ex_unit_case.ex", EX_UNIT_CASE)
+        val file = myFixture.addFileToProject(
+            "heex_$size.ex",
+            buildString {
+                appendLine("defmodule Heex$size do")
+                appendLine("  use ExUnit.Case")
+                for (i in 0 until size) appendLine("  test \"unrelated $i\" do\n    :ok\n  end")
+                appendLine("  defmodule Inner do")
+                for (i in 0 until USES) appendLine("    def render_$i(assigns), do: ~H\"<%= target($i) %>\"")
+                appendLine("  end")
+                appendLine("  def target(a), do: a")
+                appendLine("end")
+            }
+        )
+        val references = WalkTestSupport.injectedFiles(file)
+            .flatMap { PsiTreeUtil.findChildrenOfType(it, Call::class.java) }
+            .filter { it.functionName() == "target" }
+            .mapNotNull { it.reference as? PsiPolyVariantReference }
+            .distinctBy { it.element }
+        check(references.size == USES) { "expected $USES uses of target in Heex$size's fragments, found ${references.size}" }
+
+        return measure(references)
     }
 
     private fun router(size: Int): List<Map<Counter, Long>> {

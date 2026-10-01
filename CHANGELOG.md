@@ -15,6 +15,11 @@
 
 ### Enhancements
 
+- [#4295](https://github.com/intellij-elixir/intellij-elixir/pull/4295) [@sh41](https://github.com/sh41)
+  - **Highlighting and Go to Definition in large modules, including decompiled `.beam` files, no longer slow
+    down as the module grows.**
+    Fixes [#4123](https://github.com/intellij-elixir/intellij-elixir/issues/4123).
+
 - [#4277](https://github.com/intellij-elixir/intellij-elixir/pull/4277) [@sh41](https://github.com/sh41)
   - **Quick Documentation on a `defmodule`'s own name shows its `@moduledoc`.** Refs
     [#4260](https://github.com/intellij-elixir/intellij-elixir/issues/4260).
