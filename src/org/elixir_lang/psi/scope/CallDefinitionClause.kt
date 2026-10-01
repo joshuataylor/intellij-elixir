@@ -124,11 +124,15 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
      * Private Instance Methods
      */
 
+    // Every loop of the walk reaches here, but for a .beam module's definitions.
     @RequiresReadLock
-    private fun execute(element: Call, state: ResolveState): Boolean =
-        (DeclaringForm.syntacticForm(element) ?: DeclaringForm.resolvingForm(element, state))
+    private fun execute(element: Call, state: ResolveState): Boolean {
+        ProgressManager.checkCanceled()
+
+        return (DeclaringForm.syntacticForm(element) ?: DeclaringForm.resolvingForm(element, state))
             ?.let { form -> executeOnDeclaring(form, element, state) }
             ?: executeOnNonDeclaring(element, state)
+    }
 
     private fun executeOnDeclaring(form: Form, element: Call, state: ResolveState): Boolean =
         when (form) {
@@ -247,6 +251,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
 
     private fun execute(element: BeamModule, state: ResolveState): Boolean =
         whileIn(element.callDefinitions()) {
+            ProgressManager.checkCanceled()
             execute(it, state)
         }
 
@@ -346,9 +351,7 @@ abstract class CallDefinitionClause : PsiScopeProcessor {
                             )
                         }
                     }
-                    is BeamModule -> whileIn(namedElement.callDefinitions()) {
-                        execute(it, state)
-                    }
+                    is BeamModule -> execute(namedElement, state)
                     else -> true
                 }
             }
