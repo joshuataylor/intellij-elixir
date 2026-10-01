@@ -1,9 +1,11 @@
 package org.elixir_lang.navigation
 
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.PsiTreeUtil
 import org.elixir_lang.PlatformTestCase
 import org.elixir_lang.psi.CallDefinitionClause
 import org.elixir_lang.psi.call.Call
+import org.elixir_lang.psi.impl.enclosingMacroCall
 import org.elixir_lang.structure_view.element.CallDefinitionClause as StructureCallDefinitionClause
 
 /**
@@ -121,6 +123,37 @@ class EnclosingModularShapeTest : PlatformTestCase() {
             .filterNot { it.endsWith(": ok") }
 
         assertEquals("lost the enclosing Modular for:\n" + failures.joinToString("\n"), emptyList<String>(), failures)
+    }
+
+    fun testDefInElseFindsModuleControl() = assertDefFindsModule("if true do\n    nil\n  else\n    def(b, do: 2)\n  end")
+
+    fun testDefInKeywordElseFindsModule() = assertDefFindsModule("if true, do: nil, else: def(b, do: 2)")
+
+    /** A `rescue` belongs to the `def`, so the `def` is what encloses a call in it, not the module. */
+    fun testCallInRescueFindsDefControl() =
+        assertCallFindsDef("def f do\n    raise(\"x\")\n  rescue\n    _ -> helper()\n  end")
+
+    fun testCallInKeywordRescueFindsDef() = assertCallFindsDef("def f, do: raise(\"x\"), rescue: (_ -> helper())")
+
+    private fun assertDefFindsModule(body: String) {
+        val calls = callsInModule(body)
+
+        assertEquals(calls.first().text, CallDefinitionClause.enclosingModularMacroCall(calls.single { it.text == "def(b, do: 2)" })?.text)
+    }
+
+    private fun assertCallFindsDef(body: String) {
+        val calls = callsInModule(body)
+        val def = calls.single { it.text.startsWith("def f") }
+        val helper = calls.single { it.text == "helper()" }
+
+        assertEquals(def.text, helper.enclosingMacroCall()?.text)
+        assertEquals(def.text, CallDefinitionClause.enclosingModularMacroCall(helper)?.text)
+    }
+
+    private fun callsInModule(body: String): List<Call> {
+        myFixture.configureByText("x.ex", "defmodule A do\n  $body\nend\n")
+
+        return PsiTreeUtil.findChildrenOfType(myFixture.file, Call::class.java).toList()
     }
 
     /**

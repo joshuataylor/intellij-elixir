@@ -113,6 +113,10 @@
 
 ### Bug Fixes
 
+- [#4285](https://github.com/intellij-elixir/intellij-elixir/pull/4285) [@sh41](https://github.com/sh41)
+  - **Definitions written in the `else:`, `after:`, `rescue:` or `catch:` keyword of a module-level `if`, `unless`,
+    `try`, `with` or `receive` are now found, as they are in the `do`-block form.** Refs
+    [#4279](https://github.com/intellij-elixir/intellij-elixir/issues/4279).
 - [#4277](https://github.com/intellij-elixir/intellij-elixir/pull/4277) [@sh41](https://github.com/sh41)
   - **Go to Declaration on a protocol's name, or on `@protocol` in a `defimpl`, reaches its `defprotocol`, and
     Rename and Find Usages work on a protocol.** Refs [#4260](https://github.com/intellij-elixir/intellij-elixir/issues/4260).

@@ -201,7 +201,8 @@ fun Call.keywordArgument(keywordKeyText: String): PsiElement? = keywordArguments
 
 /** The code that runs inside this call, its `do` block or `do:` value, unlike its other arguments. */
 @RequiresReadLock
-fun Call.body(): PsiElement? = doBlock ?: keywordArgument("do")
+fun Call.body(): PsiElement? =
+    doBlock ?: keywordArguments()?.quotableKeywordPairList()?.lastOrNull { it.blockKeyword() == "do" }?.keywordValue
 
 /**
  * The keyword arguments for `call`.

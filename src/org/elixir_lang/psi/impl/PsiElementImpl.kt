@@ -100,7 +100,7 @@ tailrec fun PsiElement.selfOrEnclosingMacroCall(): Call? =
             }
 
         is QuotableKeywordPair ->
-            if (this.hasKeywordKey("do")) {
+            if (blockKeyword() != null) {
                 parent.let { it as? QuotableKeywordList }?.parent.let { keywordListParent ->
                     when (keywordListParent) {
                         is ElixirNoParenthesesOneArgument -> keywordListParent

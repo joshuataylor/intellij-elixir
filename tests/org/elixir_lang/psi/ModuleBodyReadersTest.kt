@@ -90,6 +90,19 @@ class ModuleBodyReadersTest : PlatformTestCase() {
         assertTargetsInclude(implementations.toList(), "def perform, do")
     }
 
+    fun testGotoImplementationFindsImplementationInKeywordElse() {
+        myFixture.configureByText(
+            "x.ex",
+            "defprotocol ElseGotoP do\n  def per<caret>form()\nend\n\ndefimpl ElseGotoP, for: Atom do\n  if true, do: nil, else: def(perform, do: :ok)\nend\n"
+        )
+
+        val source = TargetElementUtil.getInstance()
+            .findTargetElement(myFixture.editor, ImplementationSearcher.getFlags(), myFixture.caretOffset)!!
+        val implementations = DefinitionsScopedSearch.search(source).findAll()
+
+        assertTargetsInclude(implementations.toList(), "def(perform, do")
+    }
+
     fun testImplementationFunctionResolvesToProtocolFunctionInIf() {
         myFixture.configureByText(
             "x.ex",
@@ -120,6 +133,17 @@ class ModuleBodyReadersTest : PlatformTestCase() {
         myFixture.configureByText(
             "x.ex",
             "defmodule IfComp do\n  def a, do: 1\n  def b, do: 2\n\n  if true do\n    def inside, do: 3\n  end\nend\n\ndefmodule IfCompUse do\n  def f do\n    IfComp.<caret>\n  end\nend\n"
+        )
+
+        myFixture.complete(CompletionType.BASIC, 1)
+
+        assertContainsElements(myFixture.lookupElementStrings.orEmpty(), "inside")
+    }
+
+    fun testRemoteCompletionOffersDefInKeywordElse() {
+        myFixture.configureByText(
+            "x.ex",
+            "defmodule ElseComp do\n  def a, do: 1\n\n  if true, do: nil, else: def(inside, do: 3)\nend\n\ndefmodule ElseCompUse do\n  def f do\n    ElseComp.<caret>\n  end\nend\n"
         )
 
         myFixture.complete(CompletionType.BASIC, 1)
@@ -161,6 +185,15 @@ class ModuleBodyReadersTest : PlatformTestCase() {
         assertTrue(validTexts().toString(), validTexts().any { it.startsWith("def injected_by_using") })
     }
 
+    fun testUseFindsUsingInKeywordElse() {
+        myFixture.configureByText(
+            "x.ex",
+            "defmodule ElseUsing do\n  if true, do: nil, else: (defmacro __using__(_o) do\n    quote do\n      def injected_by_using(), do: :ok\n    end\n  end)\nend\n\ndefmodule ElseClient do\n  use ElseUsing\n\n  def usage do\n    injected_by_using<caret>\n  end\nend\n"
+        )
+
+        assertTrue(validTexts().toString(), validTexts().any { it.startsWith("def injected_by_using") })
+    }
+
     fun testUseOfCaseTemplateInIf() {
         myFixture.configureByText(
             "x.ex",
@@ -194,6 +227,27 @@ class ModuleBodyReadersTest : PlatformTestCase() {
         assertContainsElements(validTexts(), "def defined_in_case, do: :ok")
     }
 
+    fun testUnqualifiedCallFindsDefInKeywordElse() =
+        assertCallFindsDefInKeyword("if true, do: nil, else: def(defined, do: :ok)")
+
+    fun testUnqualifiedCallFindsDefInKeywordUnlessElse() =
+        assertCallFindsDefInKeyword("unless true, do: nil, else: def(defined, do: :ok)")
+
+    fun testUnqualifiedCallFindsDefInKeywordRescue() =
+        assertCallFindsDefInKeyword("try do: :ok, rescue: (_ -> def(defined, do: :ok))")
+
+    fun testUnqualifiedCallFindsDefInKeywordWithElse() =
+        assertCallFindsDefInKeyword("with :ok <- :ok, do: nil, else: (_ -> def(defined, do: :ok))")
+
+    fun testUnqualifiedCallFindsDefInKeywordReceiveAfter() =
+        assertCallFindsDefInKeyword("receive do: (_ -> nil), after: (0 -> def(defined, do: :ok))")
+
+    private fun assertCallFindsDefInKeyword(block: String) {
+        myFixture.configureByText("x.ex", "defmodule M do\n  def caller do\n    defined<caret>()\n  end\n\n  $block\nend\n")
+
+        assertContainsElements(validTexts(), "def(defined, do: :ok)")
+    }
+
     fun testCallInTestFindsLaterDefp() =
         assertCallFindsLaterDefp("test \"t\" do\n    helper<caret>()\n  end")
 
@@ -207,6 +261,16 @@ class ModuleBodyReadersTest : PlatformTestCase() {
 
     fun testImportFindsDefInIf() = assertImportFindsDef(inIf = true)
 
+    fun testImportFindsDefInKeywordElse() {
+        myFixture.configureByText(
+            "x.ex",
+            "defmodule Imported do\n  if true, do: nil, else: def(imported, do: :ok)\nend\n\n" +
+                "defmodule Importer do\n  import Imported\n\n  def caller, do: imported<caret>()\nend\n"
+        )
+
+        assertContainsElements(validTexts(), "def(imported, do: :ok)")
+    }
+
     fun testRelativeAliasFindsModuleControl() =
         assertEquals(listOf("defmodule Inner do"), relativeAliasTargets(inIf = false))
 
@@ -217,6 +281,16 @@ class ModuleBodyReadersTest : PlatformTestCase() {
         myFixture.configureByText(
             "x.ex",
             "defmodule Outer do\n  if true do\n    defmodule Inner do\n    end\n  end\nend\n\n" +
+                "defmodule User do\n  def caller, do: Outer.Inner<caret>\nend\n"
+        )
+
+        assertEquals(listOf("defmodule Inner do"), aliasTargets(myFixture.file.findReferenceAt(myFixture.caretOffset - 1)))
+    }
+
+    fun testQualifiedAliasFindsModuleInKeywordElse() {
+        myFixture.configureByText(
+            "x.ex",
+            "defmodule Outer do\n  if true, do: nil, else: (defmodule Inner do\n  end)\nend\n\n" +
                 "defmodule User do\n  def caller, do: Outer.Inner<caret>\nend\n"
         )
 
@@ -291,6 +365,15 @@ class ModuleBodyReadersTest : PlatformTestCase() {
               if true, do: def(e, do: 4)
               if true, do: [def(i, do: 8)]
               if true, "do": def(j, do: 9)
+              if true, do: nil, else: def(k, do: 10)
+              try do: :ok, after: def(l, do: 11)
+              try do: :ok, rescue: (_ -> def(m, do: 12))
+              try do: :ok, catch: (_ -> def(n, do: 13))
+              if true, do: nil, "else": def(o, do: 14)
+              if true, do: nil, else: [def(p, do: 15)]
+              Some.fun(x, do: 1, else: def(q, do: 16))
+              Keyword.keys(else: def(r, do: 17))
+              if(true, [do: nil, else: def(s, do: 18)])
               (def g, do: 5)
               [def(h, do: 7)]
               describe "x" do
@@ -320,6 +403,22 @@ class ModuleBodyReadersTest : PlatformTestCase() {
                 "def(i, do: 8)",
                 "if true, \"do\": def(j, do: 9)",
                 "def(j, do: 9)",
+                "if true, do: nil, else: def(k, do: 10)",
+                "def(k, do: 10)",
+                "try do: :ok, after: def(l, do: 11)",
+                "def(l, do: 11)",
+                "try do: :ok, rescue: (_ -> def(m, do: 12))",
+                "def(m, do: 12)",
+                "try do: :ok, catch: (_ -> def(n, do: 13))",
+                "def(n, do: 13)",
+                "if true, do: nil, \"else\": def(o, do: 14)",
+                "def(o, do: 14)",
+                "if true, do: nil, else: [def(p, do: 15)]",
+                "def(p, do: 15)",
+                "Some.fun(x, do: 1, else: def(q, do: 16))",
+                "def(q, do: 16)",
+                "Keyword.keys(else: def(r, do: 17))",
+                "if(true, [do: nil, else: def(s, do: 18)])",
                 "def g, do: 5",
                 "def(h, do: 7)",
                 "describe \"x\" do",
@@ -592,6 +691,9 @@ class ModuleBodyReadersTest : PlatformTestCase() {
 
     fun testDepsDefinedInIf() =
         assertDeps("  def project do\n    [app: :s, deps: deps()]\n  end\n\n  if true do\n    defp deps do\n      [{:jason, \"~> 1.0\"}]\n    end\n  end\n")
+
+    fun testDepsDefinedInKeywordElse() =
+        assertDeps("  def project do\n    [app: :s, deps: deps()]\n  end\n\n  if true, do: nil, else: (defp deps do\n    [{:jason, \"~> 1.0\"}]\n  end)\n")
 
     fun testDepsProjectInIf() =
         assertDeps("  if true do\n    def project do\n      [app: :s, deps: deps()]\n    end\n  end\n\n  defp deps do\n    [{:jason, \"~> 1.0\"}]\n  end\n")

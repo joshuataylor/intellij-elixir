@@ -31,6 +31,12 @@ class ModuleBodyThroughBlocksTest : PlatformTestCase() {
     fun testSpecFindsDefInCaseClause() =
         assertSpecFindsDefs(1, "@spec <caret>f() :: :ok\n  case :a do\n    :a -> def f, do: :ok\n  end")
 
+    fun testSpecFindsDefInKeywordElse() =
+        assertSpecFindsDefs(1, "@spec <caret>f() :: :ok\n  if true, do: nil, else: def(f, do: :ok)")
+
+    fun testSpecFindsDefInKeywordAfter() =
+        assertSpecFindsDefs(1, "@spec <caret>f() :: :ok\n  try do: :ok, after: def(f, do: :ok)")
+
     fun testSpecFindsDefInUnknownMacro() =
         assertSpecFindsDefs(1, "@spec <caret>f() :: :ok\n  describe \"x\" do\n    def f, do: :ok\n  end")
 
@@ -49,6 +55,9 @@ class ModuleBodyThroughBlocksTest : PlatformTestCase() {
     fun testDocsOfDefFindClauseInIf() =
         assertDocHeads(2, "def <caret>f(1), do: :ok\n\n  if true do\n    def f(2), do: :ok\n  end")
 
+    fun testDocsOfDefFindClauseInKeywordElse() =
+        assertDocHeads(2, "def <caret>f(1), do: :ok\n\n  if true, do: nil, else: def(f(2), do: :ok)")
+
     fun testCompileInlineInIfFindsDefInIf() =
         assertCompileInlineFindsDef("if true do\n    @compile inline: [<caret>f: 0]\n    def f, do: :ok\n  end")
 
@@ -61,11 +70,20 @@ class ModuleBodyThroughBlocksTest : PlatformTestCase() {
     fun testDefInIfImplementsBehaviourOfModule() =
         assertDefImplementsCallback("@behaviour B\n\n  if true do\n    def <caret>cb, do: :ok\n  end")
 
+    fun testDefInKeywordElseImplementsBehaviourOfModule() =
+        assertDefImplementsCallback("@behaviour B\n\n  if true, do: nil, else: def(<caret>cb, do: :ok)")
+
+    fun testDefImplementsBehaviourDeclaredInKeywordElse() =
+        assertDefImplementsCallback("if true, do: nil, else: @behaviour B\n\n  def <caret>cb, do: :ok")
+
     fun testCallbackUsagesFindDefInIfWithBehaviourInIf() =
         assertCallbackUsagesFindDef("if true do\n    @behaviour B\n    def cb, do: :ok\n  end")
 
     fun testCallbackUsagesFindDefInIfOfModuleWithBehaviour() =
         assertCallbackUsagesFindDef("@behaviour B\n\n  if true do\n    def cb, do: :ok\n  end")
+
+    fun testCallbackUsagesFindDefInKeywordElseOfModuleWithBehaviour() =
+        assertCallbackUsagesFindDef("@behaviour B\n\n  if true, do: nil, else: def(cb, do: :ok)")
 
     fun testDefoverridableFindsCallbackInIf() {
         myFixture.configureByText(

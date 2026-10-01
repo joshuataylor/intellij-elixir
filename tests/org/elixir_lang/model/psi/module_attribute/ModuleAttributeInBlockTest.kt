@@ -36,6 +36,12 @@ class ModuleAttributeInBlockTest : PlatformTestCase() {
             declarationLines("if true, do: @timeout 10\n\n  def f, do: @timeout<caret>")
         )
 
+    fun testGotoDeclarationThroughKeywordElse() =
+        assertEquals(
+            listOf("if true, do: nil, else: @timeout 10"),
+            declarationLines("if true, do: nil, else: @timeout 10\n\n  def f, do: @timeout<caret>")
+        )
+
     fun testGotoDeclarationThroughDslBlock() =
         assertEquals(
             listOf("@timeout 10"),
@@ -101,6 +107,12 @@ class ModuleAttributeInBlockTest : PlatformTestCase() {
             completions("if true, do: @timeout 10\n\n  @tally 1\n\n  def f do\n    @t<caret>\n  end")
         )
 
+    fun testCompletionThroughKeywordElse() =
+        assertEquals(
+            listOf("tally", "timeout"),
+            completions("if true, do: nil, else: @timeout 10\n\n  @tally 1\n\n  def f do\n    @t<caret>\n  end")
+        )
+
     fun testCompletionThroughDslBlock() =
         assertEquals(
             listOf("tally", "timeout"),
@@ -140,6 +152,12 @@ class ModuleAttributeInBlockTest : PlatformTestCase() {
             renamed("if true, do: @timeout 10\n\n  def f, do: @timeout<caret>")
         )
 
+    fun testRenameFromReadThroughKeywordElse() =
+        assertEquals(
+            "if true, do: nil, else: @renamed 10\n\n  def f, do: @renamed",
+            renamed("if true, do: nil, else: @timeout 10\n\n  def f, do: @timeout<caret>")
+        )
+
     fun testRenameThroughCaseAndDslBlock() =
         assertEquals(
             "case :a do\n    :a -> @renamed 1\n  end\n\n  settings do\n    @renamed 2\n  end\n\n  def f, do: @renamed",
@@ -162,6 +180,12 @@ class ModuleAttributeInBlockTest : PlatformTestCase() {
         assertEquals(
             listOf("def f, do: @limit", "if prod?(), do: @limit 100"),
             usageLines("@limit<caret> 1\n\n  if prod?(), do: @limit 100\n\n  def f, do: @limit")
+        )
+
+    fun testWriteUsagesFindDeclarationInKeywordElse() =
+        assertEquals(
+            listOf("def f, do: @limit", "if prod?(), do: nil, else: @limit 100"),
+            usageLines("@limit<caret> 1\n\n  if prod?(), do: nil, else: @limit 100\n\n  def f, do: @limit")
         )
 
     fun testWriteUsagesFindDeclarationInsideIf() =
