@@ -4,7 +4,8 @@ import com.intellij.util.text.SemVer
 import org.elixir_lang.sdk.erlang.Release
 
 /**
- * What Elixir does in a window of releases that the plugin has to follow when parsing, quoting or checking code.
+ * What Elixir does in a window of releases that the plugin has to follow when parsing, quoting, checking or expanding
+ * code.
  *
  * Code outside this enum and [ElixirLanguageLevel] asks [isSufficient], or [ElixirLanguageLevelResolver.isAvailable]
  * for an element, rather than comparing versions. A window is half-open: an entry applies from [sinceElixir] up to, but
@@ -637,7 +638,16 @@ enum class ElixirLanguageFeature(
      *
      * `elixir-lang/elixir@9924afff5`, first released in v1.18.0-rc.0.
      */
-    MIXED_SCRIPT_GUIDANCE_REQUIRES_UNDERSCORES(sinceElixir = "1.18.0-rc.0");
+    MIXED_SCRIPT_GUIDANCE_REQUIRES_UNDERSCORES(sinceElixir = "1.18.0-rc.0"),
+
+    /**
+     * `Kernel.Typespec` is required in every env, beside `Application` and `Kernel`
+     * (`elixir_dispatch:default_requires/0`).
+     *
+     * Removed by `elixir-lang/elixir@9973a2ede` ("Remove typespec from default requires"), first released in
+     * v1.17.0-rc.0.
+     */
+    KERNEL_TYPESPEC_REQUIRED_BY_DEFAULT(removedInElixir = "1.17.0-rc.0");
 
 
     /** The first Elixir release with this behaviour, or `null` when every supported release has it. */
