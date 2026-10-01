@@ -2,6 +2,8 @@ package org.elixir_lang.reference.callable
 
 import com.intellij.psi.PsiPolyVariantReference
 import org.elixir_lang.PlatformTestCase
+import org.elixir_lang.beam.psi.CallDefinition as BeamCallDefinition
+import org.elixir_lang.psi.scope.WalkTestSupport
 import java.io.File
 
 /** Whether a call resolves to what an `import`'s options bring in from `m.ex`, the module the import oracle uses. */
@@ -186,6 +188,36 @@ class ImportOptionsTest : PlatformTestCase() {
         assertDoesNotResolve("import M, [only: [g: 1]]", "f(1)")
     }
 
+    fun testOnlyMacrosOfACompiledModuleBringsInItsMacros() =
+        WalkTestSupport.withLibrary(project, myFixture.module, testRootDisposable, "import_options_logger", LOGGER) {
+            assertTrue(
+                "`debug(1)` under `import Logger, only: :macros` resolves to no compiled definition",
+                resolvesToCompiled("import Logger, only: :macros", "debug(1)")
+            )
+            assertFalse(
+                "`level()` under `import Logger, only: :macros` resolves to a compiled definition",
+                resolvesToCompiled("import Logger, only: :macros", "level()")
+            )
+        }
+
+    private fun resolvesToCompiled(import: String, use: String): Boolean {
+        myFixture.configureByText("u.ex", user(import, "<caret>$use"))
+        val reference = myFixture.file.findReferenceAt(myFixture.caretOffset) as PsiPolyVariantReference
+
+        return reference.multiResolve(false).any { it.isValidResult && it.element is BeamCallDefinition }
+    }
+
+    private fun user(import: String, use: String): String =
+        """
+        defmodule U do
+          $import
+
+          def u do
+            $use
+          end
+        end
+        """.trimIndent()
+
     private fun assertResolves(import: String, use: String) {
         assertTrue("`$use` under `$import` resolves to no definition", resolvesToDefinition(import, use))
     }
@@ -218,5 +250,9 @@ class ImportOptionsTest : PlatformTestCase() {
     override fun setUp() {
         super.setUp()
         myFixture.addFileToProject("m.ex", File("testData/org/elixir_lang/psi/import/oracle/m.ex").readText())
+    }
+
+    private companion object {
+        val LOGGER = File("testData/org/elixir_lang/mockSdk-1.0.4/lib/logger/ebin")
     }
 }

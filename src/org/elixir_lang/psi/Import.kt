@@ -40,7 +40,6 @@ import org.elixir_lang.psi.scope.Recording
 import org.elixir_lang.psi.scope.reachedThrough
 import org.elixir_lang.structure_view.element.CallDefinitionHead
 import org.elixir_lang.structure_view.element.Delegation
-import org.elixir_lang.structure_view.element.Timed
 
 /**
  * An `import` call
@@ -393,10 +392,10 @@ object Import {
         keepProcessing: (PsiElement, ResolveState) -> Boolean
     ): Boolean {
         val nameArityInterval = importedCall.nameArityInterval
-        val macro = importedCall.time == Timed.Time.COMPILE
+        val capabilities = importedCall.capabilities
 
-        return if (importedCall.isExported &&
-            filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, macro)
+        return if (capabilities.public &&
+            filter.admits(nameArityInterval.name, nameArityInterval.arityInterval, capabilities.compileTime)
         ) {
             keepProcessing(importedCall, resolveState)
         } else {
