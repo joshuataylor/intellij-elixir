@@ -69,7 +69,7 @@ class VariableClassProbeTest : ProbeTestCase() {
         const val HEADER_LINES = 2
 
         /** The covered count measured when these clauses were ported; it may only grow. */
-        const val FLOOR = 91
+        const val FLOOR = 198
 
         val OWN_CASES = listOf(
             "()",
@@ -88,6 +88,45 @@ class VariableClassProbeTest : ProbeTestCase() {
             "t = [{x, x} = {1, 1}]",
             "t = {{x, x} = {1, 1}, 2}\ny = 1",
             "t = [{x, x, _} = {1, 1, 2}]",
+            // Clauses: each body and guard, and after the construct
+            "x = 1\ncase x do\n1 -> y = 2\nend",
+            "x = 1\ncase x, do: (1 -> y = 2)",
+            "case x = 1 do\n_ -> y = x\nend\nz = x",
+            "x = true\ncase x do\ny when y -> z = y\nend",
+            "case 1 do\n1 -> a = 1\n_ -> b = 2\nend\nc = 3",
+            "case {1, 2} do\n{a, b} when b -> {a, b}\n{c, _} -> c\nend",
+            "x = 1\ncond do\nx -> y = x\nend",
+            "cond do\na = 1 -> b = a\ntrue -> c = 2\nend",
+            "receive do\nm -> n = m\nafter\n0 -> t = 1\nend",
+            "receive do\nafter\n(t = 0) -> u = t\nend",
+            "try do\nd = 1\nrescue\ne -> e\ncatch\nk, v -> v\nelse\nr -> r\nafter\naf = 1\nend",
+            "x = 1\ntry do\ny = x\nafter\nz = x\nend",
+            "try do: (a = 1), after: (b = 2)",
+            "try do: a = 1, after: b = 2",
+            "try do\n1\nrescue\ne in [:\"Elixir.ArgumentError\"] -> e\nend",
+            "try do\n1\nrescue\ne in :\"Elixir.ArgumentError\" -> e\nend",
+            "try do\n1\nrescue\n[:\"Elixir.ArgumentError\"] -> 1\nend",
+            "try do\n1\nrescue\ne in _ -> e\nend",
+            "try do\n1\ncatch\nk -> k\nend",
+            "try do\n1\ncatch\nk, v when v -> 1\nend",
+            "try do\n1\ncatch\nv when v -> 1\nend",
+            "try do\n1\nrescue\n_ -> s = __STACKTRACE__\nend",
+            "try do\n1\ncatch\n_ -> s = __STACKTRACE__\nend",
+            "try do\n1\nrescue\n_ -> fn -> __STACKTRACE__ end\nend",
+            "try do\n1\nrescue\n_ ->\ntry do\n2\nrescue\n_ -> s = __STACKTRACE__\nend\nend",
+            "try do\n1\ncatch\n_ ->\ntry do\n2\nrescue\n_ -> s = __STACKTRACE__\nend\nend",
+            "x = 1\nf = fn a -> b = {a, x} end",
+            "a = 1\nf = fn a -> a end",
+            "f = fn a when a -> a end",
+            "f = fn\n1 -> a = 1\n_ -> b = 2\nend\nc = 3",
+            "f = fn\na, b when a -> 1\nc, d -> 2\nend",
+            "f = fn -> fn x -> y = x end end",
+            // The version each construct takes from 1.20, against the repeated variable's write on 1.18 and 1.19
+            "t = [{x, x} = {1, 1}, case 1 do 1 -> 1 end]",
+            "t = [{x, x} = {1, 1}, cond do true -> 1 end]",
+            "t = [{x, x} = {1, 1}, receive do after 0 -> 1 end]",
+            "t = [{x, x} = {1, 1}, try do 1 after 2 end]",
+            "t = [{x, x} = {1, 1}, fn -> 1 end]",
         )
     }
 }

@@ -33,14 +33,22 @@ import kotlin.time.Duration.Companion.seconds
 class ProbeHarness(private val parse: (String) -> ElixirFile) {
     /**
      * `{case, block, statement}`: statement 0 is the start of the block, statement `n` follows its `n`th statement.
-     * An identity probe has [identity], its 1-based index in [Case.identities], and the statement it is in.
+     * Block 0 is the case body, and block `n` the `n`th of [Case.bodies]. An identity probe has [identity], its
+     * 1-based index in [Case.identities], and the top-level statement it is in.
      */
     data class Tag(val case: Int, val block: Int, val statement: Int, val identity: Int = 0) {
         override fun toString() = listOfNotNull(case, block, statement, identity.takeIf { it > 0 }).joinToString(".")
     }
 
-    /** A case body, and the ranges of it to wrap in an identity probe, which must not overlap. */
-    class Case(val body: String, val identities: List<TextRange> = emptyList())
+    /**
+     * A case body, the ranges of it to wrap in an identity probe, which must not overlap, and the statements of each
+     * body nested in it, such as a `->` clause's.
+     */
+    class Case(
+        val body: String,
+        val identities: List<TextRange> = emptyList(),
+        val bodies: List<List<TextRange>> = emptyList(),
+    )
 
     /** What the probe at [tag] saw: `__CALLER__` as a map. */
     data class Observation(val tag: Tag, val env: OtpErlangMap)
@@ -151,8 +159,9 @@ class ProbeHarness(private val parse: (String) -> ElixirFile) {
     }
 
     /**
-     * [case]'s body with a probe after each statement, on the statement's own line, and each identity range wrapped;
-     * each probe's tag is added to [tags].
+     * [case]'s body with a probe after each statement, top-level or nested, on the statement's own line, and each
+     * identity range wrapped; each probe's tag is added to [tags]. A keyword value such as `do: x` takes parentheses
+     * around it and its probe.
      */
     private fun probed(probeModule: String, index: Int, case: Case, tags: MutableList<Tag>): String {
         val ends = statementEnds(parse(case.body))
@@ -163,18 +172,32 @@ class ProbeHarness(private val parse: (String) -> ElixirFile) {
             tags.add(tag)
             insertions.add(Insertion(end, 1, "; " + probe(probeModule, tag)))
         }
+        case.bodies.forEachIndexed { block, statements ->
+            val start = statements.first().startOffset
+            val keywordValue = case.body.substring(0, start).trimEnd().endsWith(":")
+
+            if (keywordValue) insertions.add(Insertion(start, 2, "("))
+
+            statements.forEachIndexed { statement, range ->
+                val tag = Tag(index, block + 1, statement + 1)
+                val close = if (keywordValue && statement == statements.lastIndex) ")" else ""
+                tags.add(tag)
+                insertions.add(Insertion(range.endOffset, 1, "; " + probe(probeModule, tag) + close))
+            }
+        }
         case.identities.forEachIndexed { identity, range ->
             val statement = ends.indexOfFirst { range.endOffset <= it } + 1
             val tag = Tag(index, 0, statement, identity + 1)
             tags.add(tag)
-            insertions.add(Insertion(range.startOffset, 2, "$probeModule.i(${tagList(tag)}, "))
+            insertions.add(Insertion(range.startOffset, 3, "$probeModule.i(${tagList(tag)}, "))
             insertions.add(Insertion(range.endOffset, 0, ")"))
         }
 
         val probedBody = StringBuilder(case.body)
 
         // Each insertion at an offset lands left of those already there, so at one offset the result reads: the end of
-        // a wrapped range, then a statement probe, then the start of the next range.
+        // a wrapped range, then a statement probe, then a keyword value's opening parenthesis, then the start of the
+        // next range.
         insertions.sortedWith(compareByDescending<Insertion> { it.offset }.thenByDescending { it.order }).forEach {
             probedBody.insert(it.offset, it.text)
         }

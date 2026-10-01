@@ -8,7 +8,7 @@ class EmptyEnvProbeTest : ProbeTestCase() {
         val empty = Env.empty(legLevel(), legKernel)
 
         assertEquals(
-            ProbedEnvNormaliser.render(ProbedEnvNormaliser.projected(empty)),
+            ProbedEnvNormaliser.render(ProbedEnvNormaliser.projected(empty, false, legLevel())),
             ProbedEnvNormaliser.render(ProbedEnvNormaliser.observed(observation.env, batch.probeModule))
         )
     }

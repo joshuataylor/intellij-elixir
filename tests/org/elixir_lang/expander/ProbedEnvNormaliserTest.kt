@@ -57,6 +57,8 @@ class ProbedEnvNormaliserTest : ProbeTestCase() {
                 contextModules = emptyList(),
                 module = null,
                 function = null,
-            )
+            ),
+            false,
+            legLevel(),
         ).getValue("macro_aliases")
 }
