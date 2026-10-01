@@ -113,6 +113,10 @@
 
 ### Bug Fixes
 
+- [#4290](https://github.com/intellij-elixir/intellij-elixir/pull/4290) [@sh41](https://github.com/sh41)
+  - **A definition whose guard is written inside its parentheses, such as `defguard(g(x) when is_list(x))` or
+    `def(h(x) when is_list(x), do: x)`, is found by Go to Declaration and named after its function, not `when/2`.**
+    Fixes [#4287](https://github.com/intellij-elixir/intellij-elixir/issues/4287).
 - [#4285](https://github.com/intellij-elixir/intellij-elixir/pull/4285) [@sh41](https://github.com/sh41)
   - **Definitions written in the `else:`, `after:`, `rescue:` or `catch:` keyword of a module-level `if`, `unless`,
     `try`, `with` or `receive` are now found and shown in the structure view, as they are in the `do`-block form, and so

@@ -15,6 +15,7 @@ import org.elixir_lang.psi.call.name.Function.UNQUOTE
 import org.elixir_lang.psi.impl.PsiNamedElementImpl.unquoteName
 import org.elixir_lang.psi.impl.stripAccessExpression
 import org.elixir_lang.psi.operation.Normalized.operatorIndex
+import org.elixir_lang.psi.operation.When
 
 class CallDefinitionHead(val callDefinition: CallDefinition, private val visibility: Visibility, call: Call) :
     Element<Call>(call), Presentable, Visible {
@@ -114,7 +115,7 @@ class CallDefinitionHead(val callDefinition: CallDefinition, private val visibil
          * @return `name(arg, ...)`.  `head` if no guard clause.
          */
         tailrec fun stripGuard(head: PsiElement): PsiElement =
-            if (head is ElixirMatchedWhenOperation) {
+            if (head is When) {
                 val children = head.children
 
                 val operatorIndex = operatorIndex(children)
