@@ -525,6 +525,8 @@
 
 ### Threading / Platform Hygiene
 
+- [#4293](https://github.com/intellij-elixir/intellij-elixir/pull/4293) [@sh41](https://github.com/sh41)
+  - **The expander's environment starts from each Elixir release's own default imports and requires, and a test harness checks it against Elixir's; nothing uses it yet.** Fixes [#4292](https://github.com/intellij-elixir/intellij-elixir/issues/4292).
 - [#4291](https://github.com/intellij-elixir/intellij-elixir/pull/4291) [@sh41](https://github.com/sh41)
   - **What a call can reach and what completion offers are answered from one place, over the existing resolver, which no feature uses yet.** Fixes [#4278](https://github.com/intellij-elixir/intellij-elixir/issues/4278).
 - [#4274](https://github.com/intellij-elixir/intellij-elixir/pull/4274) [@sh41](https://github.com/sh41)

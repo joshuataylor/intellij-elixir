@@ -95,6 +95,7 @@ class ElixirLanguageFeatureTest : LightTestCase() {
             END_OF_EXPRESSION_ON_STAB_OPERATOR to ("1.16.3" to "1.17.0-rc.0"),
             GRAPHEME_CLUSTER_CRASH_IN_QUOTED_CALL_NAME to ("1.17.3" to "1.18.0-rc.0"),
             OPERATOR_ON_NOT_IN to ("1.11.4" to "1.12.0-rc.0"),
+            KERNEL_TYPESPEC_REQUIRED_BY_DEFAULT to ("1.16.3" to "1.17.0-rc.0"),
         )
 
         assertEquals(entries.filter { it.removedInElixir != null }.toSet(), removals.keys)
