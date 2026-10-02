@@ -122,6 +122,11 @@
 
 ### Bug Fixes
 
+- [@joshuataylor](https://github.com/joshuataylor)
+  - **On 2026.3, a `.beam` that changes on disk no longer keeps serving code decompiled from its old content.**
+    From 2026.3 the IDE rebuilds a changed `.beam`'s file rather than reloading it in place, so the old file never
+    dropped its decompiled code and elements held from it kept reporting themselves valid. They now report
+    themselves invalid once the `.beam` changes.
 - [#4313](https://github.com/intellij-elixir/intellij-elixir/pull/4313) [@sh41](https://github.com/sh41)
   - **Kernel's private functions are no longer offered in completion or resolved from an unqualified call.**
   - **`import M, except: [f: 1]` now leaves out only `f/1`, so a call to `f/2` of a function with a default
@@ -608,6 +613,8 @@
 
 ### Build / CI
 
+- [@joshuataylor](https://github.com/joshuataylor)
+  - **The Go to Super tests, a blocking SDK version fill test and the `.beam` content reload tests pass on 2026.3 EAP 5.** Go to Super runs through the editor action, which on 2026.3 waits for navigation that is now asynchronous (IJPL-255149). A modal progress started inside a read action on the EDT shares the EDT's write-intent from 2026.3 instead of a read permit (IJPL-253986), so the fill test expects the version to be read there. The reload test checks the rebuilt `BeamFileImpl` as well as the one held from before the change (intellij-community 8cebeff96c89).
 - [@joshuataylor](https://github.com/joshuataylor)
   - **The test IDE loads the Version Control and test runner plugins again on 2026.3 EAP 5 and later, where they were renamed `com.intellij.platform.vcs` and `com.intellij.platform.testRunner`.** `idea.load.plugins.id` matches plugin IDs only, not the alias the test runner keeps for its old ID, so `testLoadedPlugins` now lists both spellings; an ID a build lacks is ignored. Without the Version Control plugin the test IDE excluded this plugin, the failure #4193 fixed for EAP 4. Renamed in [intellij-community@85baebb](https://github.com/JetBrains/intellij-community/commit/85baebb930267473e57a90226ca1935927f565bc) (IJPL-116535).
 - [#4310](https://github.com/intellij-elixir/intellij-elixir/pull/4310) [@sh41](https://github.com/sh41)

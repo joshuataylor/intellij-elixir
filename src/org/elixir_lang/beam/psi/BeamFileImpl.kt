@@ -61,6 +61,10 @@ class BeamFileImpl private constructor(
     @Volatile
     private var stub: JavaSoftReference<StubTree>? = null
 
+    /** The `.beam` content this file's stub and mirror were built from; see [markInvalidated]. */
+    @Volatile
+    private var loadedModificationStamp: Long = fileViewProvider.virtualFile.modificationStamp
+
     constructor(fileViewProvider: FileViewProvider) : this(fileViewProvider, false)
 
     override fun getDecompiledPsiFile(): PsiFile = mirror as PsiFile
@@ -496,10 +500,32 @@ class BeamFileImpl private constructor(
     override fun onContentReload() {
         ThreadingAssertions.assertWriteAccess()
 
+        dropStubAndMirror("beam onContentReload")
+    }
+
+    /**
+     * Validity stays tied to the VirtualFile: re-evaluating it after invalidation, as PsiBinaryFileImpl does, needs
+     * the @ApiStatus.Internal FileManagerEx.evaluateValidity, and a roots change marks every file invalidated without
+     * changing its content.
+     *
+     * From 2026.3 (intellij-community 8cebeff96c89, KTIJ-39315) a `.beam` that changes on disk is no longer reloaded in
+     * place: its view provider is dropped, which marks this file invalidated, and a new BeamFileImpl is built, so
+     * [onContentReload] never reaches this one. Dropping the stub and mirror when the content has changed makes PSI
+     * held from before the change report itself invalid instead of serving the old bytes.
+     */
+    override fun markInvalidated() {
+        if (!isForDecompiling && virtualFile.modificationStamp != loadedModificationStamp) {
+            dropStubAndMirror("beam content changed")
+        }
+    }
+
+    private fun dropStubAndMirror(reason: String) {
+        loadedModificationStamp = virtualFile.modificationStamp
+
         synchronized(stubLock) {
             val stubTree = SoftReference.dereference(stub)
             stub = null
-            (stubTree?.root as PsiFileStubImpl<*>?)?.clearPsi("beam onContentReload")
+            (stubTree?.root as PsiFileStubImpl<*>?)?.clearPsi(reason)
         }
 
         synchronized(mirrorLock) {
@@ -507,10 +533,6 @@ class BeamFileImpl private constructor(
             mirrorFileElement = null
         }
     }
-
-    // Validity stays tied to the VirtualFile: re-evaluating it after invalidation, as PsiBinaryFileImpl does, needs
-    // the @ApiStatus.Internal FileManagerEx.evaluateValidity.
-    override fun markInvalidated() {}
 
     companion object {
         private val LOGGER = Logger.getInstance(BeamFileImpl::class.java)

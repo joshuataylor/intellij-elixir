@@ -1,5 +1,6 @@
 package org.elixir_lang.sdk
 
+import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.application.WriteAction
@@ -478,15 +479,21 @@ class SdkVersionsFillerTest : PlatformTestCase() {
 
     /**
      * On the EDT a read action holds no read permit of its own, so the refusal before the modal progress lets it
-     * through - and the progress is then handed one, which only the check inside it can see.
+     * through. On 2026.1 and 2026.2 the progress is then handed a read permit, which only the check inside it can see,
+     * so nothing is read. From 2026.3 (IJPL-253986) the progress shares the EDT's write-intent instead, the same lock
+     * as [testABlockingFillOnTheEdtReadsUnderModalProgress], so the version is read.
      */
     @RequiresEdt
-    fun testABlockingFillReadsNothingInsideAReadActionOnTheEdt() {
+    fun testABlockingFillInsideAReadActionOnTheEdtReadsOnlyWithoutASharedReadPermit() {
         val home = erlangHome("27", "27.3.4")
 
         ApplicationManager.getApplication().runReadAction { SdkVersionsFiller.fillIfUnreadBlocking(home) }
 
-        assertNull(store.otpVersion(home))
+        if (ApplicationInfo.getInstance().build.baselineVersion >= 263) {
+            assertEquals("27.3.4", store.otpVersion(home))
+        } else {
+            assertNull(store.otpVersion(home))
+        }
     }
 
     private fun published(): MutableList<String> {

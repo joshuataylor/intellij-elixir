@@ -37,16 +37,19 @@ class BeamFileContentReloadTest : PlatformTestCase() {
             "precondition: the decompiled document follows the replaced content to `defmodule :gb_sets`",
             document.text.contains("defmodule :gb_sets do")
         )
-        assertSame(
-            "precondition: $FIXTURE must keep its BeamFileImpl across the change, or a new one decompiles the new " +
-                "content whether or not the old mirror was dropped",
-            beamFile,
-            PsiManager.getInstance(project).findFile(virtualFile)
-        )
+        // Up to 2026.2 the changed .beam keeps its BeamFileImpl, reloaded in place. From 2026.3 (intellij-community
+        // 8cebeff96c89) its view provider is dropped and a new BeamFileImpl built, so check both the file held from
+        // before the change and the one the PsiManager returns now.
+        val current = PsiManager.getInstance(project).findFile(virtualFile) as BeamFileImpl
 
         assertEquals(
-            "After $FIXTURE's content became $REPLACEMENT's, its PSI must decompile the new content, not keep " +
-                "serving the mirror built from the old bytes",
+            "After $FIXTURE's content became $REPLACEMENT's, its PSI must decompile the new content",
+            document.text,
+            current.decompiledPsiFile.text
+        )
+        assertEquals(
+            "$FIXTURE's BeamFileImpl held from before the change must not keep serving the mirror built from the " +
+                "old bytes",
             document.text,
             beamFile.decompiledPsiFile.text
         )

@@ -148,7 +148,9 @@ internal object SdkVersionsFiller {
     /**
      * For a platform hook that must answer synchronously, such as `SdkType.getVersionString`. Reads nothing while the
      * thread holds a lock, since resolving the home can boot a WSL distro; the caller answers from the store instead.
-     * Modal progress started inside a read action is handed a read permit, so the lock is checked again inside it.
+     * On 2026.1 and 2026.2, modal progress started inside a read action on the EDT is handed a read permit, so the lock
+     * is checked again inside it. From 2026.3 (IJPL-253986) it shares the EDT's write-intent instead, as it does outside
+     * a read action, so the fill goes ahead there.
      */
     fun fillIfUnreadBlocking(homePath: String) = fillIfUnreadBlocking(listOf(homePath))
 
