@@ -608,6 +608,8 @@
 
 ### Build / CI
 
+- [@joshuataylor](https://github.com/joshuataylor)
+  - **The test IDE loads the Version Control and test runner plugins again on 2026.3 EAP 5 and later, where they were renamed `com.intellij.platform.vcs` and `com.intellij.platform.testRunner`.** `idea.load.plugins.id` matches plugin IDs only, not the alias the test runner keeps for its old ID, so `testLoadedPlugins` now lists both spellings; an ID a build lacks is ignored. Without the Version Control plugin the test IDE excluded this plugin, the failure #4193 fixed for EAP 4. Renamed in [intellij-community@85baebb](https://github.com/JetBrains/intellij-community/commit/85baebb930267473e57a90226ca1935927f565bc) (IJPL-116535).
 - [#4310](https://github.com/intellij-elixir/intellij-elixir/pull/4310) [@sh41](https://github.com/sh41)
   - **Test logs no longer end with the IDE's INFO messages from shutting down each test JVM.**
 - [#4275](https://github.com/intellij-elixir/intellij-elixir/pull/4275) [@sh41](https://github.com/sh41)
